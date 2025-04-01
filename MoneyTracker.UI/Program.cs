@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.UI.Components;
 
 namespace MoneyTracker.UI
@@ -11,6 +13,10 @@ namespace MoneyTracker.UI
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+            builder.Services.AddDbContext<MoneyTrackerDbContext>(options =>
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 
             var app = builder.Build();
 
