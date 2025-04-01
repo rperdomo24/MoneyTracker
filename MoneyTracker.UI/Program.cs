@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.UI.Components;
+using Serilog;
 
 namespace MoneyTracker.UI
 {
@@ -17,6 +18,13 @@ namespace MoneyTracker.UI
 
             builder.Services.AddDbContext<MoneyTrackerDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Host.UseSerilog();
+
+            Log.Logger = new LoggerConfiguration()
+                            .WriteTo.Console()
+                            .WriteTo.File("Logs/log.txt", rollingInterval: RollingInterval.Day)
+                            .CreateLogger();
 
             var app = builder.Build();
 
