@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.UI.Components;
@@ -16,7 +17,6 @@ namespace MoneyTracker.UI
 
             builder.Services.AddDbContext<MoneyTrackerDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 
             var app = builder.Build();
 
