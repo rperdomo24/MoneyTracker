@@ -1,110 +1,161 @@
 ﻿@using System.Reflection
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage SessionStorage
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
-<MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudLayout>
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
-        <MudText Typo="Typo.h5" Class="ml-3">
-            <MudLink Href="/" Underline="Underline.Hover">Money Tracker</MudLink>
-        </MudText>
+
+    <!-- Top AppBar -->
+    <MudAppBar Elevation="1" Color="Color.Default">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
+        <MudText Typo="Typo.h6" Class="ml-2 font-weight-bold">Money Tracker</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
-        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+        <MudIconButton Icon="@DarkLightModeButtonIcon" Color="Color.Inherit" OnClick="@DarkModeToggle" />
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+
+    <!-- Side Drawer (Menu) -->
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Elevation="2" Class="mud-width-260">
         <NavMenu />
     </MudDrawer>
-    <MudMainContent Class="mt-16 pa-4">
-        @Body
-    </MudMainContent>
-    <footer>
-        <MudContainer Class="pa-2">
-            <MudText Typo="Typo.caption" Align="Align.Center" Class="d-flex justify-center">
-                Money Tracker - Version @(Assembly.GetExecutingAssembly().GetName().Version.ToString()) © @DateTime.Now.Year
-            </MudText>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Medium">
+            @Body
         </MudContainer>
-    </footer>
+
+        <!-- Footer -->
+        <footer class="mt-8">
+            <MudDivider />
+            <MudContainer Class="py-2">
+                <MudText Typo="Typo.caption" Align="Align.Center">
+                    Money Tracker © @DateTime.Now.Year | Version @(Assembly.GetExecutingAssembly().GetName().Version?.ToString())
+                </MudText>
+            </MudContainer>
+        </footer>
+    </MudMainContent>
+
 </MudLayout>
 
-<div id="blazor-error-ui">
-    <p>Unknown error. If this issue persists, please take a screenshot or video with the steps you did and send it to Tito.</p>
+<!-- Blazor error UI -->
+<div id="blazor-error-ui" style="display:none;">
+    <p>An unknown error has occurred.</p>
     <a href="" class="reload">Reload</a>
-    <a class="dismiss" style="cursor: pointer; margin-left: 10px;">🗙</a>
+    <a class="dismiss" style="cursor:pointer; margin-left:10px;">🗙</a>
 </div>
 
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = true;
-    private MudTheme? _theme = null;
+    private MudTheme? _theme;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
-
-        _theme = new()
+        _theme = new MudTheme
             {
                 PaletteLight = _lightPalette,
                 PaletteDark = _darkPalette,
-                LayoutProperties = new LayoutProperties()
+                LayoutProperties = new LayoutProperties
+                {
+                    AppbarHeight = "64px",
+                    DrawerWidthLeft = "260px"
+                }
             };
     }
 
-    private void DrawerToggle()
+
+    private bool _initialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _drawerOpen = !_drawerOpen;
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+
+            try
+            {
+                var result = await SessionStorage.GetAsync<bool>("isDarkMode");
+
+                if (result.Success)
+                {
+                    _isDarkMode = result.Value;
+                    StateHasChanged(); // actualiza la UI si es necesario
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error accessing SessionStorage: {ex.Message}");
+            }
+        }
     }
 
-    private void DarkModeToggle()
+
+    private async void DarkModeToggle()
     {
         _isDarkMode = !_isDarkMode;
+        await SessionStorage.SetAsync("isDarkMode", _isDarkMode);
     }
+
+    private void DrawerToggle() => _drawerOpen = !_drawerOpen;
+
 
     private readonly PaletteLight _lightPalette = new()
         {
-            Black = "#110e2d",
-            AppbarText = "#424242",
-            AppbarBackground = "rgba(255,255,255,0.8)",
-            DrawerBackground = "#ffffff",
-            GrayLight = "#e8e8e8",
-            GrayLighter = "#f9f9f9",
+            Primary = "#4A90E2",                    // Azul brillante para acciones principales
+            Secondary = "#DDEEFF",                  // Azul muy claro para fondos suaves
+            Background = "#F9FBFC",                 // Fondo general blanco azulado
+            Surface = "#FFFFFF",                    // Superficies como cards o dialogs
+            AppbarBackground = "#FFFFFF",           // AppBar blanca
+            AppbarText = "#2C3E50",                 // Texto oscuro para buena legibilidad
+            DrawerBackground = "#FFFFFF",           // Menú lateral claro
+            DrawerText = "#2C3E50",
+            DrawerIcon = "#4A90E2",
+            TextPrimary = "#2C3E50",
+            TextSecondary = "#4A4A4A",
+            ActionDefault = "#4A90E2",
+            ActionDisabled = "#B0BEC5",
+            ActionDisabledBackground = "#E6ECF1",
+            Info = "#2980B9",
+            Success = "#27AE60",
+            Warning = "#F39C12",
+            Error = "#E74C3C",
+            TableLines = "#E0E0E0",
+            LinesDefault = "#DADFE6",
+            Divider = "#DADADA"
         };
+
+
 
     private readonly PaletteDark _darkPalette = new()
         {
-            Primary = "#7e6fff",
-            Surface = "#1e1e2d",
-            Background = "#1a1a27",
-            BackgroundGray = "#151521",
-            AppbarText = "#92929f",
-            AppbarBackground = "rgba(26,26,39,0.8)",
-            DrawerBackground = "#1a1a27",
-            ActionDefault = "#74718e",
-            ActionDisabled = "#9999994d",
-            ActionDisabledBackground = "#605f6d4d",
-            TextPrimary = "#b2b0bf",
-            TextSecondary = "#92929f",
-            TextDisabled = "#ffffff33",
-            DrawerIcon = "#92929f",
-            DrawerText = "#92929f",
-            GrayLight = "#2a2833",
-            GrayLighter = "#1e1e2d",
-            Info = "#4a86ff",
-            Success = "#3dcb6c",
-            Warning = "#ffb545",
-            Error = "#ff3f5f",
-            LinesDefault = "#33323e",
-            TableLines = "#33323e",
-            Divider = "#292838",
-            OverlayLight = "#1e1e2d80",
+            Primary = "#4A90E2",
+            Secondary = "#50E3C2",
+            Background = "#121212",                // Fondo más neutral y oscuro
+            Surface = "#1E1E1E",
+            AppbarBackground = "#1F1F1F",
+            AppbarText = "#CCCCCC",
+            DrawerBackground = "#1A1A1A",
+            DrawerText = "#CCCCCC",
+            DrawerIcon = "#50E3C2",
+            TextPrimary = "#EEEEEE",
+            TextSecondary = "#B0B0B0",
+            ActionDefault = "#4A90E2",
+            ActionDisabled = "#555770",
+            ActionDisabledBackground = "#2F2F3F",
+            Info = "#2980B9",
+            Success = "#27AE60",
+            Warning = "#F39C12",
+            Error = "#E74C3C",
+            TableLines = "#2C2C2C",
+            LinesDefault = "#2C2C2C",
+            Divider = "#222222"
         };
 
-    public string DarkLightModeButtonIcon => _isDarkMode switch
-    {
-        true => Icons.Material.Rounded.AutoMode,
-        false => Icons.Material.Outlined.DarkMode,
-    };
+
+
+    public string DarkLightModeButtonIcon => _isDarkMode
+        ? Icons.Material.Rounded.AutoMode
+        : Icons.Material.Outlined.DarkMode;
 }

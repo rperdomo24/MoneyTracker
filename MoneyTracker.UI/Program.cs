@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.UI.Components;
@@ -27,6 +28,8 @@ namespace MoneyTracker.UI
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Host.UseSerilog();
+
+            builder.Services.AddScoped<ProtectedSessionStorage>();
 
             Log.Logger = new LoggerConfiguration()
                             .WriteTo.Console()
