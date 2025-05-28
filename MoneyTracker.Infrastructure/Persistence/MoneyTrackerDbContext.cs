@@ -15,6 +15,24 @@ namespace MoneyTracker.Infrastructure.Persistence
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<Category>()
+               .HasOne(c => c.Parent)
+               .WithMany(c => c.Subcategories)
+               .HasForeignKey(c => c.ParentId)
+               .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Expense>()
+                .HasOne(e => e.Category)
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Expense>()
+                .HasOne(e => e.Account)
+                .WithMany()
+                .HasForeignKey(e => e.AccountId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             base.OnModelCreating(modelBuilder);
         }
     }

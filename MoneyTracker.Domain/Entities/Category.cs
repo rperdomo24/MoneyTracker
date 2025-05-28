@@ -2,7 +2,7 @@
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class Account
+    public class Category
     {
         public int Id { get; set; }
 
@@ -10,17 +10,16 @@ namespace MoneyTracker.Domain.Entities
         [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
 
+        public int? ParentId { get; set; }
+        public Category? Parent { get; set; }
+
+        public ICollection<Category> Subcategories { get; set; } = new List<Category>();
+
         [MaxLength(50)]
-        public string? Type { get; set; }
-
-        public decimal Balance { get; set; } = 0;
-
-        public decimal CreditLimit { get; set; } = 0;
+        public string? Icon { get; set; }
 
         [MaxLength(10)]
         public string? Color { get; set; }
-
-        public string? Notes { get; set; }
     }
 
 }
