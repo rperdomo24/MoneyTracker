@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Infrastructure.Persistence.Repositories.Seeds;
 
 namespace MoneyTracker.Infrastructure.Persistence
 {
@@ -47,6 +48,8 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .OnDelete(DeleteBehavior.SetNull);
 
             base.OnModelCreating(modelBuilder);
+
+            CategorySeed.Seed(modelBuilder);
         }
     }
 }

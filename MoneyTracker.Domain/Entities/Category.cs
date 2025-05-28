@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using MoneyTracker.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
@@ -11,6 +12,7 @@ namespace MoneyTracker.Domain.Entities
         public string Name { get; set; } = string.Empty;
 
         public int? ParentId { get; set; }
+        public CategoryType Type { get; set; }
         public Category? Parent { get; set; }
 
         public ICollection<Category> Subcategories { get; set; } = new List<Category>();
