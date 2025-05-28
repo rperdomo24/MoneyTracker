@@ -1,7 +1,10 @@
-using FluentValidation;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.EntityFrameworkCore;
+using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Application.Services;
+using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
+using MoneyTracker.Infrastructure.Repositories;
 using MoneyTracker.UI.Components;
 using MudBlazor;
 using MudBlazor.Services;
@@ -15,8 +18,6 @@ namespace MoneyTracker.UI
         {
             var builder = WebApplication.CreateBuilder(args);
 
-          
-
             builder.Services.AddMudServices(config =>
             {
                 config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomRight;
@@ -28,6 +29,10 @@ namespace MoneyTracker.UI
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Host.UseSerilog();
+
+            builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+            builder.Services.AddScoped<IAccountService, AccountService>();
+
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
 
