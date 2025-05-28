@@ -4,7 +4,7 @@ using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
 
-namespace MoneyTracker.Infrastructure.Repositories
+namespace MoneyTracker.Infrastructure.Persistence.Repositories
 {
     public class AccountRepository : IAccountRepository
     {

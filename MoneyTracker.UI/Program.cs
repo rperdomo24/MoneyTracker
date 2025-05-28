@@ -4,7 +4,7 @@ using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
-using MoneyTracker.Infrastructure.Repositories;
+using MoneyTracker.Infrastructure.Persistence.Repositories;
 using MoneyTracker.UI.Components;
 using MudBlazor;
 using MudBlazor.Services;

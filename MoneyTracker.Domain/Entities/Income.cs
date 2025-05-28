@@ -1,14 +1,34 @@
-﻿namespace MoneyTracker.Domain.Entities
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace MoneyTracker.Domain.Entities
 {
     public class Income
     {
-        public Guid Id { get; set; }
-        public DateTime Date { get; set; }
-        public decimal Amount { get; set; }
-        public string Source { get; set; } = default!;
-        public string? Notes { get; set; }
+        public int Id { get; set; }
 
-        public Guid AccountId { get; set; }
-        public Account Account { get; set; } = default!;
+        [Required]
+        [MaxLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        public DateTime Date { get; set; }
+
+        [Required]
+        public decimal Amount { get; set; }
+
+        [MaxLength(255)]
+        public string? Description { get; set; }
+
+        public int? CategoryId { get; set; }
+        public Category? Category { get; set; }
+
+        public int? AccountId { get; set; }
+        public Account? Account { get; set; }
+
+        [MaxLength(50)]
+        public string? PaymentMethod { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }
