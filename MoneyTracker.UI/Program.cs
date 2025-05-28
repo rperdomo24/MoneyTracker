@@ -1,7 +1,10 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.EntityFrameworkCore;
+using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
+using MoneyTracker.Application.Validators;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Persistence.Repositories;
@@ -30,9 +33,16 @@ namespace MoneyTracker.UI
 
             builder.Host.UseSerilog();
 
+            builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+            builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
+            builder.Services.AddScoped<IExpenseService, ExpenseService>();
+            builder.Services.AddScoped<ICategoryService, CategoryService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
-
+            builder.Services.AddScoped<IValidator<CategoryDto>, CategoryValidator>();
+            builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
+            builder.Services.AddScoped<IValidator<ExpenseDto>, ExpenseValidator>();
+            builder.Services.AddScoped<IValidator<IncomeDto>, IncomeValidator>();
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
 

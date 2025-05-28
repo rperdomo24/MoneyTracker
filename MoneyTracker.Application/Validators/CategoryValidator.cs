@@ -5,9 +5,9 @@ using MoneyTracker.Application.DTOs;
 
 namespace MoneyTracker.Application.Validators
 {
-    public class CategoryDtoValidator : AbstractValidator<CategoryDto>
+    public class CategoryValidator : AbstractValidator<CategoryDto>
     {
-        public CategoryDtoValidator()
+        public CategoryValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage(ValidationMessages.NameRequired)
