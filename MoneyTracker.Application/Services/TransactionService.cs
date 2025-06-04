@@ -8,52 +8,52 @@ using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Application.Services
 {
-    public class ExpenseService : IExpenseService
+    public class TransactionService : ITransactionService
     {
-        private readonly IExpenseRepository _repository;
-        private readonly IValidator<ExpenseDto> _validator;
-        private readonly ILogger<ExpenseService> _logger;
+        private readonly ITransactionRepository _repository;
+        private readonly IValidator<TransactionDto> _validator;
+        private readonly ILogger<TransactionService> _logger;
 
-        public ExpenseService(IExpenseRepository repository, IValidator<ExpenseDto> validator, ILogger<ExpenseService> logger)
+        public TransactionService(ITransactionRepository repository, IValidator<TransactionDto> validator, ILogger<TransactionService> logger)
         {
             _repository = repository;
             _validator = validator;
             _logger = logger;
         }
 
-        public async Task<OperationResult<List<ExpenseDto>>> GetAllAsync()
+        public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
         {
             try
             {
                 var expenses = await _repository.GetAllAsync();
-                var dtoList = expenses.Select(ExpenseMapper.MapToDto).ToList();
-                return OperationResult<List<ExpenseDto>>.Ok(dtoList, OperationMessages.DataRetrieved);
+                var dtoList = expenses.Select(TransactionMapper.MapToDto).ToList();
+                return OperationResult<List<TransactionDto>>.Ok(dtoList, OperationMessages.DataRetrieved);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, OperationMessages.UnexpectedError);
-                return OperationResult<List<ExpenseDto>>.Fail(OperationMessages.UnexpectedError);
+                return OperationResult<List<TransactionDto>>.Fail(OperationMessages.UnexpectedError);
             }
         }
 
-        public async Task<OperationResult<ExpenseDto>> GetByIdAsync(int id)
+        public async Task<OperationResult<TransactionDto>> GetByIdAsync(int id)
         {
             try
             {
                 var expense = await _repository.GetByIdAsync(id);
                 if (expense == null)
-                    return OperationResult<ExpenseDto>.Fail(OperationMessages.NotFound);
+                    return OperationResult<TransactionDto>.Fail(OperationMessages.NotFound);
 
-                return OperationResult<ExpenseDto>.Ok(ExpenseMapper.MapToDto(expense), OperationMessages.DataRetrieved);
+                return OperationResult<TransactionDto>.Ok(TransactionMapper.MapToDto(expense), OperationMessages.DataRetrieved);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, OperationMessages.UnexpectedError);
-                return OperationResult<ExpenseDto>.Fail(OperationMessages.UnexpectedError);
+                return OperationResult<TransactionDto>.Fail(OperationMessages.UnexpectedError);
             }
         }
 
-        public async Task<OperationResult<bool>> CreateAsync(ExpenseDto dto)
+        public async Task<OperationResult<bool>> CreateAsync(TransactionDto dto)
         {
             var validation = await _validator.ValidateAsync(dto);
             if (!validation.IsValid)
@@ -61,7 +61,7 @@ namespace MoneyTracker.Application.Services
 
             try
             {
-                var entity = ExpenseMapper.MapToEntity(dto);
+                var entity = TransactionMapper.MapToEntity(dto);
                 await _repository.AddAsync(entity);
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }
@@ -72,7 +72,7 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<bool>> UpdateAsync(ExpenseDto dto)
+        public async Task<OperationResult<bool>> UpdateAsync(TransactionDto dto)
         {
             var validation = await _validator.ValidateAsync(dto);
             if (!validation.IsValid)
@@ -84,7 +84,7 @@ namespace MoneyTracker.Application.Services
                 if (existing is null)
                     return OperationResult<bool>.Fail(OperationMessages.NotFound);
 
-                ExpenseMapper.UpdateEntity(existing, dto);
+                TransactionMapper.UpdateEntity(existing, dto);
                 await _repository.UpdateAsync(existing);
                 return OperationResult<bool>.Ok(true, OperationMessages.Updated);
             }

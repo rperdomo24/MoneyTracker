@@ -10,7 +10,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         {
         }
 
-        public DbSet<Expense> Expenses => Set<Expense>();
+        public DbSet<Transaction> Transaction => Set<Transaction>();
         public DbSet<Account> Accounts => Set<Account>();
         public DbSet<Income> Incomes => Set<Income>();
         public DbSet<Category> Categories => Set<Category>();
@@ -23,13 +23,13 @@ namespace MoneyTracker.Infrastructure.Persistence
                .HasForeignKey(c => c.ParentId)
                .OnDelete(DeleteBehavior.SetNull);
 
-            modelBuilder.Entity<Expense>()
+            modelBuilder.Entity<Transaction>()
                 .HasOne(e => e.Category)
                 .WithMany()
                 .HasForeignKey(e => e.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            modelBuilder.Entity<Expense>()
+            modelBuilder.Entity<Transaction>()
                 .HasOne(e => e.Account)
                 .WithMany()
                 .HasForeignKey(e => e.AccountId)
@@ -46,6 +46,10 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .WithMany()
                 .HasForeignKey(i => i.AccountId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Transaction>()
+                .Property(e => e.Type)
+                .HasConversion<string>();
 
             base.OnModelCreating(modelBuilder);
 

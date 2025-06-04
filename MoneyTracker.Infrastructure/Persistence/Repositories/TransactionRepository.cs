@@ -6,39 +6,39 @@ using System;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories
 {
-    public class ExpenseRepository : IExpenseRepository
+    public class TransactionRepository : ITransactionRepository
     {
         private readonly MoneyTrackerDbContext _context;
-        private readonly ILogger<ExpenseRepository> _logger;
+        private readonly ILogger<TransactionRepository> _logger;
 
-        public ExpenseRepository(MoneyTrackerDbContext context, ILogger<ExpenseRepository> logger)
+        public TransactionRepository(MoneyTrackerDbContext context, ILogger<TransactionRepository> logger)
         {
             _context = context;
             _logger = logger;
         }
 
-        public async Task<List<Expense>> GetAllAsync()
+        public async Task<List<Transaction>> GetAllAsync()
         {
-            return await _context.Expenses
+            return await _context.Transaction
                 .Include(e => e.Category)
                 .Include(e => e.Account)
                 .ToListAsync();
         }
 
-        public async Task<Expense?> GetByIdAsync(int id)
+        public async Task<Transaction?> GetByIdAsync(int id)
         {
-            return await _context.Expenses
+            return await _context.Transaction
                 .Include(e => e.Category)
                 .Include(e => e.Account)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
 
-        public async Task AddAsync(Expense expense)
+        public async Task AddAsync(Transaction expense)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                _context.Expenses.Add(expense);
+                _context.Transaction.Add(expense);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -50,12 +50,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
-        public async Task UpdateAsync(Expense expense)
+        public async Task UpdateAsync(Transaction expense)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                _context.Expenses.Update(expense);
+                _context.Transaction.Update(expense);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -72,10 +72,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var entity = await _context.Expenses.FindAsync(id);
+                var entity = await _context.Transaction.FindAsync(id);
                 if (entity is not null)
                 {
-                    _context.Expenses.Remove(entity);
+                    _context.Transaction.Remove(entity);
                     await _context.SaveChangesAsync();
                 }
 

@@ -1,8 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using MoneyTracker.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class Expense
+    public class Transaction
     {
         public int Id { get; set; }
 
@@ -21,6 +22,7 @@ namespace MoneyTracker.Domain.Entities
 
         public int? CategoryId { get; set; }
         public Category? Category { get; set; }
+        public TransactionType Type { get; set; }
 
         public int? AccountId { get; set; }
         public Account? Account { get; set; }

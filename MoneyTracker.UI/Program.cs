@@ -35,17 +35,17 @@ namespace MoneyTracker.UI
 
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IAccountRepository, AccountRepository>();
-            builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
-            builder.Services.AddScoped<IExpenseService, ExpenseService>();
+            builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+            builder.Services.AddScoped<ITransactionService, TransactionService>();
             builder.Services.AddScoped<ICategoryService, CategoryService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<IIncomeService, IncomeService>();
-            builder.Services.AddScoped<IExpenseService, ExpenseService>();
+            builder.Services.AddScoped<ITransactionService, TransactionService>();
             builder.Services.AddScoped<IIncomeRepository, IncomeRepository>();
-            builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
+            builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
             builder.Services.AddScoped<IValidator<CategoryDto>, CategoryValidator>();
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
-            builder.Services.AddScoped<IValidator<ExpenseDto>, ExpenseValidator>();
+            builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
             builder.Services.AddScoped<IValidator<IncomeDto>, IncomeValidator>();
 
 

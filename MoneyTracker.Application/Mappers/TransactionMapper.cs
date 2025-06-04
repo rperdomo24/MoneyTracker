@@ -3,11 +3,11 @@ using MoneyTracker.Domain.Entities;
 
 namespace MoneyTracker.Application.Mappers
 {
-    public static class ExpenseMapper
+    public static class TransactionMapper
     {
-        public static ExpenseDto MapToDto(Expense entity)
+        public static TransactionDto MapToDto(Transaction entity)
         {
-            return new ExpenseDto
+            return new TransactionDto
             {
                 Id = entity.Id,
                 Name = entity.Name,
@@ -24,9 +24,9 @@ namespace MoneyTracker.Application.Mappers
             };
         }
 
-        public static Expense MapToEntity(ExpenseDto dto)
+        public static Transaction MapToEntity(TransactionDto dto)
         {
-            return new Expense
+            return new Transaction
             {
                 Id = dto.Id,
                 Name = dto.Name,
@@ -41,7 +41,7 @@ namespace MoneyTracker.Application.Mappers
             };
         }
 
-        public static void UpdateEntity(Expense entity, ExpenseDto dto)
+        public static void UpdateEntity(Transaction entity, TransactionDto dto)
         {
             entity.Name = dto.Name;
             entity.Date = dto.Date;

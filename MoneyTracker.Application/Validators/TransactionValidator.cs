@@ -4,9 +4,9 @@ using MoneyTracker.Application.DTOs;
 
 namespace MoneyTracker.Application.Validators
 {
-    public class ExpenseValidator : AbstractValidator<ExpenseDto>
+    public class TransactionValidator : AbstractValidator<TransactionDto>
     {
-        public ExpenseValidator()
+        public TransactionValidator()
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Name is required.")

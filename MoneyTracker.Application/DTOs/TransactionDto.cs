@@ -1,6 +1,6 @@
 ﻿namespace MoneyTracker.Application.DTOs
 {
-    public class ExpenseDto
+    public class TransactionDto
     {
         public int Id { get; set; }
 
