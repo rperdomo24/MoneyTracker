@@ -1,27 +1,20 @@
 ﻿<MudNavMenu>
 
-    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Dashboard">
-        Overview
-    </MudNavLink>
+    <!-- Dashboard -->
+    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Dashboard">Overview</MudNavLink>
+@*     <MudNavLink Href="/calendar" Icon="@Icons.Material.Filled.CalendarToday">Calendar</MudNavLink>
+    <MudNavLink Href="/budgets" Icon="@Icons.Material.Filled.PieChart">Budgets</MudNavLink>
+    <MudNavLink Href="/transactions" Icon="@Icons.Material.Filled.ListAlt">Transactions</MudNavLink> *@
 
-    <MudNavLink Href="/calendar" Icon="@Icons.Material.Filled.CalendarToday">
-        Calendar
-    </MudNavLink>
+    <!-- Management -->
+    <MudNavGroup Title="Management" Icon="@Icons.Material.Filled.ManageAccounts">
+        <MudNavLink Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">Accounts</MudNavLink>
+        <MudNavLink Href="/categories" Icon="@Icons.Material.Filled.Category">Categories</MudNavLink>
+        <MudNavLink Href="/incomes" Icon="@Icons.Material.Filled.TrendingUp">Incomes</MudNavLink>
+        <MudNavLink Href="/expenses" Icon="@Icons.Material.Filled.TrendingDown">Expenses</MudNavLink>
+    </MudNavGroup>
 
-    <MudNavLink Href="/budgets" Icon="@Icons.Material.Filled.PieChart">
-        Budgets
-    </MudNavLink>
-
-    <MudNavLink Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">
-        Accounts
-    </MudNavLink>
-
-    <MudNavLink Href="/transactions" Icon="@Icons.Material.Filled.ListAlt">
-        Transactions
-    </MudNavLink>
-
-    <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">
-        Settings
-    </MudNavLink>
+    <!-- Settings -->
+    @* <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink> *@
 
 </MudNavMenu>
