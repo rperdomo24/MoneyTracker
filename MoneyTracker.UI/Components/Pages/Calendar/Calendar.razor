@@ -1,0 +1,109 @@
+﻿@page "/calendar"
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <!-- Fecha seleccionada y controles -->
+    <MudGrid AlignItems="Center" Justify="Justify.SpaceBetween">
+        <MudItem>
+            <MudText Typo="Typo.h5">@SelectedDate.ToString("MMMM dd, yyyy")</MudText>
+        </MudItem>
+        <MudItem>
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousDay" />
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextDay" />
+        </MudItem>
+    </MudGrid>
+
+    <!-- Calendario -->
+    <MudPaper Elevation="1" Class="pa-4 mt-2">
+        <MudDatePicker Date="@SelectedDate"
+                       PickerVariant="PickerVariant.Static"
+                       Color="Color.Primary"
+                       Orientation="Orientation.Portrait"
+                       ShowToolbar="false"
+                       Class="w-100" />
+    </MudPaper>
+
+    <!-- Resumen financiero -->
+    <MudPaper Elevation="0" Class="pa-2 mt-2">
+        <MudGrid>
+            <MudItem xs="4">
+                <MudText Typo="Typo.caption">Balance by</MudText>
+                <MudText Typo="Typo.body2">@SelectedDate.ToString("MMM dd")</MudText>
+            </MudItem>
+            <MudItem xs="4">
+                <MudText Typo="Typo.caption" Color="Color.Warning">⚠️ Accounts</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Error">-$1.50</MudText>
+            </MudItem>
+            <MudItem xs="4">
+                <MudText Typo="Typo.caption">Credit Cards</MudText>
+                <MudText Typo="Typo.body2">$0.00</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <!-- Lista de transacciones -->
+    <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Posted: @PostedTransactions.Count</MudText>
+    @foreach (var tx in PostedTransactions)
+    {
+        <MudPaper Class="pa-2 mb-2">
+            <MudGrid>
+                <MudItem xs="8">
+                    <MudText Typo="Typo.subtitle1">@tx.Description</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@tx.Account</MudText>
+                </MudItem>
+                <MudItem xs="4" Class="d-flex justify-end flex-column align-end">
+                    <MudText Typo="Typo.body1">$@tx.Amount.ToString("N2")</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Error">-@tx.Amount.ToString("N2")</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+
+    <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Upcoming: @UpcomingTransactions.Count</MudText>
+    @foreach (var tx in UpcomingTransactions)
+    {
+        <MudPaper Class="pa-2 mb-2">
+            <MudGrid>
+                <MudItem xs="8">
+                    <MudText Typo="Typo.subtitle1">@tx.Description</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@tx.Account</MudText>
+                </MudItem>
+                <MudItem xs="4" Class="d-flex justify-end flex-column align-end">
+                    <MudText Typo="Typo.body1">$@tx.Amount.ToString("N2")</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Error">-@tx.Amount.ToString("N2")</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+
+    <!-- Botón flotante -->
+    <MudFab Icon="@Icons.Material.Filled.Add"
+            Color="Color.Primary"
+            Class="mud-fab-bottom-right mud-fab-fixed"
+            Style="bottom: 24px; right: 24px;" />
+</MudContainer>
+
+@code {
+    private DateTime SelectedDate = DateTime.Today;
+
+    private List<TransactionDto> PostedTransactions = new()
+    {
+        new() { Description = "pupusas", Account = "Cash", Amount = 2.50m }
+    };
+
+    private List<TransactionDto> UpcomingTransactions = new()
+    {
+        new() { Description = "hola", Account = "Cash", Amount = 5.00m },
+        new() { Description = "suscripción", Account = "Credit", Amount = 9.99m }
+    };
+
+    private void PreviousDay() => SelectedDate = SelectedDate.AddDays(-1);
+    private void NextDay() => SelectedDate = SelectedDate.AddDays(1);
+
+    public class TransactionDto
+    {
+        public string Description { get; set; } = string.Empty;
+        public string Account { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+    }
+}

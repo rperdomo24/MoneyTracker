@@ -1,0 +1,77 @@
+﻿@page "/accounts"
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <!-- Título -->
+    <MudText Typo="Typo.h5" Class="mb-2">Accounts</MudText>
+
+    <!-- Tabs por tipo de cuenta -->
+    <MudTabs Rounded="true" @bind-ActivePanelIndex="_activeTab">
+        <MudTabPanel Text="Deposit accounts">
+            @foreach (var acc in DepositAccounts)
+            {
+                <MudPaper Class="pa-2 mb-2">
+                    <MudGrid>
+                        <MudItem xs="8">
+                            <MudText Typo="Typo.subtitle1">
+                                <MudIcon Icon="@acc.Icon" Class="mr-2" /> @acc.Type
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@acc.Name</MudText>
+                        </MudItem>
+                        <MudItem xs="4" Class="d-flex justify-end align-end">
+                            <MudText Typo="Typo.subtitle1" Align="Align.Right">
+                                $@acc.Balance.ToString("N2")
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            }
+        </MudTabPanel>
+        <MudTabPanel Text="Credit cards">
+            <MudText Typo="Typo.body2" Color="Color.Dark">No credit cards found.</MudText>
+        </MudTabPanel>
+    </MudTabs>
+
+    <!-- Total -->
+    <MudDivider Class="my-4" />
+    <MudGrid Justify="Justify.SpaceBetween">
+        <MudItem>
+            <MudText Typo="Typo.subtitle2">Total Balance</MudText>
+        </MudItem>
+        <MudItem>
+            <MudText Typo="Typo.subtitle2">$@TotalBalance.ToString("N2")</MudText>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Add Account Button -->
+    <div class="d-flex justify-center my-4">
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary">Add Account</MudButton>
+    </div>
+
+    <!-- Floating Action Button -->
+    <MudFab Icon="@Icons.Material.Filled.Add"
+            Color="Color.Primary"
+            Class="mud-fab-bottom-right mud-fab-fixed"
+            Style="bottom: 24px; right: 24px;" />
+</MudContainer>
+
+@code {
+    private int _activeTab = 0;
+
+    private List<AccountDto> DepositAccounts = new()
+    {
+        new() { Name = "Checking", Type = "Checking", Balance = 0, Icon = Icons.Material.Filled.AccountBalance },
+        new() { Name = "Cash", Type = "Cash", Balance = -2.5m, Icon = Icons.Material.Filled.AttachMoney },
+        new() { Name = "capital", Type = "Savings", Balance = 35m, Icon = Icons.Material.Filled.Savings }
+    };
+
+    private decimal TotalBalance => DepositAccounts.Sum(x => x.Balance);
+
+    public class AccountDto
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";
+        public decimal Balance { get; set; }
+        public string Icon { get; set; } = Icons.Material.Filled.AccountBalance;
+    }
+}

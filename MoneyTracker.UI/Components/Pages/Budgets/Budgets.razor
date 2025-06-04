@@ -1,0 +1,95 @@
+﻿@page "/budgets"
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <!-- Encabezado con navegación -->
+    <MudGrid Justify="Justify.SpaceBetween" AlignItems="Center">
+        <MudItem>
+            <MudText Typo="Typo.h5">@CurrentMonth.ToString("MMMM yyyy")</MudText>
+        </MudItem>
+        <MudItem>
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousMonth" />
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" />
+            <MudIconButton Icon="@Icons.Material.Filled.Sort" />
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" />
+        </MudItem>
+    </MudGrid>
+
+    <!-- Lista de presupuestos -->
+    @foreach (var budget in Budgetsdto)
+    {
+        <MudPaper Class="pa-3 mt-3" Elevation="0" Style="border: 1px solid #eee; border-radius: 8px;">
+            <MudGrid>
+                <MudItem xs="2" Class="d-flex justify-center align-center">
+                    <MudAvatar Icon="@budget.Icon" Color="@budget.Color" Size="Size.Medium" />
+                </MudItem>
+                <MudItem xs="10">
+                    <MudText Typo="Typo.subtitle1">@budget.Name</MudText>
+                    <MudProgressLinear Value="@budget.UsedPercentage"
+                                       Color="Color.Primary"
+                                       Style="height: 6px;"
+                                       Rounded="true"
+                                       Class="my-1" />
+                    <MudGrid>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption">@budget.TransactionCount transaction(s)</MudText>
+                        </MudItem>
+                        <MudItem xs="6" Class="d-flex justify-end">
+                            <MudText Typo="Typo.caption" Align="Align.Right">
+                                @if (budget.HasLimit)
+                                {
+                                    <span>$@budget.Spent of $@budget.Limit</span>
+                                }
+                                else
+                                {
+                                    <span>No limit</span>
+                                }
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                    @if (budget.HasLimit)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            $@budget.Remaining remaining
+                        </MudText>
+                    }
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+
+    <!-- FAB para agregar presupuesto -->
+    <MudFab Icon="@Icons.Material.Filled.Add"
+            Color="Color.Primary"
+            Class="mud-fab-bottom-right mud-fab-fixed"
+            Style="bottom: 24px; right: 24px;" />
+</MudContainer>
+
+@code {
+    private DateTime CurrentMonth = DateTime.Today;
+
+    private void PreviousMonth() => CurrentMonth = CurrentMonth.AddMonths(-1);
+    private void NextMonth() => CurrentMonth = CurrentMonth.AddMonths(1);
+
+    private List<BudgetDto> Budgetsdto = new List<BudgetDto>()
+    {
+        new() { Name = "Bills & Utilities", Spent = 0, Limit = 10, TransactionCount = 0, Icon = Icons.Material.Filled.Lightbulb, Color = Color.Info },
+        new() { Name = "Clothing", Spent = 0, Limit = 250, TransactionCount = 0, Icon = Icons.Material.Filled.Checkroom, Color = Color.Success },
+        new() { Name = "Restaurants", Spent = 3, Limit = null, TransactionCount = 1, Icon = Icons.Material.Filled.Restaurant, Color = Color.Error },
+        new() { Name = "Uncategorized", Spent = 0, Limit = null, TransactionCount = 1, Icon = Icons.Material.Filled.Layers, Color = Color.Default }
+    };
+
+    public class BudgetDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal Spent { get; set; }
+        public decimal? Limit { get; set; }
+        public int TransactionCount { get; set; }
+        public string Icon { get; set; } = Icons.Material.Filled.Category;
+        public Color Color { get; set; } = Color.Primary;
+
+        public bool HasLimit => Limit.HasValue;
+        public decimal Remaining => HasLimit ? Limit.Value - Spent : 0;
+        public double UsedPercentage => HasLimit && Limit.Value > 0 ? (double)(Spent / Limit.Value * 100) : 0;
+    }
+}

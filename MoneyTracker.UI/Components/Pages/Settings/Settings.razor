@@ -1,0 +1,58 @@
+﻿@page "/settings"
+@using MudBlazor
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Settings</MudText>
+
+    <MudExpansionPanels Elevation="1">
+
+        <!-- General -->
+        <MudExpansionPanel Text="General Settings">
+            <MudItem xs="12" sm="6">
+                <MudSelect T="string" Label="Preferred Currency" @bind-Value="selectedCurrency">
+                    @*  <MudSelectItem T="string" Value="USD">$ USD</MudSelectItem>
+                    <MudSelectItem T="string" Value="EUR">€ EUR</MudSelectItem>
+                    <MudSelectItem T="string" Value="BTC">₿ Bitcoin</MudSelectItem> *@
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudSelect T="string" Label="Language" @bind-Value="selectedLanguage">
+                    @*  <MudSelectItem T="string" Value="en">English</MudSelectItem>
+                    <MudSelectItem T="string" Value="es">Español</MudSelectItem> *@
+                </MudSelect>
+            </MudItem>
+
+            <MudSwitch T="bool" Label="Dark Mode" @bind-Checked="_isDark" Color="Color.Primary" />
+        </MudExpansionPanel>
+
+        <!-- Data & Sync -->
+        <MudExpansionPanel Text="Data & Sync">
+            <MudButton StartIcon="@Icons.Material.Filled.Backup" Variant="Variant.Text" Color="Color.Primary">Backup Data</MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.Restore" Variant="Variant.Text" Color="Color.Secondary">Restore Data</MudButton>
+            <MudButton StartIcon="@Icons.Material.Filled.FileDownload" Variant="Variant.Text">Export as Excel</MudButton>
+        </MudExpansionPanel>
+
+        <!-- Security -->
+        <MudExpansionPanel Text="Security">
+            <MudButton StartIcon="@Icons.Material.Filled.LockReset" Variant="Variant.Text">Change PIN</MudButton>
+            <MudSwitch T="bool" Label="Enable Biometrics" Color="Color.Secondary" />
+        </MudExpansionPanel>
+
+        <!-- About -->
+        <MudExpansionPanel Text="About">
+            <MudText Typo="Typo.body2">Version 1.0.0</MudText>
+            <MudText Typo="Typo.body2">© 2025 MoneyTracker</MudText>
+            <MudLink Href="/" Target="_blank">Contact Support</MudLink>
+        </MudExpansionPanel>
+
+    </MudExpansionPanels>
+</MudContainer>
+
+
+@code {
+    private string selectedCurrency = "USD";
+    private string selectedLanguage = "en";
+    private bool _isDark = true;
+    }
+
