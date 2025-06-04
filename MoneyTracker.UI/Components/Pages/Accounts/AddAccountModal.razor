@@ -1,0 +1,104 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Validators
+@inject IAccountService AccountService
+
+<MudDialog>
+    <TitleContent>Create Account</TitleContent>
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium">
+            <MudForm Model="@_account" @ref="_form" Validation="validationRules.ValidateValue">
+                <MudTextField Label="Account Name"
+                              @bind-Value="_account.Name"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              HelperText="Enter the name of the account" />
+
+                @*  <MudSelect T="string" Label="Type" @bind-Value="_account.Type" Variant="Variant.Outlined" Required="true">
+                    <MudSelectItem Value="Cash">Cash</MudSelectItem>
+                    <MudSelectItem Value="Bank">Bank</MudSelectItem>
+                    <MudSelectItem Value="Credit">Credit</MudSelectItem>
+                </MudSelect> *@
+
+                <MudNumericField T="decimal" Label="Initial Balance"
+                                 @bind-Value="_account.Balance"
+                                 Variant="Variant.Outlined"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.AttachMoney" />
+
+                <MudNumericField T="decimal" Label="Credit Limit"
+                                 @bind-Value="_account.CreditLimit"
+                                 Variant="Variant.Outlined"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.CreditCard" />
+
+                @if (!string.IsNullOrWhiteSpace(_account.Color))
+                {
+                    <MudColorPicker Label="Color"
+                                    ColorPickerMode="ColorPickerMode.HEX"
+                                    Editable="true"
+                                    ColorPickerView="ColorPickerView.Grid"
+                                    PickerVariant="PickerVariant.Dialog"
+                                    Placeholder="Select Color"
+                                    @bind-Text="@_account.Color" />
+                }
+
+                <MudTextField T="string" Label="Notes"
+                              @bind-Value="_account.Notes"
+                              MaxLength="300"
+                              Variant="Variant.Outlined"
+                              Lines="3" />
+            </MudForm>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveAccount" Disabled="_isSaving">Save</MudButton>
+        <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="Close">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public EventCallback OnAccountAdded { get; set; }
+    private readonly AccountValidator validationRules = new();
+
+    private AccountDto _account = new()
+        {
+            Color = "#3b3c3d",
+            Type = "Cash",
+        };
+
+    private MudForm _form;
+    private bool _isSaving = false;
+
+    private void Close() => MudDialog?.Close(DialogResult.Cancel());
+
+    private async Task SaveAccount()
+    {
+        if (_isSaving) return;
+
+        _isSaving = true;
+        await _form.Validate();
+
+        if (!_form.IsValid)
+        {
+            Snackbar.Add("Please fill out the form correctly.", Severity.Warning, o => o.VisibleStateDuration = 5000);
+            _isSaving = false;
+            return;
+        }
+
+        var result = await AccountService.CreateAsync(_account);
+        if (result.Success)
+        {
+            Snackbar.Add(result.Message, Severity.Success, o => o.VisibleStateDuration = 5000);
+            await OnAccountAdded.InvokeAsync();
+            MudDialog?.Close(DialogResult.Ok(_account));
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Something went wrong.", Severity.Error, o => o.VisibleStateDuration = 5000);
+        }
+
+        _isSaving = false;
+    }
+}

@@ -1,0 +1,108 @@
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Constants
+@inject IAccountService AccountService
+
+<MudDialog>
+    <TitleContent>Update Account</TitleContent>
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium">
+            <MudForm Model="_account" @ref="_form">
+                <MudTextField Label="Name"
+                              @bind-Value="_account.Name"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              HelperText="Enter account name" />
+
+                <MudTextField Label="Type"
+                              @bind-Value="_account.Type"
+                              Variant="Variant.Outlined"
+                              HelperText="E.g., Cash, Bank, Credit Card" />
+
+                <MudNumericField T="decimal" Label="Balance"
+                                 @bind-Value="_account.Balance"
+                                 Variant="Variant.Outlined"
+                                 Required="true"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="$" />
+
+                <MudNumericField T="decimal" Label="Credit Limit"
+                                 @bind-Value="_account.CreditLimit"
+                                 Variant="Variant.Outlined"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="$" />
+
+                <MudTextField Label="Color"
+                              @bind-Value="_account.Color"
+                              Variant="Variant.Outlined"
+                              HelperText="Hex code like #FF5722" />
+
+                <MudTextField T="string"
+                              Label="Notes"
+                              @bind-Value="_account.Notes"
+                              Variant="Variant.Outlined"
+                              Lines="3"
+                              MaxLength="500" />
+            </MudForm>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SaveUpdate" Disabled="@_isSaving">Save</MudButton>
+        <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="Close">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public int AccountId { get; set; }
+    [Parameter] public EventCallback OnAccountUpdated { get; set; }
+
+    private AccountDto _account = new();
+    private MudForm _form;
+    private bool _isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await AccountService.GetByIdAsync(AccountId);
+        if (result.Success && result.Data is not null)
+        {
+            _account = result.Data;
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error, o => o.VisibleStateDuration = 5000);
+        }
+    }
+
+    private void Close() => MudDialog?.Close(DialogResult.Cancel());
+
+    private async Task SaveUpdate()
+    {
+        if (_isSaving) return;
+
+        _isSaving = true;
+        await _form.Validate();
+
+        if (!_form.IsValid)
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Warning, o => o.VisibleStateDuration = 5000);
+            _isSaving = false;
+            return;
+        }
+
+        var result = await AccountService.UpdateAsync(_account);
+        if (result.Success)
+        {
+            Snackbar.Add(result.Message, Severity.Success, o => o.VisibleStateDuration = 5000);
+            await OnAccountUpdated.InvokeAsync();
+            MudDialog?.Close(DialogResult.Ok(_account));
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error, o => o.VisibleStateDuration = 5000);
+        }
+
+        _isSaving = false;
+    }
+}

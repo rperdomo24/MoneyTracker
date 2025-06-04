@@ -1,77 +1,135 @@
 ﻿@page "/accounts"
-@using MudBlazor
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@inject IAccountService AccountService
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <!-- Título -->
-    <MudText Typo="Typo.h5" Class="mb-2">Accounts</MudText>
-
-    <!-- Tabs por tipo de cuenta -->
-    <MudTabs Rounded="true" @bind-ActivePanelIndex="_activeTab">
-        <MudTabPanel Text="Deposit accounts">
-            @foreach (var acc in DepositAccounts)
-            {
-                <MudPaper Class="pa-2 mb-2">
-                    <MudGrid>
-                        <MudItem xs="8">
-                            <MudText Typo="Typo.subtitle1">
-                                <MudIcon Icon="@acc.Icon" Class="mr-2" /> @acc.Type
-                            </MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">@acc.Name</MudText>
-                        </MudItem>
-                        <MudItem xs="4" Class="d-flex justify-end align-end">
-                            <MudText Typo="Typo.subtitle1" Align="Align.Right">
-                                $@acc.Balance.ToString("N2")
-                            </MudText>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            }
-        </MudTabPanel>
-        <MudTabPanel Text="Credit cards">
-            <MudText Typo="Typo.body2" Color="Color.Dark">No credit cards found.</MudText>
-        </MudTabPanel>
-    </MudTabs>
-
-    <!-- Total -->
-    <MudDivider Class="my-4" />
-    <MudGrid Justify="Justify.SpaceBetween">
-        <MudItem>
-            <MudText Typo="Typo.subtitle2">Total Balance</MudText>
+<MudPaper Class="pa-4">
+    <MudGrid Class="mb-4">
+        <MudItem xs="6">
+            <MudText Typo="Typo.h5">
+                <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-2" />
+                Accounts
+            </MudText>
         </MudItem>
-        <MudItem>
-            <MudText Typo="Typo.subtitle2">$@TotalBalance.ToString("N2")</MudText>
+        <MudItem xs="6" Class="d-flex justify-end align-center">
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog">
+                Add Account
+            </MudButton>
         </MudItem>
     </MudGrid>
 
-    <!-- Add Account Button -->
-    <div class="d-flex justify-center my-4">
-        <MudButton Variant="Variant.Outlined" Color="Color.Primary">Add Account</MudButton>
-    </div>
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+    }
+    else if (_accounts.Any())
+    {
+        <MudTable Items="_accounts" Hover="true" Dense="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Balance</MudTh>
+                <MudTh>Credit Limit</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Type">@context.Type</MudTd>
+                <MudTd DataLabel="Balance">$@context.Balance.ToString("N2")</MudTd>
+                <MudTd DataLabel="Credit Limit">$@context.CreditLimit.ToString("N2")</MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Visibility"
+                               OnClick="@(() => ViewAccount(context.Id))">
+                        View
+                    </MudButton>
 
-    <!-- Floating Action Button -->
-    <MudFab Icon="@Icons.Material.Filled.Add"
-            Color="Color.Primary"
-            Class="mud-fab-bottom-right mud-fab-fixed"
-            Style="bottom: 24px; right: 24px;" />
-</MudContainer>
+                    <MudButton Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Edit" Class="mx-1"
+                               OnClick="@(() => OpenEditDialog(context.Id))">
+                        Edit
+                    </MudButton>
+
+                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Delete"
+                               OnClick="@(() => DeleteAccount(context.Id))">
+                        Delete
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">No accounts found.</MudAlert>
+    }
+</MudPaper>
+
+
 
 @code {
-    private int _activeTab = 0;
+    private List<AccountDto> _accounts = new();
+    private bool _loading = true;
+    private DialogOptions _options = new() { CloseButton = true, FullWidth = true, MaxWidth = MaxWidth.ExtraLarge };
 
-    private List<AccountDto> DepositAccounts = new()
+    protected override async Task OnInitializedAsync()
     {
-        new() { Name = "Checking", Type = "Checking", Balance = 0, Icon = Icons.Material.Filled.AccountBalance },
-        new() { Name = "Cash", Type = "Cash", Balance = -2.5m, Icon = Icons.Material.Filled.AttachMoney },
-        new() { Name = "capital", Type = "Savings", Balance = 35m, Icon = Icons.Material.Filled.Savings }
-    };
-
-    private decimal TotalBalance => DepositAccounts.Sum(x => x.Balance);
-
-    public class AccountDto
-    {
-        public string Name { get; set; } = "";
-        public string Type { get; set; } = "";
-        public decimal Balance { get; set; }
-        public string Icon { get; set; } = Icons.Material.Filled.AccountBalance;
+        await LoadAccounts();
     }
+
+    private async Task LoadAccounts()
+    {
+        _loading = true;
+        var result = await AccountService.GetAllAsync();
+        if (result.Success && result.Data is not null)
+        {
+            _accounts = result.Data;
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Failed to load accounts", Severity.Error);
+        }
+        _loading = false;
+    }
+
+    private Task ViewAccount(int id)
+    {
+        var parameters = new DialogParameters { ["AccountId"] = id };
+        return DialogService.ShowAsync<ViewAccountDialog>("Account Details", parameters, _options);
+    }
+
+    private Task OpenEditDialog(int id)
+    {
+        var parameters = new DialogParameters { ["AccountId"] = id, ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccounts) };
+        return DialogService.ShowAsync<UpdateAccountModal>("Update Account", parameters, _options);
+    }
+
+    private Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters { ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAccounts) };
+        return DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, _options);
+    }
+
+    private async Task DeleteAccount(int id)
+    {
+        bool confirmed = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            "Are you sure you want to delete this account?",
+            yesText: "Yes", noText: "Cancel") ?? false;
+
+        if (confirmed)
+        {
+            var result = await AccountService.DeleteAsync(id);
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message, Severity.Success);
+                await LoadAccounts();
+            }
+            else
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+            }
+        }
+    }
+
 }

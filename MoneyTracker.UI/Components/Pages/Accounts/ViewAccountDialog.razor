@@ -1,0 +1,75 @@
+﻿@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Common
+@inject IAccountService AccountService
+
+<MudDialog>
+    <TitleContent>Account Details</TitleContent>
+    <DialogContent>
+        @if (_account is not null)
+        {
+            <MudCard Class="pa-3 mb-4">
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1">Name:</MudText>
+                        <MudText Typo="Typo.body1">@_account.Name</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1">Type:</MudText>
+                        <MudText Typo="Typo.body1">@_account.Type</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1">Balance:</MudText>
+                        <MudText Typo="Typo.body1">$@_account.Balance.ToString("N2")</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1">Credit Limit:</MudText>
+                        <MudText Typo="Typo.body1">$@_account.CreditLimit.ToString("N2")</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1">Color:</MudText>
+                        <MudText Typo="Typo.body1">@_account.Color</MudText>
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.subtitle1">Notes:</MudText>
+                        <MudText Typo="Typo.body1">@_account.Notes</MudText>
+                    </MudItem>
+                </MudGrid>
+            </MudCard>
+        }
+        else
+        {
+            <MudText Color="Color.Error">Account not found.</MudText>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Secondary" Variant="Variant.Outlined" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int AccountId { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
+
+    private AccountDto? _account;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await AccountService.GetByIdAsync(AccountId);
+        if (result.Success && result.Data is not null)
+        {
+            _account = result.Data;
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error, o => o.VisibleStateDuration = 5000);
+        }
+    }
+
+    private void Close() => MudDialog.Close(DialogResult.Cancel());
+}

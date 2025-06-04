@@ -31,5 +31,13 @@ namespace MoneyTracker.Application.Validators
             RuleFor(x => x.CreditLimit)
                 .GreaterThanOrEqualTo(0).WithMessage("Credit limit cannot be negative.");
         }
+
+        public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>
+        {
+            var result = await ValidateAsync(ValidationContext<AccountDto>.CreateWithOptions((AccountDto)model, x => x.IncludeProperties(propertyName)));
+            if (result.IsValid)
+                return Array.Empty<string>();
+            return result.Errors.Select(e => e.ErrorMessage);
+        };
     }
 }
