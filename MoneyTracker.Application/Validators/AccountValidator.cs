@@ -29,7 +29,7 @@ namespace MoneyTracker.Application.Validators
            .WithMessage(ValidationMessages.TypeRequired);
 
             RuleFor(x => x.Color)
-                .MaximumLength(10).WithMessage(string.Format(ValidationMessages.MaxLength, 10))
+                .MaximumLength(10).WithMessage(string.Format(ValidationMessages.ColorMaxLength, 10))
                 .Matches("^#(?:[0-9a-fA-F]{3}){1,2}$")
                 .When(a => !string.IsNullOrWhiteSpace(a.Color));
 

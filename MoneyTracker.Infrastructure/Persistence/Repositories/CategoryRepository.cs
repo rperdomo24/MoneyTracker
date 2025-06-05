@@ -48,39 +48,34 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
         public async Task AddAsync(Category category)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 _context.Categories.Add(category);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                await _context.SaveChangesAsync(); // ← Sin transacción manual
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error adding category.");
+                throw; // ← Relanza la excepción para que el service la maneje
             }
         }
 
         public async Task UpdateAsync(Category category)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 _context.Categories.Update(category);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                await _context.SaveChangesAsync(); // ← Sin transacción manual
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error updating category.");
+                throw; // ← Relanza la excepción
             }
         }
 
         public async Task DeleteAsync(int id)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var entity = await _context.Categories.FindAsync(id);
@@ -88,13 +83,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                     return;
 
                 _context.Categories.Remove(entity);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                await _context.SaveChangesAsync(); // ← Sin transacción manual
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error deleting category with ID {Id}.", id);
+                throw; // ← Relanza la excepción
             }
         }
 

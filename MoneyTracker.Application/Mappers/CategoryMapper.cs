@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.DTOs;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums;
 
 namespace MoneyTracker.Application.Mappers
 {
@@ -12,8 +13,9 @@ namespace MoneyTracker.Application.Mappers
                 Id = entity.Id,
                 Name = entity.Name,
                 ParentId = entity.ParentId,
-                Icon = entity.Icon,
+                Icon = Enum.TryParse<CategoryIcon>(entity.Icon, out var parsedIcon) ? parsedIcon : CategoryIcon.Payments,
                 Color = entity.Color,
+                Type = entity.Type,
                 Subcategories = entity.Subcategories?.Select(MapToDto).ToList() ?? new()
             };
         }
@@ -25,8 +27,9 @@ namespace MoneyTracker.Application.Mappers
                 Id = dto.Id,
                 Name = dto.Name,
                 ParentId = dto.ParentId,
-                Icon = dto.Icon,
+                Icon = dto.Icon.ToString(),
                 Color = dto.Color,
+                Type = dto.Type
             };
         }
 
@@ -34,8 +37,9 @@ namespace MoneyTracker.Application.Mappers
         {
             entity.Name = dto.Name;
             entity.ParentId = dto.ParentId;
-            entity.Icon = dto.Icon;
+            entity.Icon = dto.Icon.ToString();
             entity.Color = dto.Color;
+            entity.Type = dto.Type;
         }
     }
 }

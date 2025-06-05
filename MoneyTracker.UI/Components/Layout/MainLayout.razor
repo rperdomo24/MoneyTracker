@@ -7,67 +7,271 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
-<MudLayout>
 
-    <!-- Top AppBar -->
-    <MudAppBar Elevation="1" Color="Color.Default">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
-        <MudText Typo="Typo.h6" Class="ml-2 font-weight-bold">Money Tracker</MudText>
+<MudLayout>
+    <!-- Enhanced Top AppBar -->
+    <MudAppBar Elevation="2" Color="Color.Default" Fixed="true">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" 
+                       Color="Color.Inherit" 
+                       Edge="Edge.Start" 
+                       OnClick="@DrawerToggle"
+                       Title="Toggle Menu" />
+        
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" 
+                     Size="Size.Medium" 
+                     Class="mr-2" />
+            <MudText Typo="Typo.h6" Class="font-weight-bold">
+                Money Tracker
+            </MudText>
+        </div>
+        
         <MudSpacer />
-        <MudIconButton Icon="@DarkLightModeButtonIcon" Color="Color.Inherit" OnClick="@DarkModeToggle" />
+        
+        <!-- Header Actions -->
+        <div class="d-flex align-center">
+            <!-- Quick Balance Display (Optional) -->
+            @if (_showQuickBalance)
+            {
+                <MudChip T="string" Size="Size.Small" 
+                         Color="Color.Success" 
+                         Icon="@Icons.Material.Filled.AccountBalance"
+                         Class="mr-3">
+                    $12,345.67
+                </MudChip>
+            }
+            
+            <!-- Notifications -->
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications" 
+                           Color="Color.Inherit"
+                           Class="mr-1"
+                           Title="Notifications">
+                <MudBadge Content="3" 
+                          Color="Color.Error" 
+                          Overlap="true" 
+                          Bordered="true">
+                </MudBadge>
+            </MudIconButton>
+            
+            <!-- Theme Toggle -->
+            <MudTooltip Text="@(_isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")">
+                <MudIconButton Icon="@DarkLightModeButtonIcon" 
+                               Color="Color.Inherit" 
+                               OnClick="@DarkModeToggle" />
+            </MudTooltip>
+            
+            <!-- User Menu -->
+            <MudMenu Icon="@Icons.Material.Filled.AccountCircle" 
+                     Color="Color.Inherit"
+                     Direction="Origin.BottomRight"
+                     OffsetY="true"
+                     Dense="true">
+                <MudMenuItem Icon="@Icons.Material.Filled.Person">Profile</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Settings">Settings</MudMenuItem>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Help">Help & Support</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout">Sign Out</MudMenuItem>
+            </MudMenu>
+        </div>
     </MudAppBar>
 
-    <!-- Side Drawer (Menu) -->
-    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Variant="DrawerVariant.Responsive" Elevation="2" Class="mud-width-260">
+    <!-- Enhanced Side Drawer -->
+    <MudDrawer @bind-Open="_drawerOpen" 
+               ClipMode="DrawerClipMode.Always" 
+               Variant="DrawerVariant.Responsive" 
+               Elevation="2" 
+               Class="drawer-custom">
+        
+        <!-- Drawer Header -->
+        <div class="pa-4 d-flex align-center" style="min-height: 64px; border-bottom: 1px solid var(--mud-palette-divider);">
+            <MudAvatar Size="Size.Medium" 
+                       Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));"
+                       Class="mr-3">
+                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+            </MudAvatar>
+            <div class="flex-grow-1" style="min-width: 0;">
+                <MudText Typo="Typo.subtitle2" Class="font-weight-medium">
+                    John Doe
+                </MudText>
+                <MudText Typo="Typo.caption" Class="text-truncate">
+                    john.doe@example.com
+                </MudText>
+            </div>
+        </div>
+        
+        <!-- Navigation Menu -->
         <NavMenu />
+        
+        <!-- Drawer Footer -->
+        <div class="mt-auto pa-3" style="border-top: 1px solid var(--mud-palette-divider);">
+            <MudStack Spacing="2">
+                <!-- Quick Stats -->
+                <MudPaper Class="pa-2" Elevation="0" Style="background: var(--mud-palette-action-disabled-background);">
+                    <MudText Typo="Typo.caption" Class="text-muted">Total Balance</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">$12,345.67</MudText>
+                </MudPaper>
+                
+                <!-- App Info -->
+                <MudText Typo="Typo.caption" Align="Align.Center" Class="text-muted">
+                    v@(GetAppVersion())
+                </MudText>
+            </MudStack>
+        </div>
     </MudDrawer>
 
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge">
-            @Body
+    <!-- Main Content Area -->
+    <MudMainContent Class="main-content-custom">
+        <!-- Content Container -->
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+            <!-- Breadcrumb Navigation (Optional) -->
+            @if (_showBreadcrumbs)
+            {
+                <MudBreadcrumbs Items="_breadcrumbItems" Class="mb-4">
+                    <ItemTemplate Context="item">
+                        <MudLink Href="@item.Href" Class="d-flex align-center">
+                            @if (!string.IsNullOrEmpty(item.Icon))
+                            {
+                                <MudIcon Icon="@item.Icon" Size="Size.Small" Class="mr-1" />
+                            }
+                            @item.Text
+                        </MudLink>
+                    </ItemTemplate>
+                </MudBreadcrumbs>
+            }
+            
+            <!-- Page Content -->
+            <div class="page-content">
+                @Body
+            </div>
         </MudContainer>
 
-        <!-- Footer -->
-        <footer class="mt-8">
+        <!-- Enhanced Footer -->
+        <footer class="footer-custom mt-auto">
             <MudDivider />
-            <MudContainer Class="py-2">
-                <MudText Typo="Typo.caption" Align="Align.Center">
-                    Money Tracker © @DateTime.Now.Year | Version @(Assembly.GetExecutingAssembly().GetName().Version?.ToString())
-                </MudText>
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+                <MudGrid AlignItems="Center">
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.caption" Class="text-muted">
+                            <MudIcon Icon="@Icons.Material.Filled.Copyright" Size="Size.Small" Class="mr-1" />
+                            Money Tracker © @DateTime.Now.Year - All rights reserved
+                        </MudText>
+                    </MudItem>
+                    <MudItem xs="12" md="6" Class="text-right">
+                        <MudStack Row Spacing="3" Justify="Justify.FlexEnd" Class="d-none d-md-flex">
+                            <MudLink Href="/privacy" Typo="Typo.caption" Class="text-muted">Privacy</MudLink>
+                            <MudLink Href="/terms" Typo="Typo.caption" Class="text-muted">Terms</MudLink>
+                            <MudLink Href="/support" Typo="Typo.caption" Class="text-muted">Support</MudLink>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="text-muted d-block d-md-none">
+                            v@(GetAppVersion())
+                        </MudText>
+                    </MudItem>
+                </MudGrid>
             </MudContainer>
         </footer>
     </MudMainContent>
-
 </MudLayout>
 
-<!-- Blazor error UI -->
-<div id="blazor-error-ui" style="display:none;">
-    <p>An unknown error has occurred.</p>
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss" style="cursor:pointer; margin-left:10px;">🗙</a>
+<!-- Enhanced Blazor Error UI -->
+<div id="blazor-error-ui" class="blazor-error-ui">
+    <div class="error-content">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+            <div class="d-flex align-center">
+                <MudIcon Icon="@Icons.Material.Filled.Error" Class="mr-2" />
+                <div>
+                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Application Error</MudText>
+                    <MudText Typo="Typo.body2">An unexpected error has occurred. Please reload the page.</MudText>
+                </div>
+            </div>
+            <div class="mt-3">
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Surface" 
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="() => { }" 
+                           Class="reload mr-2">
+                    Reload Page
+                </MudButton>
+                <MudButton Variant="Variant.Text" 
+                           Color="Color.Surface" 
+                           StartIcon="@Icons.Material.Filled.Close"
+                           Class="dismiss">
+                    Dismiss
+                </MudButton>
+            </div>
+        </MudAlert>
+    </div>
 </div>
+
+<style>
+    .drawer-custom {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .main-content-custom {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+    
+    .page-content {
+        flex: 1;
+        min-height: calc(100vh - 200px);
+    }
+    
+    .footer-custom {
+        margin-top: auto;
+        background: var(--mud-palette-surface);
+    }
+    
+    .blazor-error-ui {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+    
+    .blazor-error-ui .error-content {
+        max-width: 500px;
+        width: 100%;
+    }
+  
+</style>
 
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode = true;
+    private bool _showQuickBalance = true;
+    private bool _showBreadcrumbs = false;
     private MudTheme? _theme;
+    private bool _initialized = false;
+
+    private List<BreadcrumbItem> _breadcrumbItems = new()
+    {
+        new BreadcrumbItem("Dashboard", href: "/", icon: Icons.Material.Filled.Dashboard),
+        new BreadcrumbItem("Accounts", href: "/accounts", icon: Icons.Material.Filled.AccountBalance),
+    };
 
     protected override async Task OnInitializedAsync()
     {
         _theme = new MudTheme
+        {
+            PaletteLight = _lightPalette,
+            PaletteDark = _darkPalette,
+            LayoutProperties = new LayoutProperties
             {
-                PaletteLight = _lightPalette,
-                PaletteDark = _darkPalette,
-                LayoutProperties = new LayoutProperties
-                {
-                    AppbarHeight = "64px",
-                    DrawerWidthLeft = "260px"
-                }
-            };
+                AppbarHeight = "64px",
+                DrawerWidthLeft = "280px"
+            },
+        };
     }
-
-
-    private bool _initialized = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -78,11 +282,10 @@
             try
             {
                 var result = await SessionStorage.GetAsync<bool>("isDarkMode");
-
                 if (result.Success)
                 {
                     _isDarkMode = result.Value;
-                    StateHasChanged(); // actualiza la UI si es necesario
+                    StateHasChanged();
                 }
             }
             catch (Exception ex)
@@ -92,66 +295,79 @@
         }
     }
 
-
     private async void DarkModeToggle()
     {
         _isDarkMode = !_isDarkMode;
-        await SessionStorage.SetAsync("isDarkMode", _isDarkMode);
+        try
+        {
+            await SessionStorage.SetAsync("isDarkMode", _isDarkMode);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving theme preference: {ex.Message}");
+        }
+        StateHasChanged();
     }
 
     private void DrawerToggle() => _drawerOpen = !_drawerOpen;
 
+    private string GetAppVersion()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
+    }
+
     private readonly PaletteLight _lightPalette = new()
-        {
-            Primary = "#3b3c3d",              // primary-300
-            Secondary = "#71c4ef",            // accent-100
-            Background = "#fffefb",           // bg-100
-            Surface = "#f5f4f1",              // bg-200
-            AppbarBackground = "#f5f4f1",     // bg-200
-            AppbarText = "#1d1c1c",           // text-100
-            DrawerBackground = "#fffefb",     // bg-100
-            DrawerText = "#1d1c1c",           // text-100
-            DrawerIcon = "#3b3c3d",           // primary-300
-            TextPrimary = "#1d1c1c",          // text-100
-            TextSecondary = "#313d44",        // text-200
-            ActionDefault = "#3b3c3d",        // primary-300
-            ActionDisabled = "#b6ccd8",       // primary-200
-            ActionDisabledBackground = "#d4eaf7", // primary-100
-            Info = "#00668c",                 // accent-200
-            Success = "#1fab89",              // elegido armónicamente
-            Warning = "#f39c12",              // opcional (no incluido)
-            Error = "#e74c3c",                // opcional (no incluido)
-            TableLines = "#cccbc8",           // bg-300
-            LinesDefault = "#cccbc8",
-            Divider = "#cccbc8"
-        };
+    {
+        Primary = "#3b3c3d",
+        Secondary = "#71c4ef",
+        Background = "#fffefb",
+        Surface = "#f5f4f1",
+        AppbarBackground = "#f5f4f1",
+        AppbarText = "#1d1c1c",
+        DrawerBackground = "#fffefb",
+        DrawerText = "#1d1c1c",
+        DrawerIcon = "#3b3c3d",
+        TextPrimary = "#1d1c1c",
+        TextSecondary = "#313d44",
+        ActionDefault = "#3b3c3d",
+        ActionDisabled = "#b6ccd8",
+        ActionDisabledBackground = "#d4eaf7",
+        Info = "#00668c",
+        Success = "#1fab89",
+        Warning = "#f39c12",
+        Error = "#e74c3c",
+        TableLines = "#cccbc8",
+        LinesDefault = "#cccbc8",
+        Divider = "#cccbc8"
+    };
 
     private readonly PaletteDark _darkPalette = new()
-        {
-            Primary = "#0085ff",              // primary-100
-            Secondary = "#006fff",            // accent-100
-            Background = "#1E1E1E",           // bg-100
-            Surface = "#2d2d2d",              // bg-200
-            AppbarBackground = "#2d2d2d",     // bg-200
-            AppbarText = "#FFFFFF",           // text-100
-            DrawerBackground = "#1E1E1E",     // bg-100
-            DrawerText = "#FFFFFF",           // text-100
-            DrawerIcon = "#69b4ff",           // primary-200
-            TextPrimary = "#FFFFFF",          // text-100
-            TextSecondary = "#9e9e9e",        // text-200
-            ActionDefault = "#0085ff",        // primary-100
-            ActionDisabled = "#454545",       // bg-300
-            ActionDisabledBackground = "#2d2d2d", // bg-200
-            Info = "#e1ffff",                 // accent-200
-            Success = "#3dcb6c",              // armónico
-            Warning = "#ffb545",              // armónico
-            Error = "#ff3f5f",                // armónico
-            TableLines = "#454545",           // bg-300
-            LinesDefault = "#454545",
-            Divider = "#454545"
-        };
+    {
+        Primary = "#0085ff",
+        Secondary = "#006fff",
+        Background = "#1E1E1E",
+        Surface = "#2d2d2d",
+        AppbarBackground = "#2d2d2d",
+        AppbarText = "#FFFFFF",
+        DrawerBackground = "#1E1E1E",
+        DrawerText = "#FFFFFF",
+        DrawerIcon = "#69b4ff",
+        TextPrimary = "#FFFFFF",
+        TextSecondary = "#9e9e9e",
+        ActionDefault = "#0085ff",
+        ActionDisabled = "#454545",
+        ActionDisabledBackground = "#2d2d2d",
+        Info = "#e1ffff",
+        Success = "#3dcb6c",
+        Warning = "#ffb545",
+        Error = "#ff3f5f",
+        TableLines = "#454545",
+        LinesDefault = "#454545",
+        Divider = "#454545"
+    };
 
     public string DarkLightModeButtonIcon => _isDarkMode
-        ? Icons.Material.Rounded.AutoMode
+        ? Icons.Material.Rounded.LightMode
         : Icons.Material.Outlined.DarkMode;
 }
