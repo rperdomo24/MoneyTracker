@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MoneyTracker.Infrastructure.Migrations
 {
     [DbContext(typeof(MoneyTrackerDbContext))]
-    [Migration("20250528053116_InitialCreate")]
+    [Migration("20250604152845_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -43,6 +43,10 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Property<decimal>("CreditLimit")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -52,8 +56,8 @@ namespace MoneyTracker.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Type")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -192,54 +196,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.Expense", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("AccountId")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("CategoryId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("PaymentMethod")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccountId");
-
-                    b.HasIndex("CategoryId");
-
-                    b.ToTable("Expenses");
-                });
-
             modelBuilder.Entity("MoneyTracker.Domain.Entities.Income", b =>
                 {
                     b.Property<int>("Id")
@@ -288,6 +244,58 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.ToTable("Incomes");
                 });
 
+            modelBuilder.Entity("MoneyTracker.Domain.Entities.Transaction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("Transaction");
+                });
+
             modelBuilder.Entity("MoneyTracker.Domain.Entities.Category", b =>
                 {
                     b.HasOne("MoneyTracker.Domain.Entities.Category", "Parent")
@@ -298,7 +306,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Navigation("Parent");
                 });
 
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.Expense", b =>
+            modelBuilder.Entity("MoneyTracker.Domain.Entities.Income", b =>
                 {
                     b.HasOne("MoneyTracker.Domain.Entities.Account", "Account")
                         .WithMany()
@@ -315,7 +323,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Navigation("Category");
                 });
 
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.Income", b =>
+            modelBuilder.Entity("MoneyTracker.Domain.Entities.Transaction", b =>
                 {
                     b.HasOne("MoneyTracker.Domain.Entities.Account", "Account")
                         .WithMany()

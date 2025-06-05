@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using MoneyTracker.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
@@ -10,17 +11,18 @@ namespace MoneyTracker.Domain.Entities
         [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
 
-        [MaxLength(50)]
-        public string? Type { get; set; }
-
         public decimal Balance { get; set; } = 0;
 
         public decimal CreditLimit { get; set; } = 0;
 
+        public string? Notes { get; set; }
+
+        [MaxLength(50)]
+        public string? Icon { get; set; }
+
         [MaxLength(10)]
         public string? Color { get; set; }
 
-        public string? Notes { get; set; }
+        public AccountType Type { get; set; }
     }
-
 }

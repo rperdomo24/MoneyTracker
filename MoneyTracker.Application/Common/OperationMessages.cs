@@ -10,6 +10,7 @@
         public const string DataRetrieved = "Data retrieved successfully.";
         public const string UnexpectedError = "An unexpected error occurred. Please try again later.";
         public const string AlreadyExists = "A record with the same name already exists.";
-
+        public const string ValidationError = "Please fill out the form correctly.";
+        public const string UpdateError = "An error occurred while updating the record.";
     }
 }

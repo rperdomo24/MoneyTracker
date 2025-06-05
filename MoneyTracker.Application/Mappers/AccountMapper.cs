@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.DTOs;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums;
 
 namespace MoneyTracker.Application.Mappers
 {
@@ -9,22 +10,24 @@ namespace MoneyTracker.Application.Mappers
         {
             Id = entity.Id,
             Name = entity.Name,
-            Type = entity.Type,
             Balance = entity.Balance,
             CreditLimit = entity.CreditLimit,
+            Notes = entity.Notes,
+            Icon = Enum.TryParse<AccountIcon>(entity.Icon, out var parsedIcon) ? parsedIcon : AccountIcon.Wallet,
             Color = entity.Color,
-            Notes = entity.Notes
+            Type = entity.Type,
         };
 
         public static Account MapToEntity(this AccountDto dto) => new()
         {
             Id = dto.Id,
             Name = dto.Name,
-            Type = dto.Type,
             Balance = dto.Balance,
             CreditLimit = dto.CreditLimit,
+            Notes = dto.Notes,
+            Icon = dto.Icon.ToString(),
             Color = dto.Color,
-            Notes = dto.Notes
+            Type = dto.Type
         };
     }
 }

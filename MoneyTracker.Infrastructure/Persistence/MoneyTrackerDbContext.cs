@@ -51,6 +51,10 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .Property(e => e.Type)
                 .HasConversion<string>();
 
+            modelBuilder.Entity<Account>()
+                .Property(e => e.Type)
+                .HasConversion<string>();
+
             base.OnModelCreating(modelBuilder);
 
             CategorySeed.Seed(modelBuilder);

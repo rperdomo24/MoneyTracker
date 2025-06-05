@@ -13,23 +13,29 @@ namespace MoneyTracker.Application.Validators
                 .NotEmpty().WithMessage(ValidationMessages.Required)
                 .MaximumLength(100).WithMessage(string.Format(ValidationMessages.MaxLength, 100));
 
-            RuleFor(x => x.Type)
-                .MaximumLength(50).WithMessage(string.Format(ValidationMessages.MaxLength, 50))
-                .When(x => !string.IsNullOrWhiteSpace(x.Type));
+            RuleFor(a => a.Balance)
+                .GreaterThanOrEqualTo(0)
+                .WithMessage(ValidationMessages.AmountNotNegative);
+
+            RuleFor(a => a.CreditLimit)
+                .GreaterThanOrEqualTo(0)
+                .WithMessage(ValidationMessages.AmountNotNegative);
+
+            RuleFor(a => a.Type)
+           .IsInEnum().WithMessage(ValidationMessages.TypeRequired);
+
+            RuleFor(a => a.Icon)
+           .IsInEnum()
+           .WithMessage(ValidationMessages.TypeRequired);
 
             RuleFor(x => x.Color)
                 .MaximumLength(10).WithMessage(string.Format(ValidationMessages.MaxLength, 10))
-                .When(x => !string.IsNullOrWhiteSpace(x.Color));
+                .Matches("^#(?:[0-9a-fA-F]{3}){1,2}$")
+                .When(a => !string.IsNullOrWhiteSpace(a.Color));
 
             RuleFor(x => x.Notes)
                 .MaximumLength(255).WithMessage(string.Format(ValidationMessages.MaxLength, 255))
                 .When(x => !string.IsNullOrWhiteSpace(x.Notes));
-
-            RuleFor(x => x.Balance)
-                .GreaterThanOrEqualTo(0).WithMessage("Balance cannot be negative.");
-
-            RuleFor(x => x.CreditLimit)
-                .GreaterThanOrEqualTo(0).WithMessage("Credit limit cannot be negative.");
         }
 
         public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>

@@ -21,11 +21,12 @@ namespace MoneyTracker.Infrastructure.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Balance = table.Column<decimal>(type: "numeric", nullable: false),
                     CreditLimit = table.Column<decimal>(type: "numeric", nullable: false),
+                    Notes = table.Column<string>(type: "text", nullable: true),
+                    Icon = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Color = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    Notes = table.Column<string>(type: "text", nullable: true)
+                    Type = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -50,39 +51,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                     table.ForeignKey(
                         name: "FK_Categories_Categories_ParentId",
                         column: x => x.ParentId,
-                        principalTable: "Categories",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Expenses",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Amount = table.Column<decimal>(type: "numeric", nullable: false),
-                    Description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    CategoryId = table.Column<int>(type: "integer", nullable: true),
-                    AccountId = table.Column<int>(type: "integer", nullable: true),
-                    PaymentMethod = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Expenses", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Expenses_Accounts_AccountId",
-                        column: x => x.AccountId,
-                        principalTable: "Accounts",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_Expenses_Categories_CategoryId",
-                        column: x => x.CategoryId,
                         principalTable: "Categories",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
@@ -121,6 +89,40 @@ namespace MoneyTracker.Infrastructure.Migrations
                         onDelete: ReferentialAction.SetNull);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Transaction",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    Description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    CategoryId = table.Column<int>(type: "integer", nullable: true),
+                    Type = table.Column<string>(type: "text", nullable: false),
+                    AccountId = table.Column<int>(type: "integer", nullable: true),
+                    PaymentMethod = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Transaction", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Transaction_Accounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "Accounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Transaction_Categories_CategoryId",
+                        column: x => x.CategoryId,
+                        principalTable: "Categories",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
             migrationBuilder.InsertData(
                 table: "Categories",
                 columns: new[] { "Id", "Color", "Icon", "Name", "ParentId", "Type" },
@@ -146,16 +148,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                 column: "ParentId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Expenses_AccountId",
-                table: "Expenses",
-                column: "AccountId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Expenses_CategoryId",
-                table: "Expenses",
-                column: "CategoryId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Incomes_AccountId",
                 table: "Incomes",
                 column: "AccountId");
@@ -164,16 +156,26 @@ namespace MoneyTracker.Infrastructure.Migrations
                 name: "IX_Incomes_CategoryId",
                 table: "Incomes",
                 column: "CategoryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Transaction_AccountId",
+                table: "Transaction",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Transaction_CategoryId",
+                table: "Transaction",
+                column: "CategoryId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Expenses");
+                name: "Incomes");
 
             migrationBuilder.DropTable(
-                name: "Incomes");
+                name: "Transaction");
 
             migrationBuilder.DropTable(
                 name: "Accounts");
