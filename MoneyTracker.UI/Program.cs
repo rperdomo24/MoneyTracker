@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.EntityFrameworkCore;
+using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
@@ -8,6 +9,7 @@ using MoneyTracker.Application.Validators;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Persistence.Repositories;
+using MoneyTracker.Infrastructure.Services;
 using MoneyTracker.UI.Components;
 using MudBlazor;
 using MudBlazor.Services;
@@ -32,6 +34,10 @@ namespace MoneyTracker.UI
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Host.UseSerilog();
+
+            builder.Services.Configure<ApplicationSettings>(
+            builder.Configuration.GetSection("ApplicationSettings"));
+            builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
 
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IAccountRepository, AccountRepository>();

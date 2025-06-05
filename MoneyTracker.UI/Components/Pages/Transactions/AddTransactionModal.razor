@@ -1,0 +1,670 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums
+@using MoneyTracker.UI.Components.Pages.Categories
+@using MoneyTracker.UI.Helpers
+@inject ITransactionService TransactionService
+@inject ICategoryService CategoryService
+@inject IAccountService AccountService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.Large" FullWidth="true">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@GetTransactionIcon()"
+            Color="@GetTransactionColor()"
+            Size="Size.Medium"
+            Class="mr-3" />
+            <div>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                    Add @(_transactionType.ToString())
+                </MudText>
+                <MudText Typo="Typo.body2" Class="text-muted">
+                    Record a new @(_transactionType.ToString().ToLower()) transaction
+                </MudText>
+            </div>
+        </div>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="pa-0">
+            @if (_loading)
+            {
+                <div class="text-center pa-6">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText Class="mt-3">Loading data...</MudText>
+                </div>
+            }
+            else
+            {
+                <MudGrid>
+                    <!-- LEFT COLUMN - FORM -->
+                    <MudItem xs="12" md="7">
+                        <MudForm @ref="_form" Model="_transaction">
+                            <MudStack Spacing="4">
+                                <!-- Basic Transaction Info -->
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" Size="Size.Small" />
+                                        Transaction Details
+                                    </MudText>
+
+                                    <MudGrid>
+                                        <!-- Name -->
+                                        <MudItem xs="12" md="6">
+                                            <MudTextField T="string"
+                                            Label="Transaction Name"
+                                            @bind-Value="_transaction.Name"
+                                            Variant="Variant.Outlined"
+                                            Required="true"
+                                            Placeholder="e.g., Grocery shopping, Salary, etc."
+                                            HelperText="Descriptive name for this transaction"
+                                            @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+
+                                        <!-- Amount -->
+                                        <MudItem xs="12" md="6">
+                                            <MudNumericField T="decimal"
+                                            Label="Amount"
+                                            @bind-Value="_transaction.Amount"
+                                            Variant="Variant.Outlined"
+                                            Required="true"
+                                            Min="0.01m"
+                                            Step="0.01m"
+                                            Format="F2"
+                                            Culture="@System.Globalization.CultureInfo.CurrentCulture"
+                                            Adornment="Adornment.Start"
+                                            AdornmentText="$"
+                                            HelperText="Enter the transaction amount"
+                                            @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+
+                                        <!-- Date with Manual Input -->
+                                        <MudItem xs="12" md="6">
+                                            <MudDatePicker Label="Date"
+                                            @bind-Date="_transactionDate"
+                                            Variant="Variant.Outlined"
+                                            Required="true"
+                                            MaxDate="DateTime.Today"
+                                            HelperText="Select transaction date"
+                                            Editable="true"
+                                            DateFormat="MM/dd/yyyy"
+                                            @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+
+                                        <!-- Category with Search -->
+                                        <MudItem xs="12" md="6">
+                                            <MudGrid>
+                                                <MudItem xs="10">
+                                                    <MudSelect T="CategoryDto"
+                                                    Label="Category"
+                                                    @bind-Value="_selectedCategory"
+                                                    Variant="Variant.Outlined"
+                                                    Required="true"
+                                                    HelperText="Select category"
+                                                    ToStringFunc="@(c => c?.Name ?? "Select category")"
+                                                    Clearable="true"
+                                                    @onkeydown="@HandleCategoryKeyDown">
+                                                        @if (_filteredCategories?.Any() == true)
+                                                        {
+                                                            @foreach (var category in _filteredCategories)
+                                                            {
+                                                                <MudSelectItem Value="@category">
+                                                                    <div class="d-flex align-center">
+                                                                        <MudAvatar Size="Size.Small"
+                                                                        Style="@($"background-color: {category.Color}; margin-right: 8px;")">
+                                                                            <MudIcon Icon="@category.Icon.ToIcon()"
+                                                                            Color="Color.Surface"
+                                                                            Size="Size.Small" />
+                                                                        </MudAvatar>
+                                                                        <div>
+                                                                            <MudText Typo="Typo.body2">@category.Name</MudText>
+                                                                            @if (category.ParentId.HasValue)
+                                                                            {
+                                                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                                                    Subcategory
+                                                                                </MudText>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                </MudSelectItem>
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudSelectItem Value="@((CategoryDto)null!)" Disabled="true">
+                                                                <MudText Class="text-muted">No categories available for @_transactionType.ToString().ToLower()</MudText>
+                                                            </MudSelectItem>
+                                                        }
+                                                    </MudSelect>
+                                                </MudItem>
+                                                <MudItem xs="2" Class="d-flex align-end">
+                                                    <MudTooltip Text="Add new category">
+                                                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                                                      Color="Color.Primary"
+                                                                      Variant="Variant.Outlined"
+                                                                      Size="Size.Large"
+                                                                      OnClick="@CreateCategory" />
+                                                    </MudTooltip>
+                                                </MudItem>
+                                            </MudGrid>
+                                        </MudItem>
+                                    </MudGrid>
+                                </div>
+
+                                <!-- Description -->
+                                <div>
+                                    <MudTextField T="string"
+                                    Label="Description (Optional)"
+                                    @bind-Value="_transaction.Description"
+                                    Variant="Variant.Outlined"
+                                    Lines="3"
+                                    Placeholder="Add any additional details about this transaction..."
+                                    HelperText="Optional: Add more context or details"
+                                    @onkeydown="@((e) => HandleKeyDown(e))" />
+                                </div>
+
+                                <!-- Account Selection -->
+                                @if (_accounts?.Any() == true)
+                                {
+                                    <div>
+                                        <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                            <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Class="mr-2" Size="Size.Small" />
+                                            Account
+                                        </MudText>
+
+                                        <MudSelect T="string"
+                                        Label="Account"
+                                        @bind-Value="_selectedAccountString"
+                                        Variant="Variant.Outlined"
+                                        Required="true"
+                                        HelperText="Select the account for this transaction">
+                                            @foreach (var account in _accounts)
+                                            {
+                                                <MudSelectItem Value="@account.Id.ToString()">
+                                                    <div class="d-flex align-center justify-space-between">
+                                                        <div class="d-flex align-center">
+                                                            <MudIcon Icon="@account.Icon.ToIcon()"
+                                                            Style="@($"color: {account.Color};")"
+                                                            Class="mr-2"
+                                                            Size="Size.Small" />
+                                                            <div>
+                                                                <MudText Typo="Typo.body2">@account.Name</MudText>
+                                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                                    Balance: @account.Balance.ToString("C")
+                                                                </MudText>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </div>
+                                }
+
+                                <!-- Quick Add Toggle -->
+                                <div>
+                                    <MudCheckBox @bind-Value="_quickAddMode" Color="Color.Primary">
+                                        <span class="ml-2">Quick Add Mode - Stay in modal after saving</span>
+                                    </MudCheckBox>
+                                </div>
+                            </MudStack>
+                        </MudForm>
+                    </MudItem>
+
+                    <!-- RIGHT COLUMN - PREVIEW -->
+                    <MudItem xs="12" md="5">
+                        <MudStack Spacing="4">
+                            <!-- Live Preview -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Preview" Class="mr-2" Size="Size.Small" />
+                                    Live Preview
+                                </MudText>
+
+                                <MudPaper Class="pa-4" Elevation="2" Style="@($"border-left: 4px solid {GetTransactionColorHex()};")">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div class="d-flex align-center">
+                                            <MudAvatar Size="Size.Medium"
+                                            Style="@($"background-color: {GetSelectedCategoryColor()}; margin-right: 12px;")">
+                                                <MudIcon Icon="@GetSelectedCategoryIcon()"
+                                                Color="Color.Surface" />
+                                            </MudAvatar>
+                                            <div>
+                                                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                                                    @(!string.IsNullOrWhiteSpace(_transaction.Name) ? _transaction.Name : "Transaction Name")
+                                                </MudText>
+                                                <MudText Typo="Typo.body2" Class="text-muted">
+                                                    @GetSelectedCategoryName() • @GetFormattedDate()
+                                                </MudText>
+                                                @if (!string.IsNullOrWhiteSpace(_transaction.Description))
+                                                {
+                                                    <MudText Typo="Typo.caption" Class="text-muted mt-1">
+                                                        @_transaction.Description
+                                                    </MudText>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <MudText Typo="Typo.h6"
+                                            Class="@($"font-weight-bold {GetAmountColorClass()}")">
+                                                @GetAmountDisplay()
+                                            </MudText>
+                                            @if (_accounts?.Any() == true)
+                                            {
+                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                    @GetSelectedAccountName()
+                                                </MudText>
+                                            }
+                                        </div>
+                                    </div>
+                                </MudPaper>
+                            </div>
+
+                            <!-- Recent Transactions of Same Type -->
+                            @if (_recentTransactions?.Any() == true)
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Size="Size.Small" />
+                                        Recent @_transactionType.ToString()s
+                                    </MudText>
+
+                                    <MudList T="string" Dense="true">
+                                        @foreach (var recent in _recentTransactions.Take(5))
+                                        {
+                                            <MudListItem OnClick="@(() => QuickFill(recent))" 
+                                                        Class="cursor-pointer pa-2"
+                                                        Style="border-radius: 8px;">
+                                                <div class="d-flex align-center justify-space-between">
+                                                    <div class="d-flex align-center">
+                                                        <MudAvatar Size="Size.Small"
+                                                        Style="@($"background-color: {recent.Category?.Color}; margin-right: 8px;")">
+                                                            <MudIcon Icon="@(recent.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Category)"
+                                                            Color="Color.Surface"
+                                                            Size="Size.Small" />
+                                                        </MudAvatar>
+                                                        <div>
+                                                            <MudText Typo="Typo.body2">@recent.Name</MudText>
+                                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                                @recent.Category?.Name • @recent.Date.ToString("MMM dd")
+                                                            </MudText>
+                                                        </div>
+                                                    </div>
+                                                    <MudText Typo="Typo.body2" Class="@GetAmountColorClass()">
+                                                        @recent.Amount.ToString("C")
+                                                    </MudText>
+                                                </div>
+                                            </MudListItem>
+                                        }
+                                    </MudList>
+                                </div>
+                            }
+
+                            <!-- Quick Templates -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" Size="Size.Small" />
+                                    Quick Templates
+                                </MudText>
+                                
+                                <MudGrid>
+                                    @foreach (var template in GetQuickTemplates())
+                                    {
+                                        <MudItem xs="6">
+                                            <MudButton Variant="Variant.Outlined" 
+                                                      FullWidth="true"
+                                                      StartIcon="@template.Icon"
+                                                      OnClick="@(() => ApplyTemplate(template))"
+                                                      Size="Size.Small">
+                                                @template.Name
+                                            </MudButton>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+                            </div>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <div class="d-flex justify-space-between align-center" style="width: 100%;">
+            <MudText Typo="Typo.caption" Class="text-muted">
+                @if (_filteredCategories?.Any() == true)
+                {
+                    <span>@_filteredCategories.Count categories • Press Enter to save</span>
+                }
+            </MudText>
+
+            <div>
+                <MudButton Color="Color.Default"
+                Variant="Variant.Text"
+                OnClick="Cancel"
+                Class="mr-2">
+                    Cancel
+                </MudButton>
+                @if (_quickAddMode)
+                {
+                    <MudButton Color="@GetTransactionColor()"
+                    Variant="Variant.Outlined"
+                    StartIcon="@Icons.Material.Filled.Add"
+                    OnClick="SaveAndAddAnother"
+                    Disabled="@(!IsFormValid())"
+                    Class="mr-2">
+                        Save & Add Another
+                    </MudButton>
+                }
+                <MudButton Color="@GetTransactionColor()"
+                Variant="Variant.Filled"
+                StartIcon="@Icons.Material.Filled.Save"
+                OnClick="SaveTransaction"
+                Disabled="@(!IsFormValid())">
+                    @(_quickAddMode ? "Save & Close" : $"Add {_transactionType}")
+                </MudButton>
+            </div>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public TransactionType TransactionType { get; set; }
+    [Parameter] public EventCallback OnTransactionAdded { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudForm _form = default!;
+    private TransactionDto _transaction = new();
+    private List<CategoryDto>? _categories;
+    private List<CategoryDto>? _filteredCategories;
+    private List<AccountDto>? _accounts;
+    private List<TransactionDto>? _recentTransactions;
+    private bool _loading = true;
+    private bool _quickAddMode = false;
+    private DialogOptions _dialogOptions = new() { CloseButton = true, FullWidth = true, MaxWidth = MaxWidth.Medium };
+
+    // Form fields
+    private DateTime? _transactionDate = DateTime.Today;
+    private CategoryDto? _selectedCategory;
+    private string _selectedAccountString = string.Empty;
+    private string _categorySearchTerm = string.Empty;
+
+    // Transaction type from parameter
+    private TransactionType _transactionType => TransactionType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+
+        try
+        {
+            // Load categories
+            var categoriesResult = await CategoryService.GetAllAsync();
+            if (categoriesResult.Success)
+            {
+                _categories = categoriesResult.Data ?? new List<CategoryDto>();
+                FilterCategoriesByType();
+            }
+
+            // Load accounts
+            var accountsResult = await AccountService.GetAllAsync();
+            if (accountsResult.Success)
+            {
+                _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
+                if (_accounts.Any())
+                {
+                    _selectedAccountString = _accounts.First().Id.ToString();
+                }
+            }
+
+            // Load recent transactions of same type
+            var transactionsResult = await TransactionService.GetAllAsync();
+            if (transactionsResult.Success)
+            {
+                var targetType = _transactionType == TransactionType.Income ? CategoryType.Income : CategoryType.Expense;
+                _recentTransactions = transactionsResult.Data?
+                    .Where(t => t.Category?.Type == targetType)
+                    .OrderByDescending(t => t.Date)
+                    .Take(10)
+                    .ToList() ?? new List<TransactionDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error loading data: " + ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void FilterCategoriesByType()
+    {
+        if (_categories == null) return;
+
+        var targetCategoryType = _transactionType == TransactionType.Income
+            ? CategoryType.Income
+            : CategoryType.Expense;
+
+        _filteredCategories = _categories
+            .Where(c => c.Type == targetCategoryType)
+            .OrderBy(c => c.ParentId.HasValue ? 1 : 0)
+            .ThenBy(c => c.Name)
+            .ToList();
+    }
+
+    private async Task<IEnumerable<CategoryDto>> SearchCategories(string value)
+    {
+        await Task.Delay(1); // Placeholder for potential async operations
+        
+        if (string.IsNullOrWhiteSpace(value) || _filteredCategories == null)
+            return _filteredCategories ?? new List<CategoryDto>();
+
+        return _filteredCategories.Where(c => 
+            c.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.Name.StartsWith(value, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(c => c.Name);
+    }
+
+    private void ValidateDate()
+    {
+        // Date validation is handled by MudDatePicker
+    }
+
+    private async Task HandleCategoryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && IsFormValid())
+        {
+            await SaveTransaction();
+            return;
+        }
+
+        // Handle letter navigation
+        if (e.Key.Length == 1 && char.IsLetter(e.Key[0]) && _filteredCategories?.Any() == true)
+        {
+            var letter = e.Key.ToLower();
+            var categoryStartingWithLetter = _filteredCategories
+                .FirstOrDefault(c => c.Name.ToLower().StartsWith(letter));
+            
+            if (categoryStartingWithLetter != null)
+            {
+                _selectedCategory = categoryStartingWithLetter;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && IsFormValid())
+        {
+            await SaveTransaction();
+        }
+    }
+
+    private bool IsFormValid()
+    {
+        return !string.IsNullOrWhiteSpace(_transaction.Name) &&
+               _transaction.Amount > 0 &&
+               _transactionDate.HasValue &&
+               _selectedCategory != null &&
+               (_accounts?.Any() != true || !string.IsNullOrWhiteSpace(_selectedAccountString));
+    }
+
+    private async Task SaveTransaction()
+    {
+        try
+        {
+            if (!IsFormValid()) return;
+
+            _transaction.Date = _transactionDate!.Value;
+            _transaction.CategoryId = _selectedCategory!.Id;
+
+            if (!string.IsNullOrWhiteSpace(_selectedAccountString) &&
+                int.TryParse(_selectedAccountString, out int accountId))
+            {
+                _transaction.AccountId = accountId;
+            }
+
+            var result = await TransactionService.CreateAsync(_transaction);
+            if (result.Success)
+            {
+                Snackbar.Add($"{_transactionType} added successfully", Severity.Success);
+                await OnTransactionAdded.InvokeAsync();
+                
+                if (!_quickAddMode)
+                {
+                    MudDialog.Close(DialogResult.Ok(true));
+                }
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error adding transaction", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error: " + ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SaveAndAddAnother()
+    {
+        await SaveTransaction();
+        if (_quickAddMode)
+        {
+            ResetForm();
+        }
+    }
+
+    private void ResetForm()
+    {
+        _transaction = new TransactionDto();
+        _selectedCategory = null;
+        _transactionDate = DateTime.Today;
+        StateHasChanged();
+    }
+
+    private void QuickFill(TransactionDto template)
+    {
+        _transaction.Name = template.Name;
+        _transaction.Amount = template.Amount;
+        _transaction.Description = template.Description;
+        _selectedCategory = template.Category;
+        if (template.AccountId.HasValue)
+        {
+            _selectedAccountString = template.AccountId.Value.ToString();
+        }
+    }
+
+    private void ApplyTemplate(QuickTemplate template)
+    {
+        _transaction.Name = template.Name;
+        if (template.Amount.HasValue)
+        {
+            _transaction.Amount = template.Amount.Value;
+        }
+        if (template.CategoryId.HasValue)
+        {
+            _selectedCategory = _filteredCategories?.FirstOrDefault(c => c.Id == template.CategoryId.Value);
+        }
+    }
+
+    private List<QuickTemplate> GetQuickTemplates()
+    {
+        if (_transactionType == TransactionType.Income)
+        {
+            return new List<QuickTemplate>
+            {
+                new("Salary", Icons.Material.Filled.Work, null, null),
+                new("Freelance", Icons.Material.Filled.Computer, null, null),
+                new("Gift", Icons.Material.Filled.CardGiftcard, null, null),
+                new("Refund", Icons.Material.Filled.MoneyOff, null, null)
+            };
+        }
+        else
+        {
+            return new List<QuickTemplate>
+            {
+                new("Groceries", Icons.Material.Filled.ShoppingCart, 50m, null),
+                new("Gas", Icons.Material.Filled.LocalGasStation, 40m, null),
+                new("Coffee", Icons.Material.Filled.Coffee, 5m, null),
+                new("Lunch", Icons.Material.Filled.Restaurant, 15m, null)
+            };
+        }
+    }
+
+    private async Task CreateCategory()
+    {
+        var parameters = new DialogParameters
+        {
+            ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, LoadData)
+        };
+        
+        await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters, _dialogOptions);
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    // Helper methods for UI
+    private string GetTransactionIcon() => _transactionType == TransactionType.Income ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown;
+    private Color GetTransactionColor() => _transactionType == TransactionType.Income ? Color.Success : Color.Error;
+    private string GetTransactionColorHex() => _transactionType == TransactionType.Income ? "#4CAF50" : "#f44336";
+
+    private string GetSelectedCategoryColor() => _selectedCategory?.Color ?? "#6366f1";
+    private string GetSelectedCategoryIcon() => _selectedCategory?.Icon.ToIcon() ?? Icons.Material.Filled.Category;
+    private string GetSelectedCategoryName() => _selectedCategory?.Name ?? "Select Category";
+
+    private string GetSelectedAccountName()
+    {
+        if (!string.IsNullOrWhiteSpace(_selectedAccountString) && int.TryParse(_selectedAccountString, out int accountId))
+        {
+            var account = _accounts?.FirstOrDefault(a => a.Id == accountId);
+            return account?.Name ?? "Select Account";
+        }
+        return "Select Account";
+    }
+
+    private string GetFormattedDate() => _transactionDate?.ToString("MMM dd, yyyy") ?? "Select Date";
+
+    private string GetAmountDisplay()
+    {
+        if (_transaction.Amount <= 0) return "$0.00";
+        var sign = _transactionType == TransactionType.Income ? "+" : "-";
+        return $"{sign}{_transaction.Amount:C}";
+    }
+
+    private string GetAmountColorClass() => _transactionType == TransactionType.Income ? "text-success" : "text-error";
+
+    // Helper classes
+    public record QuickTemplate(string Name, string Icon, decimal? Amount, int? CategoryId);
+
+}

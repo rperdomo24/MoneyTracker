@@ -6,24 +6,22 @@ namespace MoneyTracker.Application.Validators
 {
     public class TransactionValidator : AbstractValidator<TransactionDto>
     {
+
         public TransactionValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Name is required.")
-                .MaximumLength(100).WithMessage("Name must be at most 100 characters.");
+                .NotEmpty().WithMessage("Please enter a name for the transaction.")
+                .MaximumLength(100).WithMessage("The name cannot exceed 100 characters.");
 
             RuleFor(x => x.Date)
-                .NotEmpty().WithMessage("Date is required.")
-                .LessThanOrEqualTo(DateTime.Today).WithMessage("Date cannot be in the future.");
+                .NotEmpty().WithMessage("Please select a date.")
+                .LessThanOrEqualTo(DateTime.Today).WithMessage("The date cannot be in the future.");
 
             RuleFor(x => x.Amount)
-                .GreaterThan(0).WithMessage("Amount must be greater than zero.");
+                .GreaterThan(0).WithMessage("The amount must be greater than zero.");
 
             RuleFor(x => x.Description)
-                .MaximumLength(255).WithMessage("Description must be at most 255 characters.");
-
-            RuleFor(x => x.PaymentMethod)
-                .MaximumLength(50).WithMessage("Payment method must be at most 50 characters.");
+                .MaximumLength(255).WithMessage("The description cannot exceed 255 characters.");
         }
     }
 }

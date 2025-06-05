@@ -1,56 +1,53 @@
 ﻿using MoneyTracker.Application.DTOs;
+using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
 
-namespace MoneyTracker.Application.Mappers
+namespace MoneyTracker.Application.Mappers;
+
+public static class TransactionMapper
 {
-    public static class TransactionMapper
+    public static TransactionDto MapToDto(this Transaction entity, ITimeZoneService timeZoneService)
     {
-        public static TransactionDto MapToDto(Transaction entity)
+        return new TransactionDto
         {
-            return new TransactionDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Date = entity.Date,
-                Amount = entity.Amount,
-                Description = entity.Description,
-                CategoryId = entity.CategoryId,
-                CategoryName = entity.Category?.Name,
-                AccountId = entity.AccountId,
-                AccountName = entity.Account?.Name,
-                PaymentMethod = entity.PaymentMethod,
-                CreatedAt = entity.CreatedAt,
-                UpdatedAt = entity.UpdatedAt
-            };
-        }
+            Id = entity.Id,
+            Name = entity.Name,
+            Date = timeZoneService.ConvertFromUtc(entity.Date),
+            Amount = entity.Amount,
+            Description = entity.Description,
+            CategoryId = entity.CategoryId,
+            Category = entity.Category?.MapToDto(),
+            AccountId = entity.AccountId,
+            Account = entity.Account?.MapToDto(),
+            CreatedAt = timeZoneService.ConvertFromUtc(entity.CreatedAt),
+            UpdatedAt = timeZoneService.ConvertFromUtc(entity.UpdatedAt)
+        };
+    }
 
-        public static Transaction MapToEntity(TransactionDto dto)
+    public static Transaction MapToEntity(this TransactionDto dto, ITimeZoneService timeZoneService)
+    {
+        return new Transaction
         {
-            return new Transaction
-            {
-                Id = dto.Id,
-                Name = dto.Name,
-                Date = dto.Date,
-                Amount = dto.Amount,
-                Description = dto.Description,
-                CategoryId = dto.CategoryId,
-                AccountId = dto.AccountId,
-                PaymentMethod = dto.PaymentMethod,
-                CreatedAt = dto.CreatedAt,
-                UpdatedAt = dto.UpdatedAt
-            };
-        }
+            Id = dto.Id,
+            Name = dto.Name,
+            Date = timeZoneService.ConvertToUtc(dto.Date),
+            Amount = dto.Amount,
+            Description = dto.Description,
+            CategoryId = dto.CategoryId,
+            AccountId = dto.AccountId,
+            CreatedAt = timeZoneService.ConvertToUtc(dto.CreatedAt),
+            UpdatedAt = timeZoneService.ConvertToUtc(dto.UpdatedAt)
+        };
+    }
 
-        public static void UpdateEntity(Transaction entity, TransactionDto dto)
-        {
-            entity.Name = dto.Name;
-            entity.Date = dto.Date;
-            entity.Amount = dto.Amount;
-            entity.Description = dto.Description;
-            entity.CategoryId = dto.CategoryId;
-            entity.AccountId = dto.AccountId;
-            entity.PaymentMethod = dto.PaymentMethod;
-            entity.UpdatedAt = DateTime.UtcNow;
-        }
+    public static void UpdateEntity(this Transaction entity, TransactionDto dto, ITimeZoneService timeZoneService)
+    {
+        entity.Name = dto.Name;
+        entity.Date = timeZoneService.ConvertToUtc(dto.Date);
+        entity.Amount = dto.Amount;
+        entity.Description = dto.Description;
+        entity.CategoryId = dto.CategoryId;
+        entity.AccountId = dto.AccountId;
+        entity.UpdatedAt = timeZoneService.GetNowInUtc();
     }
 }

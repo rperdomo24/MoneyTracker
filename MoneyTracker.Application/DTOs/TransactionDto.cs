@@ -13,12 +13,11 @@
         public string? Description { get; set; }
 
         public int? CategoryId { get; set; }
-        public string? CategoryName { get; set; }
+
+        public CategoryDto? Category { get; set; }
 
         public int? AccountId { get; set; }
-        public string? AccountName { get; set; }
-
-        public string? PaymentMethod { get; set; }
+        public AccountDto Account { get; set; }
 
         public DateTime CreatedAt { get; set; }
 

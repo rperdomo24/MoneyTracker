@@ -95,7 +95,7 @@
                         <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
                             Subcategories (@_category.Subcategories.Count)
                         </MudText>
-                        <MudList Dense="true" T="string">
+                        <MudList T="string" Dense="true">
                             @foreach (var sub in _category.Subcategories)
                             {
                                 <MudListItem>
@@ -145,14 +145,11 @@
     {
         try
         {
-            Snackbar.Add($"Loading category ID: {CategoryId}", Severity.Info);
-            
             var result = await CategoryService.GetByIdAsync(CategoryId);
             
             if (result.Success && result.Data is not null)
             {
                 _category = result.Data;
-                Snackbar.Add($"Category loaded: {_category.Name}", Severity.Success);
                 
                 // Load parent if exists
                 if (_category.ParentId.HasValue)
@@ -171,7 +168,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error loading category: {ex.Message}", Severity.Error);
+            Snackbar.Add("Error loading category", Severity.Error);
         }
         finally
         {

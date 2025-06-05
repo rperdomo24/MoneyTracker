@@ -29,7 +29,8 @@ namespace MoneyTracker.Application.Mappers
                 ParentId = dto.ParentId,
                 Icon = dto.Icon.ToString(),
                 Color = dto.Color,
-                Type = dto.Type
+                Type = dto.Type,
+                Subcategories = dto.Subcategories?.Select(MapToEntity).ToList() ?? new()
             };
         }
 

@@ -13,12 +13,14 @@ namespace MoneyTracker.Application.Services
         private readonly ITransactionRepository _repository;
         private readonly IValidator<TransactionDto> _validator;
         private readonly ILogger<TransactionService> _logger;
+        private readonly ITimeZoneService _timeZoneService;
 
-        public TransactionService(ITransactionRepository repository, IValidator<TransactionDto> validator, ILogger<TransactionService> logger)
+        public TransactionService(ITransactionRepository repository, IValidator<TransactionDto> validator, ILogger<TransactionService> logger, ITimeZoneService timeZoneService)
         {
             _repository = repository;
             _validator = validator;
             _logger = logger;
+            _timeZoneService = timeZoneService;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -26,7 +28,7 @@ namespace MoneyTracker.Application.Services
             try
             {
                 var expenses = await _repository.GetAllAsync();
-                var dtoList = expenses.Select(TransactionMapper.MapToDto).ToList();
+                var dtoList = expenses.Select(x => x.MapToDto(_timeZoneService)).ToList();
                 return OperationResult<List<TransactionDto>>.Ok(dtoList, OperationMessages.DataRetrieved);
             }
             catch (Exception ex)
@@ -44,7 +46,7 @@ namespace MoneyTracker.Application.Services
                 if (expense == null)
                     return OperationResult<TransactionDto>.Fail(OperationMessages.NotFound);
 
-                return OperationResult<TransactionDto>.Ok(TransactionMapper.MapToDto(expense), OperationMessages.DataRetrieved);
+                return OperationResult<TransactionDto>.Ok(expense.MapToDto(_timeZoneService), OperationMessages.DataRetrieved);
             }
             catch (Exception ex)
             {
@@ -61,7 +63,7 @@ namespace MoneyTracker.Application.Services
 
             try
             {
-                var entity = TransactionMapper.MapToEntity(dto);
+                var entity = dto.MapToEntity(_timeZoneService);
                 await _repository.AddAsync(entity);
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }
@@ -84,7 +86,7 @@ namespace MoneyTracker.Application.Services
                 if (existing is null)
                     return OperationResult<bool>.Fail(OperationMessages.NotFound);
 
-                TransactionMapper.UpdateEntity(existing, dto);
+                TransactionMapper.UpdateEntity(existing, dto, _timeZoneService);
                 await _repository.UpdateAsync(existing);
                 return OperationResult<bool>.Ok(true, OperationMessages.Updated);
             }
