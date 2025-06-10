@@ -6,22 +6,32 @@
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService
 @inject IAccountService AccountService
-@inject IDialogService DialogService
-@inject ISnackbar Snackbar
 
 <MudDialog>
     <TitleContent>
-        <div class="d-flex align-center">
-            <MudIcon Icon="@GetTransactionIcon()"
-                     Color="@GetTransactionColor()"
-                     Size="Size.Medium"
-                     Class="mr-3" />
-            <div>
-                <MudText Typo="Typo.h6" Class="font-weight-bold">
-                    @(_isDuplicating ? "Duplicate Transaction" : $"Add {_transactionType.ToString()}")
-                </MudText>
-                <MudText Typo="Typo.body2" Class="text-muted">
-                    @(_isDuplicating ? "Create a copy of an existing transaction" : $"Record a new {_transactionType.ToString().ToLower()} transaction")
+        <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+                <MudIcon Icon="@Icons.Material.Filled.Edit"
+                         Color="Color.Primary"
+                         Size="Size.Medium"
+                         Class="mr-3" />
+                <div>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">
+                        Edit Transaction
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="text-muted">
+                        Update transaction details
+                    </MudText>
+                </div>
+            </div>
+            <div class="d-flex align-center ga-2">
+                <MudChip T="string" Size="Size.Small"
+                         Color="@GetTransactionColor()"
+                         Variant="Variant.Text">
+                    @_originalTransaction?.Category?.Type.ToString()
+                </MudChip>
+                <MudText Typo="Typo.caption" Class="text-muted">
+                    ID: @TransactionId
                 </MudText>
             </div>
         </div>
@@ -33,7 +43,15 @@
             {
                 <div class="text-center pa-6">
                     <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-                    <MudText Class="mt-3">Loading data...</MudText>
+                    <MudText Class="mt-3">Loading transaction...</MudText>
+                </div>
+            }
+            else if (_originalTransaction == null)
+            {
+                <div class="text-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="text-error mb-3" />
+                    <MudText Typo="Typo.h6" Class="mb-2">Transaction Not Found</MudText>
+                    <MudText Class="text-muted">The transaction you're trying to edit doesn't exist.</MudText>
                 </div>
             }
             else
@@ -43,6 +61,21 @@
                     <MudItem xs="12" md="7">
                         <MudForm @ref="_form" Model="_transaction">
                             <MudStack Spacing="4">
+                                <!-- Change Detection Alert -->
+                                @if (HasChanges())
+                                {
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="mb-2">
+                                        <div class="d-flex align-center justify-space-between">
+                                            <span>You have unsaved changes</span>
+                                            <MudButton Size="Size.Small"
+                                                       Variant="Variant.Text"
+                                                       OnClick="ResetToOriginal">
+                                                Reset
+                                            </MudButton>
+                                        </div>
+                                    </MudAlert>
+                                }
+
                                 <!-- Basic Transaction Info -->
                                 <div>
                                     <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
@@ -80,20 +113,20 @@
                                                              @onkeydown="@((e) => HandleKeyDown(e))" />
                                         </MudItem>
 
-                                        <!-- Date with Manual Input -->
+                                        <!-- Date -->
                                         <MudItem xs="12" md="6">
                                             <MudDatePicker Label="Date"
                                                            @bind-Date="_transactionDate"
                                                            Variant="Variant.Outlined"
                                                            Required="true"
                                                            MaxDate="DateTime.Today"
-                                                           HelperText="Select transaction date"
+                                                           HelperText="Transaction date"
                                                            Editable="true"
                                                            DateFormat="MM/dd/yyyy"
                                                            @onkeydown="@((e) => HandleKeyDown(e))" />
                                         </MudItem>
 
-                                        <!-- Category with Search -->
+                                        <!-- Category -->
                                         <MudItem xs="12" md="6">
                                             <MudGrid>
                                                 <MudItem xs="10">
@@ -134,7 +167,7 @@
                                                         else
                                                         {
                                                             <MudSelectItem Value="@((CategoryDto)null!)" Disabled="true">
-                                                                <MudText Class="text-muted">No categories available for @_transactionType.ToString().ToLower()</MudText>
+                                                                <MudText Class="text-muted">No categories available</MudText>
                                                             </MudSelectItem>
                                                         }
                                                     </MudSelect>
@@ -203,24 +236,32 @@
                                     </div>
                                 }
 
-                                <!-- Quick Add Toggle -->
-                                <div>
-                                    <MudCheckBox @bind-Value="_quickAddMode" Color="Color.Primary">
-                                        <span class="ml-2">Quick Add Mode - Stay in modal after saving</span>
-                                    </MudCheckBox>
-                                </div>
+                                <!-- Advanced Options -->
+                                <MudExpansionPanels>
+                                    <MudExpansionPanel Text="Advanced Options" Icon="@Icons.Material.Filled.Settings">
+                                        <MudStack Spacing="3">
+                                            <MudCheckBox @bind-Value="_deleteAfterUpdate" Color="Color.Error">
+                                                <span class="ml-2">Delete this transaction after updating</span>
+                                            </MudCheckBox>
+
+                                            <MudCheckBox @bind-Value="_createRecurring" Color="Color.Primary">
+                                                <span class="ml-2">Make this a recurring transaction</span>
+                                            </MudCheckBox>
+                                        </MudStack>
+                                    </MudExpansionPanel>
+                                </MudExpansionPanels>
                             </MudStack>
                         </MudForm>
                     </MudItem>
 
-                    <!-- RIGHT COLUMN - PREVIEW -->
+                    <!-- RIGHT COLUMN - PREVIEW & HISTORY -->
                     <MudItem xs="12" md="5">
                         <MudStack Spacing="4">
                             <!-- Live Preview -->
                             <div>
                                 <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
                                     <MudIcon Icon="@Icons.Material.Filled.Preview" Class="mr-2" Size="Size.Small" />
-                                    Live Preview
+                                    Updated Preview
                                 </MudText>
 
                                 <MudPaper Class="pa-4" Elevation="2" Style="@($"border-left: 4px solid {GetTransactionColorHex()};")">
@@ -262,67 +303,74 @@
                                 </MudPaper>
                             </div>
 
-                            <!-- Recent Transactions of Same Type -->
-                            @if (_recentTransactions?.Any() == true)
+                            <!-- Original vs Updated Comparison -->
+                            @if (HasChanges())
                             {
                                 <div>
                                     <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
-                                        <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Size="Size.Small" />
-                                        Recent @_transactionType.ToString()s
+                                        <MudIcon Icon="@Icons.Material.Filled.Compare" Class="mr-2" Size="Size.Small" />
+                                        Changes Summary
                                     </MudText>
 
-                                    <MudList T="string" Dense="true">
-                                        @foreach (var recent in _recentTransactions.Take(5))
-                                        {
-                                            <MudListItem OnClick="@(() => QuickFill(recent))"
-                                                         Class="cursor-pointer pa-2"
-                                                         Style="border-radius: 8px;">
+                                    <MudPaper Class="pa-3" Elevation="1">
+                                        <MudStack Spacing="2">
+                                            @foreach (var change in GetChanges())
+                                            {
                                                 <div class="d-flex align-center justify-space-between">
-                                                    <div class="d-flex align-center">
-                                                        <MudAvatar Size="Size.Small"
-                                                                   Style="@($"background-color: {recent.Category?.Color}; margin-right: 8px;")">
-                                                            <MudIcon Icon="@(recent.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Category)"
-                                                                     Color="Color.Surface"
-                                                                     Size="Size.Small" />
-                                                        </MudAvatar>
-                                                        <div>
-                                                            <MudText Typo="Typo.body2">@recent.Name</MudText>
-                                                            <MudText Typo="Typo.caption" Class="text-muted">
-                                                                @recent.Category?.Name • @recent.GetShortFormattedDate()
-                                                            </MudText>
-                                                        </div>
+                                                    <MudText Typo="Typo.body2" Class="font-weight-medium">@change.Field:</MudText>
+                                                    <div class="text-right">
+                                                        <MudText Typo="Typo.caption" Class="text-muted text-decoration-line-through">
+                                                            @change.OldValue
+                                                        </MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Primary">
+                                                            @change.NewValue
+                                                        </MudText>
                                                     </div>
-                                                    <MudText Typo="Typo.body2" Class="@GetAmountColorClass()">
-                                                        @recent.Amount.ToString("C")
-                                                    </MudText>
                                                 </div>
-                                            </MudListItem>
-                                        }
-                                    </MudList>
+                                            }
+                                        </MudStack>
+                                    </MudPaper>
                                 </div>
                             }
 
-                            <!-- Quick Templates -->
+                            <!-- Transaction History -->
                             <div>
                                 <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
-                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" Size="Size.Small" />
-                                    Quick Templates
+                                    <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Size="Size.Small" />
+                                    Transaction Info
                                 </MudText>
 
-                                <MudGrid>
-                                    @foreach (var template in GetQuickTemplates())
+                                <MudList T="string" Dense="true">
+                                    <MudListItem Icon="@Icons.Material.Filled.DateRange">
+                                        <div>
+                                            <MudText Typo="Typo.body2">Created</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                @_originalTransaction?.CreatedAt.ToString("MMM dd, yyyy 'at' h:mm tt")
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    @if (_originalTransaction?.UpdatedAt != null && _originalTransaction.UpdatedAt != _originalTransaction.CreatedAt)
                                     {
-                                        <MudItem xs="6">
-                                            <MudButton Variant="Variant.Outlined"
-                                                       FullWidth="true"
-                                                       StartIcon="@template.Icon"
-                                                       OnClick="@(() => ApplyTemplate(template))"
-                                                       Size="Size.Small">
-                                                @template.Name
-                                            </MudButton>
-                                        </MudItem>
+                                        <MudListItem Icon="@Icons.Material.Filled.Edit">
+                                            <div>
+                                                <MudText Typo="Typo.body2">Last Updated</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                    @_originalTransaction.UpdatedAt.ToString("MMM dd, yyyy 'at' h:mm tt")
+                                                </MudText>
+                                            </div>
+                                        </MudListItem>
                                     }
-                                </MudGrid>
+
+                                    <MudListItem Icon="@Icons.Material.Filled.Fingerprint">
+                                        <div>
+                                            <MudText Typo="Typo.body2">Transaction ID</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                @TransactionId
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+                                </MudList>
                             </div>
                         </MudStack>
                     </MudItem>
@@ -333,12 +381,17 @@
 
     <DialogActions>
         <div class="d-flex justify-space-between align-center" style="width: 100%;">
-            <MudText Typo="Typo.caption" Class="text-muted">
-                @if (_filteredCategories?.Any() == true)
+            <div class="d-flex align-center ga-2">
+                @if (HasChanges())
                 {
-                    <span>@_filteredCategories.Count categories • Press Enter to save</span>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text">
+                        @GetChanges().Count() change(s)
+                    </MudChip>
                 }
-            </MudText>
+                <MudText Typo="Typo.caption" Class="text-muted">
+                    Press Enter to save • Ctrl+Z to reset
+                </MudText>
+            </div>
 
             <div>
                 <MudButton Color="Color.Default"
@@ -347,23 +400,24 @@
                            Class="mr-2">
                     Cancel
                 </MudButton>
-                @if (_quickAddMode)
+
+                @if (_deleteAfterUpdate)
                 {
-                    <MudButton Color="@GetTransactionColor()"
-                               Variant="Variant.Outlined"
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="SaveAndAddAnother"
-                               Disabled="@(!IsFormValid())"
+                    <MudButton Color="Color.Error"
+                               Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Delete"
+                               OnClick="DeleteTransaction"
                                Class="mr-2">
-                        Save & Add Another
+                        Delete
                     </MudButton>
                 }
-                <MudButton Color="@GetTransactionColor()"
+
+                <MudButton Color="Color.Primary"
                            Variant="Variant.Filled"
                            StartIcon="@Icons.Material.Filled.Save"
-                           OnClick="SaveTransaction"
-                           Disabled="@(!IsFormValid())">
-                    @(_quickAddMode ? "Save & Close" : (_isDuplicating ? "Create Duplicate" : $"Add {_transactionType}"))
+                           OnClick="UpdateTransaction"
+                           Disabled="@(!IsFormValid() || !HasChanges())">
+                    Update Transaction
                 </MudButton>
             </div>
         </div>
@@ -371,73 +425,29 @@
 </MudDialog>
 
 @code {
-    [Parameter] public TransactionType TransactionType { get; set; }
-    [Parameter] public TransactionDto? PrefilledTransaction { get; set; }
-    [Parameter] public EventCallback OnTransactionAdded { get; set; }
+    [Parameter] public int TransactionId { get; set; }
+    [Parameter] public EventCallback OnTransactionUpdated { get; set; }
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
     private MudForm _form = default!;
     private TransactionDto _transaction = new();
+    private TransactionDto? _originalTransaction;
     private List<CategoryDto>? _categories;
     private List<CategoryDto>? _filteredCategories;
     private List<AccountDto>? _accounts;
-    private List<TransactionDto>? _recentTransactions;
     private bool _loading = true;
-    private bool _quickAddMode = false;
-    private bool _isDuplicating = false;
+    private bool _deleteAfterUpdate = false;
+    private bool _createRecurring = false;
     private DialogOptions _dialogOptions = new() { CloseButton = true, FullWidth = true, MaxWidth = MaxWidth.Medium };
 
     // Form fields
-    private DateTime? _transactionDate = DateTime.Today;
+    private DateTime? _transactionDate;
     private CategoryDto? _selectedCategory;
     private string _selectedAccountString = string.Empty;
-    private string _categorySearchTerm = string.Empty;
-
-    // Transaction type from parameter
-    private TransactionType _transactionType => TransactionType;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
-
-        // If we have a prefilled transaction (duplicate scenario)
-        if (PrefilledTransaction != null)
-        {
-            _isDuplicating = true;
-            LoadPrefilledData();
-        }
-    }
-
-    private void LoadPrefilledData()
-    {
-        if (PrefilledTransaction == null) return;
-
-        _transaction = new TransactionDto
-            {
-                Name = PrefilledTransaction.Name,
-                Amount = PrefilledTransaction.Amount,
-                Description = PrefilledTransaction.Description,
-                CategoryId = PrefilledTransaction.CategoryId,
-                AccountId = PrefilledTransaction.AccountId,
-                Date = PrefilledTransaction.Date
-            };
-
-        // Set the date
-        _transactionDate = PrefilledTransaction.Date;
-
-        // Set the category
-        if (PrefilledTransaction.CategoryId.HasValue && _filteredCategories != null)
-        {
-            _selectedCategory = _filteredCategories.FirstOrDefault(c => c.Id == PrefilledTransaction.CategoryId.Value);
-        }
-
-        // Set the account
-        if (PrefilledTransaction.AccountId.HasValue)
-        {
-            _selectedAccountString = PrefilledTransaction.AccountId.Value.ToString();
-        }
-
-        StateHasChanged();
     }
 
     private async Task LoadData()
@@ -446,12 +456,39 @@
 
         try
         {
+            // Load the transaction to edit
+            var transactionResult = await TransactionService.GetByIdAsync(TransactionId);
+            if (!transactionResult.Success || transactionResult.Data == null)
+            {
+                Snackbar.Add("Transaction not found", Severity.Error);
+                return;
+            }
+
+            _originalTransaction = transactionResult.Data;
+
+            // Create a copy for editing
+            _transaction = new TransactionDto
+                {
+                    Id = _originalTransaction.Id,
+                    Name = _originalTransaction.Name,
+                    Amount = _originalTransaction.Amount,
+                    Description = _originalTransaction.Description,
+                    Date = _originalTransaction.Date,
+                    CategoryId = _originalTransaction.CategoryId,
+                    AccountId = _originalTransaction.AccountId
+                };
+
+            _transactionDate = _transaction.Date;
+
             // Load categories
             var categoriesResult = await CategoryService.GetAllAsync();
             if (categoriesResult.Success)
             {
                 _categories = categoriesResult.Data ?? new List<CategoryDto>();
                 FilterCategoriesByType();
+
+                // Set selected category
+                _selectedCategory = _filteredCategories?.FirstOrDefault(c => c.Id == _transaction.CategoryId);
             }
 
             // Load accounts
@@ -459,28 +496,10 @@
             if (accountsResult.Success)
             {
                 _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-                if (_accounts.Any() && string.IsNullOrWhiteSpace(_selectedAccountString))
+                if (_transaction.AccountId.HasValue)
                 {
-                    _selectedAccountString = _accounts.First().Id.ToString();
+                    _selectedAccountString = _transaction.AccountId.Value.ToString();
                 }
-            }
-
-            // Load recent transactions of same type
-            var transactionsResult = await TransactionService.GetAllAsync();
-            if (transactionsResult.Success)
-            {
-                var targetType = _transactionType == TransactionType.Income ? CategoryType.Income : CategoryType.Expense;
-                _recentTransactions = transactionsResult.Data?
-                    .Where(t => t.Category?.Type == targetType)
-                    .OrderByDescending(t => t.Date)
-                    .Take(10)
-                    .ToList() ?? new List<TransactionDto>();
-            }
-
-            // If we have prefilled data, load it after everything else is loaded
-            if (PrefilledTransaction != null)
-            {
-                LoadPrefilledData();
             }
         }
         catch (Exception ex)
@@ -495,11 +514,9 @@
 
     private void FilterCategoriesByType()
     {
-        if (_categories == null) return;
+        if (_categories == null || _originalTransaction?.Category == null) return;
 
-        var targetCategoryType = _transactionType == TransactionType.Income
-            ? CategoryType.Income
-            : CategoryType.Expense;
+        var targetCategoryType = _originalTransaction.Category.Type;
 
         _filteredCategories = _categories
             .Where(c => c.Type == targetCategoryType)
@@ -508,33 +525,83 @@
             .ToList();
     }
 
-    private async Task<IEnumerable<CategoryDto>> SearchCategories(string value)
+    private bool HasChanges()
     {
-        await Task.Delay(1); // Placeholder for potential async operations
+        if (_originalTransaction == null) return false;
 
-        if (string.IsNullOrWhiteSpace(value) || _filteredCategories == null)
-            return _filteredCategories ?? new List<CategoryDto>();
-
-        return _filteredCategories.Where(c =>
-            c.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(c => c.Name.StartsWith(value, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(c => c.Name);
+        return _transaction.Name != _originalTransaction.Name ||
+               _transaction.Amount != _originalTransaction.Amount ||
+               _transaction.Description != _originalTransaction.Description ||
+               _transactionDate != _originalTransaction.Date ||
+               _selectedCategory?.Id != _originalTransaction.CategoryId ||
+               (_selectedAccountString != string.Empty ?
+                   int.Parse(_selectedAccountString) : (int?)null) != _originalTransaction.AccountId;
     }
 
-    private void ValidateDate()
+    private List<ChangeItem> GetChanges()
     {
-        // Date validation is handled by MudDatePicker
+        var changes = new List<ChangeItem>();
+
+        if (_originalTransaction == null) return changes;
+
+        if (_transaction.Name != _originalTransaction.Name)
+            changes.Add(new("Name", _originalTransaction.Name, _transaction.Name));
+
+        if (_transaction.Amount != _originalTransaction.Amount)
+            changes.Add(new("Amount", _originalTransaction.Amount.ToString("C"), _transaction.Amount.ToString("C")));
+
+        if (_transactionDate != _originalTransaction.Date)
+            changes.Add(new("Date", _originalTransaction.Date.ToString("MMM dd, yyyy"), _transactionDate?.ToString("MMM dd, yyyy") ?? ""));
+
+        if (_selectedCategory?.Id != _originalTransaction.CategoryId)
+            changes.Add(new("Category", _originalTransaction.Category?.Name ?? "", _selectedCategory?.Name ?? ""));
+
+        if (_transaction.Description != _originalTransaction.Description)
+            changes.Add(new("Description",
+                string.IsNullOrWhiteSpace(_originalTransaction.Description) ? "(empty)" : _originalTransaction.Description,
+                string.IsNullOrWhiteSpace(_transaction.Description) ? "(empty)" : _transaction.Description));
+
+        return changes;
+    }
+
+    private void ResetToOriginal()
+    {
+        if (_originalTransaction == null) return;
+
+        _transaction.Name = _originalTransaction.Name;
+        _transaction.Amount = _originalTransaction.Amount;
+        _transaction.Description = _originalTransaction.Description;
+        _transactionDate = _originalTransaction.Date;
+        _selectedCategory = _filteredCategories?.FirstOrDefault(c => c.Id == _originalTransaction.CategoryId);
+
+        if (_originalTransaction.AccountId.HasValue)
+        {
+            _selectedAccountString = _originalTransaction.AccountId.Value.ToString();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && IsFormValid() && HasChanges())
+        {
+            await UpdateTransaction();
+        }
+        else if (e.CtrlKey && e.Key == "z")
+        {
+            ResetToOriginal();
+        }
     }
 
     private async Task HandleCategoryKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && IsFormValid())
+        if (e.Key == "Enter" && IsFormValid() && HasChanges())
         {
-            await SaveTransaction();
+            await UpdateTransaction();
             return;
         }
 
-        // Handle letter navigation
         if (e.Key.Length == 1 && char.IsLetter(e.Key[0]) && _filteredCategories?.Any() == true)
         {
             var letter = e.Key.ToLower();
@@ -549,14 +616,6 @@
         }
     }
 
-    private async Task HandleKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && IsFormValid())
-        {
-            await SaveTransaction();
-        }
-    }
-
     private bool IsFormValid()
     {
         return !string.IsNullOrWhiteSpace(_transaction.Name) &&
@@ -566,11 +625,11 @@
                (_accounts?.Any() != true || !string.IsNullOrWhiteSpace(_selectedAccountString));
     }
 
-    private async Task SaveTransaction()
+    private async Task UpdateTransaction()
     {
         try
         {
-            if (!IsFormValid()) return;
+            if (!IsFormValid() || !HasChanges()) return;
 
             _transaction.Date = _transactionDate!.Value;
             _transaction.CategoryId = _selectedCategory!.Id;
@@ -581,21 +640,24 @@
                 _transaction.AccountId = accountId;
             }
 
-            var result = await TransactionService.CreateAsync(_transaction);
+            var result = await TransactionService.UpdateAsync(_transaction);
             if (result.Success)
             {
-                var message = _isDuplicating ? "Transaction duplicated successfully" : $"{_transactionType} added successfully";
-                Snackbar.Add(message, Severity.Success);
-                await OnTransactionAdded.InvokeAsync();
+                Snackbar.Add("Transaction updated successfully", Severity.Success);
+                await OnTransactionUpdated.InvokeAsync();
 
-                if (!_quickAddMode)
+                if (_deleteAfterUpdate)
+                {
+                    await DeleteTransaction();
+                }
+                else
                 {
                     MudDialog.Close(DialogResult.Ok(true));
                 }
             }
             else
             {
-                Snackbar.Add(result.Message ?? "Error adding transaction", Severity.Error);
+                Snackbar.Add(result.Message ?? "Error updating transaction", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -604,70 +666,25 @@
         }
     }
 
-    private async Task SaveAndAddAnother()
+    private async Task DeleteTransaction()
     {
-        await SaveTransaction();
-        if (_quickAddMode)
+        try
         {
-            ResetForm();
-        }
-    }
-
-    private void ResetForm()
-    {
-        _transaction = new TransactionDto();
-        _selectedCategory = null;
-        _transactionDate = DateTime.Today;
-        _isDuplicating = false;
-        StateHasChanged();
-    }
-
-    private void QuickFill(TransactionDto template)
-    {
-        _transaction.Name = template.Name;
-        _transaction.Amount = template.Amount;
-        _transaction.Description = template.Description;
-        _selectedCategory = template.Category;
-        if (template.AccountId.HasValue)
-        {
-            _selectedAccountString = template.AccountId.Value.ToString();
-        }
-    }
-
-    private void ApplyTemplate(QuickTemplate template)
-    {
-        _transaction.Name = template.Name;
-        if (template.Amount.HasValue)
-        {
-            _transaction.Amount = template.Amount.Value;
-        }
-        if (template.CategoryId.HasValue)
-        {
-            _selectedCategory = _filteredCategories?.FirstOrDefault(c => c.Id == template.CategoryId.Value);
-        }
-    }
-
-    private List<QuickTemplate> GetQuickTemplates()
-    {
-        if (_transactionType == TransactionType.Income)
-        {
-            return new List<QuickTemplate>
+            var result = await TransactionService.DeleteAsync(TransactionId);
+            if (result.Success)
             {
-                new("Salary", Icons.Material.Filled.Work, null, null),
-                new("Freelance", Icons.Material.Filled.Computer, null, null),
-                new("Gift", Icons.Material.Filled.CardGiftcard, null, null),
-                new("Refund", Icons.Material.Filled.MoneyOff, null, null)
-            };
-        }
-        else
-        {
-            return new List<QuickTemplate>
+                Snackbar.Add("Transaction deleted successfully", Severity.Success);
+                await OnTransactionUpdated.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
             {
-                new("Groceries", Icons.Material.Filled.ShoppingCart, 50m, null),
-                new("Gas", Icons.Material.Filled.LocalGasStation, 40m, null),
-                new("Coffee", Icons.Material.Filled.Coffee, 5m, null),
-                new("Lunch", Icons.Material.Filled.Restaurant, 15m, null)
-            };
+                Snackbar.Add(result.Message ?? "Error deleting transaction", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error: " + ex.Message, Severity.Error);
         }
     }
 
@@ -681,12 +698,17 @@
         await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters, _dialogOptions);
     }
 
+    private void ValidateDate()
+    {
+        // Date validation is handled by MudDatePicker
+    }
+
     private void Cancel() => MudDialog.Cancel();
 
-    // ✅ Helper methods refactorizados usando los helpers
-    private string GetTransactionIcon() => _transactionType.GetIcon();
-    private Color GetTransactionColor() => _transactionType.GetMudColor();
-    private string GetTransactionColorHex() => _transactionType.GetHexColor();
+    // Helper methods for UI
+    private string GetTransactionIcon() => Icons.Material.Filled.Edit;
+    private Color GetTransactionColor() => _originalTransaction?.Category?.Type == CategoryType.Income ? Color.Success : Color.Error;
+    private string GetTransactionColorHex() => _originalTransaction?.Category?.Type == CategoryType.Income ? "#4CAF50" : "#f44336";
 
     private string GetSelectedCategoryColor() => _selectedCategory?.Color ?? "#6366f1";
     private string GetSelectedCategoryIcon() => _selectedCategory?.Icon.ToIcon() ?? Icons.Material.Filled.Category;
@@ -702,17 +724,17 @@
         return "Select Account";
     }
 
-    private string GetFormattedDate() => _transactionDate.Value.GetFormattedDate() ?? "Select Date";
+    private string GetFormattedDate() => _transactionDate?.ToString("MMM dd, yyyy") ?? "Select Date";
 
     private string GetAmountDisplay()
     {
         if (_transaction.Amount <= 0) return "$0.00";
-        var sign = _transactionType == TransactionType.Income ? "+" : "-";
+        var sign = _originalTransaction?.Category?.Type == CategoryType.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }
 
-    private string GetAmountColorClass() => _transactionType == TransactionType.Income ? "text-success" : "text-error";
+    private string GetAmountColorClass() => _originalTransaction?.Category?.Type == CategoryType.Income ? "text-success" : "text-error";
 
     // Helper classes
-    public record QuickTemplate(string Name, string Icon, decimal? Amount, int? CategoryId);
+    public record ChangeItem(string Field, string OldValue, string NewValue);
 }

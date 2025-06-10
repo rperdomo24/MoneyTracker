@@ -10,5 +10,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<bool>> CreateAsync(TransactionDto dto);
         Task<OperationResult<bool>> UpdateAsync(TransactionDto dto);
         Task<OperationResult<bool>> DeleteAsync(int id);
+        Task<OperationResult<CategoryStatsDto>> GetCategoryStatsAsync(int categoryId);
     }
 }

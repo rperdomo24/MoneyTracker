@@ -5,8 +5,8 @@
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService
-@inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Transactions - MoneyTracker</PageTitle>
 
@@ -24,16 +24,16 @@
             </MudText>
         </div>
         <div class="d-flex ga-2">
-            <MudButton Variant="Variant.Outlined" 
-                      Color="Color.Success" 
-                      StartIcon="@Icons.Material.Filled.Add"
-                      OnClick="@(() => AddTransaction(TransactionType.Income))">
+            <MudButton Variant="Variant.Outlined"
+                       Color="@TransactionType.Income.GetMudColor()"
+                       StartIcon="@TransactionType.Income.GetIcon()"
+                       OnClick="@(() => AddTransaction(TransactionType.Income))">
                 Add Income
             </MudButton>
-            <MudButton Variant="Variant.Filled" 
-                      Color="Color.Error" 
-                      StartIcon="@Icons.Material.Filled.Remove"
-                      OnClick="@(() => AddTransaction(TransactionType.Expense))">
+            <MudButton Variant="Variant.Filled"
+                       Color="@TransactionType.Expense.GetMudColor()"
+                       StartIcon="@Icons.Material.Filled.Remove"
+                       OnClick="@(() => AddTransaction(TransactionType.Expense))">
                 Add Expense
             </MudButton>
         </div>
@@ -43,32 +43,46 @@
     @if (_transactions?.Any() == true)
     {
         <MudGrid Class="mb-6">
+            <!-- Total Income Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="border-top: 4px solid #4CAF50;">
-                    <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="font-weight-bold text-success">@_totalIncome.ToString("C")</MudText>
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {TransactionType.Income.GetHexColor()};")">
+                    <MudIcon Icon="@TransactionType.Income.GetIcon()" 
+                             Color="@TransactionType.Income.GetMudColor()" 
+                             Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold {CategoryType.Income.GetCategoryTypeMudColor().ToString().ToLower()}")">
+                        @_totalIncome.ToString("C")
+                    </MudText>
                     <MudText Typo="Typo.caption" Class="text-muted">Total Income</MudText>
                 </MudPaper>
             </MudItem>
+            
+            <!-- Total Expenses Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="border-top: 4px solid #f44336;">
-                    <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Color="Color.Error" Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="font-weight-bold text-error">@_totalExpense.ToString("C")</MudText>
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {TransactionType.Expense.GetHexColor()};")">
+                    <MudIcon Icon="@TransactionType.Expense.GetIcon()" 
+                             Color="@TransactionType.Expense.GetMudColor()" 
+                             Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold {CategoryType.Expense.GetCategoryTypeMudColor().ToString().ToLower()}")">
+                        @_totalExpense.ToString("C")
+                    </MudText>
                     <MudText Typo="Typo.caption" Class="text-muted">Total Expenses</MudText>
                 </MudPaper>
             </MudItem>
+            
+            <!-- Balance Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(_balance >= 0 ? "#4CAF50" : "#f44336")};")">
-                    <MudIcon Icon="@(_balance >= 0 ? Icons.Material.Filled.AccountBalance : Icons.Material.Filled.Warning)" 
-                            Color="@(_balance >= 0 ? Color.Success : Color.Error)" 
-                            Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" 
-                            Class="@($"font-weight-bold {(_balance >= 0 ? "text-success" : "text-error")}")">
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@GetBalanceCardStyle()">
+                    <MudIcon Icon="@GetBalanceIcon()"
+                             Color="@GetBalanceColor()"
+                             Size="Size.Large" Class="mb-2" />
+                    <MudText Typo="Typo.h6" Class="@GetBalanceTextClass()">
                         @_balance.ToString("C")
                     </MudText>
                     <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
                 </MudPaper>
             </MudItem>
+            
+            <!-- Total Transactions Card -->
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Class="pa-4 text-center" Elevation="2" Style="border-top: 4px solid #2196F3;">
                     <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Info" Size="Size.Large" Class="mb-2" />
@@ -83,31 +97,31 @@
     <MudPaper Class="pa-4 mb-4" Elevation="1">
         <MudGrid>
             <MudItem xs="12" sm="6" md="3">
-                <MudTextField T="string" 
-                             Label="Search" 
-                             @bind-Value="_searchText"
-                             Adornment="Adornment.Start"
-                             AdornmentIcon="@Icons.Material.Filled.Search"
-                             Variant="Variant.Outlined"
-                             Placeholder="Search by name or description..."
-                             Clearable="true" />
+                <MudTextField T="string"
+                              Label="Search"
+                              @bind-Value="_searchText"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined"
+                              Placeholder="Search by name or description..."
+                              Clearable="true" />
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" 
-                          Label="Category" 
-                          @bind-Value="_selectedCategoryString"
-                          Variant="Variant.Outlined"
-                          Clearable="true">
+                <MudSelect T="string"
+                           Label="Category"
+                           @bind-Value="_selectedCategoryString"
+                           Variant="Variant.Outlined"
+                           Clearable="true">
                     @if (_categories?.Any() == true)
                     {
                         @foreach (var category in _categories)
                         {
                             <MudSelectItem Value="@category.Id.ToString()">
                                 <div class="d-flex align-center">
-                                    <MudIcon Icon="@category.Icon.ToIcon()" 
-                                            Style="@($"color: {category.Color};")" 
-                                            Class="mr-2" 
-                                            Size="Size.Small" />
+                                    <MudIcon Icon="@category.Icon.ToIcon()"
+                                             Style="@($"color: {category.Color};")"
+                                             Class="mr-2"
+                                             Size="Size.Small" />
                                     @category.Name
                                 </div>
                             </MudSelectItem>
@@ -116,20 +130,24 @@
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
-                <MudSelect T="string" 
-                          Label="Type" 
-                          @bind-Value="_selectedTypeString"
-                          Variant="Variant.Outlined"
-                          Clearable="true">
+                <MudSelect T="string"
+                           Label="Type"
+                           @bind-Value="_selectedTypeString"
+                           Variant="Variant.Outlined"
+                           Clearable="true">
                     <MudSelectItem Value="@("Income")">
                         <div class="d-flex align-center">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Class="mr-2" Size="Size.Small" />
+                            <MudIcon Icon="@CategoryType.Income.GetCategoryTypeIcon()" 
+                                     Color="@CategoryType.Income.GetCategoryTypeMudColor()" 
+                                     Class="mr-2" Size="Size.Small" />
                             Income
                         </div>
                     </MudSelectItem>
                     <MudSelectItem Value="@("Expense")">
                         <div class="d-flex align-center">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Color="Color.Error" Class="mr-2" Size="Size.Small" />
+                            <MudIcon Icon="@CategoryType.Expense.GetCategoryTypeIcon()" 
+                                     Color="@CategoryType.Expense.GetCategoryTypeMudColor()" 
+                                     Class="mr-2" Size="Size.Small" />
                             Expense
                         </div>
                     </MudSelectItem>
@@ -137,15 +155,15 @@
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <div class="d-flex ga-2">
-                    <MudButton Variant="Variant.Outlined" 
-                              Color="Color.Primary" 
-                              OnClick="ApplyFilters"
-                              FullWidth="true">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               OnClick="ApplyFilters"
+                               FullWidth="true">
                         Apply Filters
                     </MudButton>
-                    <MudButton Variant="Variant.Text" 
-                              Color="Color.Default" 
-                              OnClick="ClearFilters">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Default"
+                               OnClick="ClearFilters">
                         Clear
                     </MudButton>
                 </div>
@@ -164,13 +182,13 @@
         }
         else if (_filteredTransactions?.Any() == true)
         {
-            <MudTable T="TransactionDto" 
-                     Items="@_filteredTransactions" 
-                     Dense="true" 
-                     Hover="true"
-                     Breakpoint="Breakpoint.Sm"
-                     Loading="@_loading"
-                     LoadingProgressColor="Color.Info">
+            <MudTable T="TransactionDto"
+                      Items="@_filteredTransactions"
+                      Dense="true"
+                      Hover="true"
+                      Breakpoint="Breakpoint.Sm"
+                      Loading="@_loading"
+                      LoadingProgressColor="Color.Info">
                 <HeaderContent>
                     <MudTh><MudTableSortLabel SortBy="new Func<TransactionDto, object>(x => x.Date)">Date</MudTableSortLabel></MudTh>
                     <MudTh><MudTableSortLabel SortBy="new Func<TransactionDto, object>(x => x.Name)">Name</MudTableSortLabel></MudTh>
@@ -184,8 +202,8 @@
                         <div class="d-flex align-center">
                             <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="mr-2 text-muted" />
                             <div>
-                                <MudText Typo="Typo.body2" Class="font-weight-medium">@context.Date.ToString("MMM dd")</MudText>
-                                <MudText Typo="Typo.caption" Class="text-muted">@context.Date.ToString("yyyy")</MudText>
+                                <MudText Typo="Typo.body2" Class="font-weight-medium">@context.GetShortFormattedDate()</MudText>
+                                <MudText Typo="Typo.caption" Class="text-muted">@context.Date.Year</MudText>
                             </div>
                         </div>
                     </MudTd>
@@ -196,15 +214,15 @@
                         @if (context.Category is not null)
                         {
                             <div class="d-flex align-center">
-                                <MudAvatar Size="Size.Small" 
-                                          Style="@($"background-color: {context.Category.Color}; margin-right: 8px;")">
-                                    <MudIcon Icon="@context.Category.Icon.ToIcon()" 
-                                            Color="Color.Surface" 
-                                            Size="Size.Small" />
+                                <MudAvatar Size="Size.Small"
+                                           Style="@($"background-color: {context.Category.Color}; margin-right: 8px;")">
+                                    <MudIcon Icon="@context.Category.Icon.ToIcon()"
+                                             Color="Color.Surface"
+                                             Size="Size.Small" />
                                 </MudAvatar>
                                 <div>
                                     <MudText Typo="Typo.body2">@context.Category.Name</MudText>
-                                    <MudText Typo="Typo.caption" Class="text-muted">@context.Category.Type.GetDisplayName()</MudText>
+                                    <MudText Typo="Typo.caption" Class="text-muted">@context.Category.Type.ToString()</MudText>
                                 </div>
                             </div>
                         }
@@ -214,9 +232,8 @@
                         }
                     </MudTd>
                     <MudTd DataLabel="Amount">
-                        <MudText Typo="Typo.body1" 
-                                Class="@($"font-weight-bold {GetAmountColor(context)}")">
-                            @GetAmountDisplay(context)
+                        <MudText Typo="Typo.body1" Class="@($"font-weight-bold {context.GetAmountColorClass()}")">
+                            @context.GetAmountDisplay()
                         </MudText>
                     </MudTd>
                     <MudTd DataLabel="Description">
@@ -234,20 +251,20 @@
                     <MudTd DataLabel="Actions">
                         <div class="d-flex ga-1">
                             <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                          Color="Color.Info"
-                                          Size="Size.Small"
-                                          OnClick="@(() => ViewTransaction(context.Id))"
-                                          Title="View Details" />
+                                           Color="Color.Info"
+                                           Size="Size.Small"
+                                           OnClick="@(() => ViewTransaction(context.Id))"
+                                           Title="View Details" />
                             <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                          Color="Color.Primary"
-                                          Size="Size.Small"
-                                          OnClick="@(() => EditTransaction(context.Id))"
-                                          Title="Edit Transaction" />
+                                           Color="Color.Primary"
+                                           Size="Size.Small"
+                                           OnClick="@(() => EditTransaction(context.Id))"
+                                           Title="Edit Transaction" />
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                          Color="Color.Error"
-                                          Size="Size.Small"
-                                          OnClick="@(() => DeleteTransaction(context.Id, context.Name))"
-                                          Title="Delete Transaction" />
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => DeleteTransaction(context.Id, context.Name))"
+                                           Title="Delete Transaction" />
                         </div>
                     </MudTd>
                 </RowTemplate>
@@ -268,16 +285,16 @@
                         Start by adding your first income or expense transaction.
                     </MudText>
                     <div class="d-flex justify-center ga-2">
-                        <MudButton Variant="Variant.Filled" 
-                                  Color="Color.Success" 
-                                  StartIcon="@Icons.Material.Filled.Add"
-                                  OnClick="@(() => AddTransaction(TransactionType.Income))">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="@TransactionType.Income.GetMudColor()"
+                                   StartIcon="@TransactionType.Income.GetIcon()"
+                                   OnClick="@(() => AddTransaction(TransactionType.Income))">
                             Add Income
                         </MudButton>
-                        <MudButton Variant="Variant.Outlined" 
-                                  Color="Color.Error" 
-                                  StartIcon="@Icons.Material.Filled.Remove"
-                                  OnClick="@(() => AddTransaction(TransactionType.Expense))">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="@TransactionType.Expense.GetMudColor()"
+                                   StartIcon="@Icons.Material.Filled.Remove"
+                                   OnClick="@(() => AddTransaction(TransactionType.Expense))">
                             Add Expense
                         </MudButton>
                     </div>
@@ -289,9 +306,9 @@
                     <MudText Typo="Typo.body1" Class="text-muted mb-4">
                         Try adjusting your search criteria or filters.
                     </MudText>
-                    <MudButton Variant="Variant.Text" 
-                              Color="Color.Primary" 
-                              OnClick="ClearFilters">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               OnClick="ClearFilters">
                         Clear Filters
                     </MudButton>
                 }
@@ -306,15 +323,23 @@
     private List<CategoryDto>? _categories;
     private bool _loading = true;
 
-    // Filter properties
+    // Stats
+    private decimal _totalIncome;
+    private decimal _totalExpense;
+    private decimal _balance;
+
+    // Filters
     private string _searchText = string.Empty;
     private string _selectedCategoryString = string.Empty;
     private string _selectedTypeString = string.Empty;
 
-    // Summary properties
-    private decimal _totalIncome;
-    private decimal _totalExpense;
-    private decimal _balance;
+    // Dialog options
+    private DialogOptions _dialogOptions = new()
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Large
+        };
 
     protected override async Task OnInitializedAsync()
     {
@@ -324,16 +349,16 @@
     private async Task LoadData()
     {
         _loading = true;
-        
+
         try
         {
             // Load transactions
             var transactionsResult = await TransactionService.GetAllAsync();
             if (transactionsResult.Success)
             {
-                _transactions = transactionsResult.Data ?? new List<TransactionDto>();
-                _filteredTransactions = _transactions;
-                CalculateSummary();
+                _transactions = transactionsResult.Data?.ToList() ?? new List<TransactionDto>();
+                CalculateStats();
+                ApplyFilters();
             }
             else
             {
@@ -346,7 +371,12 @@
             var categoriesResult = await CategoryService.GetAllAsync();
             if (categoriesResult.Success)
             {
-                _categories = categoriesResult.Data ?? new List<CategoryDto>();
+                _categories = categoriesResult.Data?.ToList() ?? new List<CategoryDto>();
+            }
+            else
+            {
+                Snackbar.Add(categoriesResult.Message ?? "Error loading categories", Severity.Warning);
+                _categories = new List<CategoryDto>();
             }
         }
         catch (Exception ex)
@@ -354,6 +384,7 @@
             Snackbar.Add("Error loading data: " + ex.Message, Severity.Error);
             _transactions = new List<TransactionDto>();
             _filteredTransactions = new List<TransactionDto>();
+            _categories = new List<CategoryDto>();
         }
         finally
         {
@@ -361,59 +392,65 @@
         }
     }
 
-    private void CalculateSummary()
+    private void CalculateStats()
     {
-        if (_filteredTransactions?.Any() != true) 
+        if (_transactions?.Any() != true)
         {
-            _totalIncome = _totalExpense = _balance = 0;
+            _totalIncome = 0;
+            _totalExpense = 0;
+            _balance = 0;
             return;
         }
 
-        _totalIncome = _filteredTransactions
-            .Where(t => t.Category?.Type == CategoryType.Income)
+        _totalIncome = _transactions
+            .Where(t => t.IsIncome())
             .Sum(t => t.Amount);
-            
-        _totalExpense = _filteredTransactions
-            .Where(t => t.Category?.Type == CategoryType.Expense)
+
+        _totalExpense = _transactions
+            .Where(t => t.IsExpense())
             .Sum(t => t.Amount);
-            
+
         _balance = _totalIncome - _totalExpense;
     }
 
     private void ApplyFilters()
     {
-        if (_transactions == null) return;
-
-        _filteredTransactions = _transactions.Where(t =>
+        if (_transactions == null)
         {
-            // Search filter
-            if (!string.IsNullOrWhiteSpace(_searchText))
-            {
-                var searchLower = _searchText.ToLower();
-                if (!t.Name.ToLower().Contains(searchLower) && 
-                    !(t.Description?.ToLower().Contains(searchLower) ?? false))
-                    return false;
-            }
+            _filteredTransactions = new List<TransactionDto>();
+            return;
+        }
 
-            // Category filter
-            if (!string.IsNullOrWhiteSpace(_selectedCategoryString) && 
-                int.TryParse(_selectedCategoryString, out int categoryId) && 
-                t.CategoryId != categoryId)
-                return false;
+        var filtered = _transactions.AsEnumerable();
 
-            // Type filter
-            if (!string.IsNullOrWhiteSpace(_selectedTypeString))
-            {
-                if (_selectedTypeString == "Income" && t.Category?.Type != CategoryType.Income)
-                    return false;
-                if (_selectedTypeString == "Expense" && t.Category?.Type != CategoryType.Expense)
-                    return false;
-            }
+        // Search filter
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            var searchLower = _searchText.ToLower();
+            filtered = filtered.Where(t =>
+                t.Name.ToLower().Contains(searchLower) ||
+                (!string.IsNullOrWhiteSpace(t.Description) && t.Description.ToLower().Contains(searchLower)));
+        }
 
-            return true;
-        }).ToList();
+        // Category filter
+        if (!string.IsNullOrWhiteSpace(_selectedCategoryString) && int.TryParse(_selectedCategoryString, out int categoryId))
+        {
+            filtered = filtered.Where(t => t.CategoryId == categoryId);
+        }
 
-        CalculateSummary();
+        // Type filter
+        if (!string.IsNullOrWhiteSpace(_selectedTypeString))
+        {
+            var targetType = _selectedTypeString == "Income" ? CategoryType.Income : CategoryType.Expense;
+            filtered = filtered.Where(t => t.Category?.Type == targetType);
+        }
+
+        _filteredTransactions = filtered
+            .OrderByDescending(t => t.Date)
+            .ThenByDescending(t => t.CreatedAt)
+            .ToList();
+
+        StateHasChanged();
     }
 
     private void ClearFilters()
@@ -421,100 +458,66 @@
         _searchText = string.Empty;
         _selectedCategoryString = string.Empty;
         _selectedTypeString = string.Empty;
-        _filteredTransactions = _transactions;
-        CalculateSummary();
+        ApplyFilters();
     }
 
-    private string GetAmountColor(TransactionDto transaction)
-    {
-        return transaction.Category?.Type switch
-        {
-            CategoryType.Income => "text-success",
-            CategoryType.Expense => "text-error",
-            _ => "text-default"
-        };
-    }
-
-    private string GetAmountDisplay(TransactionDto transaction)
-    {
-        var sign = transaction.Category?.Type == CategoryType.Income ? "+" : "-";
-        return $"{sign}{transaction.Amount:C}";
-    }
-
-    private async Task AddTransaction(TransactionType type)
+    // Transaction Actions
+    private async Task AddTransaction(TransactionType transactionType)
     {
         var parameters = new DialogParameters
-        {
-            ["TransactionType"] = type,
-            ["OnTransactionAdded"] = EventCallback.Factory.Create(this, LoadData)
-        };
+            {
+                ["TransactionType"] = transactionType,
+                ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged)
+            };
 
-        var options = new DialogOptions 
-        { 
-            CloseButton = true, 
-            FullWidth = true, 
-            MaxWidth = MaxWidth.Large 
-        };
-
-         await DialogService.ShowAsync<AddTransactionModal>($"Add {type}", parameters, options);
+        var title = transactionType == TransactionType.Income ? "Add Income" : "Add Expense";
+        await DialogService.ShowAsync<AddTransactionModal>(title, parameters, _dialogOptions);
     }
 
-    private async Task ViewTransaction(int id)
-    {
-        var parameters = new DialogParameters 
-        { 
-            ["TransactionId"] = id 
-        };
-
-        var options = new DialogOptions 
-        { 
-            CloseButton = true, 
-            FullWidth = true, 
-            MaxWidth = MaxWidth.Large 
-        };
-
-        // await DialogService.ShowAsync<ViewTransactionDialog>("Transaction Details", parameters, options);
-    }
-
-    private async Task EditTransaction(int id)
+    private async Task ViewTransaction(int transactionId)
     {
         var parameters = new DialogParameters
-        {
-            ["TransactionId"] = id,
-            ["OnTransactionUpdated"] = EventCallback.Factory.Create(this, LoadData)
-        };
+            {
+                ["TransactionId"] = transactionId,
+                ["OnTransactionChanged"] = EventCallback.Factory.Create(this, OnTransactionChanged)
+            };
 
-        var options = new DialogOptions 
-        { 
-            CloseButton = true, 
-            FullWidth = true, 
-            MaxWidth = MaxWidth.Large 
-        };
-
-        // await DialogService.ShowAsync<UpdateTransactionModal>("Update Transaction", parameters, options);
+        await DialogService.ShowAsync<ViewTransactionModal>("Transaction Details", parameters, _dialogOptions);
     }
 
-    private async Task DeleteTransaction(int id, string name)
+    private async Task EditTransaction(int transactionId)
     {
-        bool? result = await DialogService.ShowMessageBox(
+        var parameters = new DialogParameters
+            {
+                ["TransactionId"] = transactionId,
+                ["OnTransactionUpdated"] = EventCallback.Factory.Create(this, OnTransactionChanged)
+            };
+
+        await DialogService.ShowAsync<UpdateTransactionModal>("Edit Transaction", parameters, _dialogOptions);
+    }
+
+    private async Task DeleteTransaction(int transactionId, string transactionName)
+    {
+        bool confirmed = await DialogService.ShowConfirmDialogAsync(
             "Delete Transaction",
-            $"Are you sure you want to delete '{name}'? This action cannot be undone.",
-            yesText: "Delete", cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true });
+            $"Are you sure you want to delete '{transactionName}'? This action cannot be undone.",
+            "Delete",
+            Color.Error
+        );
 
-        if (result == true)
+        if (confirmed)
         {
             try
             {
-                var deleteResult = await TransactionService.DeleteAsync(id);
-                if (deleteResult.Success)
+                var result = await TransactionService.DeleteAsync(transactionId);
+                if (result.Success)
                 {
                     Snackbar.Add("Transaction deleted successfully", Severity.Success);
-                    await LoadData();
+                    await OnTransactionChanged();
                 }
                 else
                 {
-                    Snackbar.Add(deleteResult.Message ?? "Error deleting transaction", Severity.Error);
+                    Snackbar.Add(result.Message ?? "Error deleting transaction", Severity.Error);
                 }
             }
             catch (Exception ex)
@@ -524,10 +527,49 @@
         }
     }
 
-    // Enum for transaction type filtering
-    public enum TransactionType
+    private async Task OnTransactionChanged()
     {
-        Income,
-        Expense
+        await LoadData();
+    }
+
+    private string GetBalanceCardStyle()
+    {
+        var color = _balance >= 0 ? TransactionType.Income.GetHexColor() : TransactionType.Expense.GetHexColor();
+        return $"border-top: 4px solid {color};";
+    }
+
+    private string GetBalanceIcon()
+    {
+        return _balance >= 0 ? Icons.Material.Filled.AccountBalance : Icons.Material.Filled.Warning;
+    }
+
+    private Color GetBalanceColor()
+    {
+        return _balance >= 0 ? Color.Success : Color.Error;
+    }
+
+    private string GetBalanceTextClass()
+    {
+        return $"font-weight-bold {(_balance >= 0 ? "text-success" : "text-error")}";
+    }
+
+    // Filter change handlers
+    private async Task OnSearchChanged(string value)
+    {
+        _searchText = value;
+        await Task.Delay(300); 
+        ApplyFilters();
+    }
+
+    private void OnCategoryChanged(string value)
+    {
+        _selectedCategoryString = value;
+        ApplyFilters();
+    }
+
+    private void OnTypeChanged(string value)
+    {
+        _selectedTypeString = value;
+        ApplyFilters();
     }
 }

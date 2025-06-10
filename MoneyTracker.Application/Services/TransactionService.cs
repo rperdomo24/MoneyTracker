@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Common;
+using MoneyTracker.Application.Common.Extensions;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
@@ -114,5 +115,41 @@ namespace MoneyTracker.Application.Services
                 return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
             }
         }
+
+        public async Task<OperationResult<CategoryStatsDto>> GetCategoryStatsAsync(int categoryId)
+        {
+            try
+            {
+                var result = await _repository.GetAllAsync();
+
+                var categoryTransactions = result
+                    .Where(t => t.CategoryId == categoryId)
+                    .ToList();
+
+                if (!categoryTransactions.Any())
+                {
+                    return OperationResult<CategoryStatsDto>.Ok(new CategoryStatsDto(), "No transactions found.");
+                }
+
+                var thisMonthAmount = categoryTransactions
+                    .Where(t => t.Date.IsThisMonth())
+                    .Sum(t => t.Amount);
+
+                var dto = new CategoryStatsDto
+                {
+                    TotalCount = categoryTransactions.Count,
+                    ThisMonthAmount = thisMonthAmount,
+                    AverageAmount = categoryTransactions.Select(t => t.Amount).DefaultIfEmpty().Average()
+                };
+
+                return OperationResult<CategoryStatsDto>.Ok(dto, OperationMessages.DataRetrieved);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<CategoryStatsDto>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
     }
 }

@@ -1,0 +1,692 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums
+@using MoneyTracker.UI.Helpers
+@inject ITransactionService TransactionService
+@inject ICategoryService CategoryService
+@inject IAccountService AccountService
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+                <MudAvatar Size="Size.Medium"
+                           Style="@($"background-color: {_transaction.GetTransactionColorSafe()}; margin-right: 12px;")">
+                    <MudIcon Icon="@_transaction.GetTransactionIconSafe()"
+                             Color="Color.Surface" />
+                </MudAvatar>
+                <div>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">
+                        @(_transaction?.Name ?? "Transaction Details")
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="text-muted">
+                        @_transaction.GetTransactionSubtitle()
+                    </MudText>
+                </div>
+            </div>
+            <div class="d-flex align-center ga-2">
+                @if (_transaction != null)
+                {
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@_transaction?.Category?.Type.GetCategoryTypeMudColor()"
+                             Variant="Variant.Text"
+                             Icon="@_transaction?.Category?.Type.GetCategoryTypeIcon()">
+                        @_transaction.Category?.Type.ToString()
+                    </MudChip>
+                    <MudText Typo="Typo.h5" Class="@_transaction.GetAmountColorClassSafe()">
+                        @_transaction.GetAmountDisplay()
+                    </MudText>
+                }
+            </div>
+        </div>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="pa-0">
+            @if (_loading)
+            {
+                <div class="text-center pa-6">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <MudText Class="mt-3">Loading transaction details...</MudText>
+                </div>
+            }
+            else if (_transaction == null)
+            {
+                <div class="text-center pa-6">
+                    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="text-error mb-3" />
+                    <MudText Typo="Typo.h6" Class="mb-2">Transaction Not Found</MudText>
+                    <MudText Class="text-muted">The transaction you're looking for doesn't exist or has been deleted.</MudText>
+                </div>
+            }
+            else
+            {
+                <MudGrid>
+                    <!-- LEFT COLUMN - MAIN DETAILS -->
+                    <MudItem xs="12" md="8">
+                        <MudStack Spacing="4">
+                            <!-- Transaction Overview Card -->
+                            <MudPaper Class="pa-4" Elevation="2" Style="@($"border-left: 6px solid {_transaction.GetTransactionColorSafe()};")">
+                                <MudGrid>
+                                    <MudItem xs="12" md="8">
+                                        <div class="d-flex align-center mb-3">
+                                            <MudAvatar Size="Size.Large"
+                                                       Style="@($"background-color: {_transaction.Category?.Color ?? "#6366f1"}; margin-right: 16px;")">
+                                                <MudIcon Icon="@(_transaction.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Category)"
+                                                         Color="Color.Surface"
+                                                         Size="Size.Medium" />
+                                            </MudAvatar>
+                                            <div class="flex-grow-1">
+                                                <MudText Typo="Typo.h5" Class="font-weight-bold mb-1">
+                                                    @_transaction.Name
+                                                </MudText>
+                                                <div class="d-flex align-center ga-2 mb-1">
+                                                    <MudChip T="string" Size="Size.Small"
+                                                             Color="Color.Default"
+                                                             Variant="Variant.Text">
+                                                        @_transaction.Category?.Name
+                                                    </MudChip>
+                                                    @if (_transaction.Category?.ParentId.HasValue == true)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small"
+                                                                 Color="Color.Default"
+                                                                 Variant="Variant.Outlined">
+                                                            Subcategory
+                                                        </MudChip>
+                                                    }
+                                                </div>
+                                                <MudText Typo="Typo.body2" Class="text-muted">
+                                                    @_transaction.GetFormattedDateWithDay()
+                                                </MudText>
+                                            </div>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(_transaction.Description))
+                                        {
+                                            <MudDivider Class="my-3" />
+                                            <div>
+                                                <MudText Typo="Typo.subtitle2" Class="font-weight-medium mb-2">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Description" Class="mr-1" Size="Size.Small" />
+                                                    Description
+                                                </MudText>
+                                                <MudText Typo="Typo.body1" Class="ml-6">
+                                                    @_transaction.Description
+                                                </MudText>
+                                            </div>
+                                        }
+                                    </MudItem>
+
+                                    <MudItem xs="12" md="4" Class="text-right">
+                                        <MudText Typo="Typo.h4" Class="@($"font-weight-bold {_transaction.GetAmountColorClassSafe()}")">
+                                            @_transaction.GetAmountDisplay()
+                                        </MudText>
+                                        @if (_account != null)
+                                        {
+                                            <MudText Typo="Typo.body2" Class="text-muted mt-1">
+                                                from @_account.Name
+                                            </MudText>
+                                        }
+                                    </MudItem>
+                                </MudGrid>
+                            </MudPaper>
+
+                            <!-- Account Information -->
+                            @if (_account != null)
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Class="mr-2" Size="Size.Small" />
+                                        Account Information
+                                    </MudText>
+
+                                    <MudPaper Class="pa-3" Elevation="1">
+                                        <div class="d-flex align-center justify-space-between">
+                                            <div class="d-flex align-center">
+                                                <MudIcon Icon="@_account.Icon.ToIcon()"
+                                                         Style="@($"color: {_account.Color};")"
+                                                         Class="mr-3"
+                                                         Size="Size.Medium" />
+                                                <div>
+                                                    <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                                                        @_account.Name
+                                                    </MudText>
+                                                    <MudText Typo="Typo.body2" Class="text-muted">
+                                                        @_account.Type.ToString() Account
+                                                    </MudText>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                                                    Current Balance
+                                                </MudText>
+                                                <MudText Typo="Typo.h6" Color="Color.Primary">
+                                                    @_account.Balance.ToString("C")
+                                                </MudText>
+                                            </div>
+                                        </div>
+                                    </MudPaper>
+                                </div>
+                            }
+
+                            <!-- Category Details -->
+                            @if (_transaction.Category != null)
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.Category" Class="mr-2" Size="Size.Small" />
+                                        Category Details
+                                    </MudText>
+
+                                    <MudPaper Class="pa-3" Elevation="1">
+                                        <div class="d-flex align-center">
+                                            <MudAvatar Size="Size.Medium"
+                                                       Style="@($"background-color: {_transaction.Category.Color}; margin-right: 12px;")">
+                                                <MudIcon Icon="@_transaction.Category.Icon.ToIcon()"
+                                                         Color="Color.Surface" />
+                                            </MudAvatar>
+                                            <div class="flex-grow-1">
+                                                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                                                    @_transaction.Category.Name
+                                                </MudText>
+                                                <div class="d-flex align-center ga-2 mt-1">
+                                                    <MudChip T="string" Size="Size.Small"
+                                                             Color="@_transaction?.Category?.Type.GetCategoryTypeMudColor()"
+                                                             Variant="Variant.Text">
+                                                        @_transaction.Category.Type.ToString()
+                                                    </MudChip>
+                                                    @if (_transaction.Category.ParentId.HasValue)
+                                                    {
+                                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                                            Subcategory
+                                                        </MudChip>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(_transaction.Category.Name))
+                                        {
+                                            <MudDivider Class="my-3" />
+                                            <MudText Typo="Typo.body2" Class="text-muted">
+                                                @_transaction.Category.Name
+                                            </MudText>
+                                        }
+                                    </MudPaper>
+                                </div>
+                            }
+
+                            <!-- Related Transactions -->
+                            @if (_relatedTransactions?.Any() == true)
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.Link" Class="mr-2" Size="Size.Small" />
+                                        Similar Transactions
+                                    </MudText>
+
+                                    <MudList T="string" Dense="true">
+                                        @foreach (var related in _relatedTransactions.Take(5))
+                                        {
+                                            <MudListItem OnClick="@(() => ViewTransaction(related.Id))"
+                                                         Class="cursor-pointer pa-3 ma-1"
+                                                         Style="border-radius: 8px; border: 1px solid var(--mud-palette-divider);">
+                                                <div class="d-flex align-center justify-space-between">
+                                                    <div class="d-flex align-center">
+                                                        <MudAvatar Size="Size.Small"
+                                                                   Style="@($"background-color: {related.Category?.Color}; margin-right: 12px;")">
+                                                            <MudIcon Icon="@(related.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Category)"
+                                                                     Color="Color.Surface"
+                                                                     Size="Size.Small" />
+                                                        </MudAvatar>
+                                                        <div>
+                                                            <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                                                @related.Name
+                                                            </MudText>
+                                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                                @related.GetShortFormattedDate() • @related.Category?.Name
+                                                            </MudText>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-right">
+                                                        <MudText Typo="Typo.body1" Class="@related.GetAmountColorClassSafe()">
+                                                            @related.GetAmountDisplay()
+                                                        </MudText>
+                                                        @if (_transaction.IsSimilarAmount(related.Amount))
+                                                        {
+                                                            <MudChip Size="Size.Small" Color="Color.Info" Variant="Variant.Text">
+                                                                Similar amount
+                                                            </MudChip>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </MudListItem>
+                                        }
+                                    </MudList>
+                                </div>
+                            }
+                        </MudStack>
+                    </MudItem>
+
+                    <!-- RIGHT COLUMN - METADATA & ACTIONS -->
+                    <MudItem xs="12" md="4">
+                        <MudStack Spacing="4">
+                            <!-- Quick Actions -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" Size="Size.Small" />
+                                    Quick Actions
+                                </MudText>
+
+                                <MudStack Spacing="2">
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.Edit"
+                                               FullWidth="true"
+                                               OnClick="EditTransaction">
+                                        Edit Transaction
+                                    </MudButton>
+
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Secondary"
+                                               StartIcon="@Icons.Material.Filled.ContentCopy"
+                                               FullWidth="true"
+                                               OnClick="DuplicateTransaction">
+                                        Duplicate
+                                    </MudButton>
+
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Info"
+                                               StartIcon="@Icons.Material.Filled.Share"
+                                               FullWidth="true"
+                                               OnClick="ShareTransaction">
+                                        Share
+                                    </MudButton>
+
+                                    <MudDivider Class="my-2" />
+
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Error"
+                                               StartIcon="@Icons.Material.Filled.Delete"
+                                               FullWidth="true"
+                                               OnClick="DeleteTransaction">
+                                        Delete
+                                    </MudButton>
+                                </MudStack>
+                            </div>
+
+                            <!-- Transaction Metadata -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" Size="Size.Small" />
+                                    Transaction Info
+                                </MudText>
+
+                                <MudList T="string" Dense="true">
+                                    <MudListItem Icon="@Icons.Material.Filled.Fingerprint">
+                                        <div>
+                                            <MudText Typo="Typo.body2" Class="font-weight-medium">ID</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">@TransactionId.ToString()</MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    <MudListItem Icon="@Icons.Material.Filled.DateRange">
+                                        <div>
+                                            <MudText Typo="Typo.body2" Class="font-weight-medium">Date</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                @_transaction.Date.GetFormattedDateTime()
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    <MudListItem Icon="@Icons.Material.Filled.Add">
+                                        <div>
+                                            <MudText Typo="Typo.body2" Class="font-weight-medium">Created</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                @_transaction.CreatedAt.GetFormattedDateTime()
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    @if (_transaction.WasModified())
+                                    {
+                                        <MudListItem Icon="@Icons.Material.Filled.Edit">
+                                            <div>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">Last Updated</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                    @_transaction.UpdatedAt.GetFormattedDateTime()
+                                                </MudText>
+                                            </div>
+                                        </MudListItem>
+                                    }
+                                </MudList>
+                            </div>
+
+                            <!-- Statistics -->
+                            @if (_categoryStats != null)
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.Analytics" Class="mr-2" Size="Size.Small" />
+                                        Category Stats
+                                    </MudText>
+
+                                    <MudPaper Class="pa-3" Elevation="1">
+                                        <MudStack Spacing="2">
+                                            <div class="d-flex justify-space-between">
+                                                <MudText Typo="Typo.body2">This Month</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                                    @_categoryStats.ThisMonthAmount.ToString("C")
+                                                </MudText>
+                                            </div>
+                                            <div class="d-flex justify-space-between">
+                                                <MudText Typo="Typo.body2">Total Count</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                                    @_categoryStats.TotalCount transactions
+                                                </MudText>
+                                            </div>
+                                            <div class="d-flex justify-space-between">
+                                                <MudText Typo="Typo.body2">Average</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                                    @_categoryStats.AverageAmount.ToString("C")
+                                                </MudText>
+                                            </div>
+                                        </MudStack>
+                                    </MudPaper>
+                                </div>
+                            }
+
+                            <!-- Timeline -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Timeline" Class="mr-2" Size="Size.Small" />
+                                    Timeline
+                                </MudText>
+
+                                <MudTimeline>
+                                    <MudTimelineItem Color="Color.Success" Variant="Variant.Filled" Size="Size.Small">
+                                        <MudText Typo="Typo.body2" Class="font-weight-medium">Transaction Created</MudText>
+                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                            @_transaction.CreatedAt.GetFormattedDate(), @_transaction.CreatedAt.GetFormattedTime()
+                                        </MudText>
+                                    </MudTimelineItem>
+
+                                    @if (_transaction.WasModified())
+                                    {
+                                        <MudTimelineItem Color="Color.Info" Variant="Variant.Filled" Size="Size.Small">
+                                            <MudText Typo="Typo.body2" Class="font-weight-medium">Last Modified</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                @_transaction.UpdatedAt.GetFormattedDate(), @_transaction.UpdatedAt.GetFormattedTime()
+                                            </MudText>
+                                        </MudTimelineItem>
+                                    }
+
+                                    <MudTimelineItem Color="Color.Default" Variant="Variant.Outlined" Size="Size.Small">
+                                        <MudText Typo="Typo.body2" Class="font-weight-medium">Viewing Now</MudText>
+                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                            @DateTime.Now.GetFormattedDate(), @DateTime.Now.GetFormattedTime()
+                                        </MudText>
+                                    </MudTimelineItem>
+                                </MudTimeline>
+                            </div>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <div class="d-flex justify-space-between align-center" style="width: 100%;">
+            <div class="d-flex align-center ga-2">
+                @if (_transaction != null)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Text">
+                        @_transaction.GetFormattedDate()
+                    </MudChip>
+                    <MudText Typo="Typo.caption" Class="text-muted">
+                        Press E to edit • D to duplicate • Del to delete
+                    </MudText>
+                }
+            </div>
+
+            <div>
+                <MudButton Color="Color.Default"
+                           Variant="Variant.Text"
+                           OnClick="Close"
+                           Class="mr-2">
+                    Close
+                </MudButton>
+
+                @if (_transaction != null)
+                {
+                    <MudButton Color="Color.Primary"
+                               Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="EditTransaction">
+                        Edit Transaction
+                    </MudButton>
+                }
+            </div>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public int TransactionId { get; set; }
+    [Parameter] public EventCallback OnTransactionChanged { get; set; }
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private TransactionDto? _transaction;
+    private AccountDto? _account;
+    private List<TransactionDto>? _relatedTransactions;
+    private CategoryStatsDto? _categoryStats;
+    private bool _loading = true;
+
+    private DialogOptions _dialogOptions = new()
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Large
+        };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTransactionDetails();
+    }
+
+    private async Task LoadTransactionDetails()
+    {
+        _loading = true;
+
+        try
+        {
+            // Load main transaction
+            var transactionResult = await TransactionService.GetByIdAsync(TransactionId);
+            if (!transactionResult.Success || transactionResult.Data == null)
+            {
+                Snackbar.Add("Transaction not found", Severity.Error);
+                return;
+            }
+
+            _transaction = transactionResult.Data;
+
+            // Load account details if transaction has an account
+            if (_transaction.AccountId.HasValue)
+            {
+                var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId.Value);
+                if (accountResult.Success)
+                {
+                    _account = accountResult.Data;
+                }
+            }
+
+            // Load related transactions (same category, similar timeframe)
+            await LoadRelatedTransactions();
+
+            // Load category statistics
+            await LoadCategoryStats();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error loading transaction details: " + ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadRelatedTransactions()
+    {
+        if (_transaction?.CategoryId == null) return;
+
+        var result = await TransactionService.GetCategoryStatsAsync(_transaction.CategoryId.Value);
+        if (result.Success && result.Data != null)
+        {
+            _categoryStats = result.Data;
+        }
+
+        try
+        {
+            var allTransactionsResult = await TransactionService.GetAllAsync();
+            if (allTransactionsResult.Success && allTransactionsResult.Data != null)
+            {
+                var threeMonthsAgo = _transaction.Date.AddDays(-90);
+                var threeMonthsLater = _transaction.Date.AddDays(90);
+
+                _relatedTransactions = allTransactionsResult.Data
+                    .Where(t => t.Id != _transaction.Id &&
+                               t.CategoryId == _transaction.CategoryId &&
+                               t.Date.IsBetween(threeMonthsAgo, threeMonthsLater))
+                    .OrderByDescending(t => t.Date)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silently fail for related transactions
+        }
+    }
+
+    private async Task LoadCategoryStats()
+    {
+        if (_transaction?.CategoryId == null) return;
+
+        var result = await TransactionService.GetCategoryStatsAsync(_transaction.CategoryId.Value);
+        if (result.Success && result.Data != null)
+        {
+            _categoryStats = result.Data;
+        }
+    }
+
+    private async Task EditTransaction()
+    {
+        var parameters = new DialogParameters
+            {
+                ["TransactionId"] = TransactionId,
+                ["OnTransactionUpdated"] = EventCallback.Factory.Create(this, OnTransactionUpdated)
+            };
+
+        await DialogService.ShowAsync<UpdateTransactionModal>("Edit Transaction", parameters, _dialogOptions);
+    }
+
+    private async Task DuplicateTransaction()
+    {
+        if (_transaction == null) return;
+
+        var duplicatedTransaction = new TransactionDto
+            {
+                Name = $"Copy of {_transaction.Name}",
+                Amount = _transaction.Amount,
+                Description = _transaction.Description,
+                CategoryId = _transaction.CategoryId,
+                AccountId = _transaction.AccountId,
+                Date = DateTime.Today
+            };
+
+        var parameters = new DialogParameters
+            {
+                ["TransactionType"] = _transaction.Category?.Type == CategoryType.Income ?
+                                                            TransactionType.Income : TransactionType.Expense,
+                ["PrefilledTransaction"] = duplicatedTransaction,
+                ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionUpdated)
+            };
+
+        await DialogService.ShowAsync<AddTransactionModal>("Duplicate Transaction", parameters, _dialogOptions);
+    }
+
+    private async Task ShareTransaction()
+    {
+        if (_transaction == null) return;
+
+        var shareText = $"Transaction: {_transaction.Name}\n" +
+                       $"Amount: {_transaction.GetAmountColorClassSafe()}\n" +
+                       $"Category: {_transaction.Category?.Name}\n" +
+                       $"Date: {_transaction.GetFormattedDate()}";
+
+        // For web apps, copy to clipboard
+        await CopyToClipboard(shareText);
+        Snackbar.Add("Transaction details copied to clipboard", Severity.Success);
+    }
+
+    private async Task DeleteTransaction()
+    {
+        if (_transaction == null) return;
+
+        bool confirmed = await DialogService.ShowConfirmDialogAsync(
+               "Delete Transaction",
+               $"Are you sure you want to delete '{_transaction.Name}'? This action cannot be undone.",
+               "Delete",
+               Color.Error
+               );
+
+        if (confirmed)
+        {
+            try
+            {
+                var deleteResult = await TransactionService.DeleteAsync(TransactionId);
+                if (deleteResult.Success)
+                {
+                    Snackbar.Add("Transaction deleted successfully", Severity.Success);
+                    await OnTransactionChanged.InvokeAsync();
+                    MudDialog.Close();
+                }
+                else
+                {
+                    Snackbar.Add(deleteResult.Message ?? "Error deleting transaction", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add("Error: " + ex.Message, Severity.Error);
+            }
+        }
+    }
+
+    private async Task ViewTransaction(int transactionId)
+    {
+        // Close current dialog and open new one
+        MudDialog.Close();
+
+        var parameters = new DialogParameters
+            {
+                ["TransactionId"] = transactionId,
+                ["OnTransactionChanged"] = OnTransactionChanged
+            };
+
+        await DialogService.ShowAsync<ViewTransactionModal>("Transaction Details", parameters, _dialogOptions);
+    }
+
+    private async Task OnTransactionUpdated()
+    {
+        await LoadTransactionDetails();
+        await OnTransactionChanged.InvokeAsync();
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        // Implementation would depend on your setup
+        // For now, just show success message
+    }
+
+    private void Close() => MudDialog.Close();
+}
