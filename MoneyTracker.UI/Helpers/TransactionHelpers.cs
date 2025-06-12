@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration.UserSecrets;
-using MoneyTracker.Application.DTOs;
+using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Domain.Enums;
 using MudBlazor;
 

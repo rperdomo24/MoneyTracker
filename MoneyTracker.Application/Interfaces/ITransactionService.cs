@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
+using MoneyTracker.Application.DTOs.Transactions;
 
 namespace MoneyTracker.Application.Interfaces
 {
@@ -11,5 +12,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<bool>> UpdateAsync(TransactionDto dto);
         Task<OperationResult<bool>> DeleteAsync(int id);
         Task<OperationResult<CategoryStatsDto>> GetCategoryStatsAsync(int categoryId);
+
+        Task<OperationResult<TransactionSummaryDto>> GetFilteredAsync(TransactionFilterDto filter);
     }
 }

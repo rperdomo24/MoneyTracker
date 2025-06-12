@@ -1,8 +1,8 @@
-﻿using MoneyTracker.Application.DTOs;
+﻿using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
 
-namespace MoneyTracker.Application.Mappers;
+namespace MoneyTracker.Application.Mappers.Transactions;
 
 public static class TransactionMapper
 {

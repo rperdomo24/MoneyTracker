@@ -1,4 +1,4 @@
-﻿namespace MoneyTracker.Application.DTOs
+﻿namespace MoneyTracker.Application.DTOs.Transactions
 {
     public class TransactionDto
     {

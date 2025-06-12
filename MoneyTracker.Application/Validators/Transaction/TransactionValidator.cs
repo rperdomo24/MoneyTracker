@@ -1,8 +1,7 @@
 ﻿using FluentValidation;
-using MoneyTracker.Application.Constants;
-using MoneyTracker.Application.DTOs;
+using MoneyTracker.Application.DTOs.Transactions;
 
-namespace MoneyTracker.Application.Validators
+namespace MoneyTracker.Application.Validators.Transaction
 {
     public class TransactionValidator : AbstractValidator<TransactionDto>
     {

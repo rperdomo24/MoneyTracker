@@ -21,12 +21,32 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
-                    .Include(c => c.Subcategories)
+                    .OrderBy(c => c.Type)
+                    .ThenBy(c => c.Name)
+                    .AsNoTracking() 
                     .ToListAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all categories.");
+                return new();
+            }
+        }
+
+        public async Task<List<Category>> GetAllWithSubcategoriesAsync()
+        {
+            try
+            {
+                return await _context.Categories
+                    .Include(c => c.Subcategories)
+                    .OrderBy(c => c.Type)
+                    .ThenBy(c => c.Name)
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all categories with subcategories.");
                 return new();
             }
         }
@@ -51,12 +71,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 _context.Categories.Add(category);
-                await _context.SaveChangesAsync(); // ← Sin transacción manual
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding category.");
-                throw; // ← Relanza la excepción para que el service la maneje
+                throw;
             }
         }
 
@@ -65,12 +85,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 _context.Categories.Update(category);
-                await _context.SaveChangesAsync(); // ← Sin transacción manual
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating category.");
-                throw; // ← Relanza la excepción
+                throw;
             }
         }
 
@@ -83,12 +103,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                     return;
 
                 _context.Categories.Remove(entity);
-                await _context.SaveChangesAsync(); // ← Sin transacción manual
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting category with ID {Id}.", id);
-                throw; // ← Relanza la excepción
+                throw;
             }
         }
 
@@ -97,6 +117,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
+                    .AsNoTracking() // Performance para consultas de solo lectura
                     .AnyAsync(c => c.Name == name && (!excludeId.HasValue || c.Id != excludeId.Value));
             }
             catch (Exception ex)
