@@ -7,7 +7,6 @@
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService
 @inject IAccountService AccountService
-@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
@@ -18,10 +17,10 @@
                      Class="mr-3" />
             <div>
                 <MudText Typo="Typo.h6" Class="font-weight-bold">
-                    @(_isDuplicating ? "Duplicate Transaction" : $"Add {_transactionType.ToString()}")
+                    @GetModalTitle()
                 </MudText>
                 <MudText Typo="Typo.body2" Class="text-muted">
-                    @(_isDuplicating ? "Create a copy of an existing transaction" : $"Record a new {_transactionType.ToString().ToLower()} transaction")
+                    @GetModalSubtitle()
                 </MudText>
             </div>
         </div>
@@ -36,8 +35,238 @@
                     <MudText Class="mt-3">Loading data...</MudText>
                 </div>
             }
+            else if (_transactionType == TransactionType.Transfer)
+            {
+                @* ========== TRANSFER UI ========== *@
+                <MudGrid>
+                    <!-- LEFT COLUMN - TRANSFER FORM -->
+                    <MudItem xs="12" md="7">
+                        <MudForm @ref="_form" Model="_transaction">
+                            <MudStack Spacing="4">
+                                <!-- Transfer Details -->
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Class="mr-2" Size="Size.Small" />
+                                        Transfer Details
+                                    </MudText>
+
+                                    <MudGrid>
+                                        <!-- FROM Account -->
+                                        <MudItem xs="12" md="6">
+                                            <MudSelect T="string"
+                                                       Label="From Account"
+                                                       @bind-Value="_fromAccountString"
+                                                       Variant="Variant.Outlined"
+                                                       Required="true"
+                                                       HelperText="Account to transfer money from"
+                                                       @onkeydown="@((e) => HandleKeyDown(e))">
+                                                @if (_accounts?.Any() == true)
+                                                {
+                                                    @foreach (var account in _accounts)
+                                                    {
+                                                        <MudSelectItem Value="@account.Id.ToString()">
+                                                            <div class="d-flex align-center justify-space-between">
+                                                                <div class="d-flex align-center">
+                                                                    <MudIcon Icon="@account.Icon.ToIcon()"
+                                                                             Style="@($"color: {account.Color};")"
+                                                                             Class="mr-2" Size="Size.Small" />
+                                                                    <div>
+                                                                        <MudText Typo="Typo.body2">@account.Name</MudText>
+                                                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                                                            Balance: @account.Balance.ToString("C")
+                                                                        </MudText>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </MudSelectItem>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                  @*   <MudSelectItem Value="" Disabled="true">
+                                                        <MudText Class="text-muted">No accounts available</MudText>
+                                                    </MudSelectItem> *@
+                                                }
+                                            </MudSelect>
+                                        </MudItem>
+
+                                        <!-- Transfer Amount -->
+                                        <MudItem xs="12" md="6">
+                                            <MudNumericField T="decimal"
+                                                             Label="Transfer Amount"
+                                                             @bind-Value="_transaction.Amount"
+                                                             Variant="Variant.Outlined"
+                                                             Required="true"
+                                                             Min="0.01m"
+                                                             Step="0.01m"
+                                                             Format="F2"
+                                                             Culture="@System.Globalization.CultureInfo.CurrentCulture"
+                                                             Adornment="Adornment.Start"
+                                                             AdornmentText="$"
+                                                             HelperText="Amount to transfer"
+                                                             @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+
+                                        <!-- TO Account -->
+                                        <MudItem xs="12" md="6">
+                                            <MudSelect T="string"
+                                                       Label="To Account"
+                                                       @bind-Value="_toAccountString"
+                                                       Variant="Variant.Outlined"
+                                                       Required="true"
+                                                       HelperText="Account to transfer money to"
+                                                       @onkeydown="@((e) => HandleKeyDown(e))">
+                                                @if (_accounts?.Any() == true)
+                                                {
+                                                    @foreach (var account in _accounts.Where(a => a.Id.ToString() != _fromAccountString))
+                                                    {
+                                                        <MudSelectItem Value="@account.Id.ToString()">
+                                                            <div class="d-flex align-center justify-space-between">
+                                                                <div class="d-flex align-center">
+                                                                    <MudIcon Icon="@account.Icon.ToIcon()"
+                                                                             Style="@($"color: {account.Color};")"
+                                                                             Class="mr-2" Size="Size.Small" />
+                                                                    <div>
+                                                                        <MudText Typo="Typo.body2">@account.Name</MudText>
+                                                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                                                            Balance: @account.Balance.ToString("C")
+                                                                        </MudText>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </MudSelectItem>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                @*     <MudSelectItem Value="" Disabled="true">
+                                                        <MudText Class="text-muted">Select 'From Account' first</MudText>
+                                                    </MudSelectItem> *@
+                                                }
+                                            </MudSelect>
+                                        </MudItem>
+
+                                        <!-- Transfer Date -->
+                                        <MudItem xs="12" md="6">
+                                            <MudDatePicker Label="Transfer Date"
+                                                           @bind-Date="_transactionDate"
+                                                           Variant="Variant.Outlined"
+                                                           Required="true"
+                                                           MaxDate="DateTime.Today"
+                                                           HelperText="Date of transfer"
+                                                           Editable="true"
+                                                           DateFormat="MM/dd/yyyy"
+                                                           @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+                                    </MudGrid>
+                                </div>
+
+                                <!-- Description -->
+                                <div>
+                                    <MudTextField T="string"
+                                                  Label="Description (Optional)"
+                                                  @bind-Value="_transaction.Description"
+                                                  Variant="Variant.Outlined"
+                                                  Lines="3"
+                                                  Placeholder="e.g., Credit card payment, Savings transfer, Emergency fund..."
+                                                  HelperText="Optional: Purpose of this transfer"
+                                                  @onkeydown="@((e) => HandleKeyDown(e))" />
+                                </div>
+
+                                <!-- Quick Add Toggle -->
+                                <div>
+                                    <MudCheckBox @bind-Value="_quickAddMode" Color="Color.Info">
+                                        <span class="ml-2">Quick Add Mode - Stay in modal after saving</span>
+                                    </MudCheckBox>
+                                </div>
+                            </MudStack>
+                        </MudForm>
+                    </MudItem>
+
+                    <!-- RIGHT COLUMN - TRANSFER PREVIEW -->
+                    <MudItem xs="12" md="5">
+                        <MudStack Spacing="4">
+                            <!-- Transfer Preview -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Preview" Class="mr-2" Size="Size.Small" />
+                                    Transfer Preview
+                                </MudText>
+
+                                <!-- FROM Account Preview -->
+                                <MudPaper Class="pa-3 mb-3" Elevation="2" Style="border-left: 4px solid #f44336;">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.CallMade" Color="Color.Error" Class="mr-2" />
+                                            <div>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">From: @GetFromAccountName()</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">Transfer Out • @GetFormattedDate()</MudText>
+                                            </div>
+                                        </div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-error">
+                                            -@(_transaction.Amount.ToString("C"))
+                                        </MudText>
+                                    </div>
+                                </MudPaper>
+
+                                <!-- Transfer Arrow -->
+                                <div class="text-center mb-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.SwapVert" Color="Color.Info" Size="Size.Large" />
+                                </div>
+
+                                <!-- TO Account Preview -->
+                                <MudPaper Class="pa-3 mb-3" Elevation="2" Style="border-left: 4px solid #4caf50;">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.CallReceived" Color="Color.Success" Class="mr-2" />
+                                            <div>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">To: @GetToAccountName()</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">Transfer In • @GetFormattedDate()</MudText>
+                                            </div>
+                                        </div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-success">
+                                            +@(_transaction.Amount.ToString("C"))
+                                        </MudText>
+                                    </div>
+                                </MudPaper>
+
+                                @if (!string.IsNullOrWhiteSpace(_transaction.Description))
+                                {
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        <strong>Note:</strong> @_transaction.Description
+                                    </MudAlert>
+                                }
+                            </div>
+
+                            <!-- Quick Templates for Transfers -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" Size="Size.Small" />
+                                    Quick Templates
+                                </MudText>
+
+                                <MudGrid>
+                                    @foreach (var template in GetTransferTemplates())
+                                    {
+                                        <MudItem xs="6">
+                                            <MudButton Variant="Variant.Outlined"
+                                                       FullWidth="true"
+                                                       StartIcon="@template.Icon"
+                                                       OnClick="@(() => ApplyTransferTemplate(template))"
+                                                       Size="Size.Small">
+                                                @template.Name
+                                            </MudButton>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+                            </div>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            }
             else
             {
+                @* ========== EXISTING INCOME/EXPENSE UI ========== *@
                 <MudGrid>
                     <!-- LEFT COLUMN - FORM -->
                     <MudItem xs="12" md="7">
@@ -334,7 +563,11 @@
     <DialogActions>
         <div class="d-flex justify-space-between align-center" style="width: 100%;">
             <MudText Typo="Typo.caption" Class="text-muted">
-                @if (_filteredCategories?.Any() == true)
+                @if (_transactionType == TransactionType.Transfer)
+                {
+                    <span>Transfer between accounts • Press Enter to save</span>
+                }
+                else if (_filteredCategories?.Any() == true)
                 {
                     <span>@_filteredCategories.Count categories • Press Enter to save</span>
                 }
@@ -363,7 +596,7 @@
                            StartIcon="@Icons.Material.Filled.Save"
                            OnClick="SaveTransaction"
                            Disabled="@(!IsFormValid())">
-                    @(_quickAddMode ? "Save & Close" : (_isDuplicating ? "Create Duplicate" : $"Add {_transactionType}"))
+                    @GetSaveButtonText()
                 </MudButton>
             </div>
         </div>
@@ -393,12 +626,24 @@
     private string _selectedAccountString = string.Empty;
     private string _categorySearchTerm = string.Empty;
 
+    // Transfer-specific fields
+    private string _fromAccountString = string.Empty;
+    private string _toAccountString = string.Empty;
+    private CategoryDto? _transferOutCategory;  // ✅ Para salidas (Expense)
+    private CategoryDto? _transferInCategory;   // ✅ Para entradas (Income)
+
     // Transaction type from parameter
     private TransactionType _transactionType => TransactionType;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+
+        // Configure transfer categories if needed
+        if (_transactionType == TransactionType.Transfer)
+        {
+            await EnsureTransferCategories();
+        }
 
         // If we have a prefilled transaction (duplicate scenario)
         if (PrefilledTransaction != null)
@@ -459,22 +704,25 @@
             if (accountsResult.Success)
             {
                 _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-                if (_accounts.Any() && string.IsNullOrWhiteSpace(_selectedAccountString))
+                if (_accounts.Any() && string.IsNullOrWhiteSpace(_selectedAccountString) && _transactionType != TransactionType.Transfer)
                 {
                     _selectedAccountString = _accounts.First().Id.ToString();
                 }
             }
 
-            // Load recent transactions of same type
-            var transactionsResult = await TransactionService.GetAllAsync();
-            if (transactionsResult.Success)
+            // Load recent transactions of same type (skip for transfers)
+            if (_transactionType != TransactionType.Transfer)
             {
-                var targetType = _transactionType == TransactionType.Income ? CategoryType.Income : CategoryType.Expense;
-                _recentTransactions = transactionsResult.Data?
-                    .Where(t => t.Category?.Type == targetType)
-                    .OrderByDescending(t => t.Date)
-                    .Take(10)
-                    .ToList() ?? new List<TransactionDto>();
+                var transactionsResult = await TransactionService.GetAllAsync();
+                if (transactionsResult.Success)
+                {
+                    var targetType = _transactionType == TransactionType.Income ? CategoryType.Income : CategoryType.Expense;
+                    _recentTransactions = transactionsResult.Data?
+                        .Where(t => t.Category?.Type == targetType)
+                        .OrderByDescending(t => t.Date)
+                        .Take(10)
+                        .ToList() ?? new List<TransactionDto>();
+                }
             }
 
             // If we have prefilled data, load it after everything else is loaded
@@ -490,6 +738,78 @@
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task EnsureTransferCategories()
+    {
+        try
+        {
+            var categoriesResult = await CategoryService.GetAllAsync();
+            if (categoriesResult.Success)
+            {
+                var categories = categoriesResult.Data ?? new List<CategoryDto>();
+                
+                // Buscar categoría de Transfer Out (Expense)
+                _transferOutCategory = categories
+                    .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Transfer Out");
+
+                // Buscar categoría de Transfer In (Income)
+                _transferInCategory = categories
+                    .FirstOrDefault(c => c.Type == CategoryType.Income && c.Name == "Transfer In");
+
+                // Crear Transfer Out si no existe
+                if (_transferOutCategory == null)
+                {
+                    var transferOutDto = new CategoryDto
+                    {
+                        Name = "Transfer Out",
+                        Type = CategoryType.Expense,  // ✅ Tipo Expense para salidas
+                        Color = "#f44336",  // Rojo para salidas
+                        Icon = CategoryIcon.TrendingDown,
+                    };
+
+                    var createResult = await CategoryService.CreateAsync(transferOutDto);
+                    if (createResult.Success)
+                    {
+                        // Recargar para obtener el ID
+                        var reloadResult = await CategoryService.GetAllAsync();
+                        if (reloadResult.Success)
+                        {
+                            _transferOutCategory = reloadResult.Data?
+                                .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Transfer Out");
+                        }
+                    }
+                }
+
+                // Crear Transfer In si no existe
+                if (_transferInCategory == null)
+                {
+                    var transferInDto = new CategoryDto
+                    {
+                        Name = "Transfer In",
+                        Type = CategoryType.Income,  // ✅ Tipo Income para entradas
+                        Color = "#4caf50",  // Verde para entradas
+                        Icon = CategoryIcon.TrendingUp ,
+                    };
+
+                    var createResult = await CategoryService.CreateAsync(transferInDto);
+                    if (createResult.Success)
+                    {
+                        // Recargar para obtener el ID
+                        var reloadResult = await CategoryService.GetAllAsync();
+                        if (reloadResult.Success)
+                        {
+                            _transferInCategory = reloadResult.Data?
+                                .FirstOrDefault(c => c.Type == CategoryType.Income && c.Name == "Transfer In");
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error setting up transfer categories: " + ex.Message, Severity.Warning);
         }
     }
 
@@ -519,11 +839,6 @@
             c.Name.Contains(value, StringComparison.OrdinalIgnoreCase))
             .OrderBy(c => c.Name.StartsWith(value, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
             .ThenBy(c => c.Name);
-    }
-
-    private void ValidateDate()
-    {
-        // Date validation is handled by MudDatePicker
     }
 
     private async Task HandleCategoryKeyDown(KeyboardEventArgs e)
@@ -559,6 +874,17 @@
 
     private bool IsFormValid()
     {
+        if (_transactionType == TransactionType.Transfer)
+        {
+            return !string.IsNullOrWhiteSpace(_fromAccountString) &&
+                   !string.IsNullOrWhiteSpace(_toAccountString) &&
+                   _fromAccountString != _toAccountString &&
+                   _transaction.Amount > 0 &&
+                   _transactionDate.HasValue &&
+                   _transferOutCategory != null &&
+                   _transferInCategory != null;  // ✅ Validar ambas categorías
+        }
+
         return !string.IsNullOrWhiteSpace(_transaction.Name) &&
                _transaction.Amount > 0 &&
                _transactionDate.HasValue &&
@@ -567,6 +893,92 @@
     }
 
     private async Task SaveTransaction()
+    {
+        if (_transactionType == TransactionType.Transfer)
+        {
+            await SaveTransfer();
+        }
+        else
+        {
+            await SaveRegularTransaction();
+        }
+    }
+
+    private async Task SaveTransfer()
+    {
+        try
+        {
+            if (!IsFormValid()) return;
+
+            if (!int.TryParse(_fromAccountString, out int fromAccountId) ||
+                !int.TryParse(_toAccountString, out int toAccountId))
+            {
+                Snackbar.Add("Invalid account selection", Severity.Error);
+                return;
+            }
+
+            // Crear descripción automática si está vacía
+            var description = string.IsNullOrWhiteSpace(_transaction.Description)
+                ? $"Transfer from {GetFromAccountName()} to {GetToAccountName()}"
+                : _transaction.Description;
+
+            // ✅ Transacción de SALIDA (FROM account) - EXPENSE
+            var outgoingTransaction = new TransactionDto
+            {
+                Name = $"Transfer to {GetToAccountName()}",
+                Amount = _transaction.Amount,
+                Date = _transactionDate!.Value,
+                Description = description,
+                CategoryId = _transferOutCategory!.Id,  // ✅ Categoría Expense
+                AccountId = fromAccountId
+            };
+
+            // ✅ Transacción de ENTRADA (TO account) - INCOME
+            var incomingTransaction = new TransactionDto
+            {
+                Name = $"Transfer from {GetFromAccountName()}",
+                Amount = _transaction.Amount,
+                Date = _transactionDate!.Value,
+                Description = description,
+                CategoryId = _transferInCategory!.Id,  // ✅ Categoría Income
+                AccountId = toAccountId
+            };
+
+            // Crear ambas transacciones
+            var outgoingResult = await TransactionService.CreateAsync(outgoingTransaction);
+            if (!outgoingResult.Success)
+            {
+                Snackbar.Add("Error creating outgoing transfer: " + outgoingResult.Message, Severity.Error);
+                return;
+            }
+
+            var incomingResult = await TransactionService.CreateAsync(incomingTransaction);
+            if (!incomingResult.Success)
+            {
+                Snackbar.Add("Error creating incoming transfer: " + incomingResult.Message, Severity.Error);
+                // TODO: Rollback outgoing transaction
+                return;
+            }
+
+            Snackbar.Add("Transfer completed successfully", Severity.Success);
+            await OnTransactionAdded.InvokeAsync();
+
+            if (!_quickAddMode)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                ResetTransferForm();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error processing transfer: " + ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SaveRegularTransaction()
     {
         try
         {
@@ -609,7 +1021,14 @@
         await SaveTransaction();
         if (_quickAddMode)
         {
-            ResetForm();
+            if (_transactionType == TransactionType.Transfer)
+            {
+                ResetTransferForm();
+            }
+            else
+            {
+                ResetForm();
+            }
         }
     }
 
@@ -617,6 +1036,16 @@
     {
         _transaction = new TransactionDto();
         _selectedCategory = null;
+        _transactionDate = DateTime.Today;
+        _isDuplicating = false;
+        StateHasChanged();
+    }
+
+    private void ResetTransferForm()
+    {
+        _transaction = new TransactionDto();
+        _fromAccountString = string.Empty;
+        _toAccountString = string.Empty;
         _transactionDate = DateTime.Today;
         _isDuplicating = false;
         StateHasChanged();
@@ -647,6 +1076,15 @@
         }
     }
 
+    private void ApplyTransferTemplate(QuickTemplate template)
+    {
+        _transaction.Description = template.Name;
+        if (template.Amount.HasValue)
+        {
+            _transaction.Amount = template.Amount.Value;
+        }
+    }
+
     private List<QuickTemplate> GetQuickTemplates()
     {
         if (_transactionType == TransactionType.Income)
@@ -671,6 +1109,17 @@
         }
     }
 
+    private List<QuickTemplate> GetTransferTemplates()
+    {
+        return new List<QuickTemplate>
+        {
+            new("Credit Card Payment", Icons.Material.Filled.CreditCard, null, null),
+            new("Savings Transfer", Icons.Material.Filled.Savings, null, null),
+            new("Emergency Fund", Icons.Material.Filled.Shield, null, null),
+            new("Investment Transfer", Icons.Material.Filled.TrendingUp, null, null)
+        };
+    }
+
     private async Task CreateCategory()
     {
         var parameters = new DialogParameters
@@ -683,7 +1132,39 @@
 
     private void Cancel() => MudDialog.Cancel();
 
-    // ✅ Helper methods refactorizados usando los helpers
+    // Helper methods
+    private string GetModalTitle()
+    {
+        return _transactionType switch
+        {
+            TransactionType.Transfer => _isDuplicating ? "Duplicate Transfer" : "Transfer Money",
+            _ => _isDuplicating ? "Duplicate Transaction" : $"Add {_transactionType}"
+        };
+    }
+
+    private string GetModalSubtitle()
+    {
+        return _transactionType switch
+        {
+            TransactionType.Transfer => _isDuplicating ? "Create a copy of an existing transfer" : "Move money between your accounts",
+            _ => _isDuplicating ? "Create a copy of an existing transaction" : $"Record a new {_transactionType.ToString().ToLower()} transaction"
+        };
+    }
+
+    private string GetSaveButtonText()
+    {
+        if (_quickAddMode)
+        {
+            return "Save & Close";
+        }
+
+        return _transactionType switch
+        {
+            TransactionType.Transfer => _isDuplicating ? "Create Duplicate" : "Transfer Money",
+            _ => _isDuplicating ? "Create Duplicate" : $"Add {_transactionType}"
+        };
+    }
+
     private string GetTransactionIcon() => _transactionType.GetIcon();
     private Color GetTransactionColor() => _transactionType.GetMudColor();
     private string GetTransactionColorHex() => _transactionType.GetHexColor();
@@ -702,11 +1183,29 @@
         return "Select Account";
     }
 
-    private string GetFormattedDate() => _transactionDate.Value.GetFormattedDate() ?? "Select Date";
+    private string GetFromAccountName()
+    {
+        if (!int.TryParse(_fromAccountString, out int accountId)) return "Select Account";
+        return _accounts?.FirstOrDefault(a => a.Id == accountId)?.Name ?? "Select Account";
+    }
+
+    private string GetToAccountName()
+    {
+        if (!int.TryParse(_toAccountString, out int accountId)) return "Select Account";
+        return _accounts?.FirstOrDefault(a => a.Id == accountId)?.Name ?? "Select Account";
+    }
+
+    private string GetFormattedDate() => _transactionDate?.GetFormattedDate() ?? "Select Date";
 
     private string GetAmountDisplay()
     {
         if (_transaction.Amount <= 0) return "$0.00";
+        
+        if (_transactionType == TransactionType.Transfer)
+        {
+            return _transaction.Amount.ToString("C");
+        }
+        
         var sign = _transactionType == TransactionType.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }

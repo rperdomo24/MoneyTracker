@@ -1,0 +1,44 @@
+﻿@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@GetIcon()" Color="@Color" Class="mr-3" />
+            <MudText Typo="Typo.h6">@Title</MudText>
+        </div>
+    </TitleContent>
+
+    <DialogContent>
+        <MudText>@Message</MudText>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Default">@CancelText</MudButton>
+        <MudButton OnClick="Confirm" Color="@Color" Variant="Variant.Filled">@ConfirmText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Confirm";
+    [Parameter] public string Message { get; set; } = "Are you sure?";
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Cancel();
+
+    private string GetIcon()
+    {
+        return Color switch
+        {
+            Color.Error => Icons.Material.Filled.Warning,
+            Color.Warning => Icons.Material.Filled.Warning,
+            Color.Info => Icons.Material.Filled.Info,
+            Color.Success => Icons.Material.Filled.CheckCircle,
+            _ => Icons.Material.Filled.Help
+        };
+    }
+}

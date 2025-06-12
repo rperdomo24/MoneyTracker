@@ -1,30 +1,81 @@
-﻿using MudBlazor;
+﻿using MoneyTracker.UI.Components.Shared;
+using MudBlazor;
 
-public static class DialogHelpers
+namespace MoneyTracker.UI.Helpers
 {
-    public static async Task<bool> ShowConfirmDialogAsync(
-        this IDialogService dialogService,
-        string title,
-        string message,
-        string buttonText = "Confirm",
-        Color color = Color.Primary)
+    public static class DialogServiceExtensions
     {
-        var parameters = new DialogParameters
+        public static async Task<bool> ShowConfirmDialogAsync(
+            this IDialogService dialogService,
+            string title,
+            string message,
+            string confirmText = "Confirm",
+            Color color = Color.Primary,
+            string cancelText = "Cancel")
         {
-            ["ContentText"] = message,
-            ["ButtonText"] = buttonText,
-            ["Color"] = color
-        };
+            var parameters = new DialogParameters
+            {
+                ["Title"] = title,
+                ["Message"] = message,
+                ["ConfirmText"] = confirmText,
+                ["CancelText"] = cancelText,
+                ["Color"] = color
+            };
 
-        var options = new DialogOptions
+            var options = new DialogOptions
+            {
+                CloseButton = false,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true
+            };
+
+            var dialog = await dialogService.ShowAsync<ConfirmDialog>(title, parameters, options);
+            var result = await dialog.Result;
+
+            return !result.Canceled && (bool)(result.Data ?? false);
+        }
+
+        public static async Task<bool> ShowDeleteConfirmDialogAsync(
+            this IDialogService dialogService,
+            string itemName,
+            string itemType = "item")
         {
-            CloseButton = true,
-            MaxWidth = MaxWidth.Small,
-            FullWidth = true
-        };
+            return await ShowConfirmDialogAsync(
+                dialogService,
+                $"Delete {itemType}",
+                $"Are you sure you want to delete '{itemName}'? This action cannot be undone.",
+                "Delete",
+                Color.Error,
+                "Cancel"
+            );
+        }
 
-        var dialog = await dialogService.ShowAsync<MudMessageBox>(title, parameters, options);
-        var result = await dialog.Result;
-        return !result.Canceled;
+        public static async Task<string?> ShowInputDialogAsync(
+            this IDialogService dialogService,
+            string title,
+            string message,
+            string placeholder = "",
+            string initialValue = "")
+        {
+            var parameters = new DialogParameters
+            {
+                ["Title"] = title,
+                ["Message"] = message,
+                ["Placeholder"] = placeholder,
+                ["InitialValue"] = initialValue
+            };
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true
+            };
+
+            var dialog = await dialogService.ShowAsync<InputDialog>(title, parameters, options);
+            var result = await dialog.Result;
+
+            return result.Canceled ? null : result.Data?.ToString();
+        }
     }
 }

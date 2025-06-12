@@ -15,7 +15,7 @@
     <!-- Header Section -->
     <div class="d-flex justify-space-between align-center mb-6">
         <div>
-            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2">Transactions</MudText>
+            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2">Manage your income, expenses, and transfers</MudText>
             <MudText Typo="Typo.body1" Class="text-muted">
                 Manage your income and expenses
                 @if (_transactionSummary?.TotalCount > 0)
@@ -29,6 +29,13 @@
             </MudText>
         </div>
         <div class="d-flex ga-2">
+            <MudButton Variant="Variant.Text"
+                       Color="@TransactionType.Transfer.GetMudColor()"
+                       StartIcon="@TransactionType.Transfer.GetIcon()"
+                       OnClick="@(() => AddTransaction(TransactionType.Transfer))">
+                Transfer
+            </MudButton>
+
             <MudButton Variant="Variant.Outlined"
                        Color="@TransactionType.Income.GetMudColor()"
                        StartIcon="@TransactionType.Income.GetIcon()"
@@ -308,9 +315,15 @@
                     <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Class="text-muted mb-4" Style="font-size: 4rem;" />
                     <MudText Typo="Typo.h6" Class="mb-2">No transactions yet</MudText>
                     <MudText Typo="Typo.body1" Class="text-muted mb-4">
-                        Start by adding your first income or expense transaction.
+                        Start by adding your first income or expense transaction  or transfer.
                     </MudText>
                     <div class="d-flex justify-center ga-2">
+                        <MudButton Variant="Variant.Text"
+                                   Color="@TransactionType.Transfer.GetMudColor()"
+                                   StartIcon="@TransactionType.Transfer.GetIcon()"
+                                   OnClick="@(() => AddTransaction(TransactionType.Transfer))">
+                            Transfer
+                        </MudButton>
                         <MudButton Variant="Variant.Filled"
                                    Color="@TransactionType.Income.GetMudColor()"
                                    StartIcon="@TransactionType.Income.GetIcon()"
@@ -500,7 +513,14 @@
                 ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged)
             };
 
-        var title = transactionType == TransactionType.Income ? "Add Income" : "Add Expense";
+        var title = transactionType switch
+        {
+            TransactionType.Income => "Add Income",
+            TransactionType.Expense => "Add Expense",
+            TransactionType.Transfer => "Transfer Money", // ✅ Nuevo título
+            _ => "Add Transaction"
+        };
+
         await DialogService.ShowAsync<AddTransactionModal>(title, parameters, _dialogOptions);
     }
 

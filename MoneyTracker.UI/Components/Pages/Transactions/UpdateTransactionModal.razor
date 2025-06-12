@@ -7,6 +7,7 @@
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService
 @inject IAccountService AccountService
+@inject ISnackbar Snackbar
 
 <MudDialog>
     <TitleContent>
@@ -18,10 +19,10 @@
                          Class="mr-3" />
                 <div>
                     <MudText Typo="Typo.h6" Class="font-weight-bold">
-                        Edit Transaction
+                        @GetModalTitle()
                     </MudText>
                     <MudText Typo="Typo.body2" Class="text-muted">
-                        Update transaction details
+                        @GetModalSubtitle()
                     </MudText>
                 </div>
             </div>
@@ -29,7 +30,7 @@
                 <MudChip T="string" Size="Size.Small"
                          Color="@GetTransactionColor()"
                          Variant="Variant.Text">
-                    @_originalTransaction?.Category?.Type.ToString()
+                    @GetTransactionTypeDisplay()
                 </MudChip>
                 <MudText Typo="Typo.caption" Class="text-muted">
                     ID: @TransactionId
@@ -55,8 +56,256 @@
                     <MudText Class="text-muted">The transaction you're trying to edit doesn't exist.</MudText>
                 </div>
             }
+            else if (_isTransfer)
+            {
+                @* ========== TRANSFER EDIT UI ========== *@
+                <MudGrid>
+                    <!-- LEFT COLUMN - TRANSFER FORM -->
+                    <MudItem xs="12" md="7">
+                        <MudForm @ref="_form" Model="_transaction">
+                            <MudStack Spacing="4">
+                                <!-- Change Detection Alert -->
+                                @if (HasChanges())
+                                {
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="mb-2">
+                                        <div class="d-flex align-center justify-space-between">
+                                            <span>You have unsaved changes to this transfer</span>
+                                            <MudButton Size="Size.Small"
+                                                       Variant="Variant.Text"
+                                                       OnClick="ResetToOriginal">
+                                                Reset
+                                            </MudButton>
+                                        </div>
+                                    </MudAlert>
+                                }
+
+                                <!-- Transfer Details -->
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Class="mr-2" Size="Size.Small" />
+                                        Transfer Details
+                                    </MudText>
+
+                                    <MudGrid>
+                                        <!-- FROM Account (Read-only for edits) -->
+                                        <MudItem xs="12" md="6">
+                                            <MudTextField T="string"
+                                                          Label="From Account"
+                                                          Value="@GetFromAccountName()"
+                                                          Variant="Variant.Outlined"
+                                                          ReadOnly="true"
+                                                          HelperText="Source account (cannot be changed)"
+                                                          Adornment="Adornment.Start"
+                                                          AdornmentIcon="@Icons.Material.Filled.Lock" />
+                                        </MudItem>
+
+                                        <!-- Transfer Amount -->
+                                        <MudItem xs="12" md="6">
+                                            <MudNumericField T="decimal"
+                                                             Label="Transfer Amount"
+                                                             @bind-Value="_transaction.Amount"
+                                                             Variant="Variant.Outlined"
+                                                             Required="true"
+                                                             Min="0.01m"
+                                                             Step="0.01m"
+                                                             Format="F2"
+                                                             Culture="@System.Globalization.CultureInfo.CurrentCulture"
+                                                             Adornment="Adornment.Start"
+                                                             AdornmentText="$"
+                                                             HelperText="Update transfer amount"
+                                                             @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+
+                                        <!-- TO Account (Read-only for edits) -->
+                                        <MudItem xs="12" md="6">
+                                            <MudTextField T="string"
+                                                          Label="To Account"
+                                                          Value="@GetToAccountName()"
+                                                          Variant="Variant.Outlined"
+                                                          ReadOnly="true"
+                                                          HelperText="Destination account (cannot be changed)"
+                                                          Adornment="Adornment.Start"
+                                                          AdornmentIcon="@Icons.Material.Filled.Lock" />
+                                        </MudItem>
+
+                                        <!-- Transfer Date -->
+                                        <MudItem xs="12" md="6">
+                                            <MudDatePicker Label="Transfer Date"
+                                                           @bind-Date="_transactionDate"
+                                                           Variant="Variant.Outlined"
+                                                           Required="true"
+                                                           MaxDate="DateTime.Today"
+                                                           HelperText="Update transfer date"
+                                                           Editable="true"
+                                                           DateFormat="MM/dd/yyyy"
+                                                           @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+                                    </MudGrid>
+                                </div>
+
+                                <!-- Description -->
+                                <div>
+                                    <MudTextField T="string"
+                                                  Label="Description (Optional)"
+                                                  @bind-Value="_transaction.Description"
+                                                  Variant="Variant.Outlined"
+                                                  Lines="3"
+                                                  Placeholder="Update transfer description..."
+                                                  HelperText="Optional: Update transfer purpose or details"
+                                                  @onkeydown="@((e) => HandleKeyDown(e))" />
+                                </div>
+
+                                <!-- Warning about transfer edits -->
+                                <MudAlert Severity="Severity.Warning" Dense="true">
+                                    <strong>Note:</strong> Editing this transfer will update both the outgoing and incoming transactions.
+                                    Changes to accounts are not allowed to maintain transfer integrity.
+                                </MudAlert>
+
+                                <!-- Advanced Options -->
+                                <MudExpansionPanels>
+                                    <MudExpansionPanel Text="Advanced Options" Icon="@Icons.Material.Filled.Settings">
+                                        <MudStack Spacing="3">
+                                            <MudCheckBox @bind-Value="_deleteAfterUpdate" Color="Color.Error">
+                                                <span class="ml-2">Delete this entire transfer after updating</span>
+                                            </MudCheckBox>
+                                        </MudStack>
+                                    </MudExpansionPanel>
+                                </MudExpansionPanels>
+                            </MudStack>
+                        </MudForm>
+                    </MudItem>
+
+                    <!-- RIGHT COLUMN - TRANSFER PREVIEW -->
+                    <MudItem xs="12" md="5">
+                        <MudStack Spacing="4">
+                            <!-- Transfer Preview -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Preview" Class="mr-2" Size="Size.Small" />
+                                    Updated Transfer Preview
+                                </MudText>
+
+                                <!-- FROM Account Preview -->
+                                <MudPaper Class="pa-3 mb-3" Elevation="2" Style="border-left: 4px solid #f44336;">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.CallMade" Color="Color.Error" Class="mr-2" />
+                                            <div>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">From: @GetFromAccountName()</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">Transfer Out • @GetFormattedDate()</MudText>
+                                            </div>
+                                        </div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-error">
+                                            -@(_transaction.Amount.ToString("C"))
+                                        </MudText>
+                                    </div>
+                                </MudPaper>
+
+                                <!-- Transfer Arrow -->
+                                <div class="text-center mb-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.SwapVert" Color="Color.Info" Size="Size.Large" />
+                                </div>
+
+                                <!-- TO Account Preview -->
+                                <MudPaper Class="pa-3 mb-3" Elevation="2" Style="border-left: 4px solid #4caf50;">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.CallReceived" Color="Color.Success" Class="mr-2" />
+                                            <div>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">To: @GetToAccountName()</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">Transfer In • @GetFormattedDate()</MudText>
+                                            </div>
+                                        </div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-success">
+                                            +@(_transaction.Amount.ToString("C"))
+                                        </MudText>
+                                    </div>
+                                </MudPaper>
+
+                                @if (!string.IsNullOrWhiteSpace(_transaction.Description))
+                                {
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        <strong>Note:</strong> @_transaction.Description
+                                    </MudAlert>
+                                }
+                            </div>
+
+                            <!-- Changes Summary for Transfer -->
+                            @if (HasChanges())
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.Compare" Class="mr-2" Size="Size.Small" />
+                                        Transfer Changes
+                                    </MudText>
+
+                                    <MudPaper Class="pa-3" Elevation="1">
+                                        <MudStack Spacing="2">
+                                            @foreach (var change in GetChanges())
+                                            {
+                                                <div class="d-flex align-center justify-space-between">
+                                                    <MudText Typo="Typo.body2" Class="font-weight-medium">@change.Field:</MudText>
+                                                    <div class="text-right">
+                                                        <MudText Typo="Typo.caption" Class="text-muted text-decoration-line-through">
+                                                            @change.OldValue
+                                                        </MudText>
+                                                        <MudText Typo="Typo.body2" Color="Color.Primary">
+                                                            @change.NewValue
+                                                        </MudText>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </MudStack>
+                                    </MudPaper>
+                                </div>
+                            }
+
+                            <!-- Transfer Info -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Size="Size.Small" />
+                                    Transfer Information
+                                </MudText>
+
+                                <MudList T="string" Dense="true">
+                                    <MudListItem Icon="@Icons.Material.Filled.SwapHoriz">
+                                        <div>
+                                            <MudText Typo="Typo.body2">Transfer Type</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                Account to Account Transfer
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    <MudListItem Icon="@Icons.Material.Filled.DateRange">
+                                        <div>
+                                            <MudText Typo="Typo.body2">Created</MudText>
+                                            <MudText Typo="Typo.caption" Class="text-muted">
+                                                @_originalTransaction?.CreatedAt.ToString("MMM dd, yyyy 'at' h:mm tt")
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    @if (_pairedTransaction != null)
+                                    {
+                                        <MudListItem Icon="@Icons.Material.Filled.Link">
+                                            <div>
+                                                <MudText Typo="Typo.body2">Paired Transaction</MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                    ID: @_pairedTransaction.Id (@GetPairedTransactionType())
+                                                </MudText>
+                                            </div>
+                                        </MudListItem>
+                                    }
+                                </MudList>
+                            </div>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            }
             else
             {
+                @* ========== REGULAR TRANSACTION EDIT UI ========== *@
                 <MudGrid>
                     <!-- LEFT COLUMN - FORM -->
                     <MudItem xs="12" md="7">
@@ -409,7 +658,7 @@
                                StartIcon="@Icons.Material.Filled.Delete"
                                OnClick="DeleteTransaction"
                                Class="mr-2">
-                        Delete
+                        @(_isTransfer ? "Delete Transfer" : "Delete")
                     </MudButton>
                 }
 
@@ -418,7 +667,7 @@
                            StartIcon="@Icons.Material.Filled.Save"
                            OnClick="UpdateTransaction"
                            Disabled="@(!IsFormValid() || !HasChanges())">
-                    Update Transaction
+                    @(_isTransfer ? "Update Transfer" : "Update Transaction")
                 </MudButton>
             </div>
         </div>
@@ -433,18 +682,24 @@
     private MudForm _form = default!;
     private TransactionDto _transaction = new();
     private TransactionDto? _originalTransaction;
+    private TransactionDto? _pairedTransaction; // Para transferencias
     private List<CategoryDto>? _categories;
     private List<CategoryDto>? _filteredCategories;
     private List<AccountDto>? _accounts;
     private bool _loading = true;
     private bool _deleteAfterUpdate = false;
     private bool _createRecurring = false;
+    private bool _isTransfer = false;
     private DialogOptions _dialogOptions = new() { CloseButton = true, FullWidth = true, MaxWidth = MaxWidth.Medium };
 
     // Form fields
     private DateTime? _transactionDate;
     private CategoryDto? _selectedCategory;
     private string _selectedAccountString = string.Empty;
+
+    // Transfer categories
+    private CategoryDto? _transferOutCategory;
+    private CategoryDto? _transferInCategory;
 
     protected override async Task OnInitializedAsync()
     {
@@ -467,6 +722,9 @@
 
             _originalTransaction = transactionResult.Data;
 
+            // Check if this is a transfer transaction
+            _isTransfer = IsTransferTransaction(_originalTransaction);
+
             // Create a copy for editing
             _transaction = new TransactionDto
                 {
@@ -486,6 +744,11 @@
             if (categoriesResult.Success)
             {
                 _categories = categoriesResult.Data ?? new List<CategoryDto>();
+
+                // Get transfer categories
+                _transferOutCategory = _categories.FirstOrDefault(c => c.Name == "Transfer Out" && c.Type == CategoryType.Expense);
+                _transferInCategory = _categories.FirstOrDefault(c => c.Name == "Transfer In" && c.Type == CategoryType.Income);
+
                 FilterCategoriesByType();
 
                 // Set selected category
@@ -502,6 +765,12 @@
                     _selectedAccountString = _transaction.AccountId.Value.ToString();
                 }
             }
+
+            // Load paired transaction if this is a transfer
+            if (_isTransfer)
+            {
+                await LoadPairedTransaction();
+            }
         }
         catch (Exception ex)
         {
@@ -510,6 +779,38 @@
         finally
         {
             _loading = false;
+        }
+    }
+
+    private bool IsTransferTransaction(TransactionDto transaction)
+    {
+        return transaction.Category?.Name == "Transfer Out" || transaction.Category?.Name == "Transfer In";
+    }
+
+    private async Task LoadPairedTransaction()
+    {
+        try
+        {
+            // This is a simplified approach - in a real app you'd have a TransferPairId
+            // For now, we'll find the matching transfer transaction by date, amount, and description
+            var allTransactionsResult = await TransactionService.GetAllAsync();
+            if (allTransactionsResult.Success && allTransactionsResult.Data != null)
+            {
+                var isOutgoing = _originalTransaction!.Category!.Name == "Transfer Out";
+                var targetCategoryName = isOutgoing ? "Transfer In" : "Transfer Out";
+
+                _pairedTransaction = allTransactionsResult.Data
+                    .FirstOrDefault(t =>
+                        t.Id != _originalTransaction.Id &&
+                        t.Category?.Name == targetCategoryName &&
+                        t.Amount == _originalTransaction.Amount &&
+                        t.Date.Date == _originalTransaction.Date.Date &&
+                        t.Description == _originalTransaction.Description);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Warning: Could not load paired transaction: " + ex.Message, Severity.Warning);
         }
     }
 
@@ -554,7 +855,7 @@
         if (_transactionDate != _originalTransaction.Date)
             changes.Add(new("Date", _originalTransaction.Date.ToString("MMM dd, yyyy"), _transactionDate?.ToString("MMM dd, yyyy") ?? ""));
 
-        if (_selectedCategory?.Id != _originalTransaction.CategoryId)
+        if (_selectedCategory?.Id != _originalTransaction.CategoryId && !_isTransfer)
             changes.Add(new("Category", _originalTransaction.Category?.Name ?? "", _selectedCategory?.Name ?? ""));
 
         if (_transaction.Description != _originalTransaction.Description)
@@ -619,6 +920,12 @@
 
     private bool IsFormValid()
     {
+        if (_isTransfer)
+        {
+            return _transaction.Amount > 0 &&
+                   _transactionDate.HasValue;
+        }
+
         return !string.IsNullOrWhiteSpace(_transaction.Name) &&
                _transaction.Amount > 0 &&
                _transactionDate.HasValue &&
@@ -632,33 +939,13 @@
         {
             if (!IsFormValid() || !HasChanges()) return;
 
-            _transaction.Date = _transactionDate!.Value;
-            _transaction.CategoryId = _selectedCategory!.Id;
-
-            if (!string.IsNullOrWhiteSpace(_selectedAccountString) &&
-                int.TryParse(_selectedAccountString, out int accountId))
+            if (_isTransfer)
             {
-                _transaction.AccountId = accountId;
-            }
-
-            var result = await TransactionService.UpdateAsync(_transaction);
-            if (result.Success)
-            {
-                Snackbar.Add("Transaction updated successfully", Severity.Success);
-                await OnTransactionUpdated.InvokeAsync();
-
-                if (_deleteAfterUpdate)
-                {
-                    await DeleteTransaction();
-                }
-                else
-                {
-                    MudDialog.Close(DialogResult.Ok(true));
-                }
+                await UpdateTransfer();
             }
             else
             {
-                Snackbar.Add(result.Message ?? "Error updating transaction", Severity.Error);
+                await UpdateRegularTransaction();
             }
         }
         catch (Exception ex)
@@ -667,21 +954,111 @@
         }
     }
 
+    private async Task UpdateTransfer()
+    {
+        _transaction.Date = _transactionDate!.Value;
+
+        // Update the main transaction
+        var result = await TransactionService.UpdateAsync(_transaction);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Error updating transfer", Severity.Error);
+            return;
+        }
+
+        // Update the paired transaction if it exists
+        if (_pairedTransaction != null)
+        {
+            _pairedTransaction.Amount = _transaction.Amount;
+            _pairedTransaction.Date = _transaction.Date;
+            _pairedTransaction.Description = _transaction.Description;
+
+            var pairedResult = await TransactionService.UpdateAsync(_pairedTransaction);
+            if (!pairedResult.Success)
+            {
+                Snackbar.Add("Transfer updated, but paired transaction update failed: " + pairedResult.Message, Severity.Warning);
+            }
+        }
+
+        Snackbar.Add("Transfer updated successfully", Severity.Success);
+        await OnTransactionUpdated.InvokeAsync();
+
+        if (_deleteAfterUpdate)
+        {
+            await DeleteTransaction();
+        }
+        else
+        {
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private async Task UpdateRegularTransaction()
+    {
+        _transaction.Date = _transactionDate!.Value;
+        _transaction.CategoryId = _selectedCategory!.Id;
+
+        if (!string.IsNullOrWhiteSpace(_selectedAccountString) &&
+            int.TryParse(_selectedAccountString, out int accountId))
+        {
+            _transaction.AccountId = accountId;
+        }
+
+        var result = await TransactionService.UpdateAsync(_transaction);
+        if (result.Success)
+        {
+            Snackbar.Add("Transaction updated successfully", Severity.Success);
+            await OnTransactionUpdated.InvokeAsync();
+
+            if (_deleteAfterUpdate)
+            {
+                await DeleteTransaction();
+            }
+            else
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error updating transaction", Severity.Error);
+        }
+    }
+
     private async Task DeleteTransaction()
     {
         try
         {
-            var result = await TransactionService.DeleteAsync(TransactionId);
-            if (result.Success)
+            if (_isTransfer && _pairedTransaction != null)
             {
-                Snackbar.Add("Transaction deleted successfully", Severity.Success);
-                await OnTransactionUpdated.InvokeAsync();
-                MudDialog.Close(DialogResult.Ok(true));
+                // Delete both transactions for transfers
+                var mainResult = await TransactionService.DeleteAsync(TransactionId);
+                var pairedResult = await TransactionService.DeleteAsync(_pairedTransaction.Id);
+
+                if (mainResult.Success && pairedResult.Success)
+                {
+                    Snackbar.Add("Transfer deleted successfully", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Error deleting transfer completely", Severity.Error);
+                }
             }
             else
             {
-                Snackbar.Add(result.Message ?? "Error deleting transaction", Severity.Error);
+                var result = await TransactionService.DeleteAsync(TransactionId);
+                if (result.Success)
+                {
+                    Snackbar.Add("Transaction deleted successfully", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add(result.Message ?? "Error deleting transaction", Severity.Error);
+                }
             }
+
+            await OnTransactionUpdated.InvokeAsync();
+            MudDialog.Close(DialogResult.Ok(true));
         }
         catch (Exception ex)
         {
@@ -699,17 +1076,28 @@
         await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters, _dialogOptions);
     }
 
-    private void ValidateDate()
-    {
-        // Date validation is handled by MudDatePicker
-    }
-
     private void Cancel() => MudDialog.Cancel();
 
     // Helper methods for UI
-    private string GetTransactionIcon() => Icons.Material.Filled.Edit;
-    private Color GetTransactionColor() => _originalTransaction?.Category?.Type == CategoryType.Income ? Color.Success : Color.Error;
-    private string GetTransactionColorHex() => _originalTransaction?.Category?.Type == CategoryType.Income ? "#4CAF50" : "#f44336";
+    private string GetModalTitle()
+    {
+        return _isTransfer ? "Edit Transfer" : "Edit Transaction";
+    }
+
+    private string GetModalSubtitle()
+    {
+        return _isTransfer ? "Update transfer details between accounts" : "Update transaction details";
+    }
+
+    private string GetTransactionTypeDisplay()
+    {
+        if (_isTransfer) return "Transfer";
+        return _originalTransaction?.Category?.Type.ToString() ?? "Unknown";
+    }
+
+    private string GetTransactionIcon() => _isTransfer ? Icons.Material.Filled.SwapHoriz : Icons.Material.Filled.Edit;
+    private Color GetTransactionColor() => _isTransfer ? Color.Info : (_originalTransaction?.Category?.Type == CategoryType.Income ? Color.Success : Color.Error);
+    private string GetTransactionColorHex() => _isTransfer ? "#2196f3" : (_originalTransaction?.Category?.Type == CategoryType.Income ? "#4CAF50" : "#f44336");
 
     private string GetSelectedCategoryColor() => _selectedCategory?.Color ?? "#6366f1";
     private string GetSelectedCategoryIcon() => _selectedCategory?.Icon.ToIcon() ?? Icons.Material.Filled.Category;
@@ -725,16 +1113,45 @@
         return "Select Account";
     }
 
+    private string GetFromAccountName()
+    {
+        if (_originalTransaction?.Account != null)
+        {
+            return _originalTransaction.Account.Name;
+        }
+        return "Unknown Account";
+    }
+
+    private string GetToAccountName()
+    {
+        if (_pairedTransaction?.Account != null)
+        {
+            return _pairedTransaction.Account.Name;
+        }
+        return "Unknown Account";
+    }
+
+    private string GetPairedTransactionType()
+    {
+        return _pairedTransaction?.Category?.Name == "Transfer In" ? "Incoming" : "Outgoing";
+    }
+
     private string GetFormattedDate() => _transactionDate?.ToString("MMM dd, yyyy") ?? "Select Date";
 
     private string GetAmountDisplay()
     {
         if (_transaction.Amount <= 0) return "$0.00";
+
+        if (_isTransfer)
+        {
+            return _transaction.Amount.ToString("C");
+        }
+
         var sign = _originalTransaction?.Category?.Type == CategoryType.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }
 
-    private string GetAmountColorClass() => _originalTransaction?.Category?.Type == CategoryType.Income ? "text-success" : "text-error";
+    private string GetAmountColorClass() => _isTransfer ? "text-info" : (_originalTransaction?.Category?.Type == CategoryType.Income ? "text-success" : "text-error");
 
     // Helper classes
     public record ChangeItem(string Field, string OldValue, string NewValue);

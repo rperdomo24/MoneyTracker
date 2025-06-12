@@ -238,11 +238,15 @@ public static class TransactionHelpers
     /// <summary>
     /// Obtiene el ícono para un TransactionType
     /// </summary>
-    public static string GetIcon(this TransactionType transactionType)
+    public static string GetIcon(this TransactionType type)
     {
-        return transactionType == TransactionType.Income
-            ? Icons.Material.Filled.TrendingUp
-            : Icons.Material.Filled.TrendingDown;
+        return type switch
+        {
+            TransactionType.Income => Icons.Material.Filled.TrendingUp,
+            TransactionType.Expense => Icons.Material.Filled.TrendingDown,
+            TransactionType.Transfer => Icons.Material.Filled.SwapHoriz, // ✅ Nuevo icono
+            _ => Icons.Material.Filled.Receipt
+        };
     }
 
     /// <summary>
@@ -256,9 +260,15 @@ public static class TransactionHelpers
     /// <summary>
     /// Obtiene el color hexadecimal para un TransactionType
     /// </summary>
-    public static string GetHexColor(this TransactionType transactionType)
+    public static string GetHexColor(this TransactionType type)
     {
-        return transactionType == TransactionType.Income ? "#4CAF50" : "#f44336";
+        return type switch
+        {
+            TransactionType.Income => "#4caf50",   // Verde
+            TransactionType.Expense => "#f44336",  // Rojo
+            TransactionType.Transfer => "#2196f3", // ✅ Azul para transfers
+            _ => "#757575"
+        };
     }
 
     #endregion
