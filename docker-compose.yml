@@ -1,0 +1,19 @@
+services:
+  moneytracker-web:
+    container_name: moneytracker-web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8091:8091"  # Puerto local:contenedor
+    volumes:
+      - C:/MoneyTracker/appsettings.json:/app/appsettings.json
+    networks:
+      - jobordermanager_default 
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8091
+
+networks:
+  jobordermanager_default:
+    external: true
