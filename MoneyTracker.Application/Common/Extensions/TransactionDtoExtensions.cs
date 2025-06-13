@@ -15,6 +15,21 @@ namespace MoneyTracker.Application.Common.Extensions
             return transaction.Category?.Type == CategoryType.Expense;
         }
 
+        // Agregar estos métodos a TransactionDtoExtensions.cs
+        public static bool IsCreditPayment(this TransactionDto transaction)
+        {
+            return transaction.Category?.Name == "Credit Card Payment" &&
+                   transaction.Category?.Type == CategoryType.Expense;
+        }
+
+        public static bool IsTransfer(this TransactionDto transaction)
+        {
+            return (transaction.Category?.Name == "Transfer Out" ||
+                    transaction.Category?.Name == "Transfer In") &&
+                   (transaction.Category?.Type == CategoryType.Expense ||
+                    transaction.Category?.Type == CategoryType.Income);
+        }
+
         public static string GetAmountColorClass(this TransactionDto transaction)
         {
             if (transaction.IsIncome())

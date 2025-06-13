@@ -3,10 +3,13 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums
 @using MoneyTracker.UI.Components.Pages.Categories
+@using MoneyTracker.Application.Common.Extensions
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService
 @inject IAccountService AccountService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
@@ -35,6 +38,259 @@
                     <MudText Class="mt-3">Loading data...</MudText>
                 </div>
             }
+            else if (_transactionType == TransactionType.CreditPayment)
+            {
+                @* ========== CREDIT PAYMENT UI ========== *@
+                <MudGrid>
+                    <!-- LEFT COLUMN - PAYMENT FORM -->
+                    <MudItem xs="12" md="7">
+                        <MudForm @ref="_form" Model="_transaction">
+                            <MudStack Spacing="4">
+                                <!-- Credit Payment Details -->
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Class="mr-2" Size="Size.Small" />
+                                        Credit Card Payment
+                                    </MudText>
+
+                                    <MudGrid>
+                                        <!-- FROM Account (Non-Credit Only) -->
+                                        <MudItem xs="12" md="6">
+                                            <MudSelect T="string"
+                                                       Label="Pay From Account"
+                                                       Value="_fromAccountString"
+                                                       ValueChanged="OnFromAccountChanged"
+                                                       Variant="Variant.Outlined"
+                                                       Required="true"
+                                                       HelperText="Account to pay from"
+                                                       @onkeydown="@((e) => HandleKeyDown(e))">
+                                                @if (_accounts?.Any() == true)
+                                                {
+                                                    @foreach (var account in _accounts.Where(a => a.Type != AccountType.Credit))
+                                                    {
+                                                        <MudSelectItem Value="@account.Id.ToString()">
+                                                            <div class="d-flex align-center justify-space-between">
+                                                                <div class="d-flex align-center">
+                                                                    <MudIcon Icon="@account.Icon.ToIcon()"
+                                                                             Style="@($"color: {account.Color};")"
+                                                                             Class="mr-2" Size="Size.Small" />
+                                                                    <div>
+                                                                        <MudText Typo="Typo.body2">@account.Name</MudText>
+                                                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                                                            @account.Type.ToLabel() • @account.Balance.ToString("C")
+                                                                        </MudText>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </MudSelectItem>
+                                                    }
+                                                }
+                                            </MudSelect>
+                                        </MudItem>
+
+                                        <!-- Payment Amount -->
+                                        <MudItem xs="12" md="6">
+                                            <MudNumericField T="decimal"
+                                                             Label="Payment Amount"
+                                                             @bind-Value="_transaction.Amount"
+                                                             Variant="Variant.Outlined"
+                                                             Required="true"
+                                                             Min="0.01m"
+                                                             Step="0.01m"
+                                                             Format="F2"
+                                                             Culture="@System.Globalization.CultureInfo.CurrentCulture"
+                                                             Adornment="Adornment.Start"
+                                                             AdornmentText="$"
+                                                             HelperText="Amount to pay"
+                                                             @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+
+                                        <!-- TO Account (Credit Cards Only) -->
+                                        <MudItem xs="12" md="6">
+                                            <MudSelect T="string"
+                                                       Label="Credit Card"
+                                                       Value="_toAccountString"
+                                                       ValueChanged="OnToAccountChanged"
+                                                       Variant="Variant.Outlined"
+                                                       Required="true"
+                                                       HelperText="Credit card to pay"
+                                                       @onkeydown="@((e) => HandleKeyDown(e))">
+                                                @if (_accounts?.Any() == true)
+                                                {
+                                                    @foreach (var account in _accounts.Where(a => a.Type == AccountType.Credit && a.Id.ToString() != _fromAccountString))
+                                                    {
+                                                        <MudSelectItem Value="@account.Id.ToString()">
+                                                            <div class="d-flex align-center justify-space-between">
+                                                                <div class="d-flex align-center">
+                                                                    <MudIcon Icon="@account.Icon.ToIcon()"
+                                                                             Style="@($"color: {account.Color};")"
+                                                                             Class="mr-2" Size="Size.Small" />
+                                                                    <div>
+                                                                        <MudText Typo="Typo.body2">@account.Name</MudText>
+                                                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                                                            Debt: @GetCreditCardDebt(account).ToString("C")
+                                                                        </MudText>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </MudSelectItem>
+                                                    }
+                                                }
+                                            </MudSelect>
+                                        </MudItem>
+
+                                        <!-- Payment Date -->
+                                        <MudItem xs="12" md="6">
+                                            <MudDatePicker Label="Payment Date"
+                                                           @bind-Date="_transactionDate"
+                                                           Variant="Variant.Outlined"
+                                                           Required="true"
+                                                           MaxDate="DateTime.Today"
+                                                           HelperText="Date of payment"
+                                                           Editable="true"
+                                                           DateFormat="MM/dd/yyyy"
+                                                           @onkeydown="@((e) => HandleKeyDown(e))" />
+                                        </MudItem>
+                                    </MudGrid>
+                                </div>
+
+                                <!-- Description -->
+                                <div>
+                                    <MudTextField T="string"
+                                                  Label="Description (Optional)"
+                                                  @bind-Value="_transaction.Description"
+                                                  Variant="Variant.Outlined"
+                                                  Lines="3"
+                                                  Placeholder="e.g., Monthly payment, Extra payment, Debt reduction..."
+                                                  HelperText="Optional: Purpose of this payment"
+                                                  @onkeydown="@((e) => HandleKeyDown(e))" />
+                                </div>
+
+                                <!-- Quick Add Toggle -->
+                                <div>
+                                    <MudCheckBox @bind-Value="_quickAddMode" Color="Color.Warning">
+                                        <span class="ml-2">Quick Add Mode - Stay in modal after saving</span>
+                                    </MudCheckBox>
+                                </div>
+                            </MudStack>
+                        </MudForm>
+                    </MudItem>
+
+                    <!-- RIGHT COLUMN - PAYMENT PREVIEW -->
+                    <MudItem xs="12" md="5">
+                        <MudStack Spacing="4">
+                            <!-- Credit Card Info -->
+                            @if (_selectedToAccount != null)
+                            {
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                        <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" Size="Size.Small" />
+                                        Credit Card Details
+                                    </MudText>
+
+                                    <MudPaper Class="pa-3 mb-3" Elevation="2" Style="border-left: 4px solid #ff5722;">
+                                        <div class="d-flex align-center justify-space-between mb-2">
+                                            <div class="d-flex align-center">
+                                                <MudIcon Icon="@_selectedToAccount.Icon.ToIcon()"
+                                                         Style="@($"color: {_selectedToAccount.Color};")"
+                                                         Class="mr-2" />
+                                                <MudText Typo="Typo.subtitle2" Class="font-weight-medium">
+                                                    @_selectedToAccount.Name
+                                                </MudText>
+                                            </div>
+                                        </div>
+
+                                        <MudGrid>
+                                            <MudItem xs="6">
+                                                <MudText Typo="Typo.caption" Class="text-muted">Current Debt</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium text-error">
+                                                    @GetCreditCardDebt(_selectedToAccount).ToString("C")
+                                                </MudText>
+                                            </MudItem>
+                                            <MudItem xs="6">
+                                                <MudText Typo="Typo.caption" Class="text-muted">Available Credit</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium text-success">
+                                                    @GetAvailableCredit(_selectedToAccount).ToString("C")
+                                                </MudText>
+                                            </MudItem>
+                                            <MudItem xs="6">
+                                                <MudText Typo="Typo.caption" Class="text-muted">Credit Limit</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                                    @_selectedToAccount.CreditLimit.ToString("C")
+                                                </MudText>
+                                            </MudItem>
+                                            <MudItem xs="6">
+                                                <MudText Typo="Typo.caption" Class="text-muted">After Payment</MudText>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium text-info">
+                                                    @((GetCreditCardDebt(_selectedToAccount) - _transaction.Amount).ToString("C"))
+                                                </MudText>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudPaper>
+                                </div>
+                            }
+
+                            <!-- Payment Preview -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Preview" Class="mr-2" Size="Size.Small" />
+                                    Payment Preview
+                                </MudText>
+
+                                <MudPaper Class="pa-3 mb-3" Elevation="2" Style="border-left: 4px solid #ff5722;">
+                                    <div class="d-flex align-center justify-space-between">
+                                        <div class="d-flex align-center">
+                                            <MudIcon Icon="@Icons.Material.Filled.Payment" Color="Color.Warning" Class="mr-2" />
+                                            <div>
+                                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                                    Credit Card Payment
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Class="text-muted">
+                                                    @GetFromAccountName() → @GetToAccountName() • @GetFormattedDate()
+                                                </MudText>
+                                            </div>
+                                        </div>
+                                        <MudText Typo="Typo.h6" Class="font-weight-bold text-warning">
+                                            @(_transaction.Amount.ToString("C"))
+                                        </MudText>
+                                    </div>
+                                </MudPaper>
+
+                                @if (!string.IsNullOrWhiteSpace(_transaction.Description))
+                                {
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        <strong>Note:</strong> @_transaction.Description
+                                    </MudAlert>
+                                }
+                            </div>
+
+                            <!-- Quick Templates for Credit Payments -->
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
+                                    <MudIcon Icon="@Icons.Material.Filled.Speed" Class="mr-2" Size="Size.Small" />
+                                    Payment Templates
+                                </MudText>
+
+                                <MudGrid>
+                                    @foreach (var template in GetCreditPaymentTemplates())
+                                    {
+                                        <MudItem xs="6">
+                                            <MudButton Variant="Variant.Outlined"
+                                                       FullWidth="true"
+                                                       StartIcon="@template.Icon"
+                                                       OnClick="@(() => ApplyCreditPaymentTemplate(template))"
+                                                       Size="Size.Small"
+                                                       Color="Color.Warning">
+                                                @template.Name
+                                            </MudButton>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
+                            </div>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            }
             else if (_transactionType == TransactionType.Transfer)
             {
                 @* ========== TRANSFER UI ========== *@
@@ -55,7 +311,8 @@
                                         <MudItem xs="12" md="6">
                                             <MudSelect T="string"
                                                        Label="From Account"
-                                                       @bind-Value="_fromAccountString"
+                                                       Value="_fromAccountString"
+                                                       ValueChanged="OnFromAccountChanged"
                                                        Variant="Variant.Outlined"
                                                        Required="true"
                                                        HelperText="Account to transfer money from"
@@ -81,12 +338,6 @@
                                                         </MudSelectItem>
                                                     }
                                                 }
-                                                else
-                                                {
-                                                  @*   <MudSelectItem Value="" Disabled="true">
-                                                        <MudText Class="text-muted">No accounts available</MudText>
-                                                    </MudSelectItem> *@
-                                                }
                                             </MudSelect>
                                         </MudItem>
 
@@ -111,7 +362,8 @@
                                         <MudItem xs="12" md="6">
                                             <MudSelect T="string"
                                                        Label="To Account"
-                                                       @bind-Value="_toAccountString"
+                                                       Value="_toAccountString"
+                                                       ValueChanged="OnToAccountChanged"
                                                        Variant="Variant.Outlined"
                                                        Required="true"
                                                        HelperText="Account to transfer money to"
@@ -136,12 +388,6 @@
                                                             </div>
                                                         </MudSelectItem>
                                                     }
-                                                }
-                                                else
-                                                {
-                                                @*     <MudSelectItem Value="" Disabled="true">
-                                                        <MudText Class="text-muted">Select 'From Account' first</MudText>
-                                                    </MudSelectItem> *@
                                                 }
                                             </MudSelect>
                                         </MudItem>
@@ -567,6 +813,10 @@
                 {
                     <span>Transfer between accounts • Press Enter to save</span>
                 }
+                else if (_transactionType == TransactionType.CreditPayment)
+                {
+                    <span>Credit card payment • Press Enter to save</span>
+                }
                 else if (_filteredCategories?.Any() == true)
                 {
                     <span>@_filteredCategories.Count categories • Press Enter to save</span>
@@ -626,23 +876,36 @@
     private string _selectedAccountString = string.Empty;
     private string _categorySearchTerm = string.Empty;
 
-    // Transfer-specific fields
+    // Transfer-specific fields (UPDATED)
     private string _fromAccountString = string.Empty;
     private string _toAccountString = string.Empty;
-    private CategoryDto? _transferOutCategory;  // ✅ Para salidas (Expense)
-    private CategoryDto? _transferInCategory;   // ✅ Para entradas (Income)
+    private CategoryDto? _transferOutCategory;
+    private CategoryDto? _transferInCategory;
 
-    // Transaction type from parameter
-    private TransactionType _transactionType => TransactionType;
+    // ✨ NEW: Credit Payment specific fields
+    private CategoryDto? _creditPaymentCategory; // Para pagos de tarjeta
+    private AccountDto? _selectedFromAccount;
+    private AccountDto? _selectedToAccount;
+
+    // ✨ NEW: Dynamic transaction type detection
+    private TransactionType _detectedTransactionType;
+    private bool _typeDetected = false;
+
+    // Transaction type from parameter (UPDATED)
+    private TransactionType _transactionType => _typeDetected ? _detectedTransactionType : TransactionType;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
 
-        // Configure transfer categories if needed
+        // Configure categories based on transaction type
         if (_transactionType == TransactionType.Transfer)
         {
             await EnsureTransferCategories();
+        }
+        else if (_transactionType == TransactionType.CreditPayment)
+        {
+            await EnsureCreditPaymentCategories();
         }
 
         // If we have a prefilled transaction (duplicate scenario)
@@ -704,14 +967,28 @@
             if (accountsResult.Success)
             {
                 _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-                if (_accounts.Any() && string.IsNullOrWhiteSpace(_selectedAccountString) && _transactionType != TransactionType.Transfer)
+
+                // Auto-select first non-credit account for payments
+                if (_accounts.Any() && string.IsNullOrWhiteSpace(_selectedAccountString) &&
+                    _transactionType != TransactionType.Transfer && _transactionType != TransactionType.CreditPayment)
                 {
                     _selectedAccountString = _accounts.First().Id.ToString();
                 }
+
+                // For credit payments, auto-select first bank account as FROM
+                if (_transactionType == TransactionType.CreditPayment && string.IsNullOrWhiteSpace(_fromAccountString))
+                {
+                    var firstBankAccount = _accounts.FirstOrDefault(a => a.Type == AccountType.Bank);
+                    if (firstBankAccount != null)
+                    {
+                        _fromAccountString = firstBankAccount.Id.ToString();
+                        _selectedFromAccount = firstBankAccount;
+                    }
+                }
             }
 
-            // Load recent transactions of same type (skip for transfers)
-            if (_transactionType != TransactionType.Transfer)
+            // Load recent transactions of same type (skip for transfers and credit payments)
+            if (_transactionType != TransactionType.Transfer && _transactionType != TransactionType.CreditPayment)
             {
                 var transactionsResult = await TransactionService.GetAllAsync();
                 if (transactionsResult.Success)
@@ -741,6 +1018,107 @@
         }
     }
 
+    // ✨ UPDATED: Auto-detection logic
+    private void OnFromAccountChanged(string accountId)
+    {
+        _fromAccountString = accountId;
+        _selectedFromAccount = GetAccountById(accountId);
+        DetectTransactionType();
+        StateHasChanged();
+    }
+
+    private void OnToAccountChanged(string accountId)
+    {
+        _toAccountString = accountId;
+        _selectedToAccount = GetAccountById(accountId);
+        DetectTransactionType();
+        StateHasChanged();
+    }
+
+    private async void DetectTransactionType()
+    {
+        if (_selectedFromAccount != null && _selectedToAccount != null)
+        {
+            // ✨ Auto-detect Credit Payment
+            if (_selectedFromAccount.Type != AccountType.Credit &&
+                _selectedToAccount.Type == AccountType.Credit)
+            {
+                // Cambiar automáticamente a CreditPayment
+                _detectedTransactionType = TransactionType.CreditPayment;
+                _typeDetected = true;
+                await EnsureCreditPaymentCategories();
+                return;
+            }
+
+            // ✨ Auto-detect regular Transfer
+            if (_selectedFromAccount.Type != AccountType.Credit &&
+                _selectedToAccount.Type != AccountType.Credit)
+            {
+                _detectedTransactionType = TransactionType.Transfer;
+                _typeDetected = true;
+                await EnsureTransferCategories();
+                return;
+            }
+        }
+
+        // Reset to original type if no detection
+        _typeDetected = false;
+    }
+
+    private AccountDto? GetAccountById(string accountIdString)
+    {
+        if (string.IsNullOrWhiteSpace(accountIdString) ||
+            !int.TryParse(accountIdString, out int accountId))
+            return null;
+
+        return _accounts?.FirstOrDefault(a => a.Id == accountId);
+    }
+
+    // ✨ NEW: Credit Payment Categories Setup
+    private async Task EnsureCreditPaymentCategories()
+    {
+        try
+        {
+            var categoriesResult = await CategoryService.GetAllAsync();
+            if (categoriesResult.Success)
+            {
+                var categories = categoriesResult.Data ?? new List<CategoryDto>();
+
+                // Buscar categoría de Credit Card Payment (Expense)
+                _creditPaymentCategory = categories
+                    .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Credit Card Payment");
+
+                // Crear Credit Card Payment si no existe
+                if (_creditPaymentCategory == null)
+                {
+                    var creditPaymentDto = new CategoryDto
+                        {
+                            Name = "Credit Card Payment",
+                            Type = CategoryType.Expense,
+                            Color = "#ff5722", // Naranja para pagos
+                            Icon = CategoryIcon.CreditCard, // Asumiendo que existe
+                        };
+
+                    var createResult = await CategoryService.CreateAsync(creditPaymentDto);
+                    if (createResult.Success)
+                    {
+                        // Recargar para obtener el ID
+                        var reloadResult = await CategoryService.GetAllAsync();
+                        if (reloadResult.Success)
+                        {
+                            _creditPaymentCategory = reloadResult.Data?
+                                .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Credit Card Payment");
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error setting up credit payment categories: " + ex.Message, Severity.Warning);
+        }
+    }
+
     private async Task EnsureTransferCategories()
     {
         try
@@ -749,7 +1127,7 @@
             if (categoriesResult.Success)
             {
                 var categories = categoriesResult.Data ?? new List<CategoryDto>();
-                
+
                 // Buscar categoría de Transfer Out (Expense)
                 _transferOutCategory = categories
                     .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Transfer Out");
@@ -762,12 +1140,12 @@
                 if (_transferOutCategory == null)
                 {
                     var transferOutDto = new CategoryDto
-                    {
-                        Name = "Transfer Out",
-                        Type = CategoryType.Expense,  // ✅ Tipo Expense para salidas
-                        Color = "#f44336",  // Rojo para salidas
-                        Icon = CategoryIcon.TrendingDown,
-                    };
+                        {
+                            Name = "Transfer Out",
+                            Type = CategoryType.Expense,  // ✅ Tipo Expense para salidas
+                            Color = "#f44336",  // Rojo para salidas
+                            Icon = CategoryIcon.TrendingDown,
+                        };
 
                     var createResult = await CategoryService.CreateAsync(transferOutDto);
                     if (createResult.Success)
@@ -786,12 +1164,12 @@
                 if (_transferInCategory == null)
                 {
                     var transferInDto = new CategoryDto
-                    {
-                        Name = "Transfer In",
-                        Type = CategoryType.Income,  // ✅ Tipo Income para entradas
-                        Color = "#4caf50",  // Verde para entradas
-                        Icon = CategoryIcon.TrendingUp ,
-                    };
+                        {
+                            Name = "Transfer In",
+                            Type = CategoryType.Income,  // ✅ Tipo Income para entradas
+                            Color = "#4caf50",  // Verde para entradas
+                            Icon = CategoryIcon.TrendingUp,
+                        };
 
                     var createResult = await CategoryService.CreateAsync(transferInDto);
                     if (createResult.Success)
@@ -872,6 +1250,7 @@
         }
     }
 
+    // ✨ UPDATED: IsFormValid with Credit Payment support
     private bool IsFormValid()
     {
         if (_transactionType == TransactionType.Transfer)
@@ -882,7 +1261,20 @@
                    _transaction.Amount > 0 &&
                    _transactionDate.HasValue &&
                    _transferOutCategory != null &&
-                   _transferInCategory != null;  // ✅ Validar ambas categorías
+                   _transferInCategory != null;
+        }
+
+        // ✨ NEW: Credit Payment validation
+        if (_transactionType == TransactionType.CreditPayment)
+        {
+            return !string.IsNullOrWhiteSpace(_fromAccountString) &&
+                   !string.IsNullOrWhiteSpace(_toAccountString) &&
+                   _fromAccountString != _toAccountString &&
+                   _transaction.Amount > 0 &&
+                   _transactionDate.HasValue &&
+                   _creditPaymentCategory != null &&
+                   _selectedFromAccount?.Type != AccountType.Credit &&
+                   _selectedToAccount?.Type == AccountType.Credit;
         }
 
         return !string.IsNullOrWhiteSpace(_transaction.Name) &&
@@ -892,15 +1284,78 @@
                (_accounts?.Any() != true || !string.IsNullOrWhiteSpace(_selectedAccountString));
     }
 
+    // ✨ UPDATED: SaveTransaction with Credit Payment support
     private async Task SaveTransaction()
     {
         if (_transactionType == TransactionType.Transfer)
         {
             await SaveTransfer();
         }
+        else if (_transactionType == TransactionType.CreditPayment)
+        {
+            await SaveCreditPayment(); // ✨ NEW method
+        }
         else
         {
             await SaveRegularTransaction();
+        }
+    }
+
+    // ✨ NEW: Save Credit Payment Logic
+    private async Task SaveCreditPayment()
+    {
+        try
+        {
+            if (!IsFormValid()) return;
+
+            if (!int.TryParse(_fromAccountString, out int fromAccountId) ||
+                !int.TryParse(_toAccountString, out int toAccountId))
+            {
+                Snackbar.Add("Invalid account selection", Severity.Error);
+                return;
+            }
+
+            var fromAccount = _accounts?.FirstOrDefault(a => a.Id == fromAccountId);
+            var toAccount = _accounts?.FirstOrDefault(a => a.Id == toAccountId);
+
+            // Crear descripción automática si está vacía
+            var description = string.IsNullOrWhiteSpace(_transaction.Description)
+                ? $"Credit card payment to {toAccount?.Name}"
+                : _transaction.Description;
+
+            // ✅ Solo crear UNA transacción (Expense) - pago de tarjeta
+            var paymentTransaction = new TransactionDto
+                {
+                    Name = $"Payment - {toAccount?.Name}",
+                    Amount = _transaction.Amount,
+                    Date = _transactionDate!.Value,
+                    Description = description,
+                    CategoryId = _creditPaymentCategory!.Id,
+                    AccountId = fromAccountId // ✅ Sale de la cuenta normal
+                };
+
+            var result = await TransactionService.CreateAsync(paymentTransaction);
+            if (!result.Success)
+            {
+                Snackbar.Add("Error creating credit payment: " + result.Message, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Credit card payment recorded successfully", Severity.Success);
+            await OnTransactionAdded.InvokeAsync();
+
+            if (!_quickAddMode)
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                ResetCreditPaymentForm();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add("Error processing credit payment: " + ex.Message, Severity.Error);
         }
     }
 
@@ -924,25 +1379,25 @@
 
             // ✅ Transacción de SALIDA (FROM account) - EXPENSE
             var outgoingTransaction = new TransactionDto
-            {
-                Name = $"Transfer to {GetToAccountName()}",
-                Amount = _transaction.Amount,
-                Date = _transactionDate!.Value,
-                Description = description,
-                CategoryId = _transferOutCategory!.Id,  // ✅ Categoría Expense
-                AccountId = fromAccountId
-            };
+                {
+                    Name = $"Transfer to {GetToAccountName()}",
+                    Amount = _transaction.Amount,
+                    Date = _transactionDate!.Value,
+                    Description = description,
+                    CategoryId = _transferOutCategory!.Id,  // ✅ Categoría Expense
+                    AccountId = fromAccountId
+                };
 
             // ✅ Transacción de ENTRADA (TO account) - INCOME
             var incomingTransaction = new TransactionDto
-            {
-                Name = $"Transfer from {GetFromAccountName()}",
-                Amount = _transaction.Amount,
-                Date = _transactionDate!.Value,
-                Description = description,
-                CategoryId = _transferInCategory!.Id,  // ✅ Categoría Income
-                AccountId = toAccountId
-            };
+                {
+                    Name = $"Transfer from {GetFromAccountName()}",
+                    Amount = _transaction.Amount,
+                    Date = _transactionDate!.Value,
+                    Description = description,
+                    CategoryId = _transferInCategory!.Id,  // ✅ Categoría Income
+                    AccountId = toAccountId
+                };
 
             // Crear ambas transacciones
             var outgoingResult = await TransactionService.CreateAsync(outgoingTransaction);
@@ -1016,6 +1471,7 @@
         }
     }
 
+    // ✨ UPDATED: SaveAndAddAnother with Credit Payment support
     private async Task SaveAndAddAnother()
     {
         await SaveTransaction();
@@ -1024,6 +1480,10 @@
             if (_transactionType == TransactionType.Transfer)
             {
                 ResetTransferForm();
+            }
+            else if (_transactionType == TransactionType.CreditPayment)
+            {
+                ResetCreditPaymentForm();
             }
             else
             {
@@ -1046,6 +1506,19 @@
         _transaction = new TransactionDto();
         _fromAccountString = string.Empty;
         _toAccountString = string.Empty;
+        _transactionDate = DateTime.Today;
+        _isDuplicating = false;
+        StateHasChanged();
+    }
+
+    // ✨ NEW: Reset Credit Payment Form
+    private void ResetCreditPaymentForm()
+    {
+        _transaction = new TransactionDto();
+        _fromAccountString = string.Empty;
+        _toAccountString = string.Empty;
+        _selectedFromAccount = null;
+        _selectedToAccount = null;
         _transactionDate = DateTime.Today;
         _isDuplicating = false;
         StateHasChanged();
@@ -1085,6 +1558,37 @@
         }
     }
 
+    // ✨ NEW: Apply Credit Payment Template
+    private void ApplyCreditPaymentTemplate(QuickTemplate template)
+    {
+        _transaction.Description = template.Name;
+
+        if (_selectedToAccount != null)
+        {
+            switch (template.Name)
+            {
+                case "Minimum Payment":
+                    // Assumir 2% del debt como pago mínimo
+                    _transaction.Amount = Math.Max(25m, GetCreditCardDebt(_selectedToAccount) * 0.02m);
+                    break;
+                case "Full Balance":
+                    _transaction.Amount = GetCreditCardDebt(_selectedToAccount);
+                    break;
+                case "Monthly Payment":
+                    // Assumir pago mensual típico
+                    _transaction.Amount = Math.Min(200m, GetCreditCardDebt(_selectedToAccount));
+                    break;
+            }
+        }
+
+        if (template.Amount.HasValue)
+        {
+            _transaction.Amount = template.Amount.Value;
+        }
+
+        StateHasChanged();
+    }
+
     private List<QuickTemplate> GetQuickTemplates()
     {
         if (_transactionType == TransactionType.Income)
@@ -1120,6 +1624,18 @@
         };
     }
 
+    // ✨ NEW: Credit Payment Templates
+    private List<QuickTemplate> GetCreditPaymentTemplates()
+    {
+        return new List<QuickTemplate>
+        {
+            new("Minimum Payment", Icons.Material.Filled.CreditCard, null, null),
+            new("Full Balance", Icons.Material.Filled.Payment, null, null),
+            new("Monthly Payment", Icons.Material.Filled.Schedule, null, null),
+            new("Extra Payment", Icons.Material.Filled.Add, null, null)
+        };
+    }
+
     private async Task CreateCategory()
     {
         var parameters = new DialogParameters
@@ -1132,12 +1648,13 @@
 
     private void Cancel() => MudDialog.Cancel();
 
-    // Helper methods
+    // ✨ UPDATED: Helper methods with Credit Payment support
     private string GetModalTitle()
     {
         return _transactionType switch
         {
             TransactionType.Transfer => _isDuplicating ? "Duplicate Transfer" : "Transfer Money",
+            TransactionType.CreditPayment => _isDuplicating ? "Duplicate Payment" : "Pay Credit Card",
             _ => _isDuplicating ? "Duplicate Transaction" : $"Add {_transactionType}"
         };
     }
@@ -1147,6 +1664,7 @@
         return _transactionType switch
         {
             TransactionType.Transfer => _isDuplicating ? "Create a copy of an existing transfer" : "Move money between your accounts",
+            TransactionType.CreditPayment => _isDuplicating ? "Create a copy of an existing payment" : "Make a credit card payment",
             _ => _isDuplicating ? "Create a copy of an existing transaction" : $"Record a new {_transactionType.ToString().ToLower()} transaction"
         };
     }
@@ -1161,14 +1679,40 @@
         return _transactionType switch
         {
             TransactionType.Transfer => _isDuplicating ? "Create Duplicate" : "Transfer Money",
+            TransactionType.CreditPayment => _isDuplicating ? "Create Duplicate" : "Pay Credit Card",
             _ => _isDuplicating ? "Create Duplicate" : $"Add {_transactionType}"
         };
     }
 
-    private string GetTransactionIcon() => _transactionType.GetIcon();
-    private Color GetTransactionColor() => _transactionType.GetMudColor();
-    private string GetTransactionColorHex() => _transactionType.GetHexColor();
+    // ✨ NEW: TransactionType Extensions (Add these to TransactionTypeExtensions.cs)
+    private string GetTransactionIcon() => _transactionType switch
+    {
+        TransactionType.Income => Icons.Material.Filled.TrendingUp,
+        TransactionType.Expense => Icons.Material.Filled.TrendingDown,
+        TransactionType.Transfer => Icons.Material.Filled.SwapHoriz,
+        TransactionType.CreditPayment => Icons.Material.Filled.CreditCard,
+        _ => Icons.Material.Filled.AttachMoney
+    };
 
+    private Color GetTransactionColor() => _transactionType switch
+    {
+        TransactionType.Income => Color.Success,
+        TransactionType.Expense => Color.Error,
+        TransactionType.Transfer => Color.Info,
+        TransactionType.CreditPayment => Color.Warning,
+        _ => Color.Primary
+    };
+
+    private string GetTransactionColorHex() => _transactionType switch
+    {
+        TransactionType.Income => "#4caf50",
+        TransactionType.Expense => "#f44336",
+        TransactionType.Transfer => "#2196f3",
+        TransactionType.CreditPayment => "#ff5722",
+        _ => "#6366f1"
+    };
+
+    // ✅ EXISTING: Helper methods restored
     private string GetSelectedCategoryColor() => _selectedCategory?.Color ?? "#6366f1";
     private string GetSelectedCategoryIcon() => _selectedCategory?.Icon.ToIcon() ?? Icons.Material.Filled.Category;
     private string GetSelectedCategoryName() => _selectedCategory?.Name ?? "Select Category";
@@ -1200,17 +1744,31 @@
     private string GetAmountDisplay()
     {
         if (_transaction.Amount <= 0) return "$0.00";
-        
-        if (_transactionType == TransactionType.Transfer)
+
+        if (_transactionType == TransactionType.Transfer || _transactionType == TransactionType.CreditPayment)
         {
             return _transaction.Amount.ToString("C");
         }
-        
+
         var sign = _transactionType == TransactionType.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }
 
     private string GetAmountColorClass() => _transactionType == TransactionType.Income ? "text-success" : "text-error";
+
+    // ✨ NEW: Get Available Credit for display
+    private decimal GetAvailableCredit(AccountDto account)
+    {
+        if (account.Type != AccountType.Credit) return 0;
+        return account.CreditLimit + account.Balance; // Balance será negativo
+    }
+
+    // ✨ NEW: Get Credit Card Debt
+    private decimal GetCreditCardDebt(AccountDto account)
+    {
+        if (account.Type != AccountType.Credit) return 0;
+        return Math.Abs(account.Balance); // Mostrar como positivo
+    }
 
     // Helper classes
     public record QuickTemplate(string Name, string Icon, decimal? Amount, int? CategoryId);

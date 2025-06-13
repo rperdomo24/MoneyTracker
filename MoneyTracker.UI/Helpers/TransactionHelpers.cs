@@ -20,21 +20,6 @@ public static class TransactionHelpers
         return $"{sign}{transaction.Amount:C}";
     }
 
-    /// <summary>
-    /// Obtiene el display del monto sin null checking (para cuando estés seguro que no es null)
-    /// </summary>
-    public static string GetAmountDisplay(this TransactionDto transaction)
-    {
-        var sign = transaction.Category?.Type == CategoryType.Income ? "+" : "-";
-        return $"{sign}{transaction.Amount:C}";
-    }
-
-    public static string GetTransactionSubtitle(this TransactionDto transaction)
-    {
-        if (transaction == null) return "";
-        return $"{transaction.Category?.Name} • {transaction.GetShortFormattedDate()}";
-    }
-
     #endregion
 
     #region CSS Classes
@@ -47,14 +32,6 @@ public static class TransactionHelpers
         if (transaction?.Category?.Type == CategoryType.Income)
             return "text-success";
         return transaction?.Category?.Type == CategoryType.Expense ? "text-error" : "";
-    }
-
-    /// <summary>
-    /// Obtiene la clase CSS para el color del monto sin null checking
-    /// </summary>
-    public static string GetAmountColorClass(this TransactionDto transaction)
-    {
-        return transaction.Category?.Type == CategoryType.Income ? "text-success" : "text-error";
     }
 
     #endregion
@@ -122,22 +99,6 @@ public static class TransactionHelpers
     #region Transaction Type Helpers
 
     /// <summary>
-    /// Determina si la transacción es un ingreso
-    /// </summary>
-    public static bool IsIncome(this TransactionDto? transaction)
-    {
-        return transaction?.Category?.Type == CategoryType.Income;
-    }
-
-    /// <summary>
-    /// Determina si la transacción es un gasto
-    /// </summary>
-    public static bool IsExpense(this TransactionDto? transaction)
-    {
-        return transaction?.Category?.Type == CategoryType.Expense;
-    }
-
-    /// <summary>
     /// Obtiene el ícono para el tipo de categoría
     /// </summary>
     public static string GetCategoryTypeIcon(this CategoryType categoryType)
@@ -165,14 +126,6 @@ public static class TransactionHelpers
     public static string GetFormattedDate(this TransactionDto transaction)
     {
         return transaction.Date.GetFormattedDate();
-    }
-
-    /// <summary>
-    /// Obtiene una fecha formateada corta específica para transacciones (usa DateTimeHelpers)
-    /// </summary>
-    public static string GetShortFormattedDate(this TransactionDto transaction)
-    {
-        return transaction.Date.GetShortFormattedDate();
     }
 
     /// <summary>
