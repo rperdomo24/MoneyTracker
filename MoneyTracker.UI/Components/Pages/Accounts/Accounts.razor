@@ -23,12 +23,12 @@
                 </MudText>
             </MudItem>
             <MudItem xs="12" md="6" Class="d-flex justify-end">
-                <MudButton Color="Color.Primary" 
-                          Variant="Variant.Filled" 
-                          StartIcon="@Icons.Material.Filled.Add" 
-                          OnClick="OpenAddDialog"
-                          Size="Size.Large"
-                          Class="px-6">
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenAddDialog"
+                           Size="Size.Large"
+                           Class="px-6">
                     Add New Account
                 </MudButton>
             </MudItem>
@@ -50,22 +50,23 @@
             <MudText Typo="Typo.body2" Class="text-muted mb-4">
                 Get started by adding your first financial account
             </MudText>
-            <MudButton Color="Color.Primary" 
-                      Variant="Variant.Filled" 
-                      StartIcon="@Icons.Material.Filled.Add" 
-                      OnClick="OpenAddDialog">
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
                 Add Your First Account
             </MudButton>
         </MudPaper>
     }
     else
     {
+        <!-- ✅ Statistics Cards - Corregidas -->
         <MudPaper Class="pa-4 mb-4" Elevation="1">
             <MudGrid>
                 <MudItem xs="12" sm="6" md="3">
                     <MudText Typo="Typo.body2" Class="text-muted">Total Balance</MudText>
-                    <MudText Typo="Typo.h5" Class="font-weight-bold">
-                        $@_accounts.Sum(a => a.Balance).ToString("N2")
+                    <MudText Typo="Typo.h5" Class="@GetTotalBalanceColorClass()">
+                        @GetTotalBalance()
                     </MudText>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
@@ -82,8 +83,8 @@
                 </MudItem>
                 <MudItem xs="12" sm="6" md="3">
                     <MudText Typo="Typo.body2" Class="text-muted">Credit Available</MudText>
-                    <MudText Typo="Typo.h5" Class="font-weight-bold">
-                        $@_accounts.Sum(a => a.CreditLimit - a.Balance).ToString("N2")
+                    <MudText Typo="Typo.h5" Class="font-weight-bold text-success">
+                        @GetTotalCreditAvailable()
                     </MudText>
                 </MudItem>
             </MudGrid>
@@ -98,23 +99,23 @@
                         <MudText Typo="Typo.h6" Class="d-flex align-center">
                             <MudIcon Icon="@group.Key.ToIcon()" Class="mr-2" />
                             @group.Key.ToLabel()
-                            <MudChip Size="Size.Small" T="string">@group.Count() accounts</MudChip>
+                            <MudChip Size="Size.Small" T="string" Class="ml-2">@group.Count() accounts</MudChip>
                         </MudText>
                     </MudItem>
                     <MudItem xs="12" sm="4" Class="text-right">
                         <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
-                            Total: $@group.Sum(a => a.Balance).ToString("N2")
+                            Total: @GetGroupTotal(group)
                         </MudText>
                     </MudItem>
                 </MudGrid>
 
                 <!-- Accounts Table -->
-                <MudTable Items="group.ToList()" 
-                         Hover="true" 
-                         Dense="false" 
-                         Striped="true"
-                         Elevation="0"
-                         Class="mud-table-responsive">
+                <MudTable Items="group.ToList()"
+                          Hover="true"
+                          Dense="false"
+                          Striped="true"
+                          Elevation="0"
+                          Class="mud-table-responsive">
                     <HeaderContent>
                         <MudTh><MudText Typo="Typo.caption">Account</MudText></MudTh>
                         <MudTh><MudText Typo="Typo.caption">Balance</MudText></MudTh>
@@ -125,9 +126,9 @@
                     <RowTemplate>
                         <MudTd>
                             <div class="d-flex align-center">
-                                <MudIcon Icon="@context.Icon.ToIcon()" 
-                                        Style="@($"color: {context.Color};")" 
-                                        Class="mr-3" />
+                                <MudIcon Icon="@context.Icon.ToIcon()"
+                                         Style="@($"color: {context.Color};")"
+                                         Class="mr-3" />
                                 <div>
                                     <MudText Typo="Typo.body2" Class="font-weight-medium">
                                         @context.Name
@@ -139,13 +140,13 @@
                             </div>
                         </MudTd>
                         <MudTd>
-                            <MudText Typo="Typo.body2" Class="@GetBalanceColorClass(context.Balance)">
-                                $@context.Balance.ToString("N2")
+                            <MudText Typo="Typo.body2" Class="@GetBalanceColorClass(context.CurrentBalance)">
+                                @context.FormattedBalance
                             </MudText>
                         </MudTd>
                         <MudTd>
                             <MudText Typo="Typo.body2">
-                                @if (context.CreditLimit > 0)
+                                @if (context.Type == AccountType.Credit && context.CreditLimit > 0)
                                 {
                                     @($"${context.CreditLimit:N2}")
                                 }
@@ -157,9 +158,11 @@
                         </MudTd>
                         <MudTd>
                             <MudText Typo="Typo.body2">
-                                @if (context.CreditLimit > 0)
+                                @if (context.Type == AccountType.Credit && context.CreditLimit > 0)
                                 {
-                                    @($"${(context.CreditLimit - context.Balance):N2}")
+                                    var available = context.AvailableCredit;
+                                    var colorClass = context.IsOverLimit ? "text-error" : "text-success";
+                                    <span class="@colorClass">@($"${available:N2}")</span>
                                 }
                                 else
                                 {
@@ -170,21 +173,21 @@
                         <MudTd>
                             <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
                                 <MudButton Color="Color.Primary"
-                                          StartIcon="@Icons.Material.Filled.Visibility"
-                                          OnClick="@(() => ViewAccount(context.Id))"
-                                          Title="View Details">
+                                           StartIcon="@Icons.Material.Filled.Visibility"
+                                           OnClick="@(() => ViewAccount(context.Id))"
+                                           Title="View Details">
                                     View
                                 </MudButton>
                                 <MudButton Color="Color.Secondary"
-                                          StartIcon="@Icons.Material.Filled.Edit"
-                                          OnClick="@(() => OpenEditDialog(context.Id))"
-                                          Title="Edit Account">
+                                           StartIcon="@Icons.Material.Filled.Edit"
+                                           OnClick="@(() => OpenEditDialog(context.Id))"
+                                           Title="Edit Account">
                                     Edit
                                 </MudButton>
                                 <MudButton Color="Color.Error"
-                                          StartIcon="@Icons.Material.Filled.Delete"
-                                          OnClick="@(() => DeleteAccount(context.Id))"
-                                          Title="Delete Account">
+                                           StartIcon="@Icons.Material.Filled.Delete"
+                                           OnClick="@(() => DeleteAccount(context.Id))"
+                                           Title="Delete Account">
                                     Delete
                                 </MudButton>
                             </MudButtonGroup>
@@ -200,14 +203,14 @@
     private List<AccountDto> _accounts = new();
     private bool _loading = true;
     private IEnumerable<IGrouping<AccountType, AccountDto>> _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
-    
-    private readonly DialogOptions _dialogOptions = new() 
-    { 
-        CloseButton = true, 
-        FullWidth = true, 
-        MaxWidth = MaxWidth.Large,
-        CloseOnEscapeKey = true
-    };
+
+    private readonly DialogOptions _dialogOptions = new()
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Large,
+            CloseOnEscapeKey = true
+        };
 
     protected override async Task OnInitializedAsync()
     {
@@ -218,10 +221,11 @@
     {
         _loading = true;
         StateHasChanged();
-        
+
         try
         {
-            var result = await AccountService.GetAllAsync();
+            // ✅ FIXED: Use GetAccountsWithBalancesAsync to get calculated balances
+            var result = await AccountService.GetAccountsWithBalancesAsync();
             if (result.Success && result.Data is not null)
             {
                 _accounts = result.Data;
@@ -255,20 +259,20 @@
 
     private async Task OpenEditDialog(int id)
     {
-        var parameters = new DialogParameters 
-        { 
-            ["AccountId"] = id, 
-            ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccounts) 
-        };
+        var parameters = new DialogParameters
+            {
+                ["AccountId"] = id,
+                ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccounts)
+            };
         await DialogService.ShowAsync<UpdateAccountModal>("Update Account", parameters, _dialogOptions);
     }
 
     private async Task OpenAddDialog()
     {
-        var parameters = new DialogParameters 
-        { 
-            ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAccounts) 
-        };
+        var parameters = new DialogParameters
+            {
+                ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAccounts)
+            };
         await DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, _dialogOptions);
     }
 
@@ -276,11 +280,11 @@
     {
         var account = _accounts.FirstOrDefault(a => a.Id == id);
         var accountName = account?.Name ?? "this account";
-        
+
         bool confirmed = await DialogService.ShowMessageBox(
             "Delete Account",
-            $"Are you sure you want to delete '{accountName}'? This action cannot be undone.",
-            yesText: "Delete", 
+            $"Are you sure you want to delete '{accountName}'? This action cannot be undone and will also delete all associated transactions.",
+            yesText: "Delete",
             cancelText: "Cancel",
             options: new DialogOptions { CloseButton = true }) ?? false;
 
@@ -306,13 +310,45 @@
         }
     }
 
+    // ✅ Helper Methods for Calculations
     private string GetBalanceColorClass(decimal balance)
     {
         return balance switch
         {
             > 0 => "text-success",
             < 0 => "text-error",
-            _ => ""
+            _ => "text-muted"
         };
+    }
+
+    private string GetTotalBalanceColorClass()
+    {
+        var total = _accounts.Sum(a => a.CurrentBalance);
+        return total switch
+        {
+            > 0 => "font-weight-bold text-success",
+            < 0 => "font-weight-bold text-error",
+            _ => "font-weight-bold text-muted"
+        };
+    }
+
+    private string GetTotalBalance()
+    {
+        var total = _accounts.Sum(a => a.CurrentBalance);
+        return $"${total:N2}";
+    }
+
+    private string GetTotalCreditAvailable()
+    {
+        var creditAccounts = _accounts.Where(a => a.Type == AccountType.Credit && a.CreditLimit > 0);
+        var totalAvailable = creditAccounts.Sum(a => a.AvailableCredit);
+        return $"${totalAvailable:N2}";
+    }
+
+    private string GetGroupTotal(IGrouping<AccountType, AccountDto> group)
+    {
+        var total = group.Sum(a => a.CurrentBalance);
+        var colorClass = total >= 0 ? "text-success" : "text-error";
+        return $"${total:N2}";
     }
 }

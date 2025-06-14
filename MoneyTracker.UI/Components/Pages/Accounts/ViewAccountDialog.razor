@@ -1,322 +1,278 @@
-﻿@using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Application.DTOs
-@using MoneyTracker.Application.Common
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.Common.Extensions
 @inject IAccountService AccountService
-@inject IDialogService DialogService
+@inject ITransactionService TransactionService
 @inject ISnackbar Snackbar
 
 <MudDialog>
-    <TitleContent>
-        @if (_account is not null)
-        {
-            <div class="d-flex align-center justify-space-between" style="width: 100%;">
-                <div class="d-flex align-center">
-                    <MudAvatar Size="Size.Medium"
-                               Style="@($"background-color: {_account.Color}; margin-right: 12px;")">
-                        <MudIcon Icon="@_account.Icon.ToIcon()" Color="Color.Surface" />
-                    </MudAvatar>
-                    <div>
-                        <MudText Typo="Typo.h6" Class="font-weight-bold mb-0">
-                            @_account.Name
-                        </MudText>
-                        <MudText Typo="Typo.caption" Class="text-muted">
-                            @_account.Type.ToLabel()
-                        </MudText>
-                    </div>
-                </div>
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Edit"
-                           OnClick="OpenEditDialog"
-                           Size="Size.Small">
-                    Edit
-                </MudButton>
-            </div>
-        }
-        else if (_loading)
-        {
-            <div class="d-flex align-center">
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-3" />
-                <MudText Typo="Typo.h6">Loading Account...</MudText>
-            </div>
-        }
-        else
-        {
-            <MudText Typo="Typo.h6">Account Details</MudText>
-        }
-    </TitleContent>
-
     <DialogContent>
-        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
-            @if (_loading)
-            {
-                <div class="text-center pa-8">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                    <MudText Typo="Typo.body1" Class="mt-4">Loading account details...</MudText>
-                </div>
-            }
-            else if (_account is not null)
-            {
-                <!-- Account Summary Card -->
-                <MudPaper Class="pa-6 mb-4" Elevation="2" Style="@($"border-left: 6px solid {_account.Color};")">
+        @if (_loading)
+        {
+            <div class="d-flex justify-center pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+            </div>
+        }
+        else if (_account is not null)
+        {
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+                <!-- Account Header -->
+                <MudPaper Class="pa-4 mb-4" Elevation="0">
                     <MudGrid AlignItems="Center">
-                        <MudItem xs="12" md="8">
-                            <MudText Typo="Typo.subtitle2" Class="text-muted mb-1">
-                                Current Balance
+                        <MudItem xs="12" sm="8">
+                            <div class="d-flex align-center text-white">
+                                <MudIcon Icon="@_account.Icon.ToIcon()" 
+                                        Size="Size.Large" 
+                                        Class="mr-3"
+                                        Style="@($"color: {_account.Color}; background: white; border-radius: 50%; padding: 8px;")" />
+                                <div>
+                                    <MudText Typo="Typo.h5" Class="font-weight-bold">
+                                        @_account.Name
+                                    </MudText>
+                                    <MudText Typo="Typo.body2" Class="opacity-90">
+                                        @_account.Type.ToString() Account
+                                    </MudText>
+                                </div>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="12" sm="4" Class="text-right">
+                            <MudText Typo="Typo.h4" Class="font-weight-bold text-white">
+                                @_account.FormattedBalance
                             </MudText>
-                            <MudText Typo="Typo.h4" Class="@($"{GetBalanceColorClass(_account.Balance)} font-weight-bold")">
-                                $@_account.Balance.ToString("N2")
-                            </MudText>
-                            @if (!string.IsNullOrEmpty(_account.Notes))
+                            @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
                             {
-                                <MudText Typo="Typo.body2" Class="text-muted mt-2">
-                                    @_account.Notes
+                                <MudText Typo="Typo.body2" Class="opacity-90">
+                                    Available: @($"${_account.AvailableCredit:N2}")
                                 </MudText>
                             }
                         </MudItem>
-                        <MudItem xs="12" md="4" Class="text-center">
-                            @if (_account.CreditLimit > 0)
-                            {
-                                <MudText Typo="Typo.caption" Class="text-muted">Credit Limit</MudText>
-                                <MudText Typo="Typo.h6" Class="font-weight-medium">
-                                    $@_account.CreditLimit.ToString("N2")
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="text-muted">Available</MudText>
-                                <MudText Typo="Typo.subtitle1" Color="Color.Success" Class="font-weight-medium">
-                                    $@((_account.CreditLimit - _account.Balance).ToString("N2"))
-                                </MudText>
-                                <MudProgressLinear Color="Color.Primary"
-                                                   Value="@(GetCreditUtilizationPercent(_account.Balance, _account.CreditLimit))"
-                                                   Class="mt-2" />
+                    </MudGrid>
+                </MudPaper>
 
-                                <MudText Typo = "Typo.caption" Class = "text-muted mt-1" >
-                                    @(Math.Round((_account.Balance / _account.CreditLimit) * 100, 1)) % utilized
-                                </MudText >
+                <MudGrid>
+                    <!-- Account Details -->
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="1">
+                            <MudText Typo="Typo.h6" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
+                                Account Details
+                            </MudText>
+                            
+                            <MudList T="string" Dense="true">
+                                <MudListItem Icon="@Icons.Material.Filled.AccountBalance">
+                                    <div class="d-flex justify-space-between align-center">
+                                        <MudText>Account Type</MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">
+                                            @_account.Type.ToString()
+                                        </MudChip>
+                                    </div>
+                                </MudListItem>
+                                
+                                <MudListItem Icon="@Icons.Material.Filled.AttachMoney">
+                                    <div class="d-flex justify-space-between align-center">
+                                        <MudText>Current Balance</MudText>
+                                        <MudText Class="@($"{GetBalanceColorClass(_account.CurrentBalance)} font-weight-bold")">
+                                            @_account.FormattedBalance
+                                        </MudText>
+                                    </div>
+                                </MudListItem>
+
+                                @if (_account.Type == AccountType.Credit)
+                                {
+                                    <MudListItem Icon="@Icons.Material.Filled.CreditCard">
+                                        <div class="d-flex justify-space-between align-center">
+                                            <MudText>Credit Limit</MudText>
+                                            <MudText Class="font-weight-medium">
+                                                @(_account.CreditLimit > 0 ? $"${_account.CreditLimit:N2}" : "No Limit")
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+
+                                    @if (_account.CreditLimit > 0)
+                                    {
+                                        <MudListItem Icon="@Icons.Material.Filled.AccountBalanceWallet">
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText>Available Credit</MudText>
+                                                <MudText >
+                                                    @($"${_account.AvailableCredit:N2}")
+                                                </MudText>
+                                            </div>
+                                        </MudListItem>
+
+                                        <MudListItem Icon="@Icons.Material.Filled.TrendingUp">
+                                            <div class="d-flex justify-space-between align-center">
+                                                <MudText>Credit Utilization</MudText>
+                                                @{
+                                                    var utilization = _account.CreditLimit > 0 ? (Math.Abs(_account.CurrentBalance) / _account.CreditLimit) * 100 : 0;
+                                                    var utilizationColor = utilization switch
+                                                    {
+                                                        <= 30 => Color.Success,
+                                                        <= 70 => Color.Warning,
+                                                        _ => Color.Error
+                                                    };
+                                                }
+                                                <MudText Class="font-weight-medium">
+                                                    <MudChip T="string" Size="Size.Small" Color="@utilizationColor">
+                                                        @($"{utilization:F1}%")
+                                                    </MudChip>
+                                                </MudText>
+                                            </div>
+                                        </MudListItem>
+                                    }
+                                }
+
+                                @if (!string.IsNullOrEmpty(_account.Notes))
+                                {
+                                    <MudListItem Icon="@Icons.Material.Filled.Notes">
+                                        <div>
+                                            <MudText Class="font-weight-medium">Notes</MudText>
+                                            <MudText Typo="Typo.body2" Class="text-muted mt-1">
+                                                @_account.Notes
+                                            </MudText>
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Recent Transactions -->
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4" Elevation="1">
+                            <MudText Typo="Typo.h6" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" />
+                                Recent Transactions
+                            </MudText>
+
+                            @if (_loadingTransactions)
+                            {
+                                <div class="d-flex justify-center pa-4">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                                </div>
+                            }
+                            else if (_recentTransactions.Any())
+                            {
+                                <MudList T="string" Dense="true">
+                                    @foreach (var transaction in _recentTransactions.Take(5))
+                                    {
+                                        <MudListItem>
+                                            <div class="d-flex justify-space-between align-center">
+                                                <div>
+                                                    <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                                        @transaction.Description
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Class="text-muted">
+                                                        @transaction.Date.ToString("MMM dd, yyyy")
+                                                    </MudText>
+                                                </div>
+                                                <MudText >
+                                                    @(transaction.IsIncome() ? "+" : "-")@($"${transaction.Amount:N2}")
+                                                </MudText>
+                                            </div>
+                                        </MudListItem>
+                                    }
+                                </MudList>
+
+                                @if (_recentTransactions.Count > 5)
+                                {
+                                    <MudButton FullWidth="true" 
+                                              Variant="Variant.Text" 
+                                              Color="Color.Primary"
+                                              Class="mt-2">
+                                        View All Transactions (@_recentTransactions.Count)
+                                    </MudButton>
+                                }
                             }
                             else
                             {
-                                <MudIcon Icon="@_account.Icon.ToIcon()"
-                                         Style="@($"color: {_account.Color};")"
-                                         Size="Size.Large" />
+                                <div class="text-center pa-4">
+                                    <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Class="text-muted mb-2" />
+                                    <MudText Typo="Typo.body2" Class="text-muted">
+                                        No transactions yet
+                                    </MudText>
+                                </div>
                             }
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
+                        </MudPaper>
+                    </MudItem>
 
-                <!-- Quick Actions -->
-                <MudGrid Class="mb-4">
-                    <MudItem xs="6" sm="3">
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Primary"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.Add"
-                                   Class="py-3">
-                            Add Transaction
-                        </MudButton>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Secondary"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.SwapHoriz"
-                                   Class="py-3">
-                            Transfer
-                        </MudButton>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Info"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.Assessment"
-                                   Class="py-3">
-                            Reports
-                        </MudButton>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Warning"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.Edit"
-                                   OnClick="OpenEditDialog"
-                                   Class="py-3">
-                            Edit Account
-                        </MudButton>
+                    <!-- Quick Actions -->
+                    <MudItem xs="12">
+                        <MudPaper Class="pa-4" Elevation="1">
+                            <MudText Typo="Typo.h6" Class="mb-3">
+                                <MudIcon Icon="@Icons.Material.Filled.FlashOn" Class="mr-2" />
+                                Quick Actions
+                            </MudText>
+                            
+                            <MudButtonGroup Variant="Variant.Outlined" Class="gap-2">
+                                <MudButton Color="Color.Success"
+                                          StartIcon="@Icons.Material.Filled.Add"
+                                          OnClick="@(() => AddTransaction(TransactionType.Income))">
+                                    Add Income
+                                </MudButton>
+                                <MudButton Color="Color.Error"
+                                          StartIcon="@Icons.Material.Filled.Remove"
+                                          OnClick="@(() => AddTransaction(TransactionType.Expense))">
+                                    Add Expense
+                                </MudButton>
+                                <MudButton Color="Color.Primary"
+                                          StartIcon="@Icons.Material.Filled.SwapHoriz"
+                                          OnClick="@(() => AddTransaction(TransactionType.Transfer))">
+                                    Transfer Money
+                                </MudButton>
+                                <MudButton Color="Color.Secondary"
+                                          StartIcon="@Icons.Material.Filled.Tune"
+                                          OnClick="AdjustBalance">
+                                    Adjust Balance
+                                </MudButton>
+                            </MudButtonGroup>
+                        </MudPaper>
                     </MudItem>
                 </MudGrid>
-
-                <!-- Recent Transactions Section -->
-                <MudPaper Class="pa-4" Elevation="1">
-                    <div class="d-flex align-center justify-space-between mb-3">
-                        <MudText Typo="Typo.h6" Class="font-weight-medium">
-                            <MudIcon Icon="@Icons.Material.Filled.History" Class="mr-2" Size="Size.Small" />
-                            Recent Transactions
-                        </MudText>
-                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">
-                            @MockTransactions.Count total
-                        </MudChip>
-                    </div>
-
-                    @if (MockTransactions.Any())
-                    {
-                        <MudList T="string" Dense="true" Class="pa-0">
-                            @foreach (var (transaction, index) in MockTransactions.Take(5).Select((t, i) => (t, i)))
-                            {
-                                <MudListItem Class="px-0 py-2" Style="border-radius: 8px;">
-                                    <div class="d-flex align-center justify-space-between" style="width: 100%;">
-                                        <div class="d-flex align-center">
-                                            <MudAvatar Size="Size.Medium"
-                                                       Style="@($"background-color: {transaction.Color}; margin-right: 12px;")">
-                                                <MudIcon Icon="@transaction.Icon" Color="Color.Surface" Size="Size.Small" />
-                                            </MudAvatar>
-                                            <div>
-                                                <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                                    @transaction.Description
-                                                </MudText>
-                                                <MudText Typo="Typo.caption" Class="text-muted">
-                                                    @transaction.AccountName • @GetRelativeTime(index)
-                                                </MudText>
-                                            </div>
-                                        </div>
-                                        <div class="text-right">
-                                            <MudText Typo="Typo.body2"
-                                                     Class="@($"{GetAmountColorClass(transaction.Amount)} font-weight-medium")">
-                                                @(transaction.Amount >= 0 ? "+" : "")@transaction.Amount.ToString("C2")
-                                            </MudText>
-                                        </div>
-                                    </div>
-                                </MudListItem>
-                                @if (index < MockTransactions.Take(5).Count() - 1)
-                                {
-                                    <MudDivider />
-                                }
-                            }
-                        </MudList>
-
-                        <MudDivider Class="my-3" />
-                        <MudButton Variant="Variant.Text"
-                                   Color="Color.Primary"
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.ViewList"
-                                   Class="text-transform-none">
-                            View All Transactions (@MockTransactions.Count)
-                        </MudButton>
-                    }
-                    else
-                    {
-                        <div class="text-center pa-4">
-                            <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Class="text-muted mb-2" />
-                            <MudText Typo="Typo.body2" Class="text-muted">
-                                No transactions yet
-                            </MudText>
-                            <MudButton Variant="Variant.Text"
-                                       Color="Color.Primary"
-                                       StartIcon="@Icons.Material.Filled.Add"
-                                       Class="mt-2">
-                                Add First Transaction
-                            </MudButton>
-                        </div>
-                    }
-                </MudPaper>
-
-                <!-- Account Details Card -->
-                <MudPaper Class="pa-4 mt-4" Elevation="1">
-                    <MudText Typo="Typo.h6" Class="font-weight-medium mb-3">
-                        <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" Size="Size.Small" />
-                        Account Information
-                    </MudText>
-                    <MudGrid>
-                        <MudItem xs="6" md="3">
-                            <MudText Typo="Typo.caption" Class="text-muted">Type</MudText>
-                            <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                @_account.Type.ToLabel()
-                            </MudText>
-                        </MudItem>
-                        <MudItem xs="6" md="3">
-                            <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
-                            <MudText Typo="Typo.body2" Class="@($"{GetBalanceColorClass(_account.Balance)} font-weight-medium")">
-                                $@_account.Balance.ToString("N2")
-                            </MudText>
-                        </MudItem>
-                        @if (_account.CreditLimit > 0)
-                        {
-                            <MudItem xs="6" md="3">
-                                <MudText Typo="Typo.caption" Class="text-muted">Credit Limit</MudText>
-                                <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                    $@_account.CreditLimit.ToString("N2")
-                                </MudText>
-                            </MudItem>
-                            <MudItem xs="6" md="3">
-                                <MudText Typo="Typo.caption" Class="text-muted">Available Credit</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Success" Class="font-weight-medium">
-                                    $@((_account.CreditLimit - _account.Balance).ToString("N2"))
-                                </MudText>
-                            </MudItem>
-                        }
-                        else
-                        {
-                            <MudItem xs="6" md="3">
-                                <MudText Typo="Typo.caption" Class="text-muted">Created</MudText>
-                                <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                    Recently
-                                </MudText>
-                            </MudItem>
-                            <MudItem xs="6" md="3">
-                                <MudText Typo="Typo.caption" Class="text-muted">Status</MudText>
-                                <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
-                            </MudItem>
-                        }
-                    </MudGrid>
-                </MudPaper>
-            }
-            else
-            {
-                <MudAlert Severity="Severity.Error" Class="ma-4">
-                    <MudText>Failed to load account details. Please try again.</MudText>
-                </MudAlert>
-            }
-        </MudContainer>
+            </MudContainer>
+        }
+        else
+        {
+            <div class="text-center pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Large" Class="text-error mb-2" />
+                <MudText Typo="Typo.h6">Account not found</MudText>
+            </div>
+        }
     </DialogContent>
-
+    
     <DialogActions>
-        <div class="d-flex justify-space-between align-center" style="width: 100%;">
-            <div>
-                @if (_account is not null)
-                {
-                    <MudText Typo="Typo.caption" Class="text-muted">
-                        <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Class="mr-1" />
-                        Last updated: Just now
-                    </MudText>
-                }
-            </div>
-            <div>
-                <MudButton Color="Color.Default"
-                           Variant="Variant.Text"
-                           OnClick="Close">
-                    Close
-                </MudButton>
-            </div>
-        </div>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Close</MudButton>
+        @if (_account is not null)
+        {
+            <MudButton Color="Color.Secondary" 
+                      StartIcon="@Icons.Material.Filled.Edit"
+                      OnClick="EditAccount"
+                      Variant="Variant.Filled">
+                Edit Account
+            </MudButton>
+        }
     </DialogActions>
 </MudDialog>
 
 @code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public int AccountId { get; set; }
-    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; }
 
     private AccountDto? _account;
+    private List<TransactionDto> _recentTransactions = new();
     private bool _loading = true;
+    private bool _loadingTransactions = true;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadAccount();
+        await LoadRecentTransactions();
     }
 
     private async Task LoadAccount()
     {
-        _loading = true;
-        StateHasChanged();
-
         try
         {
             var result = await AccountService.GetByIdAsync(AccountId);
@@ -326,7 +282,7 @@
             }
             else
             {
-                Snackbar.Add(result.Message ?? "Failed to load account details", Severity.Error);
+                Snackbar.Add(result.Message ?? "Account not found", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -336,30 +292,30 @@
         finally
         {
             _loading = false;
-            StateHasChanged();
         }
     }
 
-    private void Close() => MudDialog.Close(DialogResult.Cancel());
-
-    private async Task OpenEditDialog()
+    private async Task LoadRecentTransactions()
     {
-        if (_account is null) return;
-
-        var parameters = new DialogParameters
+        try
+        {
+            var result = await TransactionService.GetAllAsync();
+            if (result.Success && result.Data is not null)
             {
-                ["AccountId"] = _account.Id,
-                ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccount)
-            };
-
-        var dialogOptions = new DialogOptions
-            {
-                CloseButton = true,
-                FullWidth = true,
-                MaxWidth = MaxWidth.Large
-            };
-
-        await DialogService.ShowAsync<UpdateAccountModal>("Update Account", parameters, dialogOptions);
+                _recentTransactions = result.Data
+                    .Where(t => t.AccountId == AccountId)
+                    .OrderByDescending(t => t.Date)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading transactions: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loadingTransactions = false;
+        }
     }
 
     private string GetBalanceColorClass(decimal balance)
@@ -368,53 +324,27 @@
         {
             > 0 => "text-success",
             < 0 => "text-error",
-            _ => ""
+            _ => "text-muted"
         };
     }
 
-    private string GetAmountColorClass(decimal amount)
-    {
-        return amount switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => ""
-        };
-    }
-    private double GetCreditUtilizationPercent(decimal balance, decimal creditLimit)
-    {
-        if (creditLimit == 0) return 0;
-        return (double)(balance / creditLimit) * 100;
-    }
-    // Mock data for demonstration
-    private List<TransactionDto> MockTransactions = new()
-    {
-        new() { Description = "Salary Deposit", AccountName = "Direct Deposit", Amount = 2500.00m, Icon = Icons.Material.Filled.AttachMoney, Color = "#4caf50" },
-        new() { Description = "Grocery Shopping", AccountName = "Supermarket", Amount = -127.45m, Icon = Icons.Material.Filled.ShoppingCart, Color = "#ff9800" },
-        new() { Description = "Netflix Subscription", AccountName = "Streaming", Amount = -15.99m, Icon = Icons.Material.Filled.Movie, Color = "#9c27b0" },
-        new() { Description = "Gas Station", AccountName = "Fuel", Amount = -45.00m, Icon = Icons.Material.Filled.LocalGasStation, Color = "#f44336" },
-        new() { Description = "Coffee Shop", AccountName = "Starbucks", Amount = -5.75m, Icon = Icons.Material.Filled.LocalCafe, Color = "#795548" },
-        new() { Description = "ATM Withdrawal", AccountName = "Cash", Amount = -100.00m, Icon = Icons.Material.Filled.LocalAtm, Color = "#607d8b" }
-    };
+    private void Cancel() => MudDialog.Cancel();
 
-    public class TransactionDto
+    private void EditAccount()
     {
-        public string Description { get; set; } = "";
-        public string AccountName { get; set; } = "";
-        public decimal Amount { get; set; }
-        public string Icon { get; set; } = "";
-        public string Color { get; set; } = "#ccc";
+        // Close this dialog and open edit dialog
+        MudDialog.Close(DialogResult.Ok($"edit:{AccountId}"));
     }
 
-    private string GetRelativeTime(int index)
+    private void AddTransaction(TransactionType type)
     {
-        return index switch
-        {
-            0 => "2 min ago",
-            1 => "1 hour ago",
-            2 => "3 hours ago",
-            3 => "Yesterday",
-            _ => "2 days ago"
-        };
+        // Close this dialog and open add transaction dialog
+        MudDialog.Close(DialogResult.Ok($"transaction:{type}:{AccountId}"));
+    }
+
+    private void AdjustBalance()
+    {
+        // Close this dialog and open balance adjustment dialog
+        MudDialog.Close(DialogResult.Ok($"adjust:{AccountId}"));
     }
 }

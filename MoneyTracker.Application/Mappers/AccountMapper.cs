@@ -12,7 +12,7 @@ namespace MoneyTracker.Application.Mappers
             {
                 Id = entity.Id,
                 Name = entity.Name,
-                Balance = entity.Balance,
+                CurrentBalance = entity.Balance,
                 CreditLimit = entity.CreditLimit,
                 Notes = entity.Notes,
                 Icon = Enum.TryParse<AccountIcon>(entity.Icon, out var parsedIcon) ? parsedIcon : AccountIcon.Wallet,
@@ -27,7 +27,7 @@ namespace MoneyTracker.Application.Mappers
             {
                 Id = dto.Id,
                 Name = dto.Name,
-                Balance = dto.Balance,
+                Balance = 0,
                 CreditLimit = dto.CreditLimit,
                 Notes = dto.Notes,
                 Icon = dto.Icon.ToString(),
@@ -39,7 +39,7 @@ namespace MoneyTracker.Application.Mappers
         public static void UpdateEntity(this Account entity, AccountDto dto)
         {
             entity.Name = dto.Name;
-            entity.Balance = dto.Balance;
+            //entity.Balance = dto.CurrentBalance;
             entity.CreditLimit = dto.CreditLimit;
             entity.Notes = dto.Notes;
             entity.Icon = dto.Icon.ToString();

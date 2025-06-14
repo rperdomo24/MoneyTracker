@@ -13,7 +13,7 @@ namespace MoneyTracker.Application.Validators
                 .NotEmpty().WithMessage(ValidationMessages.Required)
                 .MaximumLength(100).WithMessage(string.Format(ValidationMessages.MaxLength, 100));
 
-            RuleFor(a => a.Balance)
+            RuleFor(a => a.CurrentBalance)
                 .GreaterThanOrEqualTo(0)
                 .WithMessage(ValidationMessages.AmountNotNegative);
 
@@ -47,3 +47,4 @@ namespace MoneyTracker.Application.Validators
         };
     }
 }
+

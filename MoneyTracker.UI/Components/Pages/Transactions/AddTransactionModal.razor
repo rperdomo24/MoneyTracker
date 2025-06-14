@@ -77,7 +77,7 @@
                                                                     <div>
                                                                         <MudText Typo="Typo.body2">@account.Name</MudText>
                                                                         <MudText Typo="Typo.caption" Class="text-muted">
-                                                                            @account.Type.ToLabel() • @account.Balance.ToString("C")
+                                                                            @account.Type.ToLabel() • @account.CurrentBalance.ToString("C")
                                                                         </MudText>
                                                                     </div>
                                                                 </div>
@@ -330,7 +330,7 @@
                                                                     <div>
                                                                         <MudText Typo="Typo.body2">@account.Name</MudText>
                                                                         <MudText Typo="Typo.caption" Class="text-muted">
-                                                                            Balance: @account.Balance.ToString("C")
+                                                                            Balance: @account.CurrentBalance.ToString("C")
                                                                         </MudText>
                                                                     </div>
                                                                 </div>
@@ -381,7 +381,7 @@
                                                                     <div>
                                                                         <MudText Typo="Typo.body2">@account.Name</MudText>
                                                                         <MudText Typo="Typo.caption" Class="text-muted">
-                                                                            Balance: @account.Balance.ToString("C")
+                                                                            Balance: @account.CurrentBalance.ToString("C")
                                                                         </MudText>
                                                                     </div>
                                                                 </div>
@@ -667,7 +667,7 @@
                                                             <div>
                                                                 <MudText Typo="Typo.body2">@account.Name</MudText>
                                                                 <MudText Typo="Typo.caption" Class="text-muted">
-                                                                    Balance: @account.Balance.ToString("C")
+                                                                    Balance: @account.CurrentBalance.ToString("C")
                                                                 </MudText>
                                                             </div>
                                                         </div>
@@ -1760,14 +1760,14 @@
     private decimal GetAvailableCredit(AccountDto account)
     {
         if (account.Type != AccountType.Credit) return 0;
-        return account.CreditLimit + account.Balance; // Balance será negativo
+        return account.CreditLimit + account.CurrentBalance; // Balance será negativo
     }
 
     // ✨ NEW: Get Credit Card Debt
     private decimal GetCreditCardDebt(AccountDto account)
     {
         if (account.Type != AccountType.Credit) return 0;
-        return Math.Abs(account.Balance); // Mostrar como positivo
+        return Math.Abs(account.CurrentBalance); // Mostrar como positivo
     }
 
     // Helper classes

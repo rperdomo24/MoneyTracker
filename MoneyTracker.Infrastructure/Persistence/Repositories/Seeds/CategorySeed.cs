@@ -21,6 +21,41 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
             new Category { Id = 2, Name = "Freelance", Icon = "work_outline", Color = "#66BB6A", Type = CategoryType.Income },
             new Category { Id = 3, Name = "Investments", Icon = "trending_up", Color = "#81C784", Type = CategoryType.Income },
 
+             new Category
+             {
+                 Id = 4,
+                 Name = "Initial Balance",
+                 Icon = "account_balance_wallet",
+                 Color = "#4CAF50", // Verde para Income
+                 Type = CategoryType.Income
+             },
+
+            new Category
+            {
+                Id = 5,
+                Name = "Initial Balance",
+                Icon = "account_balance_wallet",
+                Color = "#F44336", // Rojo para Expense
+                Type = CategoryType.Expense
+            },
+
+            new Category
+            {
+                Id = 6,
+                Name = "Balance Adjustment",
+                Icon = "tune",
+                Color = "#4CAF50", // Verde para Income
+                Type = CategoryType.Income
+            },
+            new Category
+            {
+                Id = 7,
+                Name = "Balance Adjustment",
+                Icon = "tune",
+                Color = "#F44336", // Rojo para Expense
+                Type = CategoryType.Expense
+            },
+
             // Expense
             new Category
             {

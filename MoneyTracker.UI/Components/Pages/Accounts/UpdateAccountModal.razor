@@ -1,298 +1,392 @@
-﻿@using MoneyTracker.Application.DTOs
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Application.Constants
-@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.Validators
 @using MoneyTracker.Domain.Enums
 @using MoneyTracker.UI.Helpers
 @inject IAccountService AccountService
-@inject ISnackbar Snackbar
 
 <MudDialog>
-    <TitleContent>
-        <div class="d-flex align-center">
-            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-3" Size="Size.Medium" />
-            <MudText Typo="Typo.h6">Update Account</MudText>
-        </div>
-    </TitleContent>
-
     <DialogContent>
-        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
-
-            @if (_loading)
-            {
-                <div class="text-center pa-8">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-                    <MudText Typo="Typo.body1" Class="mt-4">Loading account details...</MudText>
-                </div>
-            }
-            else if (_account?.Id > 0)
-            {
-                <!-- Preview Card -->
-                <MudPaper Class="pa-4 mb-4" Elevation="1" Style="@($"border-left: 4px solid {@_account.Color};")">
-                    <div class="d-flex align-center">
-                        <MudIcon Icon="@_account.Icon.ToIcon()"
-                                 Style="@($"color: {_account.Color};")"
-                                 Size="Size.Large"
-                                 Class="mr-3" />
-                        <div class="flex-grow-1">
-                            <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
-                                @(!string.IsNullOrEmpty(_account.Name) ? _account.Name : "Account Name")
+        @if (_loading)
+        {
+            <div class="d-flex justify-center pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+                <MudText Class="ml-3">Loading account details...</MudText>
+            </div>
+        }
+        else if (_account is not null)
+        {
+            <MudContainer MaxWidth="MaxWidth.False" Class="pa-0">
+                <MudGrid>
+                    <!-- Form Section -->
+                    <MudItem xs="12" md="8">
+                        <MudPaper Class="pa-4" Elevation="0">
+                            <MudText Typo="Typo.h6" Class="mb-4">
+                                <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+                                Edit Account
                             </MudText>
-                            <MudText Typo="Typo.body2" Class="text-muted">
-                                @_account.Type.ToString() • $@_account.Balance.ToString("N2")
-                            </MudText>
-                        </div>
-                        @if (_account.CreditLimit > 0)
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary">
-                                Credit: $@_account.CreditLimit.ToString("N2")
-                            </MudChip>
-                        }
-                    </div>
-                </MudPaper>
 
-                <MudForm Model="@_account" @ref="_form" Validation="validationRules.ValidateValue">
+                            <MudForm @ref="_form" Model="_account" Validation="_validator.ValidateValue">
+                                <MudGrid>
+                                    <!-- Account Name -->
+                                    <MudItem xs="12">
+                                        <MudTextField @bind-Value="_account.Name"
+                                                     For="@(() => _account.Name)"
+                                                     Label="Account Name"
+                                                     Variant="Variant.Outlined"
+                                                     Required="true"
+                                                     MaxLength="100" />
+                                    </MudItem>
 
-                    <!-- Basic Information Section -->
-                    <MudText Typo="Typo.subtitle2" Class="mb-3 font-weight-medium">
-                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-2" />
-                        Basic Information
-                    </MudText>
+                                    <!-- Account Type -->
+                                    <MudItem xs="12" sm="6">
+                                        <MudSelect @bind-Value="_account.Type"
+                                                  For="@(() => _account.Type)"
+                                                  Label="Account Type"
+                                                  Variant="Variant.Outlined"
+                                                  Required="true">
+                                            @foreach (AccountType type in Enum.GetValues<AccountType>())
+                                            {
+                                                <MudSelectItem Value="type">
+                                                    <div class="d-flex align-center">
+                                                        <MudIcon Icon="@type.ToIcon()" Class="mr-2" />
+                                                        @type.ToLabel()
+                                                    </div>
+                                                </MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </MudItem>
 
-                    <MudGrid Class="mb-4">
-                        <MudItem xs="12">
-                            <MudTextField Label="Account Name"
-                                          @bind-Value="_account.Name"
-                                          For="@(() => _account.Name)"
-                                          Variant="Variant.Outlined"
-                                          Required="true"
-                                          Immediate="true"
-                                          HelperText="Enter a descriptive name for your account"
-                                          Placeholder="e.g., Chase Checking, Savings Account" />
-                        </MudItem>
+                                    <!-- Account Icon -->
+                                    <MudItem xs="12" sm="6">
+                                        <MudSelect @bind-Value="_account.Icon"
+                                                  For="@(() => _account.Icon)"
+                                                  Label="Icon"
+                                                  Variant="Variant.Outlined">
+                                            @foreach (AccountIcon icon in Enum.GetValues<AccountIcon>())
+                                            {
+                                                <MudSelectItem Value="icon">
+                                                    <div class="d-flex align-center">
+                                                        <MudIcon Icon="@icon.ToIcon()" Class="mr-2" />
+                                                        @icon.ToString()
+                                                    </div>
+                                                </MudSelectItem>
+                                            }
+                                        </MudSelect>
+                                    </MudItem>
 
-                        <MudItem xs="12" md="6">
-                            <MudSelect T="AccountType"
-                                       Label="Account Type"
-                                       @bind-Value="_account.Type"
-                                       Variant="Variant.Outlined"
-                                       For="@(() => _account.Type)"
-                                       Required="true"
-                                       HelperText="Select the type of account">
-                                @foreach (var type in Enum.GetValues<AccountType>())
+                                    <!-- Current Balance (Read-only) -->
+                                    <MudItem xs="12" sm="6">
+                                        <MudTextField Value="@FormatCurrency(_account.CurrentBalance)"
+                                                     Label="Current Balance"
+                                                     Variant="Variant.Outlined"
+                                                     ReadOnly="true"
+                                                     Class="@($"{GetBalanceColorClass(_account.CurrentBalance)}")"
+                                                     HelpText="Balance is calculated from transactions" />
+                                    </MudItem>
+
+                                    <!-- Balance Adjustment Options -->
+                                    <MudItem xs="12" sm="6">
+                                        <MudSelect @bind-Value="_adjustmentMode"
+                                                  Label="Balance Adjustment"
+                                                  Variant="Variant.Outlined"
+                                                  HelpText="Choose how to adjust the balance">
+                                            <MudSelectItem Value="AdjustmentMode.None">No Adjustment</MudSelectItem>
+                                            <MudSelectItem Value="AdjustmentMode.SetTo">Set Balance To</MudSelectItem>
+                                            <MudSelectItem Value="AdjustmentMode.AdjustBy">Adjust Balance By</MudSelectItem>
+                                        </MudSelect>
+                                    </MudItem>
+
+                                    <!-- Adjustment Amount -->
+                                    @if (_adjustmentMode != AdjustmentMode.None)
+                                    {
+                                        <MudItem xs="12" sm="6">
+                                            <MudNumericField @bind-Value="_adjustmentAmount"
+                                                            Label="@GetAdjustmentLabel()"
+                                                            Placeholder="0.00"
+                                                            Variant="Variant.Outlined"
+                                                            Format="N2"
+                                                            Culture="@System.Globalization.CultureInfo.CurrentCulture"
+                                                            HelpText="@GetAdjustmentHelpText()" />
+                                        </MudItem>
+
+                                        <MudItem xs="12" sm="6">
+                                            <MudPaper Class="pa-3" Elevation="1">
+                                                <MudText Typo="Typo.caption" Class="mb-1">@GetPreviewTitle()</MudText>
+                                                <MudText Typo="Typo.body2">
+                                                    Current: <span class="@($"{GetBalanceColorClass(_account.CurrentBalance)}")">@FormatCurrency(_account.CurrentBalance)</span>
+                                                </MudText>
+                                                <MudText Typo="Typo.body2">
+                                                    @GetPreviewNewLabel(): <span class="@($"{GetBalanceColorClass(GetNewBalance())}")">@FormatCurrency(GetNewBalance())</span>
+                                                </MudText>
+                                                @{
+                                                    var adjustment = GetAdjustmentNeeded();
+                                                }
+                                                @if (adjustment != 0)
+                                                {
+                                                    <MudDivider Class="my-1" />
+                                                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                                        Transaction: <span class="@($"{(adjustment >= 0 ? "text-success" : "text-error")}")">@FormatCurrencyWithSign(adjustment)</span>
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Class="text-muted">
+                                                        @GetTransactionExplanation()
+                                                    </MudText>
+                                                }
+                                            </MudPaper>
+                                        </MudItem>
+
+                                        @* ✅ Explanation Alert *@
+                                        @if (_adjustmentMode == AdjustmentMode.SetTo && _adjustmentAmount != 0)
+                                        {
+                                            <MudItem xs="12">
+                                                <MudAlert Severity="Severity.Info" Dense="true">
+                                                    <MudText Typo="Typo.body2" Class="font-weight-medium">💡 How "Set Balance To" works:</MudText>
+                                                    <MudText Typo="Typo.body2">
+                                                        We'll create a <strong>@(GetAdjustmentNeeded() >= 0 ? "deposit" : "withdrawal")</strong> transaction of 
+                                                        <strong>@FormatCurrency(Math.Abs(GetAdjustmentNeeded()))</strong> to make your final balance exactly <strong>@FormatCurrency(_adjustmentAmount)</strong>
+                                                    </MudText>
+                                                </MudAlert>
+                                            </MudItem>
+                                        }
+                                    }
+
+                                    <!-- Credit Limit (only for credit accounts) -->
+                                    <MudItem xs="12" sm="6">
+                                        <MudNumericField @bind-Value="_account.CreditLimit"
+                                                        For="@(() => _account.CreditLimit)"
+                                                        Label="Credit Limit"
+                                                        Variant="Variant.Outlined"
+                                                        Format="C2"
+                                                        Culture="@System.Globalization.CultureInfo.CurrentCulture"
+                                                        Disabled="@(_account.Type != AccountType.Credit)"
+                                                        HelpText="@(_account.Type == AccountType.Credit ? "Maximum credit available" : "Only applicable to credit accounts")" />
+                                    </MudItem>
+
+                                    <!-- Color -->
+                                    <MudItem xs="12">
+                                        <MudGrid Class="mb-4">
+                                            <MudItem xs="12" md="6">
+                                                <MudColorPicker Label="Account Color"
+                                                                ColorPickerMode="ColorPickerMode.HEX"
+                                                                Editable="true"
+                                                                ColorPickerView="ColorPickerView.Grid"
+                                                                PickerVariant="PickerVariant.Dialog"
+                                                                Placeholder="Select Color"
+                                                                HelperText="Choose a color to identify this account"
+                                                                @bind-Text="@_account.Color" />
+                                            </MudItem>
+                                            <MudItem xs="12" md="6" Class="d-flex align-center justify-center">
+                                                <div class="text-center">
+                                                    <MudText Typo="Typo.caption" Class="mb-2">Preview</MudText>
+                                                    <MudIcon Icon="@_account.Icon.ToIcon()"
+                                                             Style="@($"color: {_account.Color};")"
+                                                             Size="Size.Large" />
+                                                </div>
+                                            </MudItem>
+                                        </MudGrid>
+                                    </MudItem>
+
+                                    <!-- Adjustment Reason -->
+                                    @if (_adjustmentMode != AdjustmentMode.None && GetAdjustmentNeeded() != 0)
+                                    {
+                                        <MudItem xs="12">
+                                            <MudTextField @bind-Value="_adjustmentReason"
+                                                         Label="Reason for Balance Adjustment"
+                                                         Placeholder="e.g., Found missing transactions, Bank reconciliation"
+                                                         Variant="Variant.Outlined"
+                                                         Lines="2"
+                                                         MaxLength="200" />
+                                        </MudItem>
+                                    }
+
+                                    <!-- Notes -->
+                                    <MudItem xs="12">
+                                        <MudTextField @bind-Value="_account.Notes"
+                                                     For="@(() => _account.Notes)"
+                                                     Label="Notes (Optional)"
+                                                     Variant="Variant.Outlined"
+                                                     Lines="2"
+                                                     MaxLength="500" />
+                                    </MudItem>
+                                </MudGrid>
+                            </MudForm>
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Preview Section -->
+                    <MudItem xs="12" md="4">
+                        <MudPaper Class="pa-4" Elevation="1">
+                            <MudText Typo="Typo.h6" Class="mb-4 text-center">Preview</MudText>
+                            
+                            <!-- Account Preview Card -->
+                            <MudPaper Class="pa-3 mb-3" Elevation="2">
+                                <div class="d-flex align-center mb-2">
+                                    <MudIcon Icon="@_account.Icon.ToIcon()" 
+                                            Style="@($"color: {_account.Color ?? "#2196F3"};")" 
+                                            Class="mr-2" />
+                                    <div>
+                                        <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                            @_account.Name
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                            @_account.Type.ToString()
+                                        </MudText>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-space-between align-center">
+                                    <MudText Typo="Typo.body2">Current:</MudText>
+                                    <MudText Typo="Typo.body1" Class="@($"{GetBalanceColorClass(_account.CurrentBalance)} font-weight-bold")">
+                                        @FormatCurrency(_account.CurrentBalance)
+                                    </MudText>
+                                </div>
+
+                                @if (_adjustmentMode != AdjustmentMode.None && GetAdjustmentNeeded() != 0)
                                 {
-                                    <MudSelectItem Value="@type">
-                                        <div class="d-flex align-center">
-                                            <MudIcon Icon="@type.ToIcon()" Class="mr-2" Size="Size.Small" />
-                                            @type.ToLabel()
-                                        </div>
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
-                        </MudItem>
-
-                        <MudItem xs="12" md="6">
-                            <MudSelect T="AccountIcon"
-                                       Label="Icon"
-                                       @bind-Value="_account.Icon"
-                                       Variant="Variant.Outlined"
-                                       For="@(() => _account.Icon)"
-                                       HelperText="Choose an icon to represent this account">
-                                @foreach (var icon in Enum.GetValues<AccountIcon>())
-                                {
-                                    <MudSelectItem Value="@icon">
-                                        <div class="d-flex align-center">
-                                            <MudIcon Icon="@icon.ToIcon()"
-                                                     Style="@($"color: {_account.Color};")"
-                                                     Class="mr-2"
-                                                     Size="Size.Small" />
-                                            @icon.ToString()
-                                        </div>
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
-                        </MudItem>
-                    </MudGrid>
-
-                    <!-- Financial Information Section -->
-                    <MudText Typo="Typo.subtitle2" Class="mb-3 font-weight-medium">
-                        <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Size="Size.Small" Class="mr-2" />
-                        Financial Details
-                    </MudText>
-
-                    <MudGrid Class="mb-4">
-                        <MudItem xs="12" md="6">
-                            <MudNumericField T="decimal"
-                                             Label="Current Balance"
-                                             @bind-Value="_account.Balance"
-                                             For="@(() => _account.Balance)"
-                                             Variant="Variant.Outlined"
-                                             Adornment="Adornment.Start"
-                                             AdornmentIcon="@Icons.Material.Filled.AttachMoney"
-                                             HelperText="Current balance of the account"
-                                             Format="C2" />
-                        </MudItem>
-
-                        <MudItem xs="12" md="6">
-                            <MudNumericField T="decimal"
-                                             Label="Credit Limit"
-                                             @bind-Value="_account.CreditLimit"
-                                             For="@(() => _account.CreditLimit)"
-                                             Variant="Variant.Outlined"
-                                             Adornment="Adornment.Start"
-                                             AdornmentIcon="@Icons.Material.Filled.CreditCard"
-                                             HelperText="Leave 0 if not applicable"
-                                             Format="C2"
-                                             Min="0" />
-                        </MudItem>
-
-                        @if (_account.CreditLimit > 0)
-                        {
-                            <MudItem xs="12">
-                                <MudAlert Severity="Severity.Info" Class="mt-2">
+                                    <div class="d-flex justify-space-between align-center mt-1">
+                                        <MudText Typo="Typo.body2">@GetPreviewNewLabel():</MudText>
+                                        <MudText Typo="Typo.body1" Class="@($"{GetBalanceColorClass(GetNewBalance())} font-weight-bold")">
+                                            @FormatCurrency(GetNewBalance())
+                                        </MudText>
+                                    </div>
+                                    
+                                    <MudDivider Class="my-2" />
+                                    
                                     <div class="d-flex justify-space-between align-center">
-                                        <span>Available Credit: <strong>${(_account.CreditLimit - _account.Balance):N2}</strong></span>
-                                        <span>Utilization: <strong>@(Math.Round((_account.Balance / _account.CreditLimit) * 100, 1))%</strong></span>
+                                        <MudText Typo="Typo.body2">Transaction:</MudText>
+                                        @{
+                                            var adjustment = GetAdjustmentNeeded();
+                                        }
+                                        <MudText Typo="Typo.body1" Class="@($"{(adjustment >= 0 ? "text-success" : "text-error")} font-weight-bold")">
+                                            @FormatCurrencyWithSign(adjustment)
+                                        </MudText>
                                     </div>
-                                </MudAlert>
-                            </MudItem>
-                        }
 
-                        @if (_originalBalance != _account.Balance)
-                        {
-                            <MudItem xs="12">
-                                <MudAlert Severity="Severity.Warning" Class="mt-2">
-                                    <div class="d-flex align-center">
-                                        <MudIcon Icon="@Icons.Material.Filled.CompareArrows" Class="mr-2" />
-                                        <span>
-                                            Balance change:
-                                            <strong>${_originalBalance:N2}</strong> → <strong>${_account.Balance:N2}</strong>
-                                            (@((_account.Balance - _originalBalance) >= 0 ? "+" : "")${(_account.Balance - _originalBalance):N2})
-                                        </span>
+                                    <MudText Typo="Typo.caption" Class="text-muted mt-1">
+                                        @GetTransactionExplanation()
+                                    </MudText>
+                                }
+
+                                @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
+                                {
+                                    <MudDivider Class="my-2" />
+                                    <div class="d-flex justify-space-between align-center">
+                                        <MudText Typo="Typo.body2">Available:</MudText>
+                                        @{
+                                            var balanceToUse = _adjustmentMode != AdjustmentMode.None && GetAdjustmentNeeded() != 0 ? GetNewBalance() : _account.CurrentBalance;
+                                            var available = _account.CreditLimit - Math.Abs(balanceToUse);
+                                            var availableClass = available >= 0 ? "text-success" : "text-error";
+                                        }
+                                        <MudText Typo="Typo.body1" Class="@($"{availableClass} font-weight-medium")">
+                                            @FormatCurrency(available)
+                                        </MudText>
                                     </div>
+                                }
+                            </MudPaper>
+
+                            <!-- Change Summary -->
+                            @if (HasChanges())
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                                    <MudText Typo="Typo.caption" Class="font-weight-bold">Changes to apply:</MudText>
+                                    <MudList T="string" Dense="true">
+                                        @if (_account.Name != _originalAccount?.Name)
+                                        {
+                                            <MudListItem Dense="true">
+                                                <MudText Typo="Typo.caption">• Name updated</MudText>
+                                            </MudListItem>
+                                        }
+                                        @if (_account.Type != _originalAccount?.Type)
+                                        {
+                                            <MudListItem Dense="true">
+                                                <MudText Typo="Typo.caption">• Type changed</MudText>
+                                            </MudListItem>
+                                        }
+                                        @if (_adjustmentMode != AdjustmentMode.None && GetAdjustmentNeeded() != 0)
+                                        {
+                                            <MudListItem Dense="true">
+                                                <MudText Typo="Typo.caption">• Balance adjustment transaction (@_adjustmentMode.ToString().ToLower())</MudText>
+                                            </MudListItem>
+                                        }
+                                        @if (_account.CreditLimit != _originalAccount?.CreditLimit)
+                                        {
+                                            <MudListItem Dense="true">
+                                                <MudText Typo="Typo.caption">• Credit limit updated</MudText>
+                                            </MudListItem>
+                                        }
+                                    </MudList>
                                 </MudAlert>
-                            </MudItem>
-                        }
-                    </MudGrid>
-
-                    <!-- Appearance Section -->
-                    <MudText Typo="Typo.subtitle2" Class="mb-3 font-weight-medium">
-                        <MudIcon Icon="@Icons.Material.Filled.Palette" Size="Size.Small" Class="mr-2" />
-                        Appearance
-                    </MudText>
-
-                    <MudGrid Class="mb-4">
-                        <MudItem xs="12" md="6">
-                            <MudColorPicker Label="Account Color"
-                                            ColorPickerMode="ColorPickerMode.HEX"
-                                            Editable="true"
-                                            ColorPickerView="ColorPickerView.Grid"
-                                            PickerVariant="PickerVariant.Dialog"
-                                            Placeholder="Select Color"
-                                            HelperText="Choose a color to identify this account"
-                                            @bind-Text="@_account.Color" />
-                        </MudItem>
-
-                        <MudItem xs="12" md="6" Class="d-flex align-center justify-center">
-                            <div class="text-center">
-                                <MudText Typo="Typo.caption" Class="mb-2">Preview</MudText>
-                                <MudIcon Icon="@_account.Icon.ToIcon()"
-                                         Style="@($"color: {_account.Color};")"
-                                         Size="Size.Large" />
-                            </div>
-                        </MudItem>
-                    </MudGrid>
-
-                    <!-- Additional Information Section -->
-                    <MudText Typo="Typo.subtitle2" Class="mb-3 font-weight-medium">
-                        <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Class="mr-2" />
-                        Additional Information
-                    </MudText>
-
-                    <MudTextField T="string"
-                                  Label="Notes (Optional)"
-                                  @bind-Value="_account.Notes"
-                                  For="@(() => _account.Notes)"
-                                  MaxLength="300"
-                                  Variant="Variant.Outlined"
-                                  Lines="3"
-                                  HelperText="Add any additional notes about this account"
-                                  Placeholder="e.g., Joint account with spouse, Emergency fund only..." />
-                </MudForm>
-            }
-            else
-            {
-                <MudAlert Severity="Severity.Error" Class="ma-4">
-                    <MudText>Failed to load account details. Please try again.</MudText>
-                </MudAlert>
-            }
-        </MudContainer>
+                            }
+                            else
+                            {
+                                <MudAlert Severity="Severity.Success" Dense="true">
+                                    <MudText Typo="Typo.caption">✅ Account details loaded</MudText>
+                                </MudAlert>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </MudContainer>
+        }
+        else
+        {
+            <div class="text-center pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.Error" Size="Size.Large" Class="text-error mb-2" />
+                <MudText Typo="Typo.h6">Account not found</MudText>
+            </div>
+        }
     </DialogContent>
 
     <DialogActions>
-        <div class="d-flex justify-space-between align-center" style="width: 100%;">
-            <MudText Typo="Typo.caption" Class="text-muted">
-                @if (_loading)
+        <MudButton OnClick="Cancel" 
+                  Variant="Variant.Text">
+            Cancel
+        </MudButton>
+        
+        @if (_account is not null)
+        {
+            <MudButton Color="Color.Primary" 
+                      OnClick="UpdateAccount" 
+                      Variant="Variant.Filled"
+                      StartIcon="@Icons.Material.Filled.Save"
+                      Disabled="_isSubmitting || !HasChanges()">
+                @if (_isSubmitting)
                 {
-                    <span>Loading...</span>
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <span class="ml-2">Updating...</span>
                 }
-                else if (_form?.IsValid == false)
+                else
                 {
-                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
-                    <span>Please fix the errors above</span>
+                    <span>Update Account</span>
                 }
-                else if (HasChanges())
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Class="mr-1" Color="Color.Warning" />
-                    <span>Account has unsaved changes</span>
-                }
-                else if (_account?.Id > 0)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" Color="Color.Success" />
-                    <span>No changes made</span>
-                }
-            </MudText>
-
-            <div>
-                <MudButton Color="Color.Default"
-                           Variant="Variant.Text"
-                           OnClick="Close"
-                           Class="mr-2">
-                    Cancel
-                </MudButton>
-                <MudButton Color="Color.Primary"
-                           Variant="Variant.Filled"
-                           OnClick="SaveUpdate"
-                           StartIcon="@Icons.Material.Filled.Save"
-                           Disabled="@(_isSaving || _loading || string.IsNullOrWhiteSpace(_account?.Name) || !HasChanges())">
-                    @if (_isSaving)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <span>Updating...</span>
-                    }
-                    else
-                    {
-                        <span>Update Account</span>
-                    }
-                </MudButton>
-            </div>
-        </div>
+            </MudButton>
+        }
     </DialogActions>
 </MudDialog>
 
 @code {
-    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+    public enum AdjustmentMode
+    {
+        None,
+        SetTo,
+        AdjustBy
+    }
+
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public int AccountId { get; set; }
     [Parameter] public EventCallback OnAccountUpdated { get; set; }
 
-    private readonly AccountValidator validationRules = new();
-    private AccountDto _account = new();
-    private AccountDto _originalAccount = new();
-    private decimal _originalBalance = 0;
-    private MudForm _form = null!;
-    private bool _isSaving = false;
+    private MudForm _form = default!;
+    private AccountDto? _account;
+    private AccountDto? _originalAccount;
+    private AdjustmentMode _adjustmentMode = AdjustmentMode.None;
+    private decimal _adjustmentAmount = 0;
+    private string _adjustmentReason = string.Empty;
     private bool _loading = true;
+    private bool _isSubmitting = false;
+
+    private readonly AccountValidator _validator = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -301,9 +395,6 @@
 
     private async Task LoadAccount()
     {
-        _loading = true;
-        StateHasChanged();
-
         try
         {
             var result = await AccountService.GetByIdAsync(AccountId);
@@ -311,21 +402,20 @@
             {
                 _account = result.Data;
                 _originalAccount = new AccountDto
-                    {
-                        Id = result.Data.Id,
-                        Name = result.Data.Name,
-                        Type = result.Data.Type,
-                        Icon = result.Data.Icon,
-                        Balance = result.Data.Balance,
-                        CreditLimit = result.Data.CreditLimit,
-                        Color = result.Data.Color,
-                        Notes = result.Data.Notes
-                    };
-                _originalBalance = result.Data.Balance;
+                {
+                    Id = _account.Id,
+                    Name = _account.Name,
+                    Type = _account.Type,
+                    CurrentBalance = _account.CurrentBalance,
+                    CreditLimit = _account.CreditLimit,
+                    Notes = _account.Notes,
+                    Icon = _account.Icon,
+                    Color = _account.Color
+                };
             }
             else
             {
-                Snackbar.Add(result.Message ?? "Failed to load account details", Severity.Error);
+                Snackbar.Add(result.Message ?? "Account not found", Severity.Error);
             }
         }
         catch (Exception ex)
@@ -335,41 +425,50 @@
         finally
         {
             _loading = false;
-            StateHasChanged();
         }
     }
 
-    private void Close() => MudDialog?.Close(DialogResult.Cancel());
-
-    private async Task SaveUpdate()
+    private async Task UpdateAccount()
     {
-        if (_isSaving || _loading || string.IsNullOrWhiteSpace(_account?.Name) || !HasChanges())
-            return;
+        if (_account is null) return;
 
-        _isSaving = true;
-        StateHasChanged();
+        await _form.Validate();
+        if (!_form.IsValid) return;
 
+        _isSubmitting = true;
         try
         {
-            await _form.Validate();
-
-            if (!_form.IsValid)
+            // First, update the account details
+            var updateResult = await AccountService.UpdateAsync(_account);
+            if (!updateResult.Success)
             {
-                Snackbar.Add("Please fix the validation errors before saving.", Severity.Warning);
+                Snackbar.Add(updateResult.Message ?? "Failed to update account", Severity.Error);
                 return;
             }
 
-            var result = await AccountService.UpdateAsync(_account);
-            if (result.Success)
+            // Then, handle balance adjustment if needed
+            var adjustmentNeeded = GetAdjustmentNeeded();
+            if (adjustmentNeeded != 0)
             {
-                Snackbar.Add($"Account '{_account.Name}' updated successfully!", Severity.Success);
+                var newBalance = GetNewBalance();
+                var adjustResult = await AccountService.AdjustBalanceAsync(
+                    AccountId, 
+                    newBalance, 
+                    _adjustmentReason);
+                    
+                if (!adjustResult.Success)
+                {
+                    Snackbar.Add(adjustResult.Message ?? "Failed to adjust balance", Severity.Warning);
+                    // Continue anyway since account was updated
+                }
+            }
+
+            Snackbar.Add($"Account '{_account.Name}' updated successfully!", Severity.Success);
+            
+            if (OnAccountUpdated.HasDelegate)
                 await OnAccountUpdated.InvokeAsync();
-                MudDialog?.Close(DialogResult.Ok(_account));
-            }
-            else
-            {
-                Snackbar.Add(result.Message ?? "Failed to update account. Please try again.", Severity.Error);
-            }
+            
+            MudDialog.Close(DialogResult.Ok(true));
         }
         catch (Exception ex)
         {
@@ -377,22 +476,122 @@
         }
         finally
         {
-            _isSaving = false;
-            StateHasChanged();
+            _isSubmitting = false;
         }
     }
 
+    private void Cancel() => MudDialog.Cancel();
+
     private bool HasChanges()
     {
-        if (_account == null || _originalAccount == null) return false;
+        if (_account is null || _originalAccount is null) return false;
 
         return _account.Name != _originalAccount.Name ||
                _account.Type != _originalAccount.Type ||
-               _account.Icon != _originalAccount.Icon ||
-               _account.Balance != _originalAccount.Balance ||
                _account.CreditLimit != _originalAccount.CreditLimit ||
+               _account.Notes != _originalAccount.Notes ||
+               _account.Icon != _originalAccount.Icon ||
                _account.Color != _originalAccount.Color ||
-               _account.Notes != _originalAccount.Notes;
+               GetAdjustmentNeeded() != 0;
     }
 
+    // ✅ New helper methods for better UX
+    private string GetAdjustmentLabel()
+    {
+        return _adjustmentMode switch
+        {
+            AdjustmentMode.SetTo => "Set Balance To",
+            AdjustmentMode.AdjustBy => "Adjust Balance By",
+            _ => "Amount"
+        };
+    }
+
+    private string GetAdjustmentHelpText()
+    {
+        if (_account is null) return "";
+
+        return _adjustmentMode switch
+        {
+            AdjustmentMode.SetTo => $"Enter final balance you want. Current: {FormatCurrency(_account.CurrentBalance)}",
+            AdjustmentMode.AdjustBy => "Enter amount to add (+) or subtract (-) from current balance",
+            _ => ""
+        };
+    }
+
+    private decimal GetNewBalance()
+    {
+        if (_account is null) return 0;
+
+        return _adjustmentMode switch
+        {
+            AdjustmentMode.SetTo => _adjustmentAmount,
+            AdjustmentMode.AdjustBy => _account.CurrentBalance + _adjustmentAmount,
+            _ => _account.CurrentBalance
+        };
+    }
+
+    private decimal GetAdjustmentNeeded()
+    {
+        if (_account is null) return 0;
+        return GetNewBalance() - _account.CurrentBalance;
+    }
+
+    private string GetBalanceColorClass(decimal balance)
+    {
+        return balance switch
+        {
+            > 0 => "text-success",
+            < 0 => "text-error",
+            _ => "text-muted"
+        };
+    }
+
+    // ✅ Improved currency formatting
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private string FormatCurrencyWithSign(decimal amount)
+    {
+        var sign = amount >= 0 ? "+" : "";
+        return $"{sign}{FormatCurrency(amount)}";
+    }
+
+    // ✅ Better preview labels and explanations
+    private string GetPreviewTitle()
+    {
+        return _adjustmentMode switch
+        {
+            AdjustmentMode.SetTo => "Set Balance Preview",
+            AdjustmentMode.AdjustBy => "Adjustment Preview",
+            _ => "Preview"
+        };
+    }
+
+    private string GetPreviewNewLabel()
+    {
+        return _adjustmentMode switch
+        {
+            AdjustmentMode.SetTo => "Final Balance",
+            AdjustmentMode.AdjustBy => "New Balance",
+            _ => "New"
+        };
+    }
+
+    private string GetTransactionExplanation()
+    {
+        if (_account is null) return "";
+
+        var adjustment = GetAdjustmentNeeded();
+        var absAdjustment = Math.Abs(adjustment);
+
+        return _adjustmentMode switch
+        {
+            AdjustmentMode.SetTo => $"To reach {FormatCurrency(_adjustmentAmount)}, add {FormatCurrency(absAdjustment)} to account",
+            AdjustmentMode.AdjustBy when adjustment >= 0 => $"Add {FormatCurrency(absAdjustment)} to current balance",
+            AdjustmentMode.AdjustBy when adjustment < 0 => $"Subtract {FormatCurrency(absAdjustment)} from current balance",
+            _ => ""
+        };
+    }
 }

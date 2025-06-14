@@ -13,8 +13,7 @@ namespace MoneyTracker.Application.Validators.Transaction
                 .MaximumLength(100).WithMessage("The name cannot exceed 100 characters.");
 
             RuleFor(x => x.Date)
-                .NotEmpty().WithMessage("Please select a date.")
-                .LessThanOrEqualTo(DateTime.Today).WithMessage("The date cannot be in the future.");
+                .NotEmpty().WithMessage("Please select a date.");
 
             RuleFor(x => x.Amount)
                 .GreaterThan(0).WithMessage("The amount must be greater than zero.");

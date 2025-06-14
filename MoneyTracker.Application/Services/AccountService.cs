@@ -1,7 +1,12 @@
 ﻿using MoneyTracker.Application.Common;
+using MoneyTracker.Application.Common.Extensions;
 using MoneyTracker.Application.DTOs;
+using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
+using MoneyTracker.Application.Mappers.Transactions;
+using MoneyTracker.Domain.Const;
+using MoneyTracker.Domain.Enums;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Application.Services
@@ -9,10 +14,17 @@ namespace MoneyTracker.Application.Services
     public class AccountService : IAccountService
     {
         private readonly IAccountRepository _repository;
+        private readonly ITransactionService _transactionService;
+        private readonly ITimeZoneService _timeZoneService;
 
-        public AccountService(IAccountRepository repository)
+        public AccountService(
+            IAccountRepository repository,
+            ITransactionService transactionService,
+            ITimeZoneService timeZoneService)
         {
             _repository = repository;
+            _transactionService = transactionService;
+            _timeZoneService = timeZoneService;
         }
 
         public async Task<OperationResult<List<AccountDto>>> GetAllAsync()
@@ -22,25 +34,30 @@ namespace MoneyTracker.Application.Services
             return OperationResult<List<AccountDto>>.Ok(result, OperationMessages.DataRetrieved);
         }
 
+        public async Task<OperationResult<List<AccountDto>>> GetAccountsWithBalancesAsync()
+        {
+            var accounts = await _repository.GetAllAsync();
+            var result = accounts.Select(x => x.MapToDto()).ToList();
+
+            await CalculateCurrentBalancesAsync(result);
+
+            return OperationResult<List<AccountDto>>.Ok(result, OperationMessages.DataRetrieved);
+        }
+
         public async Task<OperationResult<AccountDto>> GetByIdAsync(int id)
         {
             var account = await _repository.GetByIdAsync(id);
             if (account is null)
                 return OperationResult<AccountDto>.Fail(OperationMessages.NotFound);
 
-            return OperationResult<AccountDto>.Ok(account.MapToDto(), OperationMessages.DataRetrieved);
-        }
+            var dto = account.MapToDto();
 
-        public async Task<OperationResult> CreateAsync(AccountDto dto)
-        {
-            var exists = (await _repository.GetAllAsync()).Any(x => x.Name == dto.Name);
-            if (exists)
-                return OperationResult.Fail(OperationMessages.DuplicateName);
+            // ✅ Calculate current balance using mapper
+            var currentBalanceResult = await GetCurrentBalanceAsync(id);
+            if (currentBalanceResult.Success)
+                dto.CurrentBalance = currentBalanceResult.Data;
 
-            var entity = dto.MapToEntity();
-            await _repository.AddAsync(entity);
-
-            return OperationResult.Ok(OperationMessages.Created);
+            return OperationResult<AccountDto>.Ok(dto, OperationMessages.DataRetrieved);
         }
 
         public async Task<OperationResult> UpdateAsync(AccountDto dto)
@@ -49,14 +66,13 @@ namespace MoneyTracker.Application.Services
             if (existing is null)
                 return OperationResult.Fail(OperationMessages.NotFound);
 
-            existing.Name = dto.Name;
-            existing.Type = dto.Type;
-            existing.Balance = dto.Balance;
-            existing.CreditLimit = dto.CreditLimit;
-            existing.Color = dto.Color;
-            existing.Notes = dto.Notes;
+            // ✅ Use mapper for updates
+            existing.UpdateEntity(dto);
 
-            await _repository.UpdateAsync(existing);
+            var success = await _repository.UpdateAsync(existing);
+            if (!success)
+                return OperationResult.Fail("Error updating account");
+
             return OperationResult.Ok(OperationMessages.Updated);
         }
 
@@ -66,8 +82,175 @@ namespace MoneyTracker.Application.Services
             if (existing is null)
                 return OperationResult.Fail(OperationMessages.NotFound);
 
-            await _repository.DeleteAsync(id);
+            var success = await _repository.DeleteAsync(id);
+            if (!success)
+                return OperationResult.Fail("Error deleting account");
+
             return OperationResult.Ok(OperationMessages.Deleted);
+        }
+
+        public async Task<OperationResult> CreateAsync(AccountDto dto)
+        {
+            return await CreateWithInitialBalanceAsync(dto, 0);
+        }
+
+        public async Task<OperationResult> CreateWithInitialBalanceAsync(AccountDto dto, decimal initialBalance)
+        {
+            var exists = (await _repository.GetAllAsync()).Any(x => x.Name == dto.Name);
+            if (exists)
+                return OperationResult.Fail(OperationMessages.DuplicateName);
+
+            try
+            {
+                // ✅ Use mapper to create entity
+                var entity = dto.MapToEntity();
+
+                var success = await _repository.AddAsync(entity);
+                if (!success)
+                    return OperationResult.Fail("Error creating account");
+
+                // ✅ Create initial balance transaction if needed
+                if (initialBalance != 0)
+                {
+                    await CreateInitialBalanceTransactionAsync(entity.Id, initialBalance, dto.Name);
+                }
+
+                return OperationResult.Ok(OperationMessages.Created);
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Fail($"Error creating account: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult> AdjustBalanceAsync(int accountId, decimal newBalance, string reason = "")
+        {
+            try
+            {
+                // 1. Get current balance
+                var currentBalanceResult = await GetCurrentBalanceAsync(accountId);
+                if (!currentBalanceResult.Success)
+                    return OperationResult.Fail(currentBalanceResult.Message);
+
+                var currentBalance = currentBalanceResult.Data;
+                var adjustment = newBalance - currentBalance;
+
+                if (adjustment == 0)
+                    return OperationResult.Ok("No changes in balance");
+
+                // 2. Get account name using mapper
+                var account = await _repository.GetByIdAsync(accountId);
+                if (account is null)
+                    return OperationResult.Fail(OperationMessages.NotFound);
+
+                // 3. Create adjustment transaction
+                await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
+
+                var sign = adjustment > 0 ? "+" : "";
+                return OperationResult.Ok($"Balance adjusted by {sign}{adjustment:C2}");
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Fail($"Error adjusting balance: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult<decimal>> GetCurrentBalanceAsync(int accountId)
+        {
+            try
+            {
+                var transactionsResult = await _transactionService.GetAllAsync();
+                if (!transactionsResult.Success)
+                    return OperationResult<decimal>.Fail("Error retrieving transactions");
+
+                var accountTransactions = transactionsResult.Data
+                    .Where(t => t.AccountId == accountId);
+
+                var balance = accountTransactions.Sum(t =>
+                    t.IsIncome() ? t.Amount : -t.Amount);
+
+                return OperationResult<decimal>.Ok(balance, "Balance calculated");
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<decimal>.Fail($"Error calculating balance: {ex.Message}");
+            }
+        }
+
+        private async Task CreateInitialBalanceTransactionAsync(int accountId, decimal amount, string accountName)
+        {
+            var isIncome = amount >= 0;
+            var transactionType = isIncome ? TransactionType.Income : TransactionType.Expense;
+            var categoryId = SystemCategories.GetInitialBalanceCategoryId(isIncome);
+
+            // ✅ Create DTO and use mapper to convert to entity
+            var transactionDto = new TransactionDto
+            {
+                Name = transactionType.ToString(), // Based on your mapper structure
+                AccountId = accountId,
+                Amount = Math.Abs(amount),
+                CategoryId = categoryId,
+                Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(), // Local time - mapper will convert to UTC
+                Description = $"{SystemCategories.INITIAL_BALANCE_NAME} - {accountName}",
+                CreatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
+                UpdatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone()
+            };
+
+            // ✅ Use transaction service which will handle mapping internally
+            await _transactionService.CreateAsync(transactionDto);
+        }
+
+        private async Task CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
+        {
+            var isIncome = adjustment >= 0;
+            var transactionType = isIncome ? TransactionType.Income : TransactionType.Expense;
+            var categoryId = SystemCategories.GetBalanceAdjustmentCategoryId(isIncome);
+
+            // ✅ Create DTO and use mapper to convert to entity
+            var transactionDto = new TransactionDto
+            {
+                Name = transactionType.ToString(), // Based on your mapper structure
+                AccountId = accountId,
+                Amount = Math.Abs(adjustment),
+                CategoryId = categoryId, // ✅ FIXED: Use correct categoryId, not GetHashCode()
+                Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(), // Local time - mapper will convert to UTC
+                Description = $"{SystemCategories.BALANCE_ADJUSTMENT_NAME} - {accountName}",
+                CreatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
+                UpdatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone()
+            };
+
+            // ✅ Add notes if provided
+            if (!string.IsNullOrEmpty(reason))
+            {
+                // Assuming TransactionDto has Notes property
+                // transactionDto.Notes = reason;
+            }
+
+            // ✅ Use transaction service which will handle mapping internally
+            await _transactionService.CreateAsync(transactionDto);
+        }
+
+        private async Task CalculateCurrentBalancesAsync(List<AccountDto> accounts)
+        {
+            try
+            {
+                var transactionsResult = await _transactionService.GetAllAsync();
+                if (!transactionsResult.Success) return;
+
+                var transactions = transactionsResult.Data;
+
+                foreach (var account in accounts)
+                {
+                    var accountTransactions = transactions.Where(t => t.AccountId == account.Id);
+                    account.CurrentBalance = accountTransactions.Sum(t =>
+                        t.IsIncome() ? t.Amount : -t.Amount);
+                }
+            }
+            catch
+            {
+                // If calculation fails, balances remain at 0
+                // Could log error here if needed
+            }
         }
 
     }
