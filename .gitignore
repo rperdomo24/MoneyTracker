@@ -361,3 +361,12 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+.DS_Store
+**/firebase-service-account.json
+# Terraform files
+terraform/.terraform.lock.hcl
+terraform/.env
+terraform/terraform.tfvars
+terraform/.terraform
+terraform/lambda*.zip
+terraform/lambda/lambda*.zip
