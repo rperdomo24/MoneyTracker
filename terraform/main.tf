@@ -11,7 +11,7 @@ resource "aws_lambda_function" "auth_start" {
   handler          = "index.handler"
   runtime          = "nodejs20.x"
   role             = aws_iam_role.lambda_exec_role.arn
-  timeout          = 60
+  timeout          = 120
 
   environment {
     variables = {
@@ -83,11 +83,13 @@ resource "aws_lambda_function" "gmail_watcher" {
   handler          = "index.handler"
   runtime          = "nodejs20.x"
   role             = aws_iam_role.lambda_exec_role.arn
-  timeout          = 60
+  timeout          = 120
 
   environment {
     variables = {
-      OPENAI_KEY = var.openai_api_key
+      OPENAI_KEY           = var.openai_api_key
+      GOOGLE_CLIENT_ID     = var.google_client_id
+      GOOGLE_CLIENT_SECRET = var.google_client_secret
     }
   }
 }
@@ -105,7 +107,7 @@ resource "aws_lambda_function" "auth_callback" {
   handler          = "index.handler"
   runtime          = "nodejs20.x"
   role             = aws_iam_role.lambda_exec_role.arn
-  timeout          = 60
+  timeout          = 120
 
   environment {
     variables = {
