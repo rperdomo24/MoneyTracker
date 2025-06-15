@@ -61,14 +61,17 @@ exports.handler = async (event) => {
         }
 
         // 2.5. Inicializar Firebase Admin SDK
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
+        if (!admin.apps.length) {
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+            });
+        }
 
         // 3. Guardar en Firestore
         const db = admin.firestore();
 
         try {
+
             const firestorePayload = {
                 email: userData.email,
                 refresh_token: tokenData.refresh_token,
@@ -77,8 +80,49 @@ exports.handler = async (event) => {
                 creation_timestamp: Date.now(),
                 provider: "google",
             };
+
             await db.collection("oauth_tokens").doc(firestorePayload.email).set(firestorePayload);
             console.log(`Token guardado exitosamente en Firestore para ${firestorePayload.email}`);
+
+            // 4. Registrar watcher en Gmail
+            try {
+                const watchRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch", {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${tokenData.access_token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        labelIds: ["INBOX"],
+                        topicName: "projects/moneytracker-463002/topics/gmail_push_topic"
+                    })
+                });
+
+                const watchData = await watchRes.json();
+
+                if (!watchRes.ok) {
+                    console.error("Error al registrar watcher en Gmail:", watchData);
+                    return {
+                        statusCode: 500,
+                        body: JSON.stringify({
+                            message: "No se pudo registrar el watcher",
+                            error: watchData
+                        })
+                    };
+                }
+
+                console.log(`Gmail Watcher registrado para ${userData.email}:`, watchData.historyId);
+            } catch (watchError) {
+                console.error("Error durante registro del watcher:", watchError.stack || watchError);
+                return {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        message: "Error registrando watcher",
+                        error: watchError.message,
+                        stack: watchError.stack
+                    })
+                };
+            }
         } catch (firebaseError) {
             console.error("Firestore error:", firebaseError);
             return {
