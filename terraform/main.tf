@@ -11,6 +11,7 @@ resource "aws_lambda_function" "auth_start" {
   handler          = "index.handler"
   runtime          = "nodejs20.x"
   role             = aws_iam_role.lambda_exec_role.arn
+  timeout          = 60
 
   environment {
     variables = {
@@ -82,6 +83,7 @@ resource "aws_lambda_function" "gmail_watcher" {
   handler          = "index.handler"
   runtime          = "nodejs20.x"
   role             = aws_iam_role.lambda_exec_role.arn
+  timeout          = 60
 
   environment {
     variables = {
@@ -103,6 +105,7 @@ resource "aws_lambda_function" "auth_callback" {
   handler          = "index.handler"
   runtime          = "nodejs20.x"
   role             = aws_iam_role.lambda_exec_role.arn
+  timeout          = 60
 
   environment {
     variables = {

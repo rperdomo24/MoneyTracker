@@ -1,26 +1,12 @@
 const fetch = require("node-fetch");
 const admin = require("firebase-admin");
-
-// Inicializar Firebase Admin SDK solo una vez
-let initialized = false;
-function initFirebase() {
-    if (!initialized) {
-        const serviceAccount = require("./firebase-service-account.json");
-
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
-        initialized = true;
-    }
-}
+const serviceAccount = require("./firebase-service-account.json");
 
 exports.handler = async (event) => {
-    console.log("STEP 1: Recibido evento:", event);
     try {
         const queryParams = event.rawQueryString || "";
         const urlParams = new URLSearchParams(queryParams);
         const code = urlParams.get("code");
-        console.log("STEP 2: Código recibido:", code);
 
         if (!code) {
             return { statusCode: 400, body: "Missing authorization code" };
@@ -44,7 +30,6 @@ exports.handler = async (event) => {
         });
 
         const tokenData = await tokenRes.json();
-        console.log("STEP 3: Tokens recibidos:", tokenData);
 
         if (tokenRes.status !== 200) {
             console.error("Token endpoint error:", tokenData);
@@ -69,30 +54,33 @@ exports.handler = async (event) => {
         });
 
         const userData = await userRes.json();
-        console.log("STEP 4: Datos de usuario:", userData);
 
         if (!userData.email) {
             console.error("No email returned from userinfo endpoint.", userData);
             return { statusCode: 400, body: JSON.stringify({ message: "No email returned from userinfo endpoint.", userData }) };
         }
 
+        // 2.5. Inicializar Firebase Admin SDK
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+
         // 3. Guardar en Firestore
-        initFirebase();
         const db = admin.firestore();
 
-        console.log("STEP 5: Guardando en Firestore...");
         try {
-            await db.collection("oauth_tokens").doc(userData.email).set({
+            const firestorePayload = {
                 email: userData.email,
                 refresh_token: tokenData.refresh_token,
                 access_token: tokenData.access_token,
                 expires_in: tokenData.expires_in,
                 creation_timestamp: Date.now(),
                 provider: "google",
-            });
-            console.log("STEP 6: Guardado con éxito en Firestore.");
+            };
+            await db.collection("oauth_tokens").doc(firestorePayload.email).set(firestorePayload);
+            console.log(`Token guardado exitosamente en Firestore para ${firestorePayload.email}`);
         } catch (firebaseError) {
-            console.error("Firestore error:", firebaseError.stack || firebaseError);
+            console.error("Firestore error:", firebaseError);
             return {
                 statusCode: 500,
                 body: JSON.stringify({
@@ -105,7 +93,7 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
-            body: `Token saved for user ${userData.email}`,
+            body: `Ha iniciado sesión con ${userData.email}. Puede cerrar esta ventana.`,
         };
     } catch (err) {
         console.error("OAuth Callback Error:", err.stack || err);
