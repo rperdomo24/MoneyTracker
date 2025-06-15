@@ -3,6 +3,12 @@ variable "aws_region" {
   default = "us-east-2"
 }
 
+variable "openai_api_endpoint" {
+  description = "Tu endpoint de API de OpenAI"
+  type        = string
+  sensitive   = true
+}
+
 variable "openai_api_key" {
   description = "Tu API key de OpenAI"
   type        = string

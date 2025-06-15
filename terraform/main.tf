@@ -87,7 +87,8 @@ resource "aws_lambda_function" "gmail_watcher" {
 
   environment {
     variables = {
-      OPENAI_KEY           = var.openai_api_key
+      AZURE_OPENAI_KEY     = var.openai_api_key
+      AZURE_OPENAI_ENDPOINT = var.openai_api_endpoint
       GOOGLE_CLIENT_ID     = var.google_client_id
       GOOGLE_CLIENT_SECRET = var.google_client_secret
     }

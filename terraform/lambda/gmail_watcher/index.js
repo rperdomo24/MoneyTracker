@@ -40,10 +40,10 @@ async function fetchMessageDetails(msgId, accessToken) {
     return await msgRes.json();
 }
 
-async function getAllowedMessagesFromHistory(historyJson, accessToken, allowedSenders) {
+async function getAllowedMessagesFromHistory(historyJson, accessToken, allowedSenders, db, emailAddress) {
+    const fetch = require("node-fetch");
     const messageIds = new Set();
 
-    console.log("History JSON:", historyJson);
     if (historyJson.history) {
         for (const h of historyJson.history) {
             if (h.messagesAdded) {
@@ -63,22 +63,105 @@ async function getAllowedMessagesFromHistory(historyJson, accessToken, allowedSe
     for (const msgId of messageIds) {
         try {
             const msgJson = await fetchMessageDetails(msgId, accessToken);
-            const { headers } = msgJson.payload;
+            const { headers, parts } = msgJson.payload;
             const fromHeader = headers.find(h => h.name.toLowerCase() === "from");
             const fromValue = fromHeader ? fromHeader.value.toLowerCase() : "";
 
             const isAllowed = allowedSenders.some(allowed => fromValue.includes(allowed.toLowerCase()));
 
-            if (isAllowed) {
-                console.log(`Correo permitido de: ${fromValue}`);
-                matchedMessages.push({
-                    id: msgId,
-                    from: fromValue,
-                    snippet: msgJson.snippet,
-                });
-            } else {
+            if (!isAllowed) {
                 console.log(`Correo ignorado de: ${fromValue}`);
+                continue;
             }
+
+            console.log(`Correo permitido de: ${fromValue}`);
+
+            let emailContent = "";
+            let plainPart = null;
+            let htmlPart = null;
+
+            function findTextParts(partList) {
+                for (const part of partList) {
+                    if (part.mimeType === "text/plain" && part.body?.data && !plainPart) {
+                        plainPart = part;
+                    } else if (part.mimeType === "text/html" && part.body?.data && !htmlPart) {
+                        htmlPart = part;
+                    } else if (part.parts) {
+                        findTextParts(part.parts);
+                    }
+                }
+            }
+
+            findTextParts([msgJson.payload]);
+
+            if (plainPart?.body?.data) {
+                emailContent = Buffer.from(plainPart.body.data, "base64").toString("utf8");
+            } else if (htmlPart?.body?.data) {
+                emailContent = Buffer.from(htmlPart.body.data, "base64").toString("utf8");
+            }
+
+            if (!emailContent) {
+                console.log("No se encontró contenido HTML ni texto plano en el mensaje");
+                continue;
+            }
+
+            // Prompt para Azure OpenAI
+            const prompt = `
+Eres un asistente que extrae información financiera de correos electrónicos. Extrae los siguientes datos y responde solo en JSON con esta estructura:
+
+{
+  "banco": "...",
+  "categoria_gasto": "...",
+  "monto": 0.0,
+  "ultimos_digitos_tarjeta": "...",
+  "fecha_transaccion": "dd-mm-yyyy"
+}
+
+Contenido del correo:
+${emailContent}
+`;
+
+            const openaiRes = await fetch(process.env.AZURE_OPENAI_ENDPOINT, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-key": process.env.AZURE_OPENAI_KEY
+                },
+                body: JSON.stringify({
+                    messages: [
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.2,
+                    max_tokens: 500
+                })
+            });
+
+            const aiJson = await openaiRes.json();
+            const respuesta = aiJson.choices?.[0]?.message?.content?.trim();
+
+            console.log("Respuesta OpenAI:", respuesta);
+
+            if (!respuesta) {
+                console.error("Respuesta vacía o inesperada de OpenAI:", JSON.stringify(aiJson, null, 2));
+                continue;
+            }
+
+            const parsedData = JSON.parse(respuesta);
+
+            await db.collection("bank_transactions").add({
+                email: emailAddress,
+                from: fromValue,
+                mensajeId: msgId,
+                datos: parsedData,
+                timestamp: new Date().toISOString()
+            });
+
+            matchedMessages.push({
+                id: msgId,
+                from: fromValue,
+                resumen: parsedData
+            });
+
         } catch (msgErr) {
             console.error(`Error procesando mensaje ${msgId}:`, msgErr.stack || msgErr);
         }
@@ -139,7 +222,7 @@ exports.handler = async (event) => {
         const historyJson = await historyRes.json();
         console.log("Respuesta de historial:", JSON.stringify(historyJson, null, 2));
 
-        const matchedMessages = await getAllowedMessagesFromHistory(historyJson, accessToken, ALLOWED_SENDERS);
+        const matchedMessages = await getAllowedMessagesFromHistory(historyJson, accessToken, ALLOWED_SENDERS, db, emailAddress);
         console.log("Mensajes seleccionados para análisis:", matchedMessages);
 
         // Actualizar Firestore con nuevo historyId
