@@ -16,6 +16,7 @@ using MoneyTracker.UI.Components;
 using MudBlazor;
 using MudBlazor.Services;
 using Serilog;
+using System.Globalization;
 
 namespace MoneyTracker.UI
 {
@@ -34,6 +35,10 @@ namespace MoneyTracker.UI
 
             builder.Services.AddDbContext<MoneyTrackerDbContext>(options =>
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            var cultureInfo = new CultureInfo("en-US");
+            CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
+            CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
             builder.Host.UseSerilog();
 
