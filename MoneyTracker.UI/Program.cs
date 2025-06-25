@@ -34,7 +34,9 @@ namespace MoneyTracker.UI
             });
 
             builder.Services.AddDbContext<MoneyTrackerDbContext>(options =>
-                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+            {
+                options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
+            }, ServiceLifetime.Scoped);
 
             var cultureInfo = new CultureInfo("en-US");
             CultureInfo.DefaultThreadCurrentCulture = cultureInfo;

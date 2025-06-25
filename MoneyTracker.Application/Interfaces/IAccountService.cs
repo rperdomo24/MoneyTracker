@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
+using MoneyTracker.Domain.Enums;
 
 namespace MoneyTracker.Application.Interfaces
 {
@@ -15,5 +16,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<decimal>> GetCurrentBalanceAsync(int accountId);
 
         Task<OperationResult<List<AccountDto>>> GetAccountsWithBalancesAsync();
+        Task<OperationResult<bool>> HasAccountByType(AccountType accountType);
     }
 }

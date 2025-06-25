@@ -767,7 +767,7 @@
                                                 </MudText>
                                                 <div class="d-flex align-center ga-2 mt-1">
                                                     <MudChip T="string" Size="Size.Small"
-                                                             Color="@_transaction.Category.Type.GetCategoryTypeMudColor()"
+                                                             Color="@_transaction.Category.Type.GetColor()"
                                                              Variant="Variant.Text">
                                                         @_transaction.Category.Type.ToString()
                                                     </MudChip>
@@ -1537,7 +1537,7 @@
         if (_transaction == null) return Icons.Material.Filled.Receipt;
         return _isCreditPayment ? Icons.Material.Filled.CreditCard :
                _isTransfer ? Icons.Material.Filled.SwapHoriz :
-               _transaction.Category?.Type.GetCategoryTypeIcon() ?? Icons.Material.Filled.Category;
+               _transaction.Category?.Type.GetIcon() ?? Icons.Material.Filled.Category;
     }
 
     private string GetTransactionTypeDisplay()

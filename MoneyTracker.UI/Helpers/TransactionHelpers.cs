@@ -1,13 +1,12 @@
-﻿using Microsoft.Extensions.Configuration.UserSecrets;
-using MoneyTracker.Application.DTOs.Transactions;
+﻿using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Domain.Enums;
 using MudBlazor;
+using MoneyTracker.Application.Common.Extensions;
 
 namespace MoneyTracker.UI.Helpers;
 
 public static class TransactionHelpers
 {
-    #region Amount Display Methods
 
     /// <summary>
     /// Obtiene el display del monto con signo (+/-) basado en el tipo de categoría
@@ -20,209 +19,32 @@ public static class TransactionHelpers
         return $"{sign}{transaction.Amount:C}";
     }
 
-    #endregion
-
-    #region CSS Classes
-
-    /// <summary>
-    /// Obtiene la clase CSS para el color del monto (text-success/text-error) con null safety
-    /// </summary>
-    public static string GetAmountColorClassSafe(this TransactionDto? transaction)
-    {
-        if (transaction?.Category?.Type == CategoryType.Income)
-            return "text-success";
-        return transaction?.Category?.Type == CategoryType.Expense ? "text-error" : "";
-    }
-
-    #endregion
-
-    #region Icons and Colors
-
-    /// <summary>
-    /// Obtiene el ícono de Material Design para la transacción con null safety
-    /// </summary>
-    public static string GetTransactionIconSafe(this TransactionDto? transaction)
-    {
-        if (transaction?.Category?.Type == CategoryType.Income)
-            return Icons.Material.Filled.TrendingUp;
-        return Icons.Material.Filled.TrendingDown;
-    }
-
-    /// <summary>
-    /// Obtiene el ícono de Material Design para la transacción
-    /// </summary>
-    public static string GetTransactionIcon(this TransactionDto transaction)
-    {
-        return transaction.Category?.Type == CategoryType.Income
-            ? Icons.Material.Filled.TrendingUp
-            : Icons.Material.Filled.TrendingDown;
-    }
-
-    /// <summary>
-    /// Obtiene el color hexadecimal para la transacción con null safety
-    /// </summary>
-    public static string GetTransactionColorSafe(this TransactionDto? transaction)
-    {
-        if (transaction?.Category?.Type == CategoryType.Income)
-            return "#4CAF50"; // Verde
-        return "#f44336"; // Rojo
-    }
-
     /// <summary>
     /// Obtiene el color hexadecimal para la transacción
     /// </summary>
+
     public static string GetTransactionColor(this TransactionDto transaction)
     {
-        return transaction.Category?.Type == CategoryType.Income ? "#4CAF50" : "#f44336";
+        // Check if it's a credit payment first
+        if (transaction.IsCreditPayment())
+            return "#ff5722"; // Orange for credit payments
+
+        if (transaction.Category?.Color != null)
+            return transaction.Category.Color;
+
+        return transaction.IsIncome() ? "#4caf50" : "#f44336";
     }
 
-    /// <summary>
-    /// Obtiene el Color enum de MudBlazor para la transacción con null safety
-    /// </summary>
-    public static Color GetTransactionMudColorSafe(this TransactionDto? transaction)
+    public static string GetTransactionIcon(this TransactionDto transaction)
     {
-        if (transaction?.Category?.Type == CategoryType.Income)
-            return Color.Success;
-        return Color.Error;
+        // Check if it's a credit payment first
+        if (transaction.IsCreditPayment())
+            return Icons.Material.Filled.CreditCard;
+
+        if (transaction.Category?.Icon != null)
+            return transaction.Category.Icon.ToIcon();
+
+        return transaction.IsIncome() ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown;
     }
 
-    /// <summary>
-    /// Obtiene el Color enum de MudBlazor para la transacción
-    /// </summary>
-    public static Color GetTransactionMudColor(this TransactionDto transaction)
-    {
-        return transaction.Category?.Type == CategoryType.Income ? Color.Success : Color.Error;
-    }
-
-    #endregion
-
-    #region Transaction Type Helpers
-
-    /// <summary>
-    /// Obtiene el ícono para el tipo de categoría
-    /// </summary>
-    public static string GetCategoryTypeIcon(this CategoryType categoryType)
-    {
-        return categoryType == CategoryType.Income
-            ? Icons.Material.Filled.TrendingUp
-            : Icons.Material.Filled.TrendingDown;
-    }
-
-    /// <summary>
-    /// Obtiene el color MudBlazor para el tipo de categoría
-    /// </summary>
-    public static Color GetCategoryTypeMudColor(this CategoryType categoryType)
-    {
-        return categoryType == CategoryType.Income ? Color.Success : Color.Error;
-    }
-
-    #endregion
-
-    #region Transaction-Specific Helpers
-
-    /// <summary>
-    /// Obtiene una fecha formateada específica para transacciones (usa DateTimeHelpers)
-    /// </summary>
-    public static string GetFormattedDate(this TransactionDto transaction)
-    {
-        return transaction.Date.GetFormattedDate();
-    }
-
-    /// <summary>
-    /// Obtiene fecha con día de la semana para transacciones
-    /// </summary>
-    public static string GetFormattedDateWithDay(this TransactionDto transaction)
-    {
-        return transaction.Date.GetFormattedDateWithDay();
-    }
-
-    /// <summary>
-    /// Determina si la transacción fue modificada después de creada
-    /// </summary>
-    public static bool WasModified(this TransactionDto transaction)
-    {
-        return transaction.UpdatedAt != transaction.CreatedAt;
-    }
-
-    /// <summary>
-    /// Determina si la transacción es de los últimos N días (usa DateTimeHelpers)
-    /// </summary>
-    public static bool IsFromLastDays(this TransactionDto transaction, int days)
-    {
-        return transaction.Date.IsFromLastDays(days);
-    }
-
-    /// <summary>
-    /// Determina si la transacción es de hoy
-    /// </summary>
-    public static bool IsToday(this TransactionDto transaction)
-    {
-        return transaction.Date.IsToday();
-    }
-
-    /// <summary>
-    /// Determina si la transacción es de este mes
-    /// </summary>
-    public static bool IsThisMonth(this TransactionDto transaction)
-    {
-        return transaction.Date.IsThisMonth();
-    }
-
-    /// <summary>
-    /// Determina si el monto es similar a otro monto (usa MathHelpers)
-    /// </summary>
-    public static bool IsSimilarAmount(this TransactionDto transaction, decimal otherAmount, decimal tolerance = 0.1m)
-    {
-        return MathHelpers.IsSimilarAmount(transaction.Amount, otherAmount, tolerance);
-    }
-
-    /// <summary>
-    /// Obtiene el tiempo relativo de la transacción
-    /// </summary>
-    public static string GetRelativeTime(this TransactionDto transaction)
-    {
-        return transaction.Date.GetRelativeTime();
-    }
-
-    #endregion
-
-    #region Static Helpers for TransactionType enum
-
-    /// <summary>
-    /// Obtiene el ícono para un TransactionType
-    /// </summary>
-    public static string GetIcon(this TransactionType type)
-    {
-        return type switch
-        {
-            TransactionType.Income => Icons.Material.Filled.TrendingUp,
-            TransactionType.Expense => Icons.Material.Filled.TrendingDown,
-            TransactionType.Transfer => Icons.Material.Filled.SwapHoriz, // ✅ Nuevo icono
-            _ => Icons.Material.Filled.Receipt
-        };
-    }
-
-    /// <summary>
-    /// Obtiene el color MudBlazor para un TransactionType
-    /// </summary>
-    public static Color GetMudColor(this TransactionType transactionType)
-    {
-        return transactionType == TransactionType.Income ? Color.Success : Color.Error;
-    }
-
-    /// <summary>
-    /// Obtiene el color hexadecimal para un TransactionType
-    /// </summary>
-    public static string GetHexColor(this TransactionType type)
-    {
-        return type switch
-        {
-            TransactionType.Income => "#4caf50",   // Verde
-            TransactionType.Expense => "#f44336",  // Rojo
-            TransactionType.Transfer => "#2196f3", // ✅ Azul para transfers
-            _ => "#757575"
-        };
-    }
-
-    #endregion
 }

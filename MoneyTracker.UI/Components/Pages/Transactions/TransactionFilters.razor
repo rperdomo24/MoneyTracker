@@ -1,12 +1,10 @@
-﻿@* MoneyTracker.UI/Components/TransactionFilters.razor *@
-@using MoneyTracker.Application.DTOs
+﻿@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
-@* Comentar esta línea si no tienes IAccountService *@
 @inject IAccountService AccountService
 
 <MudPaper Class="pa-4 mb-4" Elevation="2">
@@ -75,9 +73,7 @@
             </MudItem>
         }
 
-        <!-- Account Filter - Comentar si no tienes AccountService -->
-        
-        @if (_activeAccounts?.Any() == true)
+        @if (_orderedAccounts?.Any() == true)
         {
             <MudItem xs="12" md="4">
                 <MudSelect T="int"
@@ -85,19 +81,55 @@
                            MultiSelection="true"
                            @bind-SelectedValues="SelectedAccountIds"
                            Variant="Variant.Outlined"
-                           Clearable="true">
-                    @foreach (var account in _activeAccounts)
+                           Clearable="true"
+                           MultiSelectionTextFunc="@GetSelectedAccountsText"
+                           MaxHeight="400">
+                    
+                    @{
+                        AccountType? currentType = null;
+                    }
+                    
+                    @foreach (var account in _orderedAccounts)
                     {
+                        @* Add group header as disabled SelectItem *@
+                        @if (currentType != account.Type)
+                        {
+                            currentType = account.Type;
+                            
+                            <MudSelectItem Value="-1" Disabled="true">
+                                <div class="py-2 px-1" style="background-color: var(--mud-palette-action-hover); border-left: 3px solid var(--mud-palette-primary); margin: 4px -12px;">
+                                    <MudText Typo="Typo.subtitle2" Class="text-primary font-weight-bold d-flex align-center">
+                                        <MudIcon Icon="@GetAccountTypeIcon(account.Type)" 
+                                                 Size="Size.Small" 
+                                                 Class="mr-2" />
+                                        @GetAccountTypeLabel(account.Type)
+                                    </MudText>
+                                </div>
+                            </MudSelectItem>
+                        }
+                        
                         <MudSelectItem Value="account.Id">
-                            <div class="d-flex align-center">
-                                <MudIcon Icon="@account.Type.ToIcon()" 
-                                         Color="Color.Default" 
-                                         Class="mr-2" 
-                                         Size="Size.Small" />
-                                @account.Name
-                                <MudSpacer />
-                                <MudText Typo="Typo.caption" Class="text-muted">
-                                    @account.CurrentBalance.ToString("C")
+                            <div class="d-flex align-center py-2 px-1">
+                                <MudAvatar Size="Size.Small"
+                                           Style="@($"background-color: {(string.IsNullOrEmpty(account.Color) ? "#757575" : account.Color)}; margin-right: 12px; flex-shrink: 0;")">
+                                    <MudIcon Icon="@GetAccountTypeIcon(account.Type)"
+                                             Color="Color.Surface"
+                                             Size="Size.Small" />
+                                </MudAvatar>
+                                
+                                <div class="flex-grow-1 min-width-0">
+                                    <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                        @account.Name
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Class="text-muted">
+                                        @GetAccountTypeLabel(account.Type)
+                                    </MudText>
+                                </div>
+                                
+                                <MudText Typo="Typo.body2"
+                                         Class="@($"{GetBalanceColorClass(account.CurrentBalance)} ml-2 font-weight-medium")"
+                                         Style="flex-shrink: 0;">
+                                    @FormatCurrency(account.CurrentBalance)
                                 </MudText>
                             </div>
                         </MudSelectItem>
@@ -105,7 +137,6 @@
                 </MudSelect>
             </MudItem>
         }
-       
 
         <!-- Search Field -->
         <MudItem xs="12" md="4">
@@ -185,16 +216,16 @@
                                Clearable="true">
                         <MudSelectItem Value="@("Income")">
                             <div class="d-flex align-center">
-                                <MudIcon Icon="@CategoryType.Income.GetCategoryTypeIcon()"
-                                         Color="@CategoryType.Income.GetCategoryTypeMudColor()"
+                                <MudIcon Icon="@CategoryType.Income.GetIcon()"
+                                         Color="@CategoryType.Income.GetColor()"
                                          Class="mr-2" Size="Size.Small" />
                                 Income
                             </div>
                         </MudSelectItem>
                         <MudSelectItem Value="@("Expense")">
                             <div class="d-flex align-center">
-                                <MudIcon Icon="@CategoryType.Expense.GetCategoryTypeIcon()"
-                                         Color="@CategoryType.Expense.GetCategoryTypeMudColor()"
+                                <MudIcon Icon="@CategoryType.Expense.GetIcon()"
+                                         Color="@CategoryType.Expense.GetColor()"
                                          Class="mr-2" Size="Size.Small" />
                                 Expense
                             </div>
@@ -205,7 +236,7 @@
         </div>
     </MudCollapse>
 
-    <!-- Filter Summary -->
+    <!-- ✅ IMPROVED Filter Summary -->
     @if (_activeFilterCount > 0)
     {
         <div class="mt-4">
@@ -223,7 +254,7 @@
                              Color="Color.Default"
                              Variant="Variant.Outlined"
                              OnClose="() => ClearAccountFilter()">
-                        @($"{Filter.AccountIds.Count} Account{(Filter.AccountIds.Count > 1 ? "s" : "")}")
+                        @GetSelectedAccountsChipText()
                     </MudChip>
                 }
 
@@ -260,13 +291,15 @@
         </div>
     }
 
-    <!-- Debug Info - Temporal para debuggear -->
-    @if (_showDebugInfo)
+    <!-- Debug Info - Solo en desarrollo -->
+    @if (_showDebugInfo && System.Diagnostics.Debugger.IsAttached)
     {
         <MudAlert Severity="Severity.Info" Class="mt-4">
             <div>
                 <strong>Debug Info:</strong><br />
                 Categories loaded: @(_categories?.Count ?? 0)<br />
+                Accounts loaded: @(_activeAccounts?.Count ?? 0)<br />
+                Ordered accounts: @(_orderedAccounts?.Count ?? 0)<br />
                 Loading: @_loadingCategories<br />
                 Error: @_loadError
             </div>
@@ -281,18 +314,19 @@
     [Parameter] public EventCallback OnFiltersInitialized { get; set; }
 
     private List<CategoryDto>? _categories;
-    private List<AccountDto>? _activeAccounts; // Comentar si no tienes AccountService
+    private List<AccountDto>? _activeAccounts;
+    private List<AccountDto>? _orderedAccounts;
     private bool _showAdvancedFilters = false;
     private int _activeFilterCount = 0;
     private bool _loadingCategories = true;
     private string _loadError = string.Empty;
-    private bool _showDebugInfo = false;
+    private bool _showDebugInfo = false; 
 
     // Para compatibilidad con tu sistema actual
     private string _selectedCategoryString = string.Empty;
     private string _selectedTypeString = string.Empty;
 
-    // Para MudSelect multi-selection - Comentar si no tienes AccountService
+    // Para MudSelect multi-selection
     private IEnumerable<int> SelectedAccountIds
     {
         get => Filter.AccountIds ?? Enumerable.Empty<int>();
@@ -319,44 +353,27 @@
 
         try
         {
-            // Debug: Verificar que el servicio existe
             if (CategoryService == null)
             {
                 _loadError = "CategoryService is null - DI problem";
                 return;
             }
 
-            // Cargar categorías
-            _loadError = "Calling CategoryService.GetAllAsync()...";
-            StateHasChanged(); // Para ver el mensaje de progreso
-
+            _loadError = "Loading categories...";
             var categoriesResult = await CategoryService.GetAllAsync();
-
-            _loadError = $"Service call completed. Success: {categoriesResult.Success}";
 
             if (categoriesResult.Success)
             {
                 var allCategories = categoriesResult.Data?.ToList() ?? new List<CategoryDto>();
-                _loadError = $"Raw categories count: {allCategories.Count}";
-
-                // Filtrar solo categorías activas
                 _categories = allCategories.ToList();
-                _loadError = $"Active categories count: {_categories.Count}";
 
                 if (_categories.Count == 0)
                 {
-                    if (allCategories.Count > 0)
-                    {
-                        _loadError = $"Found {allCategories.Count} categories but none are active";
-                    }
-                    else
-                    {
-                        _loadError = "No categories found in database";
-                    }
+                    _loadError = "No categories found in database";
                 }
                 else
                 {
-                    _loadError = string.Empty; // Success, clear error
+                    _loadError = string.Empty; 
                 }
             }
             else
@@ -366,25 +383,37 @@
                 Snackbar.Add($"Error loading categories: {categoriesResult.Message}", Severity.Warning);
             }
 
-            // Cargar cuentas activas - Comentar si no tienes AccountService
-            
-            var accountsResult = await AccountService.GetAllAsync();
+            // ✅ STEP 2: Cargar accounts DESPUÉS (secuencial)
+            _loadError = "Loading accounts...";
+            StateHasChanged();
+
+            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
             if (accountsResult.Success)
             {
                 _activeAccounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-                }
+                
+                // ✅ Ordenar por AccountType y luego por Name
+                _orderedAccounts = _activeAccounts
+                    .OrderBy(a => (int)a.Type)  // Ordenar por enum value
+                    .ThenBy(a => a.Name)        // Luego por nombre
+                    .ToList();
+                
+                _loadError = string.Empty; // Clear error on success
+            }
             else
             {
                 _activeAccounts = new List<AccountDto>();
+                _orderedAccounts = new List<AccountDto>();
+                _loadError = $"Error loading accounts: {accountsResult.Message}";
                 Snackbar.Add($"Error loading accounts: {accountsResult.Message}", Severity.Warning);
-                }
-           
+            }
         }
         catch (Exception ex)
         {
             _categories = new List<CategoryDto>();
             _activeAccounts = new List<AccountDto>();
-            _loadError = $"Exception: {ex.Message}\nStackTrace: {ex.StackTrace}";
+            _orderedAccounts = new List<AccountDto>();
+            _loadError = $"Exception: {ex.Message}";
             Snackbar.Add($"Error loading filter options: {ex.Message}", Severity.Error);
         }
         finally
@@ -392,6 +421,102 @@
             _loadingCategories = false;
             StateHasChanged();
         }
+    }
+
+    private string GetSelectedAccountsText(List<string> selectedValues)
+    {
+        if (!selectedValues?.Any() == true || _activeAccounts?.Any() != true)
+            return "Select accounts...";
+
+        var selectedIds = selectedValues.Where(x => int.TryParse(x, out _))
+                                       .Select(x => int.Parse(x))
+                                       .ToList();
+
+        if (!selectedIds.Any())
+            return "Select accounts...";
+
+        var selectedAccounts = _activeAccounts.Where(a => selectedIds.Contains(a.Id)).ToList();
+
+        if (!selectedAccounts.Any())
+            return "Select accounts...";
+
+        if (selectedAccounts.Count == 1)
+        {
+            var account = selectedAccounts.First();
+            return $"{account.Name} ({FormatCurrency(account.CurrentBalance)})";
+        }
+
+        if (selectedAccounts.Count <= 2)
+        {
+            return string.Join(", ", selectedAccounts.Select(a => a.Name));
+        }
+
+        // Para muchas cuentas, mostrar resumen
+        var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
+        return $"{selectedAccounts.Count} accounts ({FormatCurrency(totalBalance)})";
+    }
+
+    // ✅ NEW: Text for the filter chip
+    private string GetSelectedAccountsChipText()
+    {
+        if (Filter.AccountIds?.Any() != true || _activeAccounts?.Any() != true)
+            return "Accounts";
+
+        var selectedAccounts = _activeAccounts.Where(a => Filter.AccountIds.Contains(a.Id)).ToList();
+
+        if (!selectedAccounts.Any())
+            return "Accounts";
+
+        if (selectedAccounts.Count == 1)
+        {
+            return selectedAccounts.First().Name;
+        }
+
+        return $"{selectedAccounts.Count} Account{(selectedAccounts.Count > 1 ? "s" : "")}";
+    }
+
+    // ✅ NEW: Format currency helper (consistent with app format)
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    // ✅ NEW: Get balance color class
+    private string GetBalanceColorClass(decimal balance)
+    {
+        return balance switch
+        {
+            > 0 => "text-success",
+            < 0 => "text-error", 
+            _ => "text-muted"
+        };
+    }
+
+    // ✅ NEW: AccountType helpers (since extension methods might not be available)
+    private string GetAccountTypeIcon(AccountType accountType)
+    {
+        return accountType switch
+        {
+            AccountType.Checking => Icons.Material.Filled.AccountBalance,
+            AccountType.Savings => Icons.Material.Filled.Savings,
+            AccountType.Credit => Icons.Material.Filled.CreditCard,
+            AccountType.Investment => Icons.Material.Filled.TrendingUp,
+            AccountType.Cash => Icons.Material.Filled.Wallet,
+            _ => Icons.Material.Filled.AccountBalanceWallet
+        };
+    }
+
+    private string GetAccountTypeLabel(AccountType accountType)
+    {
+        return accountType switch
+        {
+            AccountType.Checking => "Checking",
+            AccountType.Savings => "Savings", 
+            AccountType.Credit => "Credit",
+            AccountType.Investment => "Investment",
+            AccountType.Cash => "Cash",
+            _ => accountType.ToString()
+        };
     }
 
     private async Task OnTimePeriodChanged()

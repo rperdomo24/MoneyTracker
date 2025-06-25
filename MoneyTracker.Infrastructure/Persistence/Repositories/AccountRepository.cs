@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums;
 using MoneyTracker.Domain.Interfaces;
-using MoneyTracker.Infrastructure.Persistence;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories
 {
@@ -101,6 +101,21 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error deleting account ID: {Id}", id);
+                return false;
+            }
+        }
+
+        public async Task<bool> HasAccountsByTypeAsync(AccountType accountType)
+        {
+            try
+            {
+                return await _context.Accounts
+                    .AsNoTracking()
+                    .AnyAsync(a => a.Type == accountType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking accounts by type: {AccountType}", accountType);
                 return false;
             }
         }

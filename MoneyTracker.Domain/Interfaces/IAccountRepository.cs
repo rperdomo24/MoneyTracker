@@ -1,4 +1,5 @@
 ﻿using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums;
 
 namespace MoneyTracker.Domain.Interfaces
 {
@@ -9,5 +10,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task<bool> AddAsync(Account account);
         Task<bool> UpdateAsync(Account account);
         Task<bool> DeleteAsync(int id);
+        Task<bool> HasAccountsByTypeAsync(AccountType accountType);
     }
 }

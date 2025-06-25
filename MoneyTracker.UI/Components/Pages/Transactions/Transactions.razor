@@ -8,8 +8,6 @@
 @using MoneyTracker.Application.Common.Extensions
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
-@inject IDialogService DialogService
-@inject ISnackbar Snackbar
 
 <PageTitle>Transactions - MoneyTracker</PageTitle>
 
@@ -48,21 +46,21 @@
             </MudButton>
 
             <MudButton Variant="Variant.Text"
-                       Color="@GetTransactionColor(TransactionType.Transfer)"
-                       StartIcon="@GetTransactionIcon(TransactionType.Transfer)"
+                       Color="@(TransactionType.Transfer.GetTransactionTypeColor())"
+                       StartIcon="@(TransactionType.Transfer.GetTransactionypeIcon())"
                        OnClick="@(() => AddTransaction(TransactionType.Transfer))">
                 Transfer
             </MudButton>
 
             <MudButton Variant="Variant.Outlined"
-                       Color="@GetTransactionColor(TransactionType.Income)"
-                       StartIcon="@GetTransactionIcon(TransactionType.Income)"
+                       Color="@(TransactionType.Income.GetTransactionTypeColor())"
+                       StartIcon="@(TransactionType.Income.GetTransactionypeIcon())"
                        OnClick="@(() => AddTransaction(TransactionType.Income))">
                 Add Income
             </MudButton>
             <MudButton Variant="Variant.Filled"
-                       Color="@GetTransactionColor(TransactionType.Expense)"
-                       StartIcon="@Icons.Material.Filled.Remove"
+                       Color="@(TransactionType.Expense.GetTransactionTypeColor())"
+                       StartIcon="@(TransactionType.Expense.GetTransactionypeIcon())"
                        OnClick="@(() => AddTransaction(TransactionType.Expense))">
                 Add Expense
             </MudButton>
@@ -88,9 +86,9 @@
         <MudGrid Class="mb-6">
             <!-- Total Income Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {GetTransactionHexColor(TransactionType.Income)};")">
-                    <MudIcon Icon="@GetTransactionIcon(TransactionType.Income)"
-                             Color="@GetTransactionColor(TransactionType.Income)"
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionType.Income.GetTransactionTypeHexColor())};")">
+                    <MudIcon Icon="@(TransactionType.Income.GetTransactionypeIcon())"
+                             Color="@(TransactionType.Income.GetTransactionTypeColor())"
                              Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-success")">
                         @_transactionSummary.TotalIncome.ToString("C")
@@ -101,9 +99,9 @@
 
             <!-- Total Expenses Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {GetTransactionHexColor(TransactionType.Expense)};")">
-                    <MudIcon Icon="@GetTransactionIcon(TransactionType.Expense)"
-                             Color="@GetTransactionColor(TransactionType.Expense)"
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionType.Expense.GetTransactionTypeHexColor())};")">
+                    <MudIcon Icon="@(TransactionType.Expense.GetTransactionypeIcon())"
+                             Color="@(TransactionType.Expense.GetTransactionTypeColor())"
                              Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-error")">
                         @_transactionSummary.TotalExpense.ToString("C")
@@ -114,11 +112,11 @@
 
             <!-- Balance Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@GetBalanceCardStyle()">
-                    <MudIcon Icon="@GetBalanceIcon()"
-                             Color="@GetBalanceColor()"
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@_transactionSummary.GetBalanceCardStyle()">
+                    <MudIcon Icon="@_transactionSummary.GetBalanceIcon()"
+                             Color="@_transactionSummary.GetBalanceColor()"
                              Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="@GetBalanceTextClass()">
+                    <MudText Typo="Typo.h6" Class="@_transactionSummary.GetBalanceTextClass()">
                         @_transactionSummary.Balance.ToString("C")
                     </MudText>
                     <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
@@ -135,7 +133,7 @@
                         @if (_transactionSummary.TotalCount > 0)
                         {
                             <br />
-                            <span>Avg: @((_transactionSummary.TotalIncome + _transactionSummary.TotalExpense) / _transactionSummary.TotalCount)</span>
+                            <span>Avg: @_transactionSummary.GetAverageAmount().ToString("C2")</span>
                         }
                     </MudText>
                 </MudPaper>
@@ -147,17 +145,18 @@
             <div class="d-flex align-center justify-space-between">
                 <div>
                     <strong>@GetPeriodDescription()</strong>
-                    @if (_filterDto.TimePeriod == TimePeriodFilter.Custom && _filterDto.FromDate.HasValue && _filterDto.ToDate.HasValue)
+                    @if (_filterDto.TimePeriod == TimePeriodFilter.Custom
+                   && _filterDto.FromDate.HasValue && _filterDto.ToDate.HasValue)
                     {
                         <span class="ml-2">
-                            (@_filterDto.FromDate.Value.ToString("MMM d") - @_filterDto.ToDate.Value.ToString("MMM d, yyyy"))
+                            (@_filterDto.FromDate.GetFormattedDateSafe() - @_filterDto.ToDate.GetFormattedDateSafe())
                         </span>
                     }
                 </div>
                 @if (_transactionSummary.TotalCount > 0)
                 {
                     <MudText Typo="Typo.body2">
-                        Filtered Results: <strong>@_transactionSummary.TotalCount transaction@(_transactionSummary.TotalCount != 1 ? "s" : "")</strong>
+                        Filtered Results: <strong>@_transactionSummary.GetTransactionCountText()</strong>
                     </MudText>
                 }
             </div>
@@ -223,8 +222,8 @@
                     <MudTd DataLabel="Name">
                         <div class="d-flex align-center">
                             <MudAvatar Size="Size.Medium"
-                                       Style="@($"background-color: {GetTransactionColor(context)}; margin-right: 12px;")">
-                                <MudIcon Icon="@GetTransactionIcon(context)"
+                                       Style="@($"background-color: {context.GetTransactionColor()}; margin-right: 12px;")">
+                                <MudIcon Icon="@(context.GetTransactionIcon())"
                                          Color="Color.Surface"
                                          Size="Size.Small" />
                             </MudAvatar>
@@ -275,17 +274,16 @@
                         @if (context.Account != null)
                         {
                             <div class="d-flex align-center">
-                                <MudIcon Icon="@context.Account.Type.ToIcon()"
-                                         Color="Color.Default"
-                                         Class="mr-2"
-                                         Size="Size.Small" />
+                                <MudAvatar Size="Size.Small"
+                                           Style="@($"background-color: {context.Account.Color}; margin-right: 8px;")">
+                                    <MudIcon Icon="@context.Account.Type.ToIcon()"
+                                             Color="Color.Surface"
+                                             Size="Size.Small" />
+                                </MudAvatar>
+
                                 <div>
                                     <MudText Typo="Typo.body2">@context.Account.Name</MudText>
-                                    <!-- ✨ Show account type for credit cards -->
-                                    @if (context.Account.Type == AccountType.Credit)
-                                    {
-                                        <MudText Typo="Typo.caption" Class="text-muted">Credit Card</MudText>
-                                    }
+                                    <MudText Typo="Typo.caption" Class="text-muted">@context.Account.Type.ToString()</MudText>
                                 </div>
                             </div>
                         }
@@ -302,9 +300,11 @@
                     <MudTd DataLabel="Description">
                         @if (!string.IsNullOrWhiteSpace(context.Description))
                         {
-                            <MudText Typo="Typo.body2" Class="text-muted">
-                                @(context.Description.Length > 30 ? context.Description.Substring(0, 30) + "..." : context.Description)
-                            </MudText>
+                            <MudTooltip Text="@context.Description">
+                                <MudText Typo="Typo.body2" Class="text-muted">
+                                    @(context.Description.Length > 30 ? context.Description.Substring(0, 30) + "..." : context.Description)
+                                </MudText>
+                            </MudTooltip>
                         }
                         else
                         {
@@ -368,20 +368,20 @@
                         </MudButton>
 
                         <MudButton Variant="Variant.Text"
-                                   Color="@GetTransactionColor(TransactionType.Transfer)"
-                                   StartIcon="@GetTransactionIcon(TransactionType.Transfer)"
+                                   Color="@(TransactionType.Transfer.GetTransactionTypeColor())"
+                                   StartIcon="@(TransactionType.Transfer.GetTransactionypeIcon())"
                                    OnClick="@(() => AddTransaction(TransactionType.Transfer))">
                             Transfer
                         </MudButton>
                         <MudButton Variant="Variant.Filled"
-                                   Color="@GetTransactionColor(TransactionType.Income)"
-                                   StartIcon="@GetTransactionIcon(TransactionType.Income)"
+                                   Color="@(TransactionType.Income.GetTransactionTypeColor())"
+                                   StartIcon="@(TransactionType.Income.GetTransactionypeIcon())"
                                    OnClick="@(() => AddTransaction(TransactionType.Income))">
                             Add Income
                         </MudButton>
                         <MudButton Variant="Variant.Outlined"
-                                   Color="@GetTransactionColor(TransactionType.Expense)"
-                                   StartIcon="@Icons.Material.Filled.Remove"
+                                   Color="@(TransactionType.Expense.GetTransactionTypeColor())"
+                                   StartIcon="@(TransactionType.Expense.GetTransactionypeIcon())"
                                    OnClick="@(() => AddTransaction(TransactionType.Expense))">
                             Add Expense
                         </MudButton>
@@ -446,10 +446,10 @@
     {
         try
         {
-            var accountsResult = await AccountService.GetAllAsync();
+            var accountsResult = await AccountService.HasAccountByType(AccountType.Credit);
             if (accountsResult.Success && accountsResult.Data != null)
             {
-                _hasCreditCards = accountsResult.Data.Any(a => a.Type == AccountType.Credit);
+                _hasCreditCards = accountsResult.Data;
             }
         }
         catch (Exception ex)
@@ -536,59 +536,6 @@
             _ => "Filtered Results"
         };
     }
-
-    // ✨ UPDATED: Transaction type detection for proper coloring
-    private string GetTransactionColor(TransactionDto transaction)
-    {
-        // Check if it's a credit payment first
-        if (transaction.IsCreditPayment())
-            return "#ff5722"; // Orange for credit payments
-
-        if (transaction.Category?.Color != null)
-            return transaction.Category.Color;
-
-        return transaction.IsIncome() ? "#4caf50" : "#f44336";
-    }
-
-    private string GetTransactionIcon(TransactionDto transaction)
-    {
-        // Check if it's a credit payment first
-        if (transaction.IsCreditPayment())
-            return Icons.Material.Filled.CreditCard;
-
-        if (transaction.Category?.Icon != null)
-            return transaction.Category.Icon.ToIcon();
-
-        return transaction.IsIncome() ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown;
-    }
-
-    // ✨ NEW: TransactionType Extensions (should be moved to TransactionTypeExtensions.cs)
-    private string GetTransactionIcon(TransactionType type) => type switch
-    {
-        TransactionType.Income => Icons.Material.Filled.TrendingUp,
-        TransactionType.Expense => Icons.Material.Filled.TrendingDown,
-        TransactionType.Transfer => Icons.Material.Filled.SwapHoriz,
-        TransactionType.CreditPayment => Icons.Material.Filled.CreditCard,
-        _ => Icons.Material.Filled.AttachMoney
-    };
-
-    private Color GetTransactionColor(TransactionType type) => type switch
-    {
-        TransactionType.Income => Color.Success,
-        TransactionType.Expense => Color.Error,
-        TransactionType.Transfer => Color.Info,
-        TransactionType.CreditPayment => Color.Warning,
-        _ => Color.Primary
-    };
-
-    private string GetTransactionHexColor(TransactionType type) => type switch
-    {
-        TransactionType.Income => "#4caf50",
-        TransactionType.Expense => "#f44336",
-        TransactionType.Transfer => "#2196f3",
-        TransactionType.CreditPayment => "#ff5722",
-        _ => "#6366f1"
-    };
 
     // Export functionality
     private async Task ExportTransactions()
@@ -692,25 +639,4 @@
         await CheckCreditCards(); // ✨ Refresh credit card availability
     }
 
-    // Balance helper methods
-    private string GetBalanceCardStyle()
-    {
-        var color = _transactionSummary?.Balance >= 0 ? GetTransactionHexColor(TransactionType.Income) : GetTransactionHexColor(TransactionType.Expense);
-        return $"border-top: 4px solid {color};";
-    }
-
-    private string GetBalanceIcon()
-    {
-        return _transactionSummary?.Balance >= 0 ? Icons.Material.Filled.AccountBalance : Icons.Material.Filled.Warning;
-    }
-
-    private Color GetBalanceColor()
-    {
-        return _transactionSummary?.Balance >= 0 ? Color.Success : Color.Error;
-    }
-
-    private string GetBalanceTextClass()
-    {
-        return $"font-weight-bold {(_transactionSummary?.Balance >= 0 ? "text-success" : "text-error")}";
-    }
 }

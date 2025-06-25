@@ -252,6 +252,12 @@ namespace MoneyTracker.Application.Services
                 // Could log error here if needed
             }
         }
+        public async Task<OperationResult<bool>> HasAccountByType(AccountType accountType)
+        {
+            bool hasAccounts = await _repository.HasAccountsByTypeAsync(accountType);
 
+            return OperationResult<bool>.Ok(hasAccounts,
+                hasAccounts ? "Accounts found" : "No accounts found of this type");
+        }
     }
 }
