@@ -18,7 +18,7 @@ namespace MoneyTracker.UI.Helpers
         {
             TransactionType.Income => Color.Success,
             TransactionType.Expense => Color.Error,
-            TransactionType.Transfer => Color.Info,
+            TransactionType.Transfer => Color.Surface,
             TransactionType.CreditPayment => Color.Warning,
             _ => Color.Primary
         };

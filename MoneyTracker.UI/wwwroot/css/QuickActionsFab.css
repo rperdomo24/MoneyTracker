@@ -1,0 +1,243 @@
+﻿/* wwwroot/css/quick-actions-fab.css */
+
+.quick-actions-fab-container {
+    position: fixed;
+    bottom: 45px;
+    right: 55px;
+    z-index: 1000;
+}
+
+    /* 🚀 Main FAB Button */
+    .quick-actions-fab-container .fab-main-button {
+        box-shadow: 0 4px 20px rgba(var(--mud-palette-primary-rgb), 0.3) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        position: relative;
+        z-index: 1002;
+    }
+
+        .quick-actions-fab-container .fab-main-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(var(--mud-palette-primary-rgb), 0.4) !important;
+        }
+
+        .quick-actions-fab-container .fab-main-button.expanded {
+            transform: rotate(45deg);
+            background: linear-gradient(135deg, var(--mud-palette-error), var(--mud-palette-error-darken)) !important;
+        }
+
+    /* 📋 Actions Container */
+    .quick-actions-fab-container .fab-actions {
+        position: absolute;
+        bottom: 80px;
+        right: 0;
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: flex-end;
+        gap: 12px;
+        animation: fab-fadeInUp 0.3s ease-out;
+    }
+
+    /* 🎯 Individual Action Buttons */
+    .quick-actions-fab-container .fab-action {
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        opacity: 0;
+        animation: fab-slideInRight 0.3s ease-out forwards;
+    }
+
+        .quick-actions-fab-container .fab-action:hover {
+            transform: translateX(-8px) scale(1.1);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        }
+
+    /* ⏱️ Staggered animations */
+    .quick-actions-fab-container .fab-action-1 {
+        animation-delay: 0.1s;
+    }
+
+    .quick-actions-fab-container .fab-action-2 {
+        animation-delay: 0.2s;
+    }
+
+    .quick-actions-fab-container .fab-action-3 {
+        animation-delay: 0.3s;
+    }
+
+    .quick-actions-fab-container .fab-action-4 {
+        animation-delay: 0.4s;
+    }
+
+/* 🎭 Animaciones */
+@keyframes fab-fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fab-slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 🏷️ Action Labels */
+.quick-actions-fab-container .fab-labels {
+    position: absolute;
+    bottom: 80px;
+    right: 64px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 20px;
+    pointer-events: none;
+}
+
+.quick-actions-fab-container .fab-label {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    transform: translateX(10px);
+    animation: fab-slideInLabel 0.3s ease-out forwards;
+}
+
+    .quick-actions-fab-container .fab-label.disabled {
+        background: rgba(128, 128, 128, 0.8);
+    }
+
+.quick-actions-fab-container .fab-label-1 {
+    animation-delay: 0.15s;
+}
+
+.quick-actions-fab-container .fab-label-2 {
+    animation-delay: 0.25s;
+}
+
+.quick-actions-fab-container .fab-label-3 {
+    animation-delay: 0.35s;
+}
+
+.quick-actions-fab-container .fab-label-4 {
+    animation-delay: 0.45s;
+}
+
+@keyframes fab-slideInLabel {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 🌑 Backdrop */
+.quick-actions-fab-container .fab-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1001;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* 🌙 Dark Theme */
+.mud-theme-dark .quick-actions-fab-container .fab-label {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mud-theme-dark .quick-actions-fab-container .fab-action {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 📱 Responsive */
+@media (max-width: 768px) and (orientation: landscape) {
+    .quick-actions-fab-container {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .quick-actions-fab-container {
+        bottom: 90px;
+        right: 16px;
+    }
+
+        .quick-actions-fab-container .fab-main-button {
+            width: 56px !important;
+            height: 56px !important;
+        }
+
+        .quick-actions-fab-container .fab-action {
+            width: 48px !important;
+            height: 48px !important;
+        }
+
+        .quick-actions-fab-container .fab-labels {
+            right: 56px;
+        }
+
+        .quick-actions-fab-container .fab-label {
+            font-size: 0.75rem;
+            padding: 6px 10px;
+        }
+}
+
+
+.fab-hint-chip {
+    display: inline-flex !important;
+    margin: 0 4px;
+    animation: fabChipPulse 3s ease-in-out infinite;
+}
+
+@keyframes fabChipPulse {
+    0%, 90%, 100% {
+        transform: scale(1);
+    }
+
+    5%, 15% {
+        transform: scale(1.05);
+    }
+}
+
+.fab-arrow-hint {
+    position: relative;
+    margin-top: 20px;
+}
+
+.fab-arrow-icon {
+    animation: fabArrowBounce 2s ease-in-out infinite;
+    opacity: 0.7;
+}
+
+@keyframes fabArrowBounce {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+
+    50% {
+        transform: translate(8px, 8px);
+    }
+}

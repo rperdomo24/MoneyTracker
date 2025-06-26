@@ -1,0 +1,195 @@
+﻿@using MoneyTracker.Domain.Enums
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.UI.Components.Pages.Transactions
+@using MoneyTracker.UI.Helpers
+@inject IDialogService DialogService
+
+<div class="quick-actions-fab-container">
+    <!-- 🚀 Main FAB Button -->
+    <MudFab Color="Color.Primary"
+            StartIcon="@(_isExpanded ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
+            Size="Size.Large"
+            Class="@($"fab-main-button {(_isExpanded ? "expanded" : "")}")"
+            OnClick="@ToggleExpanded" />
+
+    <!-- 📋 Action Buttons (Solo aparecen cuando está expandido) -->
+    @if (_isExpanded)
+    {
+        <div class="fab-actions" @onclick:stopPropagation="true">
+
+            <!-- 💳 Pay Credit Card -->
+            <MudFab Color="Color.Warning"
+                    StartIcon="@Icons.Material.Filled.CreditCard"
+                    Size="Size.Medium"
+                    Class="fab-action fab-action-4"
+                    Disabled="@(!HasCreditCards)"
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.CreditPayment))" />
+
+            <!-- 🔄 Transfer -->
+            <MudFab Color="@(TransactionType.Transfer.GetTransactionTypeColor())"
+                    StartIcon="@(TransactionType.Transfer.GetTransactionypeIcon())"
+                    Size="Size.Medium"
+                    Class="fab-action fab-action-3"
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.Transfer))" />
+
+            <!-- 💰 Add Income -->
+            <MudFab Color="@(TransactionType.Income.GetTransactionTypeColor())"
+                    StartIcon="@(TransactionType.Income.GetTransactionypeIcon())"
+                    Size="Size.Medium"
+                    Class="fab-action fab-action-2"
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.Income))" />
+
+            <!-- 💸 Add Expense -->
+            <MudFab Color="@(TransactionType.Expense.GetTransactionTypeColor())"
+                    StartIcon="@(TransactionType.Expense.GetTransactionypeIcon())"
+                    Size="Size.Medium"
+                    Class="fab-action fab-action-1"
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.Expense))" />
+        </div>
+    }
+
+    <!-- 🏷️ Action Labels (Solo con labels opcionales) -->
+    @if (_isExpanded && ShowLabels)
+    {
+        <div class="fab-labels">
+            <div class="fab-label fab-label-4 @(!HasCreditCards ? "disabled" : "")">
+                @(HasCreditCards ? "Pay Card" : "No Cards")
+            </div>
+            <div class="fab-label fab-label-3">Transfer</div>
+            <div class="fab-label fab-label-2">Add Income</div>
+            <div class="fab-label fab-label-1">Add Expense</div>
+        </div>
+    }
+
+    <!-- 🌑 Backdrop (para cerrar al hacer clic fuera) -->
+   @*  @if (_isExpanded)
+    {
+        <div class="fab-backdrop" @onclick="@CloseExpanded" @onclick:stopPropagation="false"></div>
+    } *@
+</div>
+
+@code {
+    private bool _isExpanded = false;
+    private bool _isProcessingAction = false;
+
+    /// <summary>
+    /// Indicates if there are credit cards available for payment
+    /// </summary>
+    [Parameter] public bool HasCreditCards { get; set; } = true;
+
+    /// <summary>
+    /// Show text labels next to action buttons
+    /// </summary>
+    [Parameter] public bool ShowLabels { get; set; } = false;
+
+    /// <summary>
+    /// Callback when a transaction action is triggered
+    /// </summary>
+    [Parameter] public EventCallback<TransactionType> OnTransactionAction { get; set; }
+
+    /// <summary>
+    /// Callback when a transaction is successfully added (for refreshing parent)
+    /// </summary>
+    [Parameter] public EventCallback OnTransactionAdded { get; set; }
+
+    /// <summary>
+    /// Custom dialog options (optional)
+    /// </summary>
+    [Parameter] public DialogOptions? DialogOptions { get; set; }
+
+    private DialogOptions _defaultDialogOptions => new()
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseButton = true,
+            CloseOnEscapeKey = true,
+           BackdropClick = true
+        };
+
+    private void ToggleExpanded()
+    {
+        _isExpanded = !_isExpanded;
+        StateHasChanged();
+    }
+
+    private void CloseExpanded()
+    {
+        _isExpanded = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleAddTransactionClick(MouseEventArgs e, TransactionType transactionType)
+    {
+        // Prevenir que otros eventos interfieran
+        if (_isProcessingAction) return;
+        _isProcessingAction = true;
+
+        try
+        {
+            // Primero notificar al componente padre
+            if (OnTransactionAction.HasDelegate)
+            {
+                await OnTransactionAction.InvokeAsync(transactionType);
+            }
+
+            // Cerrar el FAB inmediatamente
+            CloseExpanded();
+
+            // Pequeño delay para asegurar que la UI se actualice
+            await Task.Delay(50);
+
+            // Abrir el modal
+            await OpenTransactionModal(transactionType);
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
+    }
+
+    private async Task HandleAddTransaction(TransactionType transactionType)
+    {
+        // Close the FAB first
+        CloseExpanded();
+
+        // Notify parent component about the action
+        if (OnTransactionAction.HasDelegate)
+        {
+            await OnTransactionAction.InvokeAsync(transactionType);
+        }
+
+        // Then open the transaction modal
+        await OpenTransactionModal(transactionType);
+    }
+
+    private async Task OpenTransactionModal(TransactionType transactionType)
+    {
+        var parameters = new DialogParameters
+            {
+                ["TransactionType"] = transactionType,
+                ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionAddedInternal)
+            };
+
+        var title = transactionType switch
+        {
+            TransactionType.Income => "Add Income",
+            TransactionType.Expense => "Add Expense",
+            TransactionType.Transfer => "Transfer Money",
+            TransactionType.CreditPayment => "Pay Credit Card",
+            _ => "Add Transaction"
+        };
+
+        var options = DialogOptions ?? _defaultDialogOptions;
+
+        await DialogService.ShowAsync<AddTransactionModal>(title, parameters, options);
+    }
+
+    private async Task OnTransactionAddedInternal()
+    {
+        // Notify parent component to refresh data
+        if (OnTransactionAdded.HasDelegate)
+        {
+            await OnTransactionAdded.InvokeAsync();
+        }
+    }
+}

@@ -7,7 +7,6 @@ namespace MoneyTracker.UI.Helpers;
 
 public static class TransactionHelpers
 {
-
     /// <summary>
     /// Obtiene el display del monto con signo (+/-) basado en el tipo de categoría
     /// </summary>

@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums
+@using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Components
 @using MoneyTracker.Application.Common.Extensions
@@ -30,40 +31,6 @@
         </div>
         <div class="d-flex ga-2">
             <!-- ✨ NEW: Pay Credit Card Button -->
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Warning"
-                       StartIcon="@Icons.Material.Filled.CreditCard"
-                       OnClick="@(() => AddTransaction(TransactionType.CreditPayment))"
-                       Disabled="@(!_hasCreditCards)">
-                @if (_hasCreditCards)
-                {
-                    <span>Pay Card</span>
-                }
-                else
-                {
-                    <span>No Cards</span>
-                }
-            </MudButton>
-
-            <MudButton Variant="Variant.Text"
-                       Color="@(TransactionType.Transfer.GetTransactionTypeColor())"
-                       StartIcon="@(TransactionType.Transfer.GetTransactionypeIcon())"
-                       OnClick="@(() => AddTransaction(TransactionType.Transfer))">
-                Transfer
-            </MudButton>
-
-            <MudButton Variant="Variant.Outlined"
-                       Color="@(TransactionType.Income.GetTransactionTypeColor())"
-                       StartIcon="@(TransactionType.Income.GetTransactionypeIcon())"
-                       OnClick="@(() => AddTransaction(TransactionType.Income))">
-                Add Income
-            </MudButton>
-            <MudButton Variant="Variant.Filled"
-                       Color="@(TransactionType.Expense.GetTransactionTypeColor())"
-                       StartIcon="@(TransactionType.Expense.GetTransactionypeIcon())"
-                       OnClick="@(() => AddTransaction(TransactionType.Expense))">
-                Add Expense
-            </MudButton>
             <MudButton Variant="Variant.Text"
                        Color="Color.Secondary"
                        StartIcon="@Icons.Material.Filled.FileDownload"
@@ -352,44 +319,41 @@
                 }
                 else
                 {
-                    <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Class="text-muted mb-4" Style="font-size: 4rem;" />
-                    <MudText Typo="Typo.h6" Class="mb-2">No transactions yet</MudText>
-                    <MudText Typo="Typo.body1" Class="text-muted mb-4">
-                        Start by adding your first income or expense transaction or transfer.
-                    </MudText>
-                    <div class="d-flex justify-center ga-2">
-                        <!-- ✨ NEW: Credit Payment in empty state -->
-                        <MudButton Variant="Variant.Text"
-                                   Color="Color.Warning"
-                                   StartIcon="@Icons.Material.Filled.CreditCard"
-                                   OnClick="@(() => AddTransaction(TransactionType.CreditPayment))"
-                                   Disabled="@(!_hasCreditCards)">
-                            Pay Card
-                        </MudButton>
+                    <div class="d-flex flex-column align-center justify-center py-16">
+                        <MudIcon Icon="@Icons.Material.Filled.Receipt"
+                                 Size="Size.Large"
+                                 Class="text-muted mb-4"
+                                 Style="font-size: 4rem;" />
 
-                        <MudButton Variant="Variant.Text"
-                                   Color="@(TransactionType.Transfer.GetTransactionTypeColor())"
-                                   StartIcon="@(TransactionType.Transfer.GetTransactionypeIcon())"
-                                   OnClick="@(() => AddTransaction(TransactionType.Transfer))">
-                            Transfer
-                        </MudButton>
-                        <MudButton Variant="Variant.Filled"
-                                   Color="@(TransactionType.Income.GetTransactionTypeColor())"
-                                   StartIcon="@(TransactionType.Income.GetTransactionypeIcon())"
-                                   OnClick="@(() => AddTransaction(TransactionType.Income))">
-                            Add Income
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="@(TransactionType.Expense.GetTransactionTypeColor())"
-                                   StartIcon="@(TransactionType.Expense.GetTransactionypeIcon())"
-                                   OnClick="@(() => AddTransaction(TransactionType.Expense))">
-                            Add Expense
-                        </MudButton>
+                        <MudText Typo="Typo.h6" Class="mb-2">
+                            No transactions yet
+                        </MudText>
+
+                        <MudText Typo="Typo.body1" Class="text-muted mb-6 text-center" Style="max-width: 350px;">
+                            Click the <MudChip T="string" Size="Size.Small"
+                                               Color="Color.Primary"
+                                               Icon="@Icons.Material.Filled.Add"
+                                               Class="fab-hint-chip">
+                                Add
+                            </MudChip> button to create your first transaction
+                        </MudText>
+
+                        <!-- 🎯 Arrow apuntando hacia donde está el FAB -->
+                        <div class="fab-arrow-hint">
+                            <MudIcon Icon="@Icons.Material.Filled.SouthEast"
+                                     Size="Size.Large"
+                                     Class="text-primary fab-arrow-icon" />
+                        </div>
                     </div>
                 }
             </div>
         }
     </MudPaper>
+
+
+    <QuickActionsFab HasCreditCards="@_hasCreditCards"
+                     OnTransactionAdded="@OnTransactionChanged" />
+
 </MudContainer>
 
 @code {
@@ -557,27 +521,6 @@
         {
             Snackbar.Add($"Export error: {ex.Message}", Severity.Error);
         }
-    }
-
-    // Transaction Actions (mantener los mismos métodos)
-    private async Task AddTransaction(TransactionType transactionType)
-    {
-        var parameters = new DialogParameters
-            {
-                ["TransactionType"] = transactionType,
-                ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged)
-            };
-
-        var title = transactionType switch
-        {
-            TransactionType.Income => "Add Income",
-            TransactionType.Expense => "Add Expense",
-            TransactionType.Transfer => "Transfer Money",
-            TransactionType.CreditPayment => "Pay Credit Card", // ✨ NEW
-            _ => "Add Transaction"
-        };
-
-        await DialogService.ShowAsync<AddTransactionModal>(title, parameters, _dialogOptions);
     }
 
     private async Task ViewTransaction(int transactionId)
