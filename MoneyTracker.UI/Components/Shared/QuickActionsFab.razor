@@ -1,8 +1,10 @@
-﻿@using MoneyTracker.Domain.Enums
+﻿@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.UI.Components.Pages.Accounts
 @using MoneyTracker.UI.Components.Pages.Transactions
 @using MoneyTracker.UI.Helpers
-@inject IDialogService DialogService
+@inject IAccountService AccountService
 
 <div class="quick-actions-fab-container">
     <!-- 🚀 Main FAB Button -->
@@ -22,7 +24,6 @@
                     StartIcon="@Icons.Material.Filled.CreditCard"
                     Size="Size.Medium"
                     Class="fab-action fab-action-4"
-                    Disabled="@(!HasCreditCards)"
                     OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.CreditPayment))" />
 
             <!-- 🔄 Transfer -->
@@ -52,8 +53,8 @@
     @if (_isExpanded && ShowLabels)
     {
         <div class="fab-labels">
-            <div class="fab-label fab-label-4 @(!HasCreditCards ? "disabled" : "")">
-                @(HasCreditCards ? "Pay Card" : "No Cards")
+            <div class="fab-label fab-label-4">
+                @("Pay Card")
             </div>
             <div class="fab-label fab-label-3">Transfer</div>
             <div class="fab-label fab-label-2">Add Income</div>
@@ -62,7 +63,7 @@
     }
 
     <!-- 🌑 Backdrop (para cerrar al hacer clic fuera) -->
-   @*  @if (_isExpanded)
+    @*  @if (_isExpanded)
     {
         <div class="fab-backdrop" @onclick="@CloseExpanded" @onclick:stopPropagation="false"></div>
     } *@
@@ -71,11 +72,6 @@
 @code {
     private bool _isExpanded = false;
     private bool _isProcessingAction = false;
-
-    /// <summary>
-    /// Indicates if there are credit cards available for payment
-    /// </summary>
-    [Parameter] public bool HasCreditCards { get; set; } = true;
 
     /// <summary>
     /// Show text labels next to action buttons
@@ -99,11 +95,11 @@
 
     private DialogOptions _defaultDialogOptions => new()
         {
-            MaxWidth = MaxWidth.Medium,
+            MaxWidth = MaxWidth.Large,
             FullWidth = true,
             CloseButton = true,
             CloseOnEscapeKey = true,
-           BackdropClick = true
+            BackdropClick = true
         };
 
     private void ToggleExpanded()
@@ -138,8 +134,19 @@
             // Pequeño delay para asegurar que la UI se actualice
             await Task.Delay(50);
 
-            // Abrir el modal
-            await OpenTransactionModal(transactionType);
+            if (!await CheckAccountType(transactionType))
+            {
+                if (await ShowNoCreditCardsAlertAsync(transactionType, showCreateOption: true))
+                {
+                    await OpenAddAccountModal();
+                    return;
+                }
+            }
+            else
+            {
+                // Abrir el modal
+                await OpenTransactionModal(transactionType);
+            }
         }
         finally
         {
@@ -184,6 +191,34 @@
         await DialogService.ShowAsync<AddTransactionModal>(title, parameters, options);
     }
 
+    private async Task<bool> CheckAccountType(TransactionType transactionType)
+    {
+
+        // Check if the transaction type requires a specific account type
+        AccountType accountType = transactionType == TransactionType.CreditPayment ? AccountType.Credit : AccountType.None;
+
+        // Check if there are accounts of the required type
+        var accountsResult = await AccountService.HasAccountByType(accountType);
+        if (accountsResult.Success)
+        {
+            return accountsResult.Data;
+        }
+
+        return false;
+    }
+
+    private async Task OpenAddAccountModal()
+    {
+        var parameters = new DialogParameters
+            {
+                ["OnAccountAdded"] = EventCallback.Factory.Create(this, OnTransactionAddedInternal)
+            };
+
+        var options = DialogOptions ?? _defaultDialogOptions;
+
+        await DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, options);
+    }
+
     private async Task OnTransactionAddedInternal()
     {
         // Notify parent component to refresh data
@@ -191,5 +226,29 @@
         {
             await OnTransactionAdded.InvokeAsync();
         }
+    }
+
+    public async Task<bool> ShowNoCreditCardsAlertAsync(TransactionType transactionType,
+       bool showCreateOption = true)
+    {
+        AccountType accountType = transactionType == TransactionType.CreditPayment ? AccountType.Credit : AccountType.None;
+
+        string accountTypeName = transactionType == TransactionType.CreditPayment ? "credit card accounts" : "accounts";
+        string title = transactionType == TransactionType.CreditPayment ? "No Credit Cards Found" : "No Accounts Found";
+
+        var message = showCreateOption
+            ? $"You don't have any {accountTypeName} set up yet. Would you like to go to Accounts to create one?"
+            : $"You don't have any {accountTypeName} set up yet. Please create a {(transactionType == TransactionType.CreditPayment ? "credit card " : "")}account first in the Accounts section.";
+
+        var confirmText = showCreateOption ? "Go to Accounts" : "OK";
+        var cancelText = showCreateOption ? "Cancel" : "";
+
+        return await DialogService.ShowConfirmDialogAsync(
+            title,
+            message,
+            confirmText,
+            Color.Tertiary,
+            cancelText
+        );
     }
 }

@@ -109,9 +109,16 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Accounts
-                    .AsNoTracking()
-                    .AnyAsync(a => a.Type == accountType);
+                IQueryable<Account> query = _context.Accounts;
+
+                if (accountType != AccountType.None)
+                {
+                    query = query
+                        .AsNoTracking()
+                        .Where(a => a.Type == accountType);
+                }
+
+                return await query.AnyAsync();
             }
             catch (Exception ex)
             {

@@ -32,10 +32,10 @@
         <div class="d-flex ga-2">
             <!-- ✨ NEW: Pay Credit Card Button -->
             <MudButton Variant="Variant.Text"
-                       Color="Color.Secondary"
-                       StartIcon="@Icons.Material.Filled.FileDownload"
-                       OnClick="ExportTransactions"
-                       Disabled="_loading">
+            Color="Color.Secondary"
+            StartIcon="@Icons.Material.Filled.FileDownload"
+            OnClick="ExportTransactions"
+            Disabled="_loading">
                 Export
             </MudButton>
         </div>
@@ -43,9 +43,9 @@
 
     <!-- Filtros Separados -->
     <TransactionFilters Filter="_filterDto"
-                        OnFilterChanged="OnFilterChanged"
-                        OnFiltersApplied="LoadTransactionsAsync"
-                        OnFiltersInitialized="OnFiltersInitialized" />
+    OnFilterChanged="OnFilterChanged"
+    OnFiltersApplied="LoadTransactionsAsync"
+    OnFiltersInitialized="OnFiltersInitialized" />
 
     <!-- Quick Stats Cards (mejoradas) -->
     @if (_transactionSummary != null && !_loading)
@@ -55,8 +55,8 @@
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionType.Income.GetTransactionTypeHexColor())};")">
                     <MudIcon Icon="@(TransactionType.Income.GetTransactionypeIcon())"
-                             Color="@(TransactionType.Income.GetTransactionTypeColor())"
-                             Size="Size.Large" Class="mb-2" />
+                    Color="@(TransactionType.Income.GetTransactionTypeColor())"
+                    Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-success")">
                         @_transactionSummary.TotalIncome.ToString("C")
                     </MudText>
@@ -68,8 +68,8 @@
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionType.Expense.GetTransactionTypeHexColor())};")">
                     <MudIcon Icon="@(TransactionType.Expense.GetTransactionypeIcon())"
-                             Color="@(TransactionType.Expense.GetTransactionTypeColor())"
-                             Size="Size.Large" Class="mb-2" />
+                    Color="@(TransactionType.Expense.GetTransactionTypeColor())"
+                    Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-error")">
                         @_transactionSummary.TotalExpense.ToString("C")
                     </MudText>
@@ -81,8 +81,8 @@
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Class="pa-4 text-center" Elevation="2" Style="@_transactionSummary.GetBalanceCardStyle()">
                     <MudIcon Icon="@_transactionSummary.GetBalanceIcon()"
-                             Color="@_transactionSummary.GetBalanceColor()"
-                             Size="Size.Large" Class="mb-2" />
+                    Color="@_transactionSummary.GetBalanceColor()"
+                    Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@_transactionSummary.GetBalanceTextClass()">
                         @_transactionSummary.Balance.ToString("C")
                     </MudText>
@@ -113,7 +113,7 @@
                 <div>
                     <strong>@GetPeriodDescription()</strong>
                     @if (_filterDto.TimePeriod == TimePeriodFilter.Custom
-                   && _filterDto.FromDate.HasValue && _filterDto.ToDate.HasValue)
+                  && _filterDto.FromDate.HasValue && _filterDto.ToDate.HasValue)
                     {
                         <span class="ml-2">
                             (@_filterDto.FromDate.GetFormattedDateSafe() - @_filterDto.ToDate.GetFormattedDateSafe())
@@ -142,14 +142,14 @@
         else if (_transactionSummary?.Transactions?.Any() == true)
         {
             <MudTable T="TransactionDto"
-                      Items="@_transactionSummary.Transactions"
-                      Dense="true"
-                      Hover="true"
-                      Breakpoint="Breakpoint.Sm"
-                      Loading="@_loading"
-                      LoadingProgressColor="Color.Info"
-                      FixedHeader="true"
-                      Height="600px">
+            Items="@_transactionSummary.Transactions"
+            Dense="true"
+            Hover="true"
+            Breakpoint="Breakpoint.Sm"
+            Loading="@_loading"
+            LoadingProgressColor="Color.Info"
+            FixedHeader="true"
+            Height="600px">
                 <ToolBarContent>
                     <div class="d-flex align-center justify-space-between" style="width: 100%;">
                         <MudText Typo="Typo.h6">
@@ -189,10 +189,10 @@
                     <MudTd DataLabel="Name">
                         <div class="d-flex align-center">
                             <MudAvatar Size="Size.Medium"
-                                       Style="@($"background-color: {context.GetTransactionColor()}; margin-right: 12px;")">
+                            Style="@($"background-color: {context.GetTransactionColor()}; margin-right: 12px;")">
                                 <MudIcon Icon="@(context.GetTransactionIcon())"
-                                         Color="Color.Surface"
-                                         Size="Size.Small" />
+                                Color="Color.Surface"
+                                Size="Size.Small" />
                             </MudAvatar>
                             <div>
                                 <MudText Typo="Typo.body2" Class="font-weight-medium">@context.Name</MudText>
@@ -217,16 +217,16 @@
                         {
                             <div class="d-flex align-center">
                                 <MudAvatar Size="Size.Small"
-                                           Style="@($"background-color: {context.Category.Color}; margin-right: 8px;")">
+                                Style="@($"background-color: {context.Category.Color}; margin-right: 8px;")">
                                     <MudIcon Icon="@context.Category.Icon.ToIcon()"
-                                             Color="Color.Surface"
-                                             Size="Size.Small" />
+                                    Color="Color.Surface"
+                                    Size="Size.Small" />
                                 </MudAvatar>
                                 <div>
                                     <MudText Typo="Typo.body2">@context.Category.Name</MudText>
                                     <MudChip T="string" Size="Size.Small"
-                                             Color="@(context.Category.Type == CategoryType.Income ? Color.Success : Color.Error)"
-                                             Variant="Variant.Text">
+                                    Color="@(context.Category.Type == CategoryType.Income ? Color.Success : Color.Error)"
+                                    Variant="Variant.Text">
                                         @context.Category.Type.ToString()
                                     </MudChip>
                                 </div>
@@ -242,10 +242,10 @@
                         {
                             <div class="d-flex align-center">
                                 <MudAvatar Size="Size.Small"
-                                           Style="@($"background-color: {context.Account.Color}; margin-right: 8px;")">
+                                Style="@($"background-color: {context.Account.Color}; margin-right: 8px;")">
                                     <MudIcon Icon="@context.Account.Type.ToIcon()"
-                                             Color="Color.Surface"
-                                             Size="Size.Small" />
+                                    Color="Color.Surface"
+                                    Size="Size.Small" />
                                 </MudAvatar>
 
                                 <div>
@@ -281,20 +281,20 @@
                     <MudTd DataLabel="Actions">
                         <div class="d-flex ga-1">
                             <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                           Color="Color.Info"
-                                           Size="Size.Small"
-                                           OnClick="@(() => ViewTransaction(context.Id))"
-                                           Title="View Details" />
+                            Color="Color.Info"
+                            Size="Size.Small"
+                            OnClick="@(() => ViewTransaction(context.Id))"
+                            Title="View Details" />
                             <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                           Color="Color.Primary"
-                                           Size="Size.Small"
-                                           OnClick="@(() => EditTransaction(context.Id))"
-                                           Title="Edit Transaction" />
+                            Color="Color.Primary"
+                            Size="Size.Small"
+                            OnClick="@(() => EditTransaction(context.Id))"
+                            Title="Edit Transaction" />
                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                           Color="Color.Error"
-                                           Size="Size.Small"
-                                           OnClick="@(() => DeleteTransaction(context.Id, context.Name))"
-                                           Title="Delete Transaction" />
+                            Color="Color.Error"
+                            Size="Size.Small"
+                            OnClick="@(() => DeleteTransaction(context.Id, context.Name))"
+                            Title="Delete Transaction" />
                         </div>
                     </MudTd>
                 </RowTemplate>
@@ -312,8 +312,8 @@
                         No transactions match your current filters. Try adjusting your search criteria.
                     </MudText>
                     <MudButton Variant="Variant.Text"
-                               Color="Color.Primary"
-                               OnClick="ClearAllFilters">
+                    Color="Color.Primary"
+                    OnClick="ClearAllFilters">
                         Clear All Filters
                     </MudButton>
                 }
@@ -321,9 +321,9 @@
                 {
                     <div class="d-flex flex-column align-center justify-center py-16">
                         <MudIcon Icon="@Icons.Material.Filled.Receipt"
-                                 Size="Size.Large"
-                                 Class="text-muted mb-4"
-                                 Style="font-size: 4rem;" />
+                        Size="Size.Large"
+                        Class="text-muted mb-4"
+                        Style="font-size: 4rem;" />
 
                         <MudText Typo="Typo.h6" Class="mb-2">
                             No transactions yet
@@ -331,9 +331,9 @@
 
                         <MudText Typo="Typo.body1" Class="text-muted mb-6 text-center" Style="max-width: 350px;">
                             Click the <MudChip T="string" Size="Size.Small"
-                                               Color="Color.Primary"
-                                               Icon="@Icons.Material.Filled.Add"
-                                               Class="fab-hint-chip">
+                            Color="Color.Primary"
+                            Icon="@Icons.Material.Filled.Add"
+                            Class="fab-hint-chip">
                                 Add
                             </MudChip> button to create your first transaction
                         </MudText>
@@ -341,8 +341,8 @@
                         <!-- 🎯 Arrow apuntando hacia donde está el FAB -->
                         <div class="fab-arrow-hint">
                             <MudIcon Icon="@Icons.Material.Filled.SouthEast"
-                                     Size="Size.Large"
-                                     Class="text-primary fab-arrow-icon" />
+                            Size="Size.Large"
+                            Class="text-primary fab-arrow-icon" />
                         </div>
                     </div>
                 }
@@ -351,8 +351,7 @@
     </MudPaper>
 
 
-    <QuickActionsFab HasCreditCards="@_hasCreditCards"
-                     OnTransactionAdded="@OnTransactionChanged" />
+    <QuickActionsFab OnTransactionAdded="@OnTransactionChanged" />
 
 </MudContainer>
 
@@ -363,7 +362,6 @@
     private bool _loading = true;
     private bool _hasActiveFilters = false;
     private bool _filtersLoaded = false; // Nueva variable
-    private bool _hasCreditCards = false; // ✨ NEW: Track if user has credit cards
 
     // Dialog options
     private DialogOptions _dialogOptions = new()
@@ -375,52 +373,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Cargar datos secuencialmente para evitar concurrencia
-        await LoadDataSequentially();
-    }
-
-    private async Task LoadDataSequentially()
-    {
-        _loading = true;
-        StateHasChanged();
-
-        try
-        {
-            // ✨ NEW: Check if user has credit cards
-            await CheckCreditCards();
-
-            // 1. Primero los filtros terminan de cargar (desde el componente)
-            // No hacer nada aquí, esperar OnFiltersInitialized
-
-            // 2. Después cargar transacciones (se llama desde OnFiltersInitialized)
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add("Error loading data: " + ex.Message, Severity.Error);
-            _transactionSummary = new TransactionSummaryDto();
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
-
-    // ✨ NEW: Check if user has credit cards
-    private async Task CheckCreditCards()
-    {
-        try
-        {
-            var accountsResult = await AccountService.HasAccountByType(AccountType.Credit);
-            if (accountsResult.Success && accountsResult.Data != null)
-            {
-                _hasCreditCards = accountsResult.Data;
-            }
-        }
-        catch (Exception ex)
-        {
-            // Silently fail, just disable credit card functionality
-            _hasCreditCards = false;
-        }
+        _loading = false;
     }
 
     // Método llamado desde el componente de filtros cuando termine de cargar
@@ -433,7 +386,6 @@
         }
     }
 
-    // Método principal usando tu servicio actual
     private async Task LoadTransactionsAsync()
     {
         _loading = true;
@@ -470,7 +422,6 @@
     private async Task OnFilterChanged(TransactionFilterDto filter)
     {
         _filterDto = filter;
-        // No recargar inmediatamente, esperar OnFiltersApplied
     }
 
     private bool HasActiveFilters()
@@ -579,7 +530,5 @@
     private async Task OnTransactionChanged()
     {
         await LoadTransactionsAsync();
-        await CheckCreditCards(); // ✨ Refresh credit card availability
     }
-
 }
