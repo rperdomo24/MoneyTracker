@@ -67,6 +67,7 @@ namespace MoneyTracker.Application.Services
             try
             {
                 var entity = dto.MapToEntity(_timeZoneService);
+                entity.CreatedAt = _timeZoneService.GetNowInUtc();
                 await _repository.AddAsync(entity);
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }

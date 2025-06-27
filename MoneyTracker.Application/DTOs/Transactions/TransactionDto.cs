@@ -1,4 +1,6 @@
-﻿namespace MoneyTracker.Application.DTOs.Transactions
+﻿using MoneyTracker.Domain.Enums;
+
+namespace MoneyTracker.Application.DTOs.Transactions
 {
     public class TransactionDto
     {
@@ -18,6 +20,8 @@
 
         public int? AccountId { get; set; }
         public AccountDto Account { get; set; }
+
+        public TransactionType Type { get; set; }
 
         public DateTime CreatedAt { get; set; }
 

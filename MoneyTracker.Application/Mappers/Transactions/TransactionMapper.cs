@@ -19,6 +19,7 @@ public static class TransactionMapper
             Category = entity.Category?.MapToDto(),
             AccountId = entity.AccountId,
             Account = entity.Account?.MapToDto(),
+            Type = entity.Type,
             CreatedAt = timeZoneService.ConvertFromUtc(entity.CreatedAt),
             UpdatedAt = timeZoneService.ConvertFromUtc(entity.UpdatedAt)
         };
@@ -35,7 +36,7 @@ public static class TransactionMapper
             Description = dto.Description,
             CategoryId = dto.CategoryId,
             AccountId = dto.AccountId,
-            CreatedAt = timeZoneService.ConvertToUtc(dto.CreatedAt),
+            Type = dto.Type,
             UpdatedAt = timeZoneService.ConvertToUtc(dto.UpdatedAt)
         };
     }
@@ -48,6 +49,7 @@ public static class TransactionMapper
         entity.Description = dto.Description;
         entity.CategoryId = dto.CategoryId;
         entity.AccountId = dto.AccountId;
+        entity.Type = dto.Type;
         entity.UpdatedAt = timeZoneService.GetNowInUtc();
     }
 }

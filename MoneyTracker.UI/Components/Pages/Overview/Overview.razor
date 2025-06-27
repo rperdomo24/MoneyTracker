@@ -105,86 +105,6 @@
         await LoadDashboardData();
     }
 
-    // private async Task LoadDashboardData()
-    // {
-    //     _isLoading = true;
-    //     StateHasChanged();
-
-    //     try
-    //     {
-    //         // Load all dashboard data in parallel for better performance
-    //         var summaryTask = DashboardService.GetSummaryAsync();
-    //         var cashFlowTask = DashboardService.GetCashFlowAsync();
-    //         var alertsTask = DashboardService.GetAlertsAsync();
-    //         var balanceTrendTask = DashboardService.GetBalanceTrendAsync();
-    //         var categoryBreakdownTask = DashboardService.GetCategoryBreakdownAsync();
-    //         var accountActivityTask = DashboardService.GetAccountActivityAsync();
-    //         var recentTransactionsTask = DashboardService.GetRecentTransactionsAsync();
-    //         var monthlyComparisonTask = DashboardService.GetMonthlyComparisonAsync();
-
-    //         // Wait for all tasks to complete
-    //         await Task.WhenAll(
-    //             summaryTask,
-    //             cashFlowTask,
-    //             alertsTask,
-    //             balanceTrendTask,
-    //             categoryBreakdownTask,
-    //             accountActivityTask,
-    //             recentTransactionsTask,
-    //             monthlyComparisonTask
-    //         );
-
-    //         // Get results and handle them individually
-    //         var summaryResult = await summaryTask;
-    //         var cashFlowResult = await cashFlowTask;
-    //         var alertsResult = await alertsTask;
-    //         var balanceTrendResult = await balanceTrendTask;
-    //         var categoryBreakdownResult = await categoryBreakdownTask;
-    //         var accountActivityResult = await accountActivityTask;
-    //         var recentTransactionsResult = await recentTransactionsTask;
-    //         var monthlyComparisonResult = await monthlyComparisonTask;
-
-    //         // Assign results
-    //         _summary = summaryResult.Success ? summaryResult.Data : null;
-    //         _cashFlow = cashFlowResult.Success ? cashFlowResult.Data : null;
-    //         _alerts = alertsResult.Success ? alertsResult.Data : new();
-    //         _balanceTrend = balanceTrendResult.Success ? balanceTrendResult.Data : new();
-    //         _categoryBreakdown = categoryBreakdownResult.Success ? categoryBreakdownResult.Data : new();
-    //         _accountActivity = accountActivityResult.Success ? accountActivityResult.Data : new();
-    //         _recentTransactions = recentTransactionsResult.Success ? recentTransactionsResult.Data : new();
-    //         _monthlyComparison = monthlyComparisonResult.Success ? monthlyComparisonResult.Data : new();
-
-    //         // Check for any errors
-    //         var allResults = new[]
-    //         {
-    //         (summaryResult.Success, summaryResult.Message),
-    //         (cashFlowResult.Success, cashFlowResult.Message),
-    //         (alertsResult.Success, alertsResult.Message),
-    //         (balanceTrendResult.Success, balanceTrendResult.Message),
-    //         (categoryBreakdownResult.Success, categoryBreakdownResult.Message),
-    //         (accountActivityResult.Success, accountActivityResult.Message),
-    //         (recentTransactionsResult.Success, recentTransactionsResult.Message),
-    //         (monthlyComparisonResult.Success, monthlyComparisonResult.Message)
-    //     };
-
-    //         var failedResults = allResults.Where(r => !r.Success).Select(r => r.Message).ToList();
-    //         if (failedResults.Any())
-    //         {
-    //             var errorMessage = string.Join("; ", failedResults);
-    //             Snackbar.Add($"Algunos datos no se pudieron cargar: {errorMessage}", Severity.Warning);
-    //         }
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         Snackbar.Add($"Error cargando dashboard: {ex.Message}", Severity.Error);
-    //     }
-    //     finally
-    //     {
-    //         _isLoading = false;
-    //         StateHasChanged();
-    //     }
-    // }
-
     private async Task LoadDashboardData()
     {
         _isLoading = true;
@@ -194,7 +114,7 @@
 
         try
         {
-            // Load data sequentially to avoid DbContext concurrency issues
+            // Load ALL data sequentially to avoid DbContext concurrency issues
             // Critical data first
             try
             {
@@ -229,16 +149,11 @@
                 errors.Add($"Alerts: {ex.Message}");
             }
 
-            // Load less critical data in a second batch (parallel)
-            var secondBatchTasks = new[]
-            {
-            LoadAccountActivity(),
-            LoadRecentTransactions(),
-            LoadCategoryBreakdown(),
-            LoadMonthlyComparison()
-        };
-
-            await Task.WhenAll(secondBatchTasks);
+            // Load secondary data sequentially (NO parallel execution)
+            await LoadAccountActivity();
+            await LoadRecentTransactions();
+            await LoadCategoryBreakdown();
+            await LoadMonthlyComparison();
 
             // Load heavy data last
             try
@@ -280,10 +195,15 @@
         {
             var result = await DashboardService.GetAccountActivityAsync();
             _accountActivity = result.Success ? result.Data : new();
+            if (!result.Success)
+            {
+                // Opcionalmente agregar a lista de errores si es necesario
+            }
         }
-        catch
+        catch (Exception ex)
         {
             _accountActivity = new();
+            // Log error si es necesario
         }
     }
 
@@ -293,10 +213,15 @@
         {
             var result = await DashboardService.GetRecentTransactionsAsync();
             _recentTransactions = result.Success ? result.Data : new();
+            if (!result.Success)
+            {
+                // Opcionalmente agregar a lista de errores si es necesario
+            }
         }
-        catch
+        catch (Exception ex)
         {
             _recentTransactions = new();
+            // Log error si es necesario
         }
     }
 
@@ -306,10 +231,15 @@
         {
             var result = await DashboardService.GetCategoryBreakdownAsync();
             _categoryBreakdown = result.Success ? result.Data : new();
+            if (!result.Success)
+            {
+                // Opcionalmente agregar a lista de errores si es necesario
+            }
         }
-        catch
+        catch (Exception ex)
         {
             _categoryBreakdown = new();
+            // Log error si es necesario
         }
     }
 
@@ -319,24 +249,24 @@
         {
             var result = await DashboardService.GetMonthlyComparisonAsync();
             _monthlyComparison = result.Success ? result.Data : new();
+            if (!result.Success)
+            {
+                // Opcionalmente agregar a lista de errores si es necesario
+            }
         }
-        catch
+        catch (Exception ex)
         {
             _monthlyComparison = new();
+            // Log error si es necesario
         }
     }
+
 
     private async Task RefreshDashboard()
     {
         await LoadDashboardData();
     }
 
-
-    // private async Task RefreshDashboard()
-    // {
-    //     await LoadDashboardData();
-    //     Snackbar.Add("Dashboard actualizado", Severity.Success);
-    // }
 }
 
 <QuickActionsFab />
