@@ -20,39 +20,219 @@
         @if (Data?.Any() == true)
         {
             <MudStack Spacing="3">
-                @* Chart placeholder - you can integrate Chart.js or use MudChart when available *@
-                <div style="height: 200px; display: flex; align-items: center; justify-content: center; background: var(--mud-palette-background-grey); border-radius: 8px;">
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                        📊 Gráfico de categorías (integrar Chart.js)
-                    </MudText>
+                @* MudChart Pie Chart *@
+                <div style="display: flex; justify-content: center;">
+                    <MudChart ChartType="ChartType.Pie" 
+                              InputData="@_chartData" 
+                              InputLabels="@_chartLabels"
+                              @bind-SelectedIndex="_selectedIndex"
+                              Width="240px" 
+                              Height="240px"
+                              ChartOptions="@_chartOptions" />
                 </div>
+
+                @if (_selectedIndex >= 0 && _selectedIndex < _chartLabels.Length)
+                {
+                    var selectedCategory = Data.FirstOrDefault(x => x.CategoryName == _chartLabels[_selectedIndex]);
+                    if (selectedCategory != null)
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Text">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <div style="@($"width: 16px; height: 16px; border-radius: 50%; background-color: {selectedCategory.CategoryColor}")"></div>
+                                <div>
+                                    <MudText Typo="Typo.body2">
+                                        <strong>@selectedCategory.CategoryName:</strong> $@(selectedCategory.Amount) 
+                                        (@(selectedCategory.Percentage)%)
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @selectedCategory.TransactionCount transacciones • Promedio: $@(selectedCategory.AverageTransaction)
+                                    </MudText>
+                                </div>
+                            </MudStack>
+                        </MudAlert>
+                    }
+                }
 
                 <MudDivider />
 
+                @* Category List with Enhanced Info *@
                 <MudStack Spacing="2">
                     @foreach (var category in Data.Take(5))
                     {
-                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                                <div style="@($"width: 12px; height: 12px; border-radius: 50%; background-color: {category.CategoryColor}")"></div>
-                                <MudText Typo="Typo.body2">@category.CategoryName</MudText>
+                        <MudPaper Elevation="0" 
+                                  Class="@($"pa-2 cursor-pointer {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "mud-elevation-2" : "")}")"
+                                  Style="@($"border-left: 4px solid {category.CategoryColor}; transition: all 0.2s ease; {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "transform: translateX(4px);" : "")}")"
+                                  @onclick="@(() => SelectCategory(category.CategoryName))">
+                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <div style="@($"width: 12px; height: 12px; border-radius: 50%; background-color: {category.CategoryColor}")"></div>
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.body2">@category.CategoryName</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                            @category.TransactionCount transacciones • Promedio: $@(category.AverageTransaction)
+                                        </MudText>
+                                    </MudStack>
+                                </MudStack>
+                                <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                    <MudText Typo="Typo.body2"
+                                             Class="mud-error-text"
+                                             Style="font-weight: 600;">
+                                        $@(category.Amount)
+                                    </MudText>
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                            @(category.Percentage)%
+                                        </MudText>
+                                        @if (category.Change != 0)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" 
+                                                     Color="@(category.IsIncrease ? Color.Error : Color.Success)"
+                                                     Variant="Variant.Text"
+                                                     Class="pa-1"
+                                                     Style="height: 16px;">
+                                                <MudIcon Icon="@(category.IsIncrease ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)" 
+                                                         Size="Size.Small" />
+                                                @(Math.Abs(category.Change))%
+                                            </MudChip>
+                                        }
+                                    </MudStack>
+                                </MudStack>
                             </MudStack>
-                            <MudStack AlignItems="AlignItems.End" Spacing="0">
-                                <MudText Typo="Typo.body2"
-                                         Class="mud-error-text"
-                                         Style="font-weight: 600;">
-                                    -$@(category.Amount)
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @(category.Percentage)% • @category.TransactionCount trans.
-                                </MudText>
-                            </MudStack>
-                        </MudStack>
+                        </MudPaper>
+                    }
+
+                    @if (Data.Count > 5)
+                    {
+                        <MudButton Variant="Variant.Text" 
+                                   Size="Size.Small" 
+                                   FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.ExpandMore"
+                                   OnClick="@(() => _showAllCategories = !_showAllCategories)">
+                            @(_showAllCategories ? "Mostrar menos" : $"Ver {Data.Count - 5} categorías más")
+                        </MudButton>
+
+                        @if (_showAllCategories)
+                        {
+                            <MudCollapse Expanded="_showAllCategories">
+                                <MudStack Spacing="2">
+                                    @foreach (var category in Data.Skip(5))
+                                    {
+                                        <MudPaper Elevation="0" 
+                                                  Class="@($"pa-2 cursor-pointer {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "mud-elevation-2" : "")}")"
+                                                  Style="@($"border-left: 4px solid {category.CategoryColor}; transition: all 0.2s ease; {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "transform: translateX(4px);" : "")}")"
+                                                  @onclick="@(() => SelectCategory(category.CategoryName))">
+                                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                                    <div style="@($"width: 12px; height: 12px; border-radius: 50%; background-color: {category.CategoryColor}")"></div>
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.body2">@category.CategoryName</MudText>
+                                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                            @category.TransactionCount trans. • $@(category.AverageTransaction) prom.
+                                                        </MudText>
+                                                    </MudStack>
+                                                </MudStack>
+                                                <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                                    <MudText Typo="Typo.body2" Class="mud-error-text" Style="font-weight: 600;">
+                                                        $@(category.Amount)
+                                                    </MudText>
+                                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                            @(category.Percentage)%
+                                                        </MudText>
+                                                        @if (category.Change != 0)
+                                                        {
+                                                            <MudChip T="string" Size="Size.Small"
+                                                                     Color="@(category.IsIncrease ? Color.Error : Color.Success)"
+                                                                     Variant="Variant.Text"
+                                                                     Class="pa-1"
+                                                                     Style="height: 16px;">
+                                                                <MudIcon Icon="@(category.IsIncrease ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)" 
+                                                                         Size="Size.Small" />
+                                                                @(Math.Abs(category.Change))%
+                                                            </MudChip>
+                                                        }
+                                                    </MudStack>
+                                                </MudStack>
+                                            </MudStack>
+                                        </MudPaper>
+                                    }
+                                </MudStack>
+                            </MudCollapse>
+                        }
                     }
                 </MudStack>
 
                 <MudDivider />
 
+                @* Summary Statistics *@
+                <MudGrid>
+                    <MudItem xs="6" sm="3">
+                        <MudAlert Severity="Severity.Error" Variant="Variant.Text" Class="pa-2">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.MonetizationOn" Size="Size.Small" />
+                                <MudText Typo="Typo.caption">Total Gastos</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                    $@(Data.Sum(x => x.Amount))
+                                </MudText>
+                            </MudStack>
+                        </MudAlert>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="pa-2">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Small" />
+                                <MudText Typo="Typo.caption">Categoría Principal</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                    @(Data.OrderByDescending(x => x.Amount).FirstOrDefault()?.CategoryName ?? "N/A")
+                                </MudText>
+                            </MudStack>
+                        </MudAlert>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Class="pa-2">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" />
+                                <MudText Typo="Typo.caption">Total Transacciones</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                    @(Data.Sum(x => x.TransactionCount))
+                                </MudText>
+                            </MudStack>
+                        </MudAlert>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudAlert Severity="Severity.Success" Variant="Variant.Text" Class="pa-2">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" />
+                                <MudText Typo="Typo.caption">Gasto Promedio</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                    $@(GetOverallAverageTransaction())
+                                </MudText>
+                            </MudStack>
+                        </MudAlert>
+                    </MudItem>
+                </MudGrid>
+
+                @* Trend Alert *@
+                @if (GetBiggestChange() != null)
+                {
+                    var biggestChange = GetBiggestChange();
+                    <MudAlert Severity="@(biggestChange.Value.isIncrease ? Severity.Error : Severity.Success)" Variant="Variant.Text">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@(biggestChange.Value.isIncrease ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)" />
+                            <div>
+                                <MudText Typo="Typo.body2">
+                                    <strong>Mayor cambio:</strong> @biggestChange.Value.categoryName
+                                    @(biggestChange.Value.isIncrease ? "aumentó" : "disminuyó") @(Math.Abs(biggestChange.Value.change))%
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    Comparado con el mes anterior
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudAlert>
+                }
+
+                @* Action Buttons *@
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudButton Variant="Variant.Text"
                                Size="Size.Small"
@@ -86,21 +266,93 @@
     </MudCardContent>
 </MudCard>
 
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+</style>
+
 @code {
     [Parameter] public List<CategoryBreakdownDto>? Data { get; set; }
 
+    private int _selectedIndex = -1;
+    private bool _showAllCategories = false;
+    private double[] _chartData = Array.Empty<double>();
+    private string[] _chartLabels = Array.Empty<string>();
+    private ChartOptions _chartOptions = new();
+
+    protected override void OnParametersSet()
+    {
+        UpdateChartData();
+    }
+
+    private void UpdateChartData()
+    {
+        if (Data?.Any() != true)
+        {
+            _chartData = Array.Empty<double>();
+            _chartLabels = Array.Empty<string>();
+            return;
+        }
+
+        // Tomar solo las categorías con montos > 0
+        var validCategories = Data.Where(x => x.Amount > 0).ToList();
+        
+        _chartData = validCategories.Select(x => (double)x.Amount).ToArray();
+        _chartLabels = validCategories.Select(x => x.CategoryName).ToArray();
+        
+        // Configurar colores del chart
+        _chartOptions = new ChartOptions
+        {
+            
+            ChartPalette = validCategories.Select(x => x.CategoryColor).ToArray()
+        };
+    }
+
     private void ShowFilterOptions()
     {
-        // Show filter dialog
+        // Show filter dialog - implementar según tus necesidades
     }
 
     private void ViewCategoryTrends()
     {
-        // Navigate to category trends
+        // Navigate to category trends - implementar según tus necesidades  
     }
 
     private void ViewDetailedAnalysis()
     {
-        // Navigate to detailed analysis
+        // Navigate to detailed analysis - implementar según tus necesidades
+    }
+
+    private int GetCategoryIndex(string categoryName)
+    {
+        return Array.IndexOf(_chartLabels, categoryName);
+    }
+
+    private void SelectCategory(string categoryName)
+    {
+        _selectedIndex = GetCategoryIndex(categoryName);
+        StateHasChanged();
+    }
+
+    private decimal GetOverallAverageTransaction()
+    {
+        if (Data?.Any() != true) return 0;
+        
+        var totalAmount = Data.Sum(x => x.Amount);
+        var totalTransactions = Data.Sum(x => x.TransactionCount);
+        
+        return totalTransactions > 0 ? totalAmount / totalTransactions : 0;
+    }
+
+    private (string categoryName, decimal change, bool isIncrease)? GetBiggestChange()
+    {
+        if (Data?.Any() != true) return null;
+
+        var categoriesWithChange = Data.Where(x => x.Change != 0).ToList();
+        if (!categoriesWithChange.Any()) return null;
+
+        var biggestChange = categoriesWithChange.OrderByDescending(x => Math.Abs(x.Change)).First();
+        return (biggestChange.CategoryName, biggestChange.Change, biggestChange.IsIncrease);
     }
 }

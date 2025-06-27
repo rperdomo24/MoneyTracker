@@ -1,13 +1,15 @@
 services:
   moneytracker-web:
     container_name: moneytracker-web
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8091:8091"  # Puerto local:contenedor
+      - "8091:8091"
     volumes:
       - C:/MoneyTracker/appsettings.json:/app/appsettings.json
+      - C:/MoneyTracker/Logs/:/app/Logs/
     networks:
       - jobordermanager_default 
     environment:
