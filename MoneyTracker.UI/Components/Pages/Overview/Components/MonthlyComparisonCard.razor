@@ -1,0 +1,132 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Success" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.Compare" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Comparación Mensual</MudText>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Data?.Any() == true)
+        {
+            <MudStack Spacing="3">
+                @foreach (var comparison in Data)
+                {
+                    <MudStack Spacing="2">
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <MudText>@comparison.Icon</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                    @comparison.Metric
+                                </MudText>
+                            </MudStack>
+                            <MudChip T="string" Size="Size.Small" 
+                                    Color="@(comparison.IsImprovement ? Color.Success : Color.Error)"
+                                    Icon="@(comparison.IsImprovement ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)">
+                                @(comparison.ChangePercentage >= 0 ? "+" : "")@(comparison.ChangePercentage)%
+                            </MudChip>
+                        </MudStack>
+                        
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Este mes</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                        @FormatCurrency(comparison.CurrentMonth)
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Mes anterior</MudText>
+                                    <MudText Typo="Typo.body2">
+                                        @FormatCurrency(comparison.PreviousMonth)
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Cambio:</MudText>
+                            <MudText Typo="Typo.body2" 
+                                    Class="@(comparison.IsImprovement ? "mud-success-text" : "mud-error-text")"
+                                    Style="font-weight: 500;">
+                                @(comparison.Change >= 0 ? "+" : "")@FormatCurrency(comparison.Change)
+                            </MudText>
+                        </MudStack>
+
+                        @if (comparison != Data.Last())
+                        {
+                            <MudDivider />
+                        }
+                    </MudStack>
+                }
+
+                <MudDivider />
+
+                @* Overall Assessment *@
+                <MudStack Row Justify="Justify.Center">
+                    @{
+                        var improvementCount = Data.Count(d => d.IsImprovement);
+                        var totalCount = Data.Count;
+                        var improvementPercentage = (double)improvementCount / totalCount * 100;
+                    }
+                    
+                    <MudChip T="string" Size="Size.Medium" 
+                            Color="@(improvementPercentage >= 66 ? Color.Success : improvementPercentage >= 33 ? Color.Warning : Color.Error)"
+                            Icon="@GetOverallIcon(improvementPercentage)">
+                        @GetOverallAssessment(improvementPercentage)
+                    </MudChip>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.Compare" 
+                        Color="Color.Default" 
+                        Size="Size.Large" />
+                <MudText Typo="Typo.body1" Align="Align.Center">
+                    No hay datos para comparar
+                </MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                    Necesitas al menos dos meses de datos
+                </MudText>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public List<MonthlyComparisonDto>? Data { get; set; }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private string GetOverallIcon(double improvementPercentage)
+    {
+        return improvementPercentage switch
+        {
+            >= 66 => Icons.Material.Filled.TrendingUp,
+            >= 33 => Icons.Material.Filled.TrendingFlat,
+            _ => Icons.Material.Filled.TrendingDown
+        };
+    }
+
+    private string GetOverallAssessment(double improvementPercentage)
+    {
+        return improvementPercentage switch
+        {
+            >= 66 => "Tendencia Positiva",
+            >= 33 => "Tendencia Mixta",
+            _ => "Necesita Atención"
+        };
+    }
+}

@@ -1,0 +1,137 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Primary" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Tendencia de Balances</MudText>
+            </MudStack>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                <MudButton OnClick="() => SetPeriod(3)">3M</MudButton>
+                <MudButton OnClick="() => SetPeriod(6)" Variant="@(_selectedPeriod == 6 ? Variant.Filled : Variant.Outlined)">6M</MudButton>
+                <MudButton OnClick="() => SetPeriod(12)">1A</MudButton>
+            </MudButtonGroup>
+        </CardHeaderActions>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Data?.Any() == true)
+        {
+            <MudStack Spacing="3">
+                @* Chart placeholder - integrate with Chart.js for line chart *@
+                <div style="height: 300px; display: flex; align-items: center; justify-content: center; background: var(--mud-palette-background-grey); border-radius: 8px;">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Large" />
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Gráfico de tendencias (integrar Chart.js)
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @Data.Count puntos de datos • Últimos @_selectedPeriod meses
+                        </MudText>
+                    </MudStack>
+                </div>
+
+                <MudDivider />
+
+                @* Legend/Summary *@
+                <MudGrid>
+                    <MudItem xs="6" sm="3">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #4caf50;"></div>
+                                <MudText Typo="Typo.caption">Corriente</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                @FormatCurrency(GetLatestBalance("Checking"))
+                            </MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #2196f3;"></div>
+                                <MudText Typo="Typo.caption">Ahorros</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                @FormatCurrency(GetLatestBalance("Savings"))
+                            </MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #f44336;"></div>
+                                <MudText Typo="Typo.caption">Crédito</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                @FormatCurrency(GetLatestBalance("Credit"))
+                            </MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #ff9800;"></div>
+                                <MudText Typo="Typo.caption">Inversión</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                                @FormatCurrency(GetLatestBalance("Investment"))
+                            </MudText>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.ShowChart"
+                         Color="Color.Default"
+                         Size="Size.Large" />
+                <MudText Typo="Typo.body1" Align="Align.Center">
+                    No hay datos de tendencia
+                </MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                    Los datos de tendencia aparecerán con más transacciones
+                </MudText>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public List<BalanceTrendDto>? Data { get; set; }
+    [Parameter] public EventCallback<int> OnPeriodChanged { get; set; }
+
+    private int _selectedPeriod = 6;
+
+    private async Task SetPeriod(int months)
+    {
+        _selectedPeriod = months;
+        await OnPeriodChanged.InvokeAsync(months);
+    }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private decimal GetLatestBalance(string type)
+    {
+        if (Data?.Any() != true) return 0;
+
+        var latest = Data.OrderByDescending(x => x.Date).First();
+        return type switch
+        {
+            "Checking" => latest.CheckingBalance,
+            "Savings" => latest.SavingsBalance,
+            "Credit" => latest.CreditBalance,
+            "Investment" => latest.InvestmentBalance,
+            _ => 0
+        };
+    }
+}

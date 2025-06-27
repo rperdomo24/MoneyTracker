@@ -62,6 +62,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
             builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
             builder.Services.AddScoped<IValidator<IncomeDto>, IncomeValidator>();
+            builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 
             builder.Services.AddScoped<ProtectedSessionStorage>();

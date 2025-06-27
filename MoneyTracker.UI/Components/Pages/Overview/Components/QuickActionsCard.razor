@@ -1,0 +1,137 @@
+﻿
+<MudCard Class="dashboard-card">
+    <MudCardContent>
+        <MudStack Spacing="3">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Tertiary" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.FlashOn" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Acciones Rápidas</MudText>
+            </MudStack>
+
+            <MudGrid>
+                <MudItem xs="6" sm="4" md="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Size="Size.Large"
+                               Class="pa-4"
+                               OnClick="AddTransaction">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Agregar</MudText>
+                            <MudText Typo="Typo.caption">Transacción</MudText>
+                        </MudStack>
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="6" sm="4" md="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.SwapHoriz"
+                               Size="Size.Large"
+                               Class="pa-4"
+                               OnClick="TransferMoney">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Transferir</MudText>
+                            <MudText Typo="Typo.caption">Dinero</MudText>
+                        </MudStack>
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="6" sm="4" md="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Tertiary"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Balance"
+                               Size="Size.Large"
+                               Class="pa-4"
+                               OnClick="AdjustBalance">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Ajustar</MudText>
+                            <MudText Typo="Typo.caption">Balance</MudText>
+                        </MudStack>
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="6" sm="4" md="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Info"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Download"
+                               Size="Size.Large"
+                               Class="pa-4"
+                               OnClick="ExportData">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Exportar</MudText>
+                            <MudText Typo="Typo.caption">Datos</MudText>
+                        </MudStack>
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="6" sm="4" md="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Success"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.HealthAndSafety"
+                               Size="Size.Large"
+                               Class="pa-4"
+                               OnClick="HealthCheck">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Checkup</MudText>
+                            <MudText Typo="Typo.caption">Financiero</MudText>
+                        </MudStack>
+                    </MudButton>
+                </MudItem>
+
+                <MudItem xs="6" sm="4" md="2">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Settings"
+                               Size="Size.Large"
+                               Class="pa-4"
+                               OnClick="OpenSettings">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Configurar</MudText>
+                            <MudText Typo="Typo.caption">Dashboard</MudText>
+                        </MudStack>
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private void AddTransaction()
+    {
+        // Open add transaction modal
+    }
+
+    private void TransferMoney()
+    {
+        // Open transfer money modal
+    }
+
+    private void AdjustBalance()
+    {
+        // Open adjust balance modal
+    }
+
+    private void ExportData()
+    {
+        // Export dashboard data
+    }
+
+    private void HealthCheck()
+    {
+        // Run financial health check
+    }
+
+    private void OpenSettings()
+    {
+        // Open dashboard settings
+    }
+}

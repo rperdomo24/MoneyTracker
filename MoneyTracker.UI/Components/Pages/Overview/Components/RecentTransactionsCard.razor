@@ -1,0 +1,140 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.Domain.Enums
+@using MoneyTracker.UI.Helpers
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Info" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.Receipt" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Transacciones Recientes</MudText>
+            </MudStack>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
+                           Color="Color.Default"
+                           OnClick="ShowMoreOptions" />
+        </CardHeaderActions>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Data?.Any() == true)
+        {
+            <MudList T="string" Dense="true">
+                @foreach (var transaction in Data)
+                {
+                    <MudListItem>
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Small"
+                                           Style="@($"background-color: {transaction.CategoryColor}20; color: {transaction.CategoryColor}")">
+                                    <MudIcon Icon="@GetTransactionIcon(transaction.Type)" Size="Size.Small" />
+                                </MudAvatar>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                        @transaction.Description
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @transaction.RelativeTime • @transaction.AccountName
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                            <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                <MudText Typo="Typo.body2"
+                                         Class="@GetAmountColorClass(transaction)"
+                                         Style="font-weight: 600;">
+                                    @GetFormattedAmount(transaction)
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @transaction.CategoryName
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudListItem>
+                    @if (transaction != Data.Last())
+                    {
+                        <MudDivider />
+                    }
+                }
+            </MudList>
+
+            <MudDivider Class="my-3" />
+            <MudButton Variant="Variant.Text"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.ViewList"
+                       OnClick="ViewAllTransactions">
+                Ver todas las transacciones
+            </MudButton>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong"
+                         Color="Color.Default"
+                         Size="Size.Large" />
+                <MudText Typo="Typo.body1" Align="Align.Center">
+                    No hay transacciones recientes
+                </MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddTransaction">
+                    Agregar Transacción
+                </MudButton>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public List<RecentTransactionDto>? Data { get; set; }
+
+    private string GetTransactionIcon(TransactionType type)
+    {
+        return type switch
+        {
+            TransactionType.Income => Icons.Material.Filled.TrendingUp,
+            TransactionType.Expense => Icons.Material.Filled.TrendingDown,
+            TransactionType.Transfer => Icons.Material.Filled.SwapHoriz,
+            _ => Icons.Material.Filled.AttachMoney
+        };
+    }
+
+    private string GetAmountColorClass(RecentTransactionDto transaction)
+    {
+        return transaction.Type switch
+        {
+            TransactionType.Income => "mud-success-text",
+            TransactionType.Expense => "mud-error-text",
+            TransactionType.Transfer => "mud-info-text",
+            _ => ""
+        };
+    }
+
+    private string GetFormattedAmount(RecentTransactionDto transaction)
+    {
+        return transaction.Type switch
+        {
+            TransactionType.Income => $"+${transaction.Amount:N2}",
+            TransactionType.Expense => $"-${transaction.Amount:N2}",
+            TransactionType.Transfer => $"${transaction.Amount:N2}",
+            _ => $"${transaction.Amount:N2}"
+        };
+    }
+
+    private void ShowMoreOptions()
+    {
+        // Implementation for more options
+    }
+
+    private void ViewAllTransactions()
+    {
+        // Navigate to transactions page
+    }
+
+    private void AddTransaction()
+    {
+        // Open add transaction modal
+    }
+}

@@ -1,0 +1,160 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.Domain.Enums
+@using MoneyTracker.UI.Helpers
+
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Info" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Actividad de Cuentas</MudText>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Data.Any() == true)
+        {
+            <MudList T="string" Dense="true">
+                @foreach (var account in Data.Take(4))
+                {
+                    <MudListItem T="string">
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Medium" 
+                                          Style="@($"background-color: {account.Color}20; color: {account.Color}")">
+                                    <MudIcon Icon="@account.Icon.ToIcon()" />
+                                </MudAvatar>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                        @account.AccountName
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @GetLastActivityText(account.LastActivity)
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                            <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                <MudText Typo="Typo.body2" 
+                                        Class="@GetBalanceColorClass(account.CurrentBalance)"
+                                        Style="font-weight: 600;">
+                                    @FormatCurrency(account.CurrentBalance)
+                                </MudText>
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1" >
+                                    <MudChip T="string" Size="Size.Small" 
+                                            Color="@GetActivityColor(account.ActivityLevel)"
+                                            Variant="Variant.Text">
+                                        @account.TransactionCount trans.
+                                    </MudChip>
+                                    @if (account.Type == AccountType.Credit && account.CreditLimit > 0)
+                                    {
+                                        <MudProgressCircular Size="Size.Small" 
+                                                           Value="@(Convert.ToDouble(account.CreditUtilization))" 
+                                                           Color="@GetUtilizationColor(account.CreditUtilization)" />
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        </MudStack>
+                    </MudListItem>
+                    @if (account != Data.Take(4).Last())
+                    {
+                        <MudDivider />
+                    }
+                }
+            </MudList>
+            
+            @if (Data.Count > 4)
+            {
+                <MudDivider Class="my-3" />
+                <MudButton Variant="Variant.Text" 
+                          FullWidth="true" 
+                          OnClick="ViewAllAccounts">
+                    Ver todas las cuentas (+@(Data.Count - 4))
+                </MudButton>
+            }
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.AccountBalance" 
+                        Color="Color.Default" 
+                        Size="Size.Large" />
+                <MudText Typo="Typo.body1" Align="Align.Center">
+                    No hay cuentas configuradas
+                </MudText>
+                <MudButton Variant="Variant.Filled" 
+                          Color="Color.Primary"
+                          StartIcon="@Icons.Material.Filled.Add">
+                    Agregar Cuenta
+                </MudButton>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+
+    [Parameter] public List<AccountActivityDto>? Data { get; set; }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private string GetBalanceColorClass(decimal balance)
+    {
+        return balance >= 0 ? "mud-success-text" : "mud-error-text";
+    }
+
+    private Color GetActivityColor(string activityLevel)
+    {
+        return activityLevel switch
+        {
+            "High" => Color.Error,
+            "Medium" => Color.Warning,
+            "Low" => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetUtilizationColor(decimal utilization)
+    {
+        return utilization switch
+        {
+            >= 90 => Color.Error,
+            >= 75 => Color.Warning,
+            >= 50 => Color.Info,
+            _ => Color.Success
+        };
+    }
+
+  
+    private void ViewAllAccounts()
+    {
+        // Navigate to accounts page
+    }
+
+    private string GetLastActivityText(DateTime? lastActivity)
+    {
+        if (!lastActivity.HasValue)
+            return "Sin actividad";
+
+        var now = DateTime.UtcNow;
+        var activityLocal = lastActivity.Value;
+        var diff = now - activityLocal;
+
+        if (diff.TotalDays < 1)
+            return "Hoy";
+
+        if (diff.TotalDays < 2)
+            return "Ayer";
+
+        if (diff.TotalDays < 7)
+            return $"Hace {(int)diff.TotalDays} días";
+
+        return activityLocal.ToString("dd/MM/yyyy");
+    }
+
+}

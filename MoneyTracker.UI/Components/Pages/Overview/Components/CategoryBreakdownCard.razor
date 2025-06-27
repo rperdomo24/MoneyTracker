@@ -1,0 +1,106 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Warning" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.PieChart" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Gastos por Categoría</MudText>
+            </MudStack>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudIconButton Icon="@Icons.Material.Filled.FilterList"
+                           Color="Color.Default"
+                           OnClick="ShowFilterOptions" />
+        </CardHeaderActions>
+    </MudCardHeader>
+    <MudCardContent>
+        @if (Data?.Any() == true)
+        {
+            <MudStack Spacing="3">
+                @* Chart placeholder - you can integrate Chart.js or use MudChart when available *@
+                <div style="height: 200px; display: flex; align-items: center; justify-content: center; background: var(--mud-palette-background-grey); border-radius: 8px;">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        📊 Gráfico de categorías (integrar Chart.js)
+                    </MudText>
+                </div>
+
+                <MudDivider />
+
+                <MudStack Spacing="2">
+                    @foreach (var category in Data.Take(5))
+                    {
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                <div style="@($"width: 12px; height: 12px; border-radius: 50%; background-color: {category.CategoryColor}")"></div>
+                                <MudText Typo="Typo.body2">@category.CategoryName</MudText>
+                            </MudStack>
+                            <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                <MudText Typo="Typo.body2"
+                                         Class="mud-error-text"
+                                         Style="font-weight: 600;">
+                                    -$@(category.Amount)
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @(category.Percentage)% • @category.TransactionCount trans.
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    }
+                </MudStack>
+
+                <MudDivider />
+
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.TrendingUp"
+                               OnClick="ViewCategoryTrends">
+                        Ver tendencias
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Analytics"
+                               OnClick="ViewDetailedAnalysis">
+                        Análisis detallado
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.PieChart"
+                         Color="Color.Default"
+                         Size="Size.Large" />
+                <MudText Typo="Typo.body1" Align="Align.Center">
+                    No hay gastos registrados
+                </MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                    Los gastos aparecerán aquí cuando agregues transacciones
+                </MudText>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public List<CategoryBreakdownDto>? Data { get; set; }
+
+    private void ShowFilterOptions()
+    {
+        // Show filter dialog
+    }
+
+    private void ViewCategoryTrends()
+    {
+        // Navigate to category trends
+    }
+
+    private void ViewDetailedAnalysis()
+    {
+        // Navigate to detailed analysis
+    }
+}

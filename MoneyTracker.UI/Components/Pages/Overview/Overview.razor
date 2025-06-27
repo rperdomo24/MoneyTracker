@@ -1,327 +1,342 @@
 ﻿@page "/"
 @page "/overview"
+@using MoneyTracker.UI.Components.Pages.Overview.Components
+@using MoneyTracker.UI.Components.Shared
 @using MudBlazor
+@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject IDashboardService DashboardService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
-    <!-- HEADER -->
-    <MudGrid Justify="Justify.Center" Class="mb-6">
-        <MudItem xs="6">
-            <MudText Typo="Typo.h4" Color="Color.Primary">Overview</MudText>
+<PageTitle>Dashboard - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudGrid Spacing="3">
+        @* Header *@
+        <MudItem xs="12">
+            <MudPaper Class="pa-4" Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.h4" Style="color: white; font-weight: 600;">
+                            <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" />
+                            Dashboard Financiero
+                        </MudText>
+                        <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
+                            Última actualización: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
+                        </MudText>
+                    </MudStack>
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               Style="color: white; border-color: white;"
+                               OnClick="RefreshDashboard">
+                        Actualizar
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
         </MudItem>
-        <MudItem xs="6" Class="d-flex justify-end">
-            <MudIconButton Icon="@Icons.Material.Filled.FilterList" Color="Color.Default" />
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Default" />
-        </MudItem>
+
+        @if (_isLoading)
+        {
+            @* Loading Skeletons *@
+            @for (int i = 0; i < 6; i++)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+                </MudItem>
+            }
+        }
+        else
+        {
+            @* Row 1: Summary Cards *@
+            <MudItem xs="12" sm="6" md="4">
+                <NetWorthCard Data="_summary" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <CashFlowCard Data="_cashFlow" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <AlertsCard Data="_alerts" />
+            </MudItem>
+
+            @* Row 2: Balance Trend Chart *@
+            <MudItem xs="12">
+                <BalanceTrendCard Data="_balanceTrend" />
+            </MudItem>
+
+            @* Row 3: Analytics *@
+            <MudItem xs="12" md="6">
+                <CategoryBreakdownCard Data="_categoryBreakdown" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <AccountActivityCard Data="_accountActivity" />
+            </MudItem>
+
+            @* Row 4: Recent Transactions & Monthly Comparison *@
+            <MudItem xs="12" md="8">
+                <RecentTransactionsCard Data="_recentTransactions" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MonthlyComparisonCard Data="_monthlyComparison" />
+            </MudItem>
+
+            @* Row 5: Quick Actions *@
+            <MudItem xs="12">
+                <QuickActionsCard />
+            </MudItem>
+        }
     </MudGrid>
-
-    <!-- SAFE TO SPEND CARD -->
-    <MudPaper Class="pa-0 mb-6" Elevation="3">
-        <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
-            <div style="padding: 32px;">
-                <MudGrid>
-                    <MudItem xs="12" md="8">
-                        <div style="margin-bottom: 24px;">
-                            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" 
-                                     Size="Size.Large" 
-                                     Style="color: rgba(255,255,255,0.9); margin-bottom: 8px;" />
-                            <MudText Typo="Typo.h4" Style="color: #4ECDC4; font-weight: 600; margin-bottom: 4px;">
-                                Safe to spend
-                            </MudText>
-                        </div>
-                        
-                        <div style="margin-bottom: 20px;">
-                            <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8); margin-bottom: 4px;">
-                                Current Balance
-                            </MudText>
-                            <MudText Typo="Typo.h4" Style="color: white; font-weight: 700; margin-bottom: 16px;">
-                                $716,440
-                            </MudText>
-                        </div>
-                        
-                        <MudGrid>
-                            <MudItem xs="6">
-                                <MudPaper Class="pa-3" Style="background: rgba(255,255,255,0.15); border-radius: 12px; backdrop-filter: blur(10px);">
-                                    <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8);">
-                                        Projected Balance
-                                    </MudText>
-                                    <MudText Typo="Typo.h6" Style="color: white; font-weight: 600;">
-                                        $710,440
-                                    </MudText>
-                                </MudPaper>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudPaper Class="pa-3" Style="background: rgba(255,255,255,0.15); border-radius: 12px; backdrop-filter: blur(10px);">
-                                    <MudText Typo="Typo.caption" Style="color: rgba(255,255,255,0.8);">
-                                        Projected Spending
-                                    </MudText>
-                                    <MudText Typo="Typo.h6" Style="color: white; font-weight: 600;">
-                                        $6,000
-                                    </MudText>
-                                </MudPaper>
-                            </MudItem>
-                        </MudGrid>
-                    </MudItem>
-                    
-                    <MudItem xs="12" md="4" Class="d-flex justify-center align-center">
-                        <div style="position: relative; width: 200px; height: 200px;">
-                            <!-- Círculo de fondo -->
-                            <div style="position: absolute; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.1);"></div>
-                            
-                            <!-- Círculo de progreso -->
-                            <MudProgressCircular Size="Size.Large" 
-                                               Color="Color.Success" 
-                                               Min="0.0" 
-                                               Max="100.0" 
-                                               Value="85" 
-                                               Style="width: 200px; height: 200px; --mud-palette-success: #4ECDC4;" />
-                            
-                            <!-- Contenido central -->
-                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                                <div style="background: rgba(78, 205, 196, 0.2); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
-                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" 
-                                             Style="color: #4ECDC4;" 
-                                             Size="Size.Large" />
-                                </div>
-                                <MudText Typo="Typo.h5" Style="color: white; font-weight: 700; margin-bottom: 4px;">
-                                    $710,440
-                                </MudText>
-                                <MudText Typo="Typo.body2" Style="color: #4ECDC4; font-weight: 500;">
-                                    Remaining
-                                </MudText>
-                            </div>
-                        </div>
-                    </MudItem>
-                </MudGrid>
-                
-                <MudDivider Style="margin: 24px 0; border-color: rgba(255,255,255,0.2);" />
-                
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <MudChip T="string" Style="background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); color: white; font-weight: 600; padding: 8px 16px; border-radius: 20px;">
-                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Style="margin-right: 8px;" />
-                        Before payday May 28
-                    </MudChip>
-                    
-                    <div style="display: flex; gap: 8px;">
-                        <MudIconButton Icon="@Icons.Material.Filled.TrendingUp" 
-                                       Style="background: rgba(255,255,255,0.15); color: white;" 
-                                       Size="Size.Medium" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
-                                       Style="background: rgba(255,255,255,0.15); color: white;" 
-                                       Size="Size.Medium" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    </MudPaper>
-
-    <!-- THIS MONTH SECTION -->
-    <MudGrid Class="mb-6">
-        <MudItem xs="12" md="12">
-            <MudGrid Justify="Justify.Center" Class="mb-4">
-                <MudItem xs="6">
-                    <MudText Typo="Typo.h6" Color="Color.Dark">This month</MudText>
-                </MudItem>
-                <MudItem xs="6" Class="d-flex justify-end">
-                    <MudIconButton Icon="@Icons.Material.Filled.BarChart" Color="Color.Default" />
-                </MudItem>
-            </MudGrid>
-
-            <!-- CAROUSEL CARDS -->
-            <div style="overflow-x: auto; margin-bottom: 16px;">
-                <div style="display: flex; gap: 16px; padding-bottom: 8px; min-width: max-content;">
-                    
-                    <!-- CREDIT CARD SPENDING -->
-                    <MudPaper Class="pa-4" Elevation="1" Style="background-color: #E3F2FD; min-width: 280px; flex-shrink: 0;">
-                        <MudGrid Justify="Justify.Center">
-                            <MudItem xs="3">
-                                <MudIcon Icon="@Icons.Material.Filled.CreditCard" 
-                                         Color="Color.Primary" 
-                                         Size="Size.Large" />
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.body1" Color="Color.Primary">Credit Card Spending</MudText>
-                                <MudText Typo="Typo.h6" Color="Color.Primary">$1,250</MudText>
-                            </MudItem>
-                            <MudItem xs="3" Class="text-right">
-                                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Label="true">PREMIUM</MudChip>
-                            </MudItem>
-                        </MudGrid>
-                        
-                        <MudDivider Class="my-3" />
-                        
-                        <MudText Typo="Typo.body2" Color="Color.Primary" Class="mb-2">Top categories</MudText>
-                        <MudGrid>
-                            <MudItem xs="6">
-                                <MudGrid Justify="Justify.Center">
-                                    <MudItem xs="3">
-                                        <div style="width: 8px; height: 8px; background-color: #FF9800; border-radius: 50%;"></div>
-                                    </MudItem>
-                                    <MudItem xs="9">
-                                        <MudText Typo="Typo.caption" Color="Color.Primary">Restaurants</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Primary">$450</MudText>
-                                    </MudItem>
-                                </MudGrid>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudGrid Justify="Justify.Center">
-                                    <MudItem xs="3">
-                                        <div style="width: 8px; height: 8px; background-color: #9C27B0; border-radius: 50%;"></div>
-                                    </MudItem>
-                                    <MudItem xs="9">
-                                        <MudText Typo="Typo.caption" Color="Color.Primary">Entertainment</MudText>
-                                        <MudText Typo="Typo.body2" Color="Color.Primary">$325</MudText>
-                                    </MudItem>
-                                </MudGrid>
-                            </MudItem>
-                        </MudGrid>
-                    </MudPaper>
-
-                    <!-- TOTAL SPENDING -->
-                    <MudPaper Class="pa-4" Elevation="1" Style="background-color: #F3E5F5; min-width: 280px; flex-shrink: 0;">
-                        <MudGrid Justify="Justify.Center">
-                            <MudItem xs="3">
-                                <MudIcon Icon="@Icons.Material.Filled.Receipt" 
-                                         Style="color: #9C27B0;" 
-                                         Size="Size.Large" />
-                            </MudItem>
-                            <MudItem xs="9">
-                                <MudText Typo="Typo.body1" Style="color: #9C27B0;">Total Spending</MudText>
-                                <MudText Typo="Typo.h6" Style="color: #9C27B0;">$2,845</MudText>
-                            </MudItem>
-                        </MudGrid>
-                        
-                        <MudDivider Class="my-3" />
-                        
-                        <MudText Typo="Typo.body2" Style="color: #9C27B0;" Class="mb-2">This month vs last</MudText>
-                        <MudGrid Justify="Justify.Center">
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.caption" Style="color: #9C27B0;">Current</MudText>
-                                <MudText Typo="Typo.body2" Style="color: #9C27B0;">$2,845</MudText>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.caption" Style="color: #9C27B0;">Previous</MudText>
-                                <MudText Typo="Typo.body2" Style="color: #9C27B0;">$3,120</MudText>
-                            </MudItem>
-                        </MudGrid>
-                    </MudPaper>
-
-                    <!-- SAVINGS GOAL -->
-                    <MudPaper Class="pa-4" Elevation="1" Style="background-color: #E8F5E8; min-width: 280px; flex-shrink: 0;">
-                        <MudGrid Justify="Justify.Center">
-                            <MudItem xs="3">
-                                <MudIcon Icon="@Icons.Material.Filled.Savings" 
-                                         Color="Color.Success" 
-                                         Size="Size.Large" />
-                            </MudItem>
-                            <MudItem xs="9">
-                                <MudText Typo="Typo.body1" Color="Color.Success">Savings Goal</MudText>
-                                <MudText Typo="Typo.h6" Color="Color.Success">$1,200</MudText>
-                            </MudItem>
-                        </MudGrid>
-                        
-                        <MudDivider Class="my-3" />
-                        
-                        <MudText Typo="Typo.body2" Color="Color.Success" Class="mb-2">Progress: 75%</MudText>
-                        <MudProgressLinear Color="Color.Success" Size="Size.Medium" Value="75" Class="mb-2" />
-                        <MudGrid>
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.caption" Color="Color.Success">Saved</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Success">$900</MudText>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.caption" Color="Color.Success">Remaining</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Success">$300</MudText>
-                            </MudItem>
-                        </MudGrid>
-                    </MudPaper>
-
-                    <!-- BUDGET OVERVIEW -->
-                    <MudPaper Class="pa-4" Elevation="1" Style="background-color: #FFF3E0; min-width: 280px; flex-shrink: 0;">
-                        <MudGrid Justify="Justify.Center">
-                            <MudItem xs="3">
-                                <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" 
-                                         Style="color: #FF9800;" 
-                                         Size="Size.Large" />
-                            </MudItem>
-                            <MudItem xs="9">
-                                <MudText Typo="Typo.body1" Style="color: #FF9800;">Budget Overview</MudText>
-                                <MudText Typo="Typo.h6" Style="color: #FF9800;">$3,500</MudText>
-                            </MudItem>
-                        </MudGrid>
-                        
-                        <MudDivider Class="my-3" />
-                        
-                        <MudText Typo="Typo.body2" Style="color: #FF9800;" Class="mb-2">Monthly budget</MudText>
-                        <MudGrid>
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.caption" Style="color: #FF9800;">Spent</MudText>
-                                <MudText Typo="Typo.body2" Style="color: #FF9800;">$2,845</MudText>
-                            </MudItem>
-                            <MudItem xs="6">
-                                <MudText Typo="Typo.caption" Style="color: #FF9800;">Available</MudText>
-                                <MudText Typo="Typo.body2" Style="color: #FF9800;">$655</MudText>
-                            </MudItem>
-                        </MudGrid>
-                    </MudPaper>
-
-                </div>
-            </div>
-        </MudItem>
-    </MudGrid>
-
-    <!-- TODAY TRANSACTIONS -->
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Today</MudText>
-    
-    @foreach (var transaction in TodayTransactions)
-    {
-        <MudPaper Class="pa-4 mb-3" Elevation="0" Style="border: 1px solid #E0E0E0;">
-            <MudGrid Justify="Justify.Center">
-                <MudItem xs="2">
-                    <MudAvatar Color="Color.Default" Style="background-color: #F5F5F5;">
-                        <MudIcon Icon="@GetTransactionIcon(transaction.Type)" />
-                    </MudAvatar>
-                </MudItem>
-                <MudItem xs="7">
-                    <MudText Typo="Typo.body1" Color="Color.Dark">@transaction.Description</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">@transaction.Type</MudText>
-                </MudItem>
-                <MudItem xs="3" Class="text-right">
-                    <MudText Typo="Typo.body1" Color="Color.Dark">$@transaction.Amount.ToString("N2")</MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Error">-$@transaction.Amount.ToString("N2")</MudText>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-    }
-
-    <!-- FAB BUTTON -->
-    <MudFab Color="Color.Primary" 
-           StartIcon="@Icons.Material.Filled.Add" 
-           Style="position: fixed; bottom: 80px; right: 24px;" />
 </MudContainer>
 
 @code {
-    private List<Transaction> TodayTransactions = new()
-    {
-        new Transaction { Description = "hola", Type = "Cash", Amount = 2.50m },
-        new Transaction { Description = "pago", Type = "Checking", Amount = 150.00m },
-        new Transaction { Description = "Groceries", Type = "Credit Card", Amount = 45.75m }
-    };
+    private bool _isLoading = true;
+    private DashboardSummaryDto? _summary;
+    private CashFlowDto? _cashFlow;
+    private List<FinancialAlertDto> _alerts = new();
+    private List<BalanceTrendDto> _balanceTrend = new();
+    private List<CategoryBreakdownDto> _categoryBreakdown = new();
+    private List<AccountActivityDto> _accountActivity = new();
+    private List<RecentTransactionDto> _recentTransactions = new();
+    private List<MonthlyComparisonDto> _monthlyComparison = new();
 
-    private string GetTransactionIcon(string type)
+    protected override async Task OnInitializedAsync()
     {
-        return type.ToLower() switch
+        await LoadDashboardData();
+    }
+
+    // private async Task LoadDashboardData()
+    // {
+    //     _isLoading = true;
+    //     StateHasChanged();
+
+    //     try
+    //     {
+    //         // Load all dashboard data in parallel for better performance
+    //         var summaryTask = DashboardService.GetSummaryAsync();
+    //         var cashFlowTask = DashboardService.GetCashFlowAsync();
+    //         var alertsTask = DashboardService.GetAlertsAsync();
+    //         var balanceTrendTask = DashboardService.GetBalanceTrendAsync();
+    //         var categoryBreakdownTask = DashboardService.GetCategoryBreakdownAsync();
+    //         var accountActivityTask = DashboardService.GetAccountActivityAsync();
+    //         var recentTransactionsTask = DashboardService.GetRecentTransactionsAsync();
+    //         var monthlyComparisonTask = DashboardService.GetMonthlyComparisonAsync();
+
+    //         // Wait for all tasks to complete
+    //         await Task.WhenAll(
+    //             summaryTask,
+    //             cashFlowTask,
+    //             alertsTask,
+    //             balanceTrendTask,
+    //             categoryBreakdownTask,
+    //             accountActivityTask,
+    //             recentTransactionsTask,
+    //             monthlyComparisonTask
+    //         );
+
+    //         // Get results and handle them individually
+    //         var summaryResult = await summaryTask;
+    //         var cashFlowResult = await cashFlowTask;
+    //         var alertsResult = await alertsTask;
+    //         var balanceTrendResult = await balanceTrendTask;
+    //         var categoryBreakdownResult = await categoryBreakdownTask;
+    //         var accountActivityResult = await accountActivityTask;
+    //         var recentTransactionsResult = await recentTransactionsTask;
+    //         var monthlyComparisonResult = await monthlyComparisonTask;
+
+    //         // Assign results
+    //         _summary = summaryResult.Success ? summaryResult.Data : null;
+    //         _cashFlow = cashFlowResult.Success ? cashFlowResult.Data : null;
+    //         _alerts = alertsResult.Success ? alertsResult.Data : new();
+    //         _balanceTrend = balanceTrendResult.Success ? balanceTrendResult.Data : new();
+    //         _categoryBreakdown = categoryBreakdownResult.Success ? categoryBreakdownResult.Data : new();
+    //         _accountActivity = accountActivityResult.Success ? accountActivityResult.Data : new();
+    //         _recentTransactions = recentTransactionsResult.Success ? recentTransactionsResult.Data : new();
+    //         _monthlyComparison = monthlyComparisonResult.Success ? monthlyComparisonResult.Data : new();
+
+    //         // Check for any errors
+    //         var allResults = new[]
+    //         {
+    //         (summaryResult.Success, summaryResult.Message),
+    //         (cashFlowResult.Success, cashFlowResult.Message),
+    //         (alertsResult.Success, alertsResult.Message),
+    //         (balanceTrendResult.Success, balanceTrendResult.Message),
+    //         (categoryBreakdownResult.Success, categoryBreakdownResult.Message),
+    //         (accountActivityResult.Success, accountActivityResult.Message),
+    //         (recentTransactionsResult.Success, recentTransactionsResult.Message),
+    //         (monthlyComparisonResult.Success, monthlyComparisonResult.Message)
+    //     };
+
+    //         var failedResults = allResults.Where(r => !r.Success).Select(r => r.Message).ToList();
+    //         if (failedResults.Any())
+    //         {
+    //             var errorMessage = string.Join("; ", failedResults);
+    //             Snackbar.Add($"Algunos datos no se pudieron cargar: {errorMessage}", Severity.Warning);
+    //         }
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error cargando dashboard: {ex.Message}", Severity.Error);
+    //     }
+    //     finally
+    //     {
+    //         _isLoading = false;
+    //         StateHasChanged();
+    //     }
+    // }
+
+    private async Task LoadDashboardData()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        var errors = new List<string>();
+
+        try
         {
-            "cash" => Icons.Material.Filled.MonetizationOn,
-            "checking" => Icons.Material.Filled.AccountBalance,
-            "credit card" => Icons.Material.Filled.CreditCard,
-            _ => Icons.Material.Filled.Receipt
+            // Load data sequentially to avoid DbContext concurrency issues
+            // Critical data first
+            try
+            {
+                var summaryResult = await DashboardService.GetSummaryAsync();
+                _summary = summaryResult.Success ? summaryResult.Data : null;
+                if (!summaryResult.Success) errors.Add($"Summary: {summaryResult.Message}");
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Summary: {ex.Message}");
+            }
+
+            try
+            {
+                var cashFlowResult = await DashboardService.GetCashFlowAsync();
+                _cashFlow = cashFlowResult.Success ? cashFlowResult.Data : null;
+                if (!cashFlowResult.Success) errors.Add($"Cash Flow: {cashFlowResult.Message}");
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Cash Flow: {ex.Message}");
+            }
+
+            try
+            {
+                var alertsResult = await DashboardService.GetAlertsAsync();
+                _alerts = alertsResult.Success ? alertsResult.Data : new();
+                if (!alertsResult.Success) errors.Add($"Alerts: {alertsResult.Message}");
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Alerts: {ex.Message}");
+            }
+
+            // Load less critical data in a second batch (parallel)
+            var secondBatchTasks = new[]
+            {
+            LoadAccountActivity(),
+            LoadRecentTransactions(),
+            LoadCategoryBreakdown(),
+            LoadMonthlyComparison()
         };
+
+            await Task.WhenAll(secondBatchTasks);
+
+            // Load heavy data last
+            try
+            {
+                var balanceTrendResult = await DashboardService.GetBalanceTrendAsync();
+                _balanceTrend = balanceTrendResult.Success ? balanceTrendResult.Data : new();
+                if (!balanceTrendResult.Success) errors.Add($"Balance Trend: {balanceTrendResult.Message}");
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Balance Trend: {ex.Message}");
+            }
+
+            // Show any accumulated errors
+            if (errors.Any())
+            {
+                var errorMessage = string.Join(", ", errors);
+                Snackbar.Add($"Algunos datos no se cargaron: {errorMessage}", Severity.Warning);
+            }
+            else
+            {
+                Snackbar.Add("Dashboard cargado exitosamente", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error crítico cargando dashboard: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
     }
 
-    public class Transaction
+    private async Task LoadAccountActivity()
     {
-        public string Description { get; set; } = string.Empty;
-        public string Type { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
+        try
+        {
+            var result = await DashboardService.GetAccountActivityAsync();
+            _accountActivity = result.Success ? result.Data : new();
+        }
+        catch
+        {
+            _accountActivity = new();
+        }
     }
+
+    private async Task LoadRecentTransactions()
+    {
+        try
+        {
+            var result = await DashboardService.GetRecentTransactionsAsync();
+            _recentTransactions = result.Success ? result.Data : new();
+        }
+        catch
+        {
+            _recentTransactions = new();
+        }
+    }
+
+    private async Task LoadCategoryBreakdown()
+    {
+        try
+        {
+            var result = await DashboardService.GetCategoryBreakdownAsync();
+            _categoryBreakdown = result.Success ? result.Data : new();
+        }
+        catch
+        {
+            _categoryBreakdown = new();
+        }
+    }
+
+    private async Task LoadMonthlyComparison()
+    {
+        try
+        {
+            var result = await DashboardService.GetMonthlyComparisonAsync();
+            _monthlyComparison = result.Success ? result.Data : new();
+        }
+        catch
+        {
+            _monthlyComparison = new();
+        }
+    }
+
+    private async Task RefreshDashboard()
+    {
+        await LoadDashboardData();
+    }
+
+
+    // private async Task RefreshDashboard()
+    // {
+    //     await LoadDashboardData();
+    //     Snackbar.Add("Dashboard actualizado", Severity.Success);
+    // }
 }
+
+<QuickActionsFab />

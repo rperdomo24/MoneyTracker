@@ -1,0 +1,21 @@
+﻿.dashboard-card {
+    height: 100%;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+.mud-card-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 960px) {
+    .dashboard-card {
+        margin-bottom: 16px;
+    }
+}

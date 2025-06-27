@@ -1,0 +1,101 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
+
+<MudCard Class="dashboard-card">
+    <MudCardContent>
+        <MudStack Spacing="3">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems=" AlignItems.Center">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Secondary" Size="Size.Medium">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h6">Flujo de Efectivo (Junio)</MudText>
+                </MudStack>
+            </MudStack>
+
+            @if (Data != null)
+            {
+                <MudStack Spacing="2">
+                    <MudGrid>
+                        <MudItem xs="6">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.h5" Class="mud-success-text">
+                                    @FormatCurrency(Data.TotalIncome)
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ingresos</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.h5" Class="mud-error-text">
+                                    -@FormatCurrency(Data.TotalExpenses)
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Gastos</MudText>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider />
+
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.h6" Class="@GetBalanceColorClass(Data.NetCashFlow)">
+                            Flujo Neto: @FormatCurrency(Data.NetCashFlow)
+                        </MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Promedio diario: -@FormatCurrency(Data.DailyBurnRate)
+                        </MudText>
+                    </MudStack>
+
+                    <MudProgressLinear Value="@GetMonthProgress()"
+                                       Color="Color.Primary"
+                                       Size="Size.Medium"
+                                       Class="my-2" />
+
+                    <MudStack Row Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            @Data.DaysLeftInMonth días restantes
+                        </MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            @Data.DaysElapsed/@Data.DaysInMonth días
+                        </MudText>
+                    </MudStack>
+
+                    @if (Math.Abs(Data.ProjectedMonthEnd - Data.NetCashFlow) > 100)
+                    {
+                        <MudAlert Severity="@(Data.ProjectedMonthEnd < 0 ? Severity.Warning : Severity.Info)" Dense="true">
+                            Al ritmo actual: @FormatCurrency(Data.ProjectedMonthEnd) al fin de mes
+                        </MudAlert>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    <MudSkeleton Height="40px" />
+                    <MudSkeleton Height="20px" />
+                    <MudSkeleton Height="20px" />
+                </MudStack>
+            }
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public CashFlowDto? Data { get; set; }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private string GetBalanceColorClass(decimal balance)
+    {
+        return balance >= 0 ? "mud-success-text" : "mud-error-text";
+    }
+
+    private double GetMonthProgress()
+    {
+        if (Data == null || Data.DaysInMonth == 0) return 0;
+        return ((double)Data.DaysElapsed / Data.DaysInMonth) * 100;
+    }
+}
