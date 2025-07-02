@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories

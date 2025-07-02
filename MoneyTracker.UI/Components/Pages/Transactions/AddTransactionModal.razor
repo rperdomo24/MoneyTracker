@@ -1,9 +1,12 @@
-﻿@using MoneyTracker.Application.DTOs
+﻿@using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Pages.Categories
-@using MoneyTracker.Application.Common.Extensions
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService

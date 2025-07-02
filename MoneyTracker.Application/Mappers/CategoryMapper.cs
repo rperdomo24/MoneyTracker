@@ -1,6 +1,6 @@
 ﻿using MoneyTracker.Application.DTOs;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Category;
 
 namespace MoneyTracker.Application.Mappers
 {

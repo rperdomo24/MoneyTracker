@@ -1,6 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
 
 namespace MoneyTracker.Application.Interfaces
 {

@@ -1,4 +1,4 @@
-﻿namespace MoneyTracker.Domain.Enums
+﻿namespace MoneyTracker.Domain.Enums.Filters
 {
     public enum TimePeriodFilter
     {

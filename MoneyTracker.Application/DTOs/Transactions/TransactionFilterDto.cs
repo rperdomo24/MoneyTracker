@@ -1,4 +1,5 @@
-﻿using MoneyTracker.Domain.Enums;
+﻿using MoneyTracker.Domain.Enums.Category;
+using MoneyTracker.Domain.Enums.Filters;
 
 namespace MoneyTracker.Application.DTOs.Transactions
 {

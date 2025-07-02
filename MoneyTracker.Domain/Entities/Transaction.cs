@@ -1,4 +1,4 @@
-﻿using MoneyTracker.Domain.Enums;
+﻿using MoneyTracker.Domain.Enums.Transaction;
 using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities

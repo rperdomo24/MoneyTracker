@@ -1,4 +1,4 @@
-﻿using MoneyTracker.Domain.Enums;
+﻿using MoneyTracker.Domain.Enums.Account;
 using MudBlazor;
 
 namespace MoneyTracker.UI.Helpers

@@ -1,4 +1,4 @@
-﻿namespace MoneyTracker.Domain.Enums
+﻿namespace MoneyTracker.Domain.Enums.Account
 {
     public enum AccountIcon
     {

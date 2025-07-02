@@ -1,12 +1,15 @@
 ﻿@page "/transactions"
+@using MoneyTracker.Application.Common.Extensions
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Components
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Helpers
-@using MoneyTracker.UI.Components
-@using MoneyTracker.Application.Common.Extensions
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 

@@ -1,6 +1,6 @@
 ﻿using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Filters;
 
 namespace MoneyTracker.Application.Mappers.Transactions
 {

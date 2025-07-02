@@ -1,5 +1,5 @@
 ﻿using MoneyTracker.Application.DTOs;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Category;
 using MudBlazor;
 
 namespace MoneyTracker.UI.Helpers

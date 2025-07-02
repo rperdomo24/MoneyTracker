@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Category;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
 {

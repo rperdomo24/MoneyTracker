@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Filters;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
 using System.Linq;

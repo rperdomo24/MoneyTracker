@@ -1,4 +1,4 @@
-﻿namespace MoneyTracker.Domain.Enums
+﻿namespace MoneyTracker.Domain.Enums.Transaction
 {
     public enum TransactionType
     {

@@ -3,7 +3,8 @@ using MoneyTracker.Application.Common.Extensions;
 using MoneyTracker.Application.DTOs.Dashboard;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
+using MoneyTracker.Domain.Enums.Filters;
 
 namespace MoneyTracker.Application.Services
 {
