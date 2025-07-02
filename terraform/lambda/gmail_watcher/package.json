@@ -1,0 +1,10 @@
+{
+    "name": "gmail-watcher",
+    "version": "1.0.0",
+    "main": "index.js",
+    "dependencies": {
+        "@google-cloud/firestore": "^7.11.1",
+        "firebase-admin": "^11.0.0",
+        "node-fetch": "^2.6.9"
+    }
+}
