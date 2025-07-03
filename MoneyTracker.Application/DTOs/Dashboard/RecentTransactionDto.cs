@@ -11,7 +11,7 @@ namespace MoneyTracker.Application.DTOs.Dashboard
         public string AccountName { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
         public string CategoryColor { get; set; } = string.Empty;
-        public TransactionType Type { get; set; }
+        public TransactionTypeEnum Type { get; set; }
         public string RelativeTime { get; set; } = string.Empty;
     }
 }

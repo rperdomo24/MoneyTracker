@@ -138,7 +138,7 @@ public class TransactionRepository : ITransactionRepository
             // Filtro por cuentas activas
             if (AccountIds.Any())
             {
-                query = query.Where(t => AccountIds.Contains(t.AccountId.Value));
+                query = query.Where(t => AccountIds.Contains(t.AccountId));
             }
             else
             {
@@ -147,10 +147,10 @@ public class TransactionRepository : ITransactionRepository
             }
 
             // Filtro por tipos de transacción (si existe en tu modelo)
-            if (TransactionTypeIds.Any())
-            {
-                query = query.Where(t => TransactionTypeIds.Contains(t.Type.GetHashCode()));
-            }
+            //if (TransactionTypeIds.Any())
+            //{
+            //    query = query.Where(t => TransactionTypeIds.Contains(t.TransactionType.GetHashCode()));
+            //}
 
             return await query
                 .OrderByDescending(t => t.Date)

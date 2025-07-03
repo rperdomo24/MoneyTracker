@@ -8,7 +8,7 @@ namespace MoneyTracker.UI.Helpers
     {
         public static string GetBalanceCardStyle(this TransactionSummaryDto summary)
         {
-            var color = summary.Balance >= 0 ? TransactionType.Income.GetTransactionTypeHexColor() : TransactionType.Expense.GetTransactionTypeHexColor();
+            var color = summary.Balance >= 0 ? TransactionTypeEnum.Income.GetTransactionTypeHexColor() : TransactionTypeEnum.Expense.GetTransactionTypeHexColor();
             return $"border-top: 4px solid {color};";
         }
 

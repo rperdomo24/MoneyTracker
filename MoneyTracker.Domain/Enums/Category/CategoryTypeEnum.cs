@@ -1,9 +1,8 @@
 ﻿namespace MoneyTracker.Domain.Enums.Category
 {
-    public enum CategoryType
+    public enum CategoryTypeEnum
     {
         Income = 1,
         Expense = 2,
-        Account = 3,
     }
 }

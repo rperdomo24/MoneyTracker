@@ -56,9 +56,9 @@
         <MudGrid Class="mb-6">
             <!-- Total Income Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionType.Income.GetTransactionTypeHexColor())};")">
-                    <MudIcon Icon="@(TransactionType.Income.GetTransactionypeIcon())"
-                    Color="@(TransactionType.Income.GetTransactionTypeColor())"
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionTypeEnum.Income.GetTransactionTypeHexColor())};")">
+                    <MudIcon Icon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
+                    Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
                     Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-success")">
                         @_transactionSummary.TotalIncome.ToString("C")
@@ -69,9 +69,9 @@
 
             <!-- Total Expenses Card -->
             <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionType.Expense.GetTransactionTypeHexColor())};")">
-                    <MudIcon Icon="@(TransactionType.Expense.GetTransactionypeIcon())"
-                    Color="@(TransactionType.Expense.GetTransactionTypeColor())"
+                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionTypeEnum.Expense.GetTransactionTypeHexColor())};")">
+                    <MudIcon Icon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
+                    Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
                     Size="Size.Large" Class="mb-2" />
                     <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-error")">
                         @_transactionSummary.TotalExpense.ToString("C")
@@ -228,7 +228,7 @@
                                 <div>
                                     <MudText Typo="Typo.body2">@context.Category.Name</MudText>
                                     <MudChip T="string" Size="Size.Small"
-                                    Color="@(context.Category.Type == CategoryType.Income ? Color.Success : Color.Error)"
+                                    Color="@(context.Category.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
                                     Variant="Variant.Text">
                                         @context.Category.Type.ToString()
                                     </MudChip>

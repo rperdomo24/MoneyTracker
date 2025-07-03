@@ -6,33 +6,33 @@ namespace MoneyTracker.UI.Helpers
 {
     public static class CategoryExtensions
     {
-        public static string GetDisplayName(this CategoryType type) => type switch
+        public static string GetDisplayName(this CategoryTypeEnum type) => type switch
         {
-            CategoryType.Income => "Income Categories",
-            CategoryType.Expense => "Expense Categories",
+            CategoryTypeEnum.Income => "Income Categories",
+            CategoryTypeEnum.Expense => "Expense Categories",
             _ => type.ToString()
         };
 
-        public static string GetIcon(this CategoryType type) => type switch
+        public static string GetIcon(this CategoryTypeEnum type) => type switch
         {
-            CategoryType.Income => Icons.Material.Filled.TrendingUp,
-            CategoryType.Expense => Icons.Material.Filled.TrendingDown,
+            CategoryTypeEnum.Income => Icons.Material.Filled.TrendingUp,
+            CategoryTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
             _ => Icons.Material.Filled.Category
         };
 
-        public static Color GetColor(this CategoryType type) => type switch
+        public static Color GetColor(this CategoryTypeEnum type) => type switch
         {
-            CategoryType.Income => Color.Success,
-            CategoryType.Expense => Color.Error,
+            CategoryTypeEnum.Income => Color.Success,
+            CategoryTypeEnum.Expense => Color.Error,
             _ => Color.Primary
         };
 
-        public static IEnumerable<IGrouping<CategoryType, CategoryDto>> GroupByType(this IEnumerable<CategoryDto> categories)
+        public static IEnumerable<IGrouping<CategoryTypeEnum, CategoryDto>> GroupByType(this IEnumerable<CategoryDto> categories)
         {
             return categories.GroupBy(c => c.Type).OrderBy(g => g.Key);
         }
 
-        public static IEnumerable<CategoryDto> FilterByType(this IEnumerable<CategoryDto> categories, CategoryType type)
+        public static IEnumerable<CategoryDto> FilterByType(this IEnumerable<CategoryDto> categories, CategoryTypeEnum type)
         {
             return categories.Where(c => c.Type == type);
         }

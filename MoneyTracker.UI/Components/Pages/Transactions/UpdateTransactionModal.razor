@@ -1015,9 +1015,9 @@
                 _categories = categoriesResult.Data ?? new List<CategoryDto>();
 
                 // Get special categories
-                _transferOutCategory = _categories.FirstOrDefault(c => c.Name == "Transfer Out" && c.Type == CategoryType.Expense);
-                _transferInCategory = _categories.FirstOrDefault(c => c.Name == "Transfer In" && c.Type == CategoryType.Income);
-                _creditPaymentCategory = _categories.FirstOrDefault(c => c.Name == "Credit Card Payment" && c.Type == CategoryType.Expense); // ✨ NEW
+                _transferOutCategory = _categories.FirstOrDefault(c => c.Name == "Transfer Out" && c.Type == CategoryTypeEnum.Expense);
+                _transferInCategory = _categories.FirstOrDefault(c => c.Name == "Transfer In" && c.Type == CategoryTypeEnum.Income);
+                _creditPaymentCategory = _categories.FirstOrDefault(c => c.Name == "Credit Card Payment" && c.Type == CategoryTypeEnum.Expense); // ✨ NEW
 
                 FilterCategoriesByType();
 
@@ -1030,9 +1030,9 @@
             if (accountsResult.Success)
             {
                 _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-                if (_transaction.AccountId.HasValue)
+                if (_transaction.AccountId > 0)
                 {
-                    _selectedAccountString = _transaction.AccountId.Value.ToString();
+                    _selectedAccountString = _transaction.AccountId.ToString();
                 }
 
                 // ✨ NEW: Load credit card info for credit payments
@@ -1066,7 +1066,7 @@
     // ✨ NEW: Credit Payment Detection
     private bool IsCreditPaymentTransaction(TransactionDto transaction)
     {
-        return transaction.Category?.Name == "Credit Card Payment" && transaction.Category?.Type == CategoryType.Expense;
+        return transaction.Category?.Name == "Credit Card Payment" && transaction.Category?.Type == CategoryTypeEnum.Expense;
     }
 
     // ✨ NEW: Load Credit Card Information
@@ -1179,9 +1179,9 @@
         _transactionDate = _originalTransaction.Date;
         _selectedCategory = _filteredCategories?.FirstOrDefault(c => c.Id == _originalTransaction.CategoryId);
 
-        if (_originalTransaction.AccountId.HasValue)
+        if (_originalTransaction.AccountId > 0)
         {
-            _selectedAccountString = _originalTransaction.AccountId.Value.ToString();
+            _selectedAccountString = _originalTransaction.AccountId.ToString();
         }
 
         StateHasChanged();
@@ -1456,9 +1456,9 @@
 
     private string GetTransactionIcon() => _isCreditPayment ? Icons.Material.Filled.CreditCard : _isTransfer ? Icons.Material.Filled.SwapHoriz : Icons.Material.Filled.Edit;
 
-    private Color GetTransactionColor() => _isCreditPayment ? Color.Warning : _isTransfer ? Color.Info : (_originalTransaction?.Category?.Type == CategoryType.Income ? Color.Success : Color.Error);
+    private Color GetTransactionColor() => _isCreditPayment ? Color.Warning : _isTransfer ? Color.Info : (_originalTransaction?.Category?.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error);
 
-    private string GetTransactionColorHex() => _isCreditPayment ? "#ff5722" : _isTransfer ? "#2196f3" : (_originalTransaction?.Category?.Type == CategoryType.Income ? "#4CAF50" : "#f44336");
+    private string GetTransactionColorHex() => _isCreditPayment ? "#ff5722" : _isTransfer ? "#2196f3" : (_originalTransaction?.Category?.Type == CategoryTypeEnum.Income ? "#4CAF50" : "#f44336");
 
     private string GetSelectedCategoryColor() => _selectedCategory?.Color ?? "#6366f1";
     private string GetSelectedCategoryIcon() => _selectedCategory?.Icon.ToIcon() ?? Icons.Material.Filled.Category;
@@ -1508,11 +1508,11 @@
             return _transaction.Amount.ToString("C");
         }
 
-        var sign = _originalTransaction?.Category?.Type == CategoryType.Income ? "+" : "-";
+        var sign = _originalTransaction?.Category?.Type == CategoryTypeEnum.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }
 
-    private string GetAmountColorClass() => _isCreditPayment ? "text-warning" : _isTransfer ? "text-info" : (_originalTransaction?.Category?.Type == CategoryType.Income ? "text-success" : "text-error");
+    private string GetAmountColorClass() => _isCreditPayment ? "text-warning" : _isTransfer ? "text-info" : (_originalTransaction?.Category?.Type == CategoryTypeEnum.Income ? "text-success" : "text-error");
 
     // Helper classes
     public record ChangeItem(string Field, string OldValue, string NewValue);

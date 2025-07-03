@@ -13,18 +13,19 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<Transaction> Transaction => Set<Transaction>();
         public DbSet<Account> Accounts => Set<Account>();
         public DbSet<Category> Categories => Set<Category>();
+        public DbSet<TransactionAttachment> TransactionAttachments => Set<TransactionAttachment>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Category>()
                .HasOne(c => c.Parent)
-               .WithMany(c => c.Subcategories)
+               .WithMany(c => c.Children)
                .HasForeignKey(c => c.ParentId)
                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Transaction>()
                 .HasOne(e => e.Category)
-                .WithMany()
+                .WithMany(e => e.Transactions)
                 .HasForeignKey(e => e.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
 
@@ -34,13 +35,15 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .HasForeignKey(e => e.AccountId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            modelBuilder.Entity<Transaction>()
-                .Property(e => e.Type)
-                .HasConversion<string>();
-
             modelBuilder.Entity<Account>()
                 .Property(e => e.Type)
                 .HasConversion<string>();
+
+            modelBuilder.Entity<TransactionAttachment>()
+             .HasOne(cf => cf.Transaction)
+             .WithMany(c => c.Attachments)
+             .HasForeignKey(cf => cf.TransactionId)
+             .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);
 

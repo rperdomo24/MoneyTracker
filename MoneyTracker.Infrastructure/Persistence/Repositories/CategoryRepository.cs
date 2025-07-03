@@ -38,7 +38,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
-                    .Include(c => c.Subcategories)
+                    .Include(c => c.Children)
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
                     .AsNoTracking()
@@ -56,7 +56,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
-                    .Include(c => c.Subcategories)
+                    .Include(c => c.Children)
                     .FirstOrDefaultAsync(c => c.Id == id);
             }
             catch (Exception ex)

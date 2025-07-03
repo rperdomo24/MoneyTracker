@@ -96,7 +96,7 @@
                         </MudAvatar>
                         <div>
                             <MudText Typo="Typo.caption" Class="text-muted">Income Categories</MudText>
-                            <MudText Typo="Typo.h5" Class="font-weight-bold">@_categories.FilterByType(CategoryType.Income).Count()</MudText>
+                            <MudText Typo="Typo.h5" Class="font-weight-bold">@_categories.FilterByType(CategoryTypeEnum.Income).Count()</MudText>
                         </div>
                     </div>
                 </MudPaper>
@@ -109,7 +109,7 @@
                         </MudAvatar>
                         <div>
                             <MudText Typo="Typo.caption" Class="text-muted">Expense Categories</MudText>
-                            <MudText Typo="Typo.h5" Class="font-weight-bold">@_categories.FilterByType(CategoryType.Expense).Count()</MudText>
+                            <MudText Typo="Typo.h5" Class="font-weight-bold">@_categories.FilterByType(CategoryTypeEnum.Expense).Count()</MudText>
                         </div>
                     </div>
                 </MudPaper>
@@ -424,7 +424,7 @@
         await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters, _dialogOptions);
     }
 
-    private async Task CreateCategoryWithType(CategoryType type)
+    private async Task CreateCategoryWithType(CategoryTypeEnum type)
     {
         var parameters = new DialogParameters
             {

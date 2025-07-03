@@ -91,13 +91,13 @@
 @code {
     [Parameter] public List<RecentTransactionDto>? Data { get; set; }
 
-    private string GetTransactionIcon(TransactionType type)
+    private string GetTransactionIcon(TransactionTypeEnum type)
     {
         return type switch
         {
-            TransactionType.Income => Icons.Material.Filled.TrendingUp,
-            TransactionType.Expense => Icons.Material.Filled.TrendingDown,
-            TransactionType.Transfer => Icons.Material.Filled.SwapHoriz,
+            TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
+            TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
+            TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
             _ => Icons.Material.Filled.AttachMoney
         };
     }
@@ -106,9 +106,9 @@
     {
         return transaction.Type switch
         {
-            TransactionType.Income => "mud-success-text",
-            TransactionType.Expense => "mud-error-text",
-            TransactionType.Transfer => "mud-info-text",
+            TransactionTypeEnum.Income => "mud-success-text",
+            TransactionTypeEnum.Expense => "mud-error-text",
+            TransactionTypeEnum.Transfer => "mud-info-text",
             _ => ""
         };
     }
@@ -117,9 +117,9 @@
     {
         return transaction.Type switch
         {
-            TransactionType.Income => $"+${transaction.Amount:N2}",
-            TransactionType.Expense => $"-${transaction.Amount:N2}",
-            TransactionType.Transfer => $"${transaction.Amount:N2}",
+            TransactionTypeEnum.Income => $"+${transaction.Amount:N2}",
+            TransactionTypeEnum.Expense => $"-${transaction.Amount:N2}",
+            TransactionTypeEnum.Transfer => $"${transaction.Amount:N2}",
             _ => $"${transaction.Amount:N2}"
         };
     }

@@ -1131,16 +1131,16 @@
     // ✨ NEW: Credit Payment Detection
     private bool IsCreditPaymentTransaction(TransactionDto transaction)
     {
-        return transaction.Category?.Name == "Credit Card Payment" && transaction.Category?.Type == CategoryType.Expense;
+        return transaction.Category?.Name == "Credit Card Payment" && transaction.Category?.Type == CategoryTypeEnum.Expense;
     }
 
     // ✨ NEW: Load Credit Payment Details
     private async Task LoadCreditPaymentDetails()
     {
         // Load account for this payment (source account)
-        if (_transaction!.AccountId.HasValue)
+        if (_transaction!.AccountId > 0)
         {
-            var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId.Value);
+            var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId);
             if (accountResult.Success)
             {
                 _account = accountResult.Data;
@@ -1173,9 +1173,9 @@
     private async Task LoadTransferDetails()
     {
         // Load account for this transaction
-        if (_transaction!.AccountId.HasValue)
+        if (_transaction!.AccountId > 0)
         {
-            var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId.Value);
+            var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId);
             if (accountResult.Success)
             {
                 _account = accountResult.Data;
@@ -1196,9 +1196,9 @@
         await LoadPairedTransaction();
 
         // Load account for paired transaction
-        if (_pairedTransaction?.AccountId.HasValue == true)
+        if (_pairedTransaction?.AccountId > 0)
         {
-            var pairedAccountResult = await AccountService.GetByIdAsync(_pairedTransaction.AccountId.Value);
+            var pairedAccountResult = await AccountService.GetByIdAsync(_pairedTransaction.AccountId);
             if (pairedAccountResult.Success)
             {
                 var pairedAccount = pairedAccountResult.Data;
@@ -1245,9 +1245,9 @@
     private async Task LoadRegularTransactionDetails()
     {
         // Load account details if transaction has an account
-        if (_transaction!.AccountId.HasValue)
+        if (_transaction!.AccountId > 0)
         {
-            var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId.Value);
+            var accountResult = await AccountService.GetByIdAsync(_transaction.AccountId);
             if (accountResult.Success)
             {
                 _account = accountResult.Data;
@@ -1291,7 +1291,7 @@
     {
         if (_transaction?.CategoryId == null || _isTransfer || _isCreditPayment) return;
 
-        var result = await TransactionService.GetCategoryStatsAsync(_transaction.CategoryId.Value);
+        var result = await TransactionService.GetCategoryStatsAsync(_transaction.CategoryId);
         if (result.Success && result.Data != null)
         {
             _categoryStats = result.Data;
@@ -1318,7 +1318,7 @@
             // ✨ NEW: For credit payments, create a new credit payment
             var parameters = new DialogParameters
                 {
-                    ["TransactionType"] = TransactionType.CreditPayment,
+                    ["TransactionType"] = TransactionTypeEnum.CreditPayment,
                     ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionUpdated)
                 };
 
@@ -1329,7 +1329,7 @@
             // For transfers, create a new transfer with same amount and description
             var parameters = new DialogParameters
                 {
-                    ["TransactionType"] = TransactionType.Transfer,
+                    ["TransactionType"] = TransactionTypeEnum.Transfer,
                     ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionUpdated)
                 };
 
@@ -1347,8 +1347,8 @@
                     Date = DateTime.Today
                 };
 
-            var transactionType = _transaction.Category?.Type == CategoryType.Income ?
-                TransactionType.Income : TransactionType.Expense;
+            var transactionType = _transaction.Category?.Type == CategoryTypeEnum.Income ?
+                TransactionTypeEnum.Income : TransactionTypeEnum.Expense;
 
             var parameters = new DialogParameters
                 {
@@ -1532,7 +1532,7 @@
         if (_transaction == null) return Color.Default;
         return _isCreditPayment ? Color.Warning :
                _isTransfer ? Color.Info :
-               (_transaction.Category?.Type == CategoryType.Income ? Color.Success : Color.Error);
+               (_transaction.Category?.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error);
     }
 
     private string GetTransactionTypeIcon()
@@ -1560,7 +1560,7 @@
             return _transaction.Amount.ToString("C");
         }
 
-        var sign = _transaction.Category?.Type == CategoryType.Income ? "+" : "-";
+        var sign = _transaction.Category?.Type == CategoryTypeEnum.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }
 
@@ -1569,18 +1569,18 @@
         if (_transaction == null) return "";
         return _isCreditPayment ? "text-warning" :
                _isTransfer ? "text-info" :
-               (_transaction.Category?.Type == CategoryType.Income ? "text-success" : "text-error");
+               (_transaction.Category?.Type == CategoryTypeEnum.Income ? "text-success" : "text-error");
     }
 
     private string GetRelatedAmountDisplay(TransactionDto related)
     {
-        var sign = related.Category?.Type == CategoryType.Income ? "+" : "-";
+        var sign = related.Category?.Type == CategoryTypeEnum.Income ? "+" : "-";
         return $"{sign}{related.Amount:C}";
     }
 
     private string GetRelatedAmountColorClass(TransactionDto related)
     {
-        return related.Category?.Type == CategoryType.Income ? "text-success" : "text-error";
+        return related.Category?.Type == CategoryTypeEnum.Income ? "text-success" : "text-error";
     }
 
     private string GetFromAccountName()

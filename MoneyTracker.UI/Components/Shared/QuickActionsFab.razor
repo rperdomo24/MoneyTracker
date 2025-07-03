@@ -26,28 +26,28 @@
                     StartIcon="@Icons.Material.Filled.CreditCard"
                     Size="Size.Medium"
                     Class="fab-action fab-action-4"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.CreditPayment))" />
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.CreditPayment))" />
 
             <!-- 🔄 Transfer -->
-            <MudFab Color="@(TransactionType.Transfer.GetTransactionTypeColor())"
-                    StartIcon="@(TransactionType.Transfer.GetTransactionypeIcon())"
+            <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
+                    StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
                     Size="Size.Medium"
                     Class="fab-action fab-action-3"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.Transfer))" />
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Transfer))" />
 
             <!-- 💰 Add Income -->
-            <MudFab Color="@(TransactionType.Income.GetTransactionTypeColor())"
-                    StartIcon="@(TransactionType.Income.GetTransactionypeIcon())"
+            <MudFab Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
+                    StartIcon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
                     Size="Size.Medium"
                     Class="fab-action fab-action-2"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.Income))" />
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Income))" />
 
             <!-- 💸 Add Expense -->
-            <MudFab Color="@(TransactionType.Expense.GetTransactionTypeColor())"
-                    StartIcon="@(TransactionType.Expense.GetTransactionypeIcon())"
+            <MudFab Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
+                    StartIcon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
                     Size="Size.Medium"
                     Class="fab-action fab-action-1"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionType.Expense))" />
+                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />
         </div>
     }
 
@@ -83,7 +83,7 @@
     /// <summary>
     /// Callback when a transaction action is triggered
     /// </summary>
-    [Parameter] public EventCallback<TransactionType> OnTransactionAction { get; set; }
+    [Parameter] public EventCallback<TransactionTypeEnum> OnTransactionAction { get; set; }
 
     /// <summary>
     /// Callback when a transaction is successfully added (for refreshing parent)
@@ -116,7 +116,7 @@
         StateHasChanged();
     }
 
-    private async Task HandleAddTransactionClick(MouseEventArgs e, TransactionType transactionType)
+    private async Task HandleAddTransactionClick(MouseEventArgs e, TransactionTypeEnum transactionType)
     {
         // Prevenir que otros eventos interfieran
         if (_isProcessingAction) return;
@@ -156,7 +156,7 @@
         }
     }
 
-    private async Task HandleAddTransaction(TransactionType transactionType)
+    private async Task HandleAddTransaction(TransactionTypeEnum transactionType)
     {
         // Close the FAB first
         CloseExpanded();
@@ -171,7 +171,7 @@
         await OpenTransactionModal(transactionType);
     }
 
-    private async Task OpenTransactionModal(TransactionType transactionType)
+    private async Task OpenTransactionModal(TransactionTypeEnum transactionType)
     {
         var parameters = new DialogParameters
             {
@@ -181,10 +181,10 @@
 
         var title = transactionType switch
         {
-            TransactionType.Income => "Add Income",
-            TransactionType.Expense => "Add Expense",
-            TransactionType.Transfer => "Transfer Money",
-            TransactionType.CreditPayment => "Pay Credit Card",
+            TransactionTypeEnum.Income => "Add Income",
+            TransactionTypeEnum.Expense => "Add Expense",
+            TransactionTypeEnum.Transfer => "Transfer Money",
+            TransactionTypeEnum.CreditPayment => "Pay Credit Card",
             _ => "Add Transaction"
         };
 
@@ -193,11 +193,11 @@
         await DialogService.ShowAsync<AddTransactionModal>(title, parameters, options);
     }
 
-    private async Task<bool> CheckAccountType(TransactionType transactionType)
+    private async Task<bool> CheckAccountType(TransactionTypeEnum transactionType)
     {
 
         // Check if the transaction type requires a specific account type
-        AccountType accountType = transactionType == TransactionType.CreditPayment ? AccountType.Credit : AccountType.None;
+        AccountType accountType = transactionType == TransactionTypeEnum.CreditPayment ? AccountType.Credit : AccountType.None;
 
         // Check if there are accounts of the required type
         var accountsResult = await AccountService.HasAccountByType(accountType);
@@ -230,17 +230,17 @@
         }
     }
 
-    public async Task<bool> ShowNoCreditCardsAlertAsync(TransactionType transactionType,
+    public async Task<bool> ShowNoCreditCardsAlertAsync(TransactionTypeEnum transactionType,
        bool showCreateOption = true)
     {
-        AccountType accountType = transactionType == TransactionType.CreditPayment ? AccountType.Credit : AccountType.None;
+        AccountType accountType = transactionType == TransactionTypeEnum.CreditPayment ? AccountType.Credit : AccountType.None;
 
-        string accountTypeName = transactionType == TransactionType.CreditPayment ? "credit card accounts" : "accounts";
-        string title = transactionType == TransactionType.CreditPayment ? "No Credit Cards Found" : "No Accounts Found";
+        string accountTypeName = transactionType == TransactionTypeEnum.CreditPayment ? "credit card accounts" : "accounts";
+        string title = transactionType == TransactionTypeEnum.CreditPayment ? "No Credit Cards Found" : "No Accounts Found";
 
         var message = showCreateOption
             ? $"You don't have any {accountTypeName} set up yet. Would you like to go to Accounts to create one?"
-            : $"You don't have any {accountTypeName} set up yet. Please create a {(transactionType == TransactionType.CreditPayment ? "credit card " : "")}account first in the Accounts section.";
+            : $"You don't have any {accountTypeName} set up yet. Please create a {(transactionType == TransactionTypeEnum.CreditPayment ? "credit card " : "")}account first in the Accounts section.";
 
         var confirmText = showCreateOption ? "Go to Accounts" : "OK";
         var cancelText = showCreateOption ? "Cancel" : "";

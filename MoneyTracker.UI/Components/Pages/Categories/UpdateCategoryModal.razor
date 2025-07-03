@@ -106,7 +106,7 @@
                         </MudItem>
 
                         <MudItem xs="12" md="6">
-                            <MudSelect T="CategoryType"
+                            <MudSelect T="CategoryTypeEnum"
                                        Label="Category Type"
                                        @bind-Value="_category.Type"
                                        @bind-Value:after="OnCategoryTypeChanged"
@@ -115,7 +115,7 @@
                                        Required="true"
                                        HelperText="Choose if this tracks income or expenses"
                                        Disabled="@(_hasSubcategories || _isSubcategory)">
-                                @foreach (var type in Enum.GetValues<CategoryType>())
+                                @foreach (var type in Enum.GetValues<CategoryTypeEnum>())
                                 {
                                     <MudSelectItem Value="@type">
                                         <div class="d-flex align-center">

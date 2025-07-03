@@ -9,7 +9,7 @@ namespace MoneyTracker.Application.DTOs
         public int? ParentId { get; set; }
         public CategoryIcon Icon { get; set; }
         public string? Color { get; set; }
-        public CategoryType Type { get; set; }
+        public CategoryTypeEnum Type { get; set; }
         public CategoryDto? Parent { get; set; }
         public List<CategoryDto> Subcategories { get; set; } = new();
         public bool IsExpanded { get; set; }

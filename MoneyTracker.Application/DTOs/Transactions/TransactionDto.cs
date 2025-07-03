@@ -14,14 +14,14 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         public string? Description { get; set; }
 
-        public int? CategoryId { get; set; }
+        public int CategoryId { get; set; }
 
         public CategoryDto? Category { get; set; }
 
-        public int? AccountId { get; set; }
+        public int AccountId { get; set; }
         public AccountDto Account { get; set; }
 
-        public TransactionType Type { get; set; }
+        public TransactionTypeEnum Type { get; set; }
 
         public DateTime CreatedAt { get; set; }
 

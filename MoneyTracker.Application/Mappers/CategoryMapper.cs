@@ -16,7 +16,7 @@ namespace MoneyTracker.Application.Mappers
                 Icon = Enum.TryParse<CategoryIcon>(entity.Icon, out var parsedIcon) ? parsedIcon : CategoryIcon.Payments,
                 Color = entity.Color,
                 Type = entity.Type,
-                Subcategories = entity.Subcategories?.Select(MapToDto).ToList() ?? new()
+                Subcategories = entity.Children?.Select(MapToDto).ToList() ?? new()
             };
         }
 
@@ -30,7 +30,7 @@ namespace MoneyTracker.Application.Mappers
                 Icon = dto.Icon.ToString(),
                 Color = dto.Color,
                 Type = dto.Type,
-                Subcategories = dto.Subcategories?.Select(MapToEntity).ToList() ?? new()
+                Children = dto.Subcategories?.Select(MapToEntity).ToList() ?? new()
             };
         }
 

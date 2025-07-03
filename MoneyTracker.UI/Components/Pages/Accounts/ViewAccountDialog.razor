@@ -211,17 +211,17 @@
                             <MudButtonGroup Variant="Variant.Outlined" Class="gap-2">
                                 <MudButton Color="Color.Success"
                                           StartIcon="@Icons.Material.Filled.Add"
-                                          OnClick="@(() => AddTransaction(TransactionType.Income))">
+                                          OnClick="@(() => AddTransaction(TransactionTypeEnum.Income))">
                                     Add Income
                                 </MudButton>
                                 <MudButton Color="Color.Error"
                                           StartIcon="@Icons.Material.Filled.Remove"
-                                          OnClick="@(() => AddTransaction(TransactionType.Expense))">
+                                          OnClick="@(() => AddTransaction(TransactionTypeEnum.Expense))">
                                     Add Expense
                                 </MudButton>
                                 <MudButton Color="Color.Primary"
                                           StartIcon="@Icons.Material.Filled.SwapHoriz"
-                                          OnClick="@(() => AddTransaction(TransactionType.Transfer))">
+                                          OnClick="@(() => AddTransaction(TransactionTypeEnum.Transfer))">
                                     Transfer Money
                                 </MudButton>
                                 <MudButton Color="Color.Secondary"
@@ -338,7 +338,7 @@
         MudDialog.Close(DialogResult.Ok($"edit:{AccountId}"));
     }
 
-    private void AddTransaction(TransactionType type)
+    private void AddTransaction(TransactionTypeEnum type)
     {
         // Close this dialog and open add transaction dialog
         MudDialog.Close(DialogResult.Ok($"transaction:{type}:{AccountId}"));

@@ -41,7 +41,7 @@
                     <MudText Class="mt-3">Loading data...</MudText>
                 </div>
             }
-            else if (_transactionType == TransactionType.CreditPayment)
+            else if (_transactionType == TransactionTypeEnum.CreditPayment)
             {
                 @* ========== CREDIT PAYMENT UI ========== *@
                 <MudGrid>
@@ -294,7 +294,7 @@
                     </MudItem>
                 </MudGrid>
             }
-            else if (_transactionType == TransactionType.Transfer)
+            else if (_transactionType == TransactionTypeEnum.Transfer)
             {
                 @* ========== TRANSFER UI ========== *@
                 <MudGrid>
@@ -812,11 +812,11 @@
     <DialogActions>
         <div class="d-flex justify-space-between align-center" style="width: 100%;">
             <MudText Typo="Typo.caption" Class="text-muted">
-                @if (_transactionType == TransactionType.Transfer)
+                @if (_transactionType == TransactionTypeEnum.Transfer)
                 {
                     <span>Transfer between accounts • Press Enter to save</span>
                 }
-                else if (_transactionType == TransactionType.CreditPayment)
+                else if (_transactionType == TransactionTypeEnum.CreditPayment)
                 {
                     <span>Credit card payment • Press Enter to save</span>
                 }
@@ -857,7 +857,7 @@
 </MudDialog>
 
 @code {
-    [Parameter] public TransactionType TransactionType { get; set; }
+    [Parameter] public TransactionTypeEnum TransactionType { get; set; }
     [Parameter] public TransactionDto? PrefilledTransaction { get; set; }
     [Parameter] public EventCallback OnTransactionAdded { get; set; }
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
@@ -891,22 +891,22 @@
     private AccountDto? _selectedToAccount;
 
     // ✨ NEW: Dynamic transaction type detection
-    private TransactionType _detectedTransactionType;
+    private TransactionTypeEnum _detectedTransactionType;
     private bool _typeDetected = false;
 
     // Transaction type from parameter (UPDATED)
-    private TransactionType _transactionType => _typeDetected ? _detectedTransactionType : TransactionType;
+    private TransactionTypeEnum _transactionType => _typeDetected ? _detectedTransactionType : TransactionType;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
 
         // Configure categories based on transaction type
-        if (_transactionType == TransactionType.Transfer)
+        if (_transactionType == TransactionTypeEnum.Transfer)
         {
             await EnsureTransferCategories();
         }
-        else if (_transactionType == TransactionType.CreditPayment)
+        else if (_transactionType == TransactionTypeEnum.CreditPayment)
         {
             await EnsureCreditPaymentCategories();
         }
@@ -937,15 +937,15 @@
         _transactionDate = PrefilledTransaction.Date;
 
         // Set the category
-        if (PrefilledTransaction.CategoryId.HasValue && _filteredCategories != null)
+        if (PrefilledTransaction.CategoryId > 0 && _filteredCategories != null)
         {
-            _selectedCategory = _filteredCategories.FirstOrDefault(c => c.Id == PrefilledTransaction.CategoryId.Value);
+            _selectedCategory = _filteredCategories.FirstOrDefault(c => c.Id == PrefilledTransaction.CategoryId);
         }
 
         // Set the account
-        if (PrefilledTransaction.AccountId.HasValue)
+        if (PrefilledTransaction.AccountId > 0)
         {
-            _selectedAccountString = PrefilledTransaction.AccountId.Value.ToString();
+            _selectedAccountString = PrefilledTransaction.AccountId.ToString();
         }
 
         StateHasChanged();
@@ -973,13 +973,13 @@
 
                 // Auto-select first non-credit account for payments
                 if (_accounts.Any() && string.IsNullOrWhiteSpace(_selectedAccountString) &&
-                    _transactionType != TransactionType.Transfer && _transactionType != TransactionType.CreditPayment)
+                    _transactionType != TransactionTypeEnum.Transfer && _transactionType != TransactionTypeEnum.CreditPayment)
                 {
                     _selectedAccountString = _accounts.First().Id.ToString();
                 }
 
                 // For credit payments, auto-select first bank account as FROM
-                if (_transactionType == TransactionType.CreditPayment && string.IsNullOrWhiteSpace(_fromAccountString))
+                if (_transactionType == TransactionTypeEnum.CreditPayment && string.IsNullOrWhiteSpace(_fromAccountString))
                 {
                     var firstBankAccount = _accounts.FirstOrDefault(a => a.Type == AccountType.Bank);
                     if (firstBankAccount != null)
@@ -991,12 +991,12 @@
             }
 
             // Load recent transactions of same type (skip for transfers and credit payments)
-            if (_transactionType != TransactionType.Transfer && _transactionType != TransactionType.CreditPayment)
+            if (_transactionType != TransactionTypeEnum.Transfer && _transactionType != TransactionTypeEnum.CreditPayment)
             {
                 var transactionsResult = await TransactionService.GetAllAsync();
                 if (transactionsResult.Success)
                 {
-                    var targetType = _transactionType == TransactionType.Income ? CategoryType.Income : CategoryType.Expense;
+                    var targetType = _transactionType == TransactionTypeEnum.Income ? CategoryTypeEnum.Income : CategoryTypeEnum.Expense;
                     _recentTransactions = transactionsResult.Data?
                         .Where(t => t.Category?.Type == targetType)
                         .OrderByDescending(t => t.Date)
@@ -1047,7 +1047,7 @@
                 _selectedToAccount.Type == AccountType.Credit)
             {
                 // Cambiar automáticamente a CreditPayment
-                _detectedTransactionType = TransactionType.CreditPayment;
+                _detectedTransactionType = TransactionTypeEnum.CreditPayment;
                 _typeDetected = true;
                 await EnsureCreditPaymentCategories();
                 return;
@@ -1057,7 +1057,7 @@
             if (_selectedFromAccount.Type != AccountType.Credit &&
                 _selectedToAccount.Type != AccountType.Credit)
             {
-                _detectedTransactionType = TransactionType.Transfer;
+                _detectedTransactionType = TransactionTypeEnum.Transfer;
                 _typeDetected = true;
                 await EnsureTransferCategories();
                 return;
@@ -1089,7 +1089,7 @@
 
                 // Buscar categoría de Credit Card Payment (Expense)
                 _creditPaymentCategory = categories
-                    .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Credit Card Payment");
+                    .FirstOrDefault(c => c.Type == CategoryTypeEnum.Expense && c.Name == "Credit Card Payment");
 
                 // Crear Credit Card Payment si no existe
                 if (_creditPaymentCategory == null)
@@ -1097,7 +1097,7 @@
                     var creditPaymentDto = new CategoryDto
                         {
                             Name = "Credit Card Payment",
-                            Type = CategoryType.Expense,
+                            Type = CategoryTypeEnum.Expense,
                             Color = "#ff5722", // Naranja para pagos
                             Icon = CategoryIcon.CreditCard, // Asumiendo que existe
                         };
@@ -1110,7 +1110,7 @@
                         if (reloadResult.Success)
                         {
                             _creditPaymentCategory = reloadResult.Data?
-                                .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Credit Card Payment");
+                                .FirstOrDefault(c => c.Type == CategoryTypeEnum.Expense && c.Name == "Credit Card Payment");
                         }
                     }
                 }
@@ -1133,11 +1133,11 @@
 
                 // Buscar categoría de Transfer Out (Expense)
                 _transferOutCategory = categories
-                    .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Transfer Out");
+                    .FirstOrDefault(c => c.Type == CategoryTypeEnum.Expense && c.Name == "Transfer Out");
 
                 // Buscar categoría de Transfer In (Income)
                 _transferInCategory = categories
-                    .FirstOrDefault(c => c.Type == CategoryType.Income && c.Name == "Transfer In");
+                    .FirstOrDefault(c => c.Type == CategoryTypeEnum.Income && c.Name == "Transfer In");
 
                 // Crear Transfer Out si no existe
                 if (_transferOutCategory == null)
@@ -1145,7 +1145,7 @@
                     var transferOutDto = new CategoryDto
                         {
                             Name = "Transfer Out",
-                            Type = CategoryType.Expense,  // ✅ Tipo Expense para salidas
+                            Type = CategoryTypeEnum.Expense,  // ✅ Tipo Expense para salidas
                             Color = "#f44336",  // Rojo para salidas
                             Icon = CategoryIcon.TrendingDown,
                         };
@@ -1158,7 +1158,7 @@
                         if (reloadResult.Success)
                         {
                             _transferOutCategory = reloadResult.Data?
-                                .FirstOrDefault(c => c.Type == CategoryType.Expense && c.Name == "Transfer Out");
+                                .FirstOrDefault(c => c.Type == CategoryTypeEnum.Expense && c.Name == "Transfer Out");
                         }
                     }
                 }
@@ -1169,7 +1169,7 @@
                     var transferInDto = new CategoryDto
                         {
                             Name = "Transfer In",
-                            Type = CategoryType.Income,  // ✅ Tipo Income para entradas
+                            Type = CategoryTypeEnum.Income,  // ✅ Tipo Income para entradas
                             Color = "#4caf50",  // Verde para entradas
                             Icon = CategoryIcon.TrendingUp,
                         };
@@ -1182,7 +1182,7 @@
                         if (reloadResult.Success)
                         {
                             _transferInCategory = reloadResult.Data?
-                                .FirstOrDefault(c => c.Type == CategoryType.Income && c.Name == "Transfer In");
+                                .FirstOrDefault(c => c.Type == CategoryTypeEnum.Income && c.Name == "Transfer In");
                         }
                     }
                 }
@@ -1198,9 +1198,9 @@
     {
         if (_categories == null) return;
 
-        var targetCategoryType = _transactionType == TransactionType.Income
-            ? CategoryType.Income
-            : CategoryType.Expense;
+        var targetCategoryType = _transactionType == TransactionTypeEnum.Income
+            ? CategoryTypeEnum.Income
+            : CategoryTypeEnum.Expense;
 
         _filteredCategories = _categories
             .Where(c => c.Type == targetCategoryType)
@@ -1256,7 +1256,7 @@
     // ✨ UPDATED: IsFormValid with Credit Payment support
     private bool IsFormValid()
     {
-        if (_transactionType == TransactionType.Transfer)
+        if (_transactionType == TransactionTypeEnum.Transfer)
         {
             return !string.IsNullOrWhiteSpace(_fromAccountString) &&
                    !string.IsNullOrWhiteSpace(_toAccountString) &&
@@ -1268,7 +1268,7 @@
         }
 
         // ✨ NEW: Credit Payment validation
-        if (_transactionType == TransactionType.CreditPayment)
+        if (_transactionType == TransactionTypeEnum.CreditPayment)
         {
             return !string.IsNullOrWhiteSpace(_fromAccountString) &&
                    !string.IsNullOrWhiteSpace(_toAccountString) &&
@@ -1290,11 +1290,11 @@
     // ✨ UPDATED: SaveTransaction with Credit Payment support
     private async Task SaveTransaction()
     {
-        if (_transactionType == TransactionType.Transfer)
+        if (_transactionType == TransactionTypeEnum.Transfer)
         {
             await SaveTransfer();
         }
-        else if (_transactionType == TransactionType.CreditPayment)
+        else if (_transactionType == TransactionTypeEnum.CreditPayment)
         {
             await SaveCreditPayment(); // ✨ NEW method
         }
@@ -1480,11 +1480,11 @@
         await SaveTransaction();
         if (_quickAddMode)
         {
-            if (_transactionType == TransactionType.Transfer)
+            if (_transactionType == TransactionTypeEnum.Transfer)
             {
                 ResetTransferForm();
             }
-            else if (_transactionType == TransactionType.CreditPayment)
+            else if (_transactionType == TransactionTypeEnum.CreditPayment)
             {
                 ResetCreditPaymentForm();
             }
@@ -1533,9 +1533,9 @@
         _transaction.Amount = template.Amount;
         _transaction.Description = template.Description;
         _selectedCategory = template.Category;
-        if (template.AccountId.HasValue)
+        if (template.AccountId > 0)
         {
-            _selectedAccountString = template.AccountId.Value.ToString();
+            _selectedAccountString = template.AccountId.ToString();
         }
     }
 
@@ -1594,7 +1594,7 @@
 
     private List<QuickTemplate> GetQuickTemplates()
     {
-        if (_transactionType == TransactionType.Income)
+        if (_transactionType == TransactionTypeEnum.Income)
         {
             return new List<QuickTemplate>
             {
@@ -1656,8 +1656,8 @@
     {
         return _transactionType switch
         {
-            TransactionType.Transfer => _isDuplicating ? "Duplicate Transfer" : "Transfer Money",
-            TransactionType.CreditPayment => _isDuplicating ? "Duplicate Payment" : "Pay Credit Card",
+            TransactionTypeEnum.Transfer => _isDuplicating ? "Duplicate Transfer" : "Transfer Money",
+            TransactionTypeEnum.CreditPayment => _isDuplicating ? "Duplicate Payment" : "Pay Credit Card",
             _ => _isDuplicating ? "Duplicate Transaction" : $"Add {_transactionType}"
         };
     }
@@ -1666,8 +1666,8 @@
     {
         return _transactionType switch
         {
-            TransactionType.Transfer => _isDuplicating ? "Create a copy of an existing transfer" : "Move money between your accounts",
-            TransactionType.CreditPayment => _isDuplicating ? "Create a copy of an existing payment" : "Make a credit card payment",
+            TransactionTypeEnum.Transfer => _isDuplicating ? "Create a copy of an existing transfer" : "Move money between your accounts",
+            TransactionTypeEnum.CreditPayment => _isDuplicating ? "Create a copy of an existing payment" : "Make a credit card payment",
             _ => _isDuplicating ? "Create a copy of an existing transaction" : $"Record a new {_transactionType.ToString().ToLower()} transaction"
         };
     }
@@ -1681,8 +1681,8 @@
 
         return _transactionType switch
         {
-            TransactionType.Transfer => _isDuplicating ? "Create Duplicate" : "Transfer Money",
-            TransactionType.CreditPayment => _isDuplicating ? "Create Duplicate" : "Pay Credit Card",
+            TransactionTypeEnum.Transfer => _isDuplicating ? "Create Duplicate" : "Transfer Money",
+            TransactionTypeEnum.CreditPayment => _isDuplicating ? "Create Duplicate" : "Pay Credit Card",
             _ => _isDuplicating ? "Create Duplicate" : $"Add {_transactionType}"
         };
     }
@@ -1690,28 +1690,28 @@
     // ✨ NEW: TransactionType Extensions (Add these to TransactionTypeExtensions.cs)
     private string GetTransactionIcon() => _transactionType switch
     {
-        TransactionType.Income => Icons.Material.Filled.TrendingUp,
-        TransactionType.Expense => Icons.Material.Filled.TrendingDown,
-        TransactionType.Transfer => Icons.Material.Filled.SwapHoriz,
-        TransactionType.CreditPayment => Icons.Material.Filled.CreditCard,
+        TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
+        TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
+        TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
+        TransactionTypeEnum.CreditPayment => Icons.Material.Filled.CreditCard,
         _ => Icons.Material.Filled.AttachMoney
     };
 
     private Color GetTransactionColor() => _transactionType switch
     {
-        TransactionType.Income => Color.Success,
-        TransactionType.Expense => Color.Error,
-        TransactionType.Transfer => Color.Info,
-        TransactionType.CreditPayment => Color.Warning,
+        TransactionTypeEnum.Income => Color.Success,
+        TransactionTypeEnum.Expense => Color.Error,
+        TransactionTypeEnum.Transfer => Color.Info,
+        TransactionTypeEnum.CreditPayment => Color.Warning,
         _ => Color.Primary
     };
 
     private string GetTransactionColorHex() => _transactionType switch
     {
-        TransactionType.Income => "#4caf50",
-        TransactionType.Expense => "#f44336",
-        TransactionType.Transfer => "#2196f3",
-        TransactionType.CreditPayment => "#ff5722",
+        TransactionTypeEnum.Income => "#4caf50",
+        TransactionTypeEnum.Expense => "#f44336",
+        TransactionTypeEnum.Transfer => "#2196f3",
+        TransactionTypeEnum.CreditPayment => "#ff5722",
         _ => "#6366f1"
     };
 
@@ -1748,16 +1748,16 @@
     {
         if (_transaction.Amount <= 0) return "$0.00";
 
-        if (_transactionType == TransactionType.Transfer || _transactionType == TransactionType.CreditPayment)
+        if (_transactionType == TransactionTypeEnum.Transfer || _transactionType == TransactionTypeEnum.CreditPayment)
         {
             return _transaction.Amount.ToString("C");
         }
 
-        var sign = _transactionType == TransactionType.Income ? "+" : "-";
+        var sign = _transactionType == TransactionTypeEnum.Income ? "+" : "-";
         return $"{sign}{_transaction.Amount:C}";
     }
 
-    private string GetAmountColorClass() => _transactionType == TransactionType.Income ? "text-success" : "text-error";
+    private string GetAmountColorClass() => _transactionType == TransactionTypeEnum.Income ? "text-success" : "text-error";
 
     // ✨ NEW: Get Available Credit for display
     private decimal GetAvailableCredit(AccountDto account)

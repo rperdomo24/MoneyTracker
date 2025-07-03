@@ -1,6 +1,6 @@
 ﻿namespace MoneyTracker.Domain.Enums.Transaction
 {
-    public enum TransactionType
+    public enum TransactionTypeEnum
     {
         Income,
         Expense,

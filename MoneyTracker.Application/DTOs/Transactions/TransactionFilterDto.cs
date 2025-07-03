@@ -13,6 +13,6 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         public string SearchText { get; set; } = string.Empty;
         public int? CategoryId { get; set; }
-        public CategoryType? Type { get; set; }
+        public CategoryTypeEnum? Type { get; set; }
     }
 }

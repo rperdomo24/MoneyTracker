@@ -14,7 +14,7 @@ public static class TransactionHelpers
     {
         if (transaction == null) return "$0.00";
 
-        var sign = transaction.Category?.Type == CategoryType.Income ? "+" : "-";
+        var sign = transaction.Category?.Type == CategoryTypeEnum.Income ? "+" : "-";
         return $"{sign}{transaction.Amount:C}";
     }
 

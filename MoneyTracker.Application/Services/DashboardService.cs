@@ -225,7 +225,7 @@ namespace MoneyTracker.Application.Services
                     return OperationResult<List<CategoryBreakdownDto>>.Fail(transactionsResult.Message);
 
                 var transactions = transactionsResult.Data.Transactions
-                    .Where(t => t.IsExpense() && t.CategoryId.HasValue)
+                    .Where(t => t.IsExpense() && t.CategoryId > 0)
                     .ToList();
 
                 var totalExpenses = transactions.Sum(t => t.Amount);
@@ -238,7 +238,7 @@ namespace MoneyTracker.Application.Services
                     })
                     .Select(g => new CategoryBreakdownDto
                     {
-                        CategoryId = g.Key.CategoryId ?? 0,
+                        CategoryId = g.Key.CategoryId,
                         CategoryName = g.Key.CategoryName,
                         CategoryColor = g.Key.CategoryColor,
                         Amount = g.Sum(t => t.Amount),

@@ -185,7 +185,7 @@
                                         @category.Name
                                         <MudSpacer />
                                         <MudChip T="string" Size="Size.Small"
-                                                 Color="@(category.Type == CategoryType.Income ? Color.Success : Color.Error)"
+                                                 Color="@(category.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
                                                  Variant="Variant.Text">
                                             @category.Type
                                         </MudChip>
@@ -219,16 +219,16 @@
                                Clearable="true">
                         <MudSelectItem Value="@("Income")">
                             <div class="d-flex align-center">
-                                <MudIcon Icon="@CategoryType.Income.GetIcon()"
-                                         Color="@CategoryType.Income.GetColor()"
+                                <MudIcon Icon="@CategoryTypeEnum.Income.GetIcon()"
+                                         Color="@CategoryTypeEnum.Income.GetColor()"
                                          Class="mr-2" Size="Size.Small" />
                                 Income
                             </div>
                         </MudSelectItem>
                         <MudSelectItem Value="@("Expense")">
                             <div class="d-flex align-center">
-                                <MudIcon Icon="@CategoryType.Expense.GetIcon()"
-                                         Color="@CategoryType.Expense.GetColor()"
+                                <MudIcon Icon="@CategoryTypeEnum.Expense.GetIcon()"
+                                         Color="@CategoryTypeEnum.Expense.GetColor()"
                                          Class="mr-2" Size="Size.Small" />
                                 Expense
                             </div>
@@ -551,7 +551,7 @@
     {
         if (!string.IsNullOrWhiteSpace(_selectedTypeString))
         {
-            Filter.Type = _selectedTypeString == "Income" ? CategoryType.Income : CategoryType.Expense;
+            Filter.Type = _selectedTypeString == "Income" ? CategoryTypeEnum.Income : CategoryTypeEnum.Expense;
         }
         else
         {

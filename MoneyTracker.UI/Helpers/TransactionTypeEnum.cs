@@ -5,30 +5,30 @@ namespace MoneyTracker.UI.Helpers
 {
     public static class TransactionTypeExtensions
     {
-        public static string GetTransactionypeIcon(this TransactionType type) => type switch
+        public static string GetTransactionypeIcon(this TransactionTypeEnum type) => type switch
         {
-            TransactionType.Income => Icons.Material.Filled.TrendingUp,
-            TransactionType.Expense => Icons.Material.Filled.TrendingDown,
-            TransactionType.Transfer => Icons.Material.Filled.SwapHoriz,
-            TransactionType.CreditPayment => Icons.Material.Filled.CreditCard,
+            TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
+            TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
+            TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
+            TransactionTypeEnum.CreditPayment => Icons.Material.Filled.CreditCard,
             _ => Icons.Material.Filled.AttachMoney
         };
 
-        public static Color GetTransactionTypeColor(this TransactionType type) => type switch
+        public static Color GetTransactionTypeColor(this TransactionTypeEnum type) => type switch
         {
-            TransactionType.Income => Color.Success,
-            TransactionType.Expense => Color.Error,
-            TransactionType.Transfer => Color.Surface,
-            TransactionType.CreditPayment => Color.Warning,
+            TransactionTypeEnum.Income => Color.Success,
+            TransactionTypeEnum.Expense => Color.Error,
+            TransactionTypeEnum.Transfer => Color.Surface,
+            TransactionTypeEnum.CreditPayment => Color.Warning,
             _ => Color.Primary
         };
 
-        public static string GetTransactionTypeHexColor(this TransactionType type) => type switch
+        public static string GetTransactionTypeHexColor(this TransactionTypeEnum type) => type switch
         {
-            TransactionType.Income => "#4caf50",
-            TransactionType.Expense => "#f44336",
-            TransactionType.Transfer => "#2196f3",
-            TransactionType.CreditPayment => "#ff5722",
+            TransactionTypeEnum.Income => "#4caf50",
+            TransactionTypeEnum.Expense => "#f44336",
+            TransactionTypeEnum.Transfer => "#2196f3",
+            TransactionTypeEnum.CreditPayment => "#ff5722",
             _ => "#6366f1"
         };
     }
