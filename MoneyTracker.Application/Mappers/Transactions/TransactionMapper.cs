@@ -15,13 +15,19 @@ public static class TransactionMapper
             Date = timeZoneService.ConvertFromUtc(entity.Date),
             Amount = entity.Amount,
             Description = entity.Description,
-            CategoryId = entity.CategoryId,
-            Category = entity.Category?.MapToDto(),
             AccountId = entity.AccountId,
-            Account = entity.Account?.MapToDto(),
-            //Type = entity.TransactionType,
+            CategoryId = entity.CategoryId,
+            PaymentMethod = entity.PaymentMethod,
+            Status = entity.Status,
+            ScheduledDate = entity.ScheduledDate,
+            IsSystemGenerated = entity.IsSystemGenerated,
+            TransferPairId = entity.TransferPairId,
+            TransferType = entity.TransferType,
             CreatedAt = timeZoneService.ConvertFromUtc(entity.CreatedAt),
-            UpdatedAt = timeZoneService.ConvertFromUtc(entity.UpdatedAt)
+            UpdatedAt = timeZoneService.ConvertFromUtc(entity.UpdatedAt),
+            Account = entity.Account?.MapToDto(),
+            Category = entity.Category?.MapToDto(),
+
         };
     }
 
@@ -34,10 +40,17 @@ public static class TransactionMapper
             Date = timeZoneService.ConvertToUtc(dto.Date),
             Amount = dto.Amount,
             Description = dto.Description,
-            CategoryId = dto.CategoryId,
             AccountId = dto.AccountId,
-            //TransactionType = dto.Type,
-            UpdatedAt = timeZoneService.ConvertToUtc(dto.UpdatedAt)
+            CategoryId = dto.CategoryId,
+            PaymentMethod = dto.PaymentMethod,
+            Status = dto.Status,
+            ScheduledDate = dto.ScheduledDate,
+            IsSystemGenerated = dto.IsSystemGenerated,
+            TransferPairId = dto.TransferPairId,
+            TransferType = dto.TransferType,
+            UpdatedAt = timeZoneService.ConvertToUtc(dto.UpdatedAt),
+            CreatedAt = timeZoneService.ConvertToUtc(dto.CreatedAt),
+            IsDeleted = false
         };
     }
 
@@ -47,9 +60,14 @@ public static class TransactionMapper
         entity.Date = timeZoneService.ConvertToUtc(dto.Date);
         entity.Amount = dto.Amount;
         entity.Description = dto.Description;
-        entity.CategoryId = dto.CategoryId;
         entity.AccountId = dto.AccountId;
-        //entity.TransactionType = dto.Type;
+        entity.CategoryId = dto.CategoryId;
+        entity.PaymentMethod = dto.PaymentMethod;
+        entity.Status = dto.Status;
+        entity.ScheduledDate = dto.ScheduledDate;
+        entity.IsSystemGenerated = dto.IsSystemGenerated;
+        entity.TransferPairId = dto.TransferPairId;
+        entity.TransferType = dto.TransferType;
         entity.UpdatedAt = timeZoneService.GetNowInUtc();
     }
 }

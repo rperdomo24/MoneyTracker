@@ -47,9 +47,9 @@
                                 {
                                     <span> • Subcategory</span>
                                 }
-                                @if (_category.Subcategories?.Any() == true)
+                                @if (_category.Children?.Any() == true)
                                 {
-                                    <span> • Has @_category.Subcategories.Count subcategories</span>
+                                    <span> • Has @_category.Children.Count Children</span>
                                 }
                             </MudText>
                         </div>
@@ -73,9 +73,9 @@
                                 {
                                     <span> • Subcategory of @_parentCategory.Name</span>
                                 }
-                                @if (_category.Subcategories?.Any() == true)
+                                @if (_category.Children?.Any() == true)
                                 {
-                                    <span> • @_category.Subcategories.Count subcategories</span>
+                                    <span> • @_category.Children.Count Children</span>
                                 }
                             </MudText>
                         </div>
@@ -114,7 +114,7 @@
                                        For="@(() => _category.Type)"
                                        Required="true"
                                        HelperText="Choose if this tracks income or expenses"
-                                       Disabled="@(_hasSubcategories || _isSubcategory)">
+                                       Disabled="@(_hasChildren || _isSubcategory)">
                                 @foreach (var type in Enum.GetValues<CategoryTypeEnum>())
                                 {
                                     <MudSelectItem Value="@type">
@@ -125,12 +125,12 @@
                                     </MudSelectItem>
                                 }
                             </MudSelect>
-                            @if (_hasSubcategories || _isSubcategory)
+                            @if (_hasChildren || _isSubcategory)
                             {
                                 <MudText Typo="Typo.caption" Class="text-warning mt-1">
-                                    @if (_hasSubcategories)
+                                    @if (_hasChildren)
                                     {
-                                        <span>Type locked: Category has subcategories</span>
+                                        <span>Type locked: Category has Children</span>
                                     }
                                     else if (_isSubcategory)
                                     {
@@ -151,7 +151,7 @@
                                            Clearable="false"
                                            HelperText="Change parent or make it a main category"
                                            Placeholder="Select parent category"
-                                           Disabled="@_hasSubcategories">
+                                           Disabled="@_hasChildren">
                                     <MudSelectItem Value="@((CategoryDto?)null)">
                                         <div class="d-flex align-center">
                                             <MudIcon Icon="@Icons.Material.Filled.Clear" Class="mr-2" Size="Size.Small" />
@@ -173,10 +173,10 @@
                                         </MudSelectItem>
                                     }
                                 </MudSelect>
-                                @if (_hasSubcategories)
+                                @if (_hasChildren)
                                 {
                                     <MudText Typo="Typo.caption" Class="text-warning mt-1">
-                                        Parent locked: Category has subcategories
+                                        Parent locked: Category has Children
                                     </MudText>
                                 }
                             </MudItem>
@@ -207,14 +207,14 @@
                     </MudGrid>
 
                     <!-- Relationships Info -->
-                    @if (_category.Subcategories?.Any() == true)
+                    @if (_category.Children?.Any() == true)
                     {
                         <MudAlert Severity="Severity.Warning" Class="mb-4">
                             <div class="d-flex align-center">
                                 <MudIcon Icon="@Icons.Material.Filled.AccountTree" Class="mr-2" />
                                 <div>
                                     <MudText Typo="Typo.body2">
-                                        <strong>This category has @_category.Subcategories.Count subcategories</strong>
+                                        <strong>This category has @_category.Children.Count Children</strong>
                                     </MudText>
                                     <MudText Typo="Typo.caption" Class="text-muted">
                                         Type and parent cannot be changed to maintain hierarchy integrity
@@ -365,7 +365,7 @@
     private MudForm _form = null!;
     private bool _loading = true;
     private bool _isSaving = false;
-    private bool _hasSubcategories = false;
+    private bool _hasChildren = false;
     private bool _isSubcategory = false;
 
     protected override async Task OnInitializedAsync()
@@ -392,7 +392,7 @@
                         Icon = result.Data.Icon,
                         Color = result.Data.Color,
                     // ParentId = result.Data.ParentId,
-                    // Subcategories = result.Data?.Subcategories ?? new List<CategoryDto>()
+                    // Children = result.Data?.Children ?? new List<CategoryDto>()
                     };
             }
             else
@@ -437,7 +437,7 @@
     {
         if (_category == null) return;
 
-        _hasSubcategories = _category.Subcategories?.Any() == true;
+        _hasChildren = _category.Children?.Any() == true;
         _isSubcategory = _category.ParentId.HasValue;
 
         // Set selected parent

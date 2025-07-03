@@ -5,8 +5,6 @@
         Income,
         Expense,
         Transfer,
-        Refund,
         CreditPayment,
-        Installment
     }
 }

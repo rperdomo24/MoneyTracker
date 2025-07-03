@@ -122,7 +122,7 @@
                         </MudAvatar>
                         <div>
                             <MudText Typo="Typo.caption" Class="text-muted">With Subcategories</MudText>
-                            <MudText Typo="Typo.h5" Class="font-weight-bold">@_categories.Count(c => c.Subcategories.Any())</MudText>
+                            <MudText Typo="Typo.h5" Class="font-weight-bold">@_categories.Count(c => c.Children.Any())</MudText>
                         </div>
                     </div>
                 </MudPaper>
@@ -175,12 +175,12 @@
                                             <MudText Typo="Typo.body2" Class="font-weight-medium">
                                                 @category.Name
                                             </MudText>
-                                            @if (category.Subcategories.Any())
+                                            @if (category.Children.Any())
                                             {
                                                 <MudChip Size="Size.Small"
                                                          Color="Color.Default"
                                                          Class="ml-2">
-                                                    @category.Subcategories.Count
+                                                    @category.Children.Count
                                                 </MudChip>
                                             }
                                         </div>
@@ -209,7 +209,7 @@
                                     </div>
                                 </Content>
                                 <ChildContent>
-                                    @foreach (var subcategory in category.Subcategories)
+                                    @foreach (var subcategory in category.Children)
                                     {
                                         <MudTreeViewItem>
                                             <Content>
@@ -298,12 +298,12 @@
                                                 @category.Name
                                             </MudText>
 
-                                            @if (category.Subcategories.Any())
+                                            @if (category.Children.Any())
                                             {
                                                 <MudChip T="string" Size="Size.Small"
                                                          Color="Color.Default"
                                                          Class="mb-2">
-                                                    @category.Subcategories.Count subcategories
+                                                    @category.Children.Count subcategories
                                                 </MudChip>
                                             }
                                             else

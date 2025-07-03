@@ -12,8 +12,6 @@ namespace MoneyTracker.Application.DTOs
         [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
 
-        //public decimal CurrentBalance { get; set; } = 0;
-
         public decimal CreditLimit { get; set; } = 0;
 
         public decimal CurrentBalance { get; set; } = 0;
@@ -27,6 +25,8 @@ namespace MoneyTracker.Application.DTOs
 
         public AccountType Type { get; set; }
 
+
+        // View Model properties
         public decimal AvailableCredit => Type == AccountType.Credit
             ? CreditLimit - Math.Abs(CurrentBalance)
             : 0;
@@ -35,9 +35,5 @@ namespace MoneyTracker.Application.DTOs
             && Math.Abs(CurrentBalance) > CreditLimit;
 
         public string FormattedBalance => CurrentBalance.ToString("C2");
-
-        public string BalanceColorClass => CurrentBalance >= 0
-            ? "text-green-600"
-            : "text-red-600";
     }
 }

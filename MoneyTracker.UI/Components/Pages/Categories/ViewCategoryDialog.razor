@@ -89,14 +89,14 @@
                 }
 
                 <!-- Subcategories -->
-                @if (_category.Subcategories?.Any() == true)
+                @if (_category.Children?.Any() == true)
                 {
                     <MudPaper Class="pa-4">
                         <MudText Typo="Typo.subtitle1" Class="mb-3 font-weight-medium">
-                            Subcategories (@_category.Subcategories.Count)
+                            Subcategories (@_category.Children.Count)
                         </MudText>
                         <MudList T="string" Dense="true">
-                            @foreach (var sub in _category.Subcategories)
+                            @foreach (var sub in _category.Children)
                             {
                                 <MudListItem>
                                     <div class="d-flex align-center">

@@ -11,14 +11,12 @@
 @inject ITransactionService TransactionService
 @inject ICategoryService CategoryService
 @inject IAccountService AccountService
-@inject ISnackbar Snackbar
-@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
         <div class="d-flex align-center">
-            <MudIcon Icon="@GetTransactionIcon()"
-                     Color="@GetTransactionColor()"
+            <MudIcon Icon="@_transactionType.GetTransactionypeIcon()"
+                     Color="@_transactionType.GetTransactionTypeColor()"
                      Size="Size.Medium"
                      Class="mr-3" />
             <div>
@@ -701,7 +699,7 @@
                                     Live Preview
                                 </MudText>
 
-                                <MudPaper Class="pa-4" Elevation="2" Style="@($"border-left: 4px solid {GetTransactionColorHex()};")">
+                                <MudPaper Class="pa-4" Elevation="2" Style="@($"border-left: 4px solid {_transactionType.GetTransactionTypeHexColor()};")">
                                     <div class="d-flex align-center justify-space-between">
                                         <div class="d-flex align-center">
                                             <MudAvatar Size="Size.Medium"
@@ -726,8 +724,8 @@
                                         </div>
                                         <div class="text-right">
                                             <MudText Typo="Typo.h6"
-                                                     Class="@($"font-weight-bold {GetAmountColorClass()}")">
-                                                @GetAmountDisplay()
+                                                     Class="@($"font-weight-bold {_transaction.GetAmountColorClass()}")">
+                                                @_transaction.GetAmountDisplay()
                                             </MudText>
                                             @if (_accounts?.Any() == true)
                                             {
@@ -770,7 +768,7 @@
                                                             </MudText>
                                                         </div>
                                                     </div>
-                                                    <MudText Typo="Typo.body2" Class="@GetAmountColorClass()">
+                                                    <MudText Typo="Typo.body2" Class="@_transaction.GetAmountColorClass()">
                                                         @recent.Amount.ToString("C")
                                                     </MudText>
                                                 </div>
@@ -835,7 +833,7 @@
                 </MudButton>
                 @if (_quickAddMode)
                 {
-                    <MudButton Color="@GetTransactionColor()"
+                    <MudButton Color="@_transactionType.GetTransactionTypeColor()"
                                Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Filled.Add"
                                OnClick="SaveAndAddAnother"
@@ -844,7 +842,7 @@
                         Save & Add Another
                     </MudButton>
                 }
-                <MudButton Color="@GetTransactionColor()"
+                <MudButton Color="@_transactionType.GetTransactionTypeColor()"
                            Variant="Variant.Filled"
                            StartIcon="@Icons.Material.Filled.Save"
                            OnClick="SaveTransaction"
@@ -930,7 +928,7 @@
                 Description = PrefilledTransaction.Description,
                 CategoryId = PrefilledTransaction.CategoryId,
                 AccountId = PrefilledTransaction.AccountId,
-                Date = PrefilledTransaction.Date
+                Date = PrefilledTransaction.Date,
             };
 
         // Set the date
@@ -1687,34 +1685,6 @@
         };
     }
 
-    // ✨ NEW: TransactionType Extensions (Add these to TransactionTypeExtensions.cs)
-    private string GetTransactionIcon() => _transactionType switch
-    {
-        TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
-        TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
-        TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
-        TransactionTypeEnum.CreditPayment => Icons.Material.Filled.CreditCard,
-        _ => Icons.Material.Filled.AttachMoney
-    };
-
-    private Color GetTransactionColor() => _transactionType switch
-    {
-        TransactionTypeEnum.Income => Color.Success,
-        TransactionTypeEnum.Expense => Color.Error,
-        TransactionTypeEnum.Transfer => Color.Info,
-        TransactionTypeEnum.CreditPayment => Color.Warning,
-        _ => Color.Primary
-    };
-
-    private string GetTransactionColorHex() => _transactionType switch
-    {
-        TransactionTypeEnum.Income => "#4caf50",
-        TransactionTypeEnum.Expense => "#f44336",
-        TransactionTypeEnum.Transfer => "#2196f3",
-        TransactionTypeEnum.CreditPayment => "#ff5722",
-        _ => "#6366f1"
-    };
-
     // ✅ EXISTING: Helper methods restored
     private string GetSelectedCategoryColor() => _selectedCategory?.Color ?? "#6366f1";
     private string GetSelectedCategoryIcon() => _selectedCategory?.Icon.ToIcon() ?? Icons.Material.Filled.Category;
@@ -1744,20 +1714,6 @@
 
     private string GetFormattedDate() => _transactionDate?.GetFormattedDate() ?? "Select Date";
 
-    private string GetAmountDisplay()
-    {
-        if (_transaction.Amount <= 0) return "$0.00";
-
-        if (_transactionType == TransactionTypeEnum.Transfer || _transactionType == TransactionTypeEnum.CreditPayment)
-        {
-            return _transaction.Amount.ToString("C");
-        }
-
-        var sign = _transactionType == TransactionTypeEnum.Income ? "+" : "-";
-        return $"{sign}{_transaction.Amount:C}";
-    }
-
-    private string GetAmountColorClass() => _transactionType == TransactionTypeEnum.Income ? "text-success" : "text-error";
 
     // ✨ NEW: Get Available Credit for display
     private decimal GetAvailableCredit(AccountDto account)
