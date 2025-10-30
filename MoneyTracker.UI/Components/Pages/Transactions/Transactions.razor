@@ -9,6 +9,7 @@
 @using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components
 @using MoneyTracker.UI.Components.Shared
+@using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
@@ -73,87 +74,12 @@
     OnFiltersApplied="LoadTransactionsAsync"
     OnFiltersInitialized="OnFiltersInitialized" />
 
-    <!-- Quick Stats Cards (mejoradas) -->
-    @if (_transactionSummary != null && !_loading)
+    <!-- Stats Inline -->
+    @if (!_loading)
     {
-        <MudGrid Class="mb-6">
-            <!-- Total Income Card -->
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionTypeEnum.Income.GetTransactionTypeHexColor())};")">
-                    <MudIcon Icon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
-                    Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
-                    Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-success")">
-                        @_transactionSummary.TotalIncome.ToString("C")
-                    </MudText>
-                    <MudText Typo="Typo.caption" Class="text-muted">Total Income</MudText>
-                </MudPaper>
-            </MudItem>
-
-            <!-- Total Expenses Card -->
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@($"border-top: 4px solid {(TransactionTypeEnum.Expense.GetTransactionTypeHexColor())};")">
-                    <MudIcon Icon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
-                    Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
-                    Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold text-error")">
-                        @_transactionSummary.TotalExpense.ToString("C")
-                    </MudText>
-                    <MudText Typo="Typo.caption" Class="text-muted">Total Expenses</MudText>
-                </MudPaper>
-            </MudItem>
-
-            <!-- Balance Card -->
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="@_transactionSummary.GetBalanceCardStyle()">
-                    <MudIcon Icon="@_transactionSummary.GetBalanceIcon()"
-                    Color="@_transactionSummary.GetBalanceColor()"
-                    Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="@_transactionSummary.GetBalanceTextClass()">
-                        @_transactionSummary.Balance.ToString("C")
-                    </MudText>
-                    <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
-                </MudPaper>
-            </MudItem>
-
-            <!-- Total Transactions Card -->
-            <MudItem xs="12" sm="6" md="3">
-                <MudPaper Class="pa-4 text-center" Elevation="2" Style="border-top: 4px solid #2196F3;">
-                    <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Info" Size="Size.Large" Class="mb-2" />
-                    <MudText Typo="Typo.h6" Class="font-weight-bold text-info">@_transactionSummary.TotalCount</MudText>
-                    <MudText Typo="Typo.caption" Class="text-muted">
-                        Total Transactions
-                        @if (_transactionSummary.TotalCount > 0)
-                        {
-                            <br />
-                            <span>Avg: @_transactionSummary.GetAverageAmount().ToString("C2")</span>
-                        }
-                    </MudText>
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-
-        <!-- Period Info Alert -->
-        <MudAlert Severity="Severity.Info" Class="mb-4">
-            <div class="d-flex align-center justify-space-between">
-                <div>
-                    <strong>@GetPeriodDescription()</strong>
-                    @if (_filterDto.TimePeriod == TimePeriodFilter.Custom
-                  && _filterDto.FromDate.HasValue && _filterDto.ToDate.HasValue)
-                    {
-                        <span class="ml-2">
-                            (@_filterDto.FromDate.GetFormattedDateSafe() - @_filterDto.ToDate.GetFormattedDateSafe())
-                        </span>
-                    }
-                </div>
-                @if (_transactionSummary.TotalCount > 0)
-                {
-                    <MudText Typo="Typo.body2">
-                        Filtered Results: <strong>@_transactionSummary.GetTransactionCountText()</strong>
-                    </MudText>
-                }
-            </div>
-        </MudAlert>
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <StatsInline Summary="@_transactionSummary" />
+        </MudPaper>
     }
 
     <!-- Transactions Table (mejorada) -->

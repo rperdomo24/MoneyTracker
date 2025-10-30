@@ -1,0 +1,99 @@
+﻿@* Stats Inline Component - Compact statistics display *@
+@using MoneyTracker.Application.DTOs.Transactions
+
+<div class="d-flex align-center justify-space-between py-2 px-4">
+    <!-- Total Transactions -->
+    <div class="d-flex align-center" style="min-width: 180px;">
+        <MudIcon Icon="@Icons.Material.Filled.Receipt"
+                 Color="Color.Info"
+                 Size="Size.Large"
+                 Class="mr-3" />
+        <div>
+            <MudText Typo="Typo.caption" Class="text-muted">Transactions</MudText>
+            <MudText Typo="Typo.h6">
+                <b>@(Summary?.TotalCount ?? 0)</b>
+            </MudText>
+        </div>
+    </div>
+
+    <!-- Separador -->
+    <MudDivider Vertical="true" FlexItem="true" DividerType="DividerType.Middle" />
+
+    <!-- Income -->
+    <div class="d-flex align-center" style="min-width: 180px;">
+        <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
+                 Color="Color.Success"
+                 Size="Size.Large"
+                 Class="mr-3" />
+        <div>
+            <MudText Typo="Typo.caption" Class="text-muted">Income</MudText>
+            <MudText Typo="Typo.h6" Class="text-success">
+                <b>@FormatCurrency(Summary?.TotalIncome ?? 0)</b>
+            </MudText>
+        </div>
+    </div>
+
+    <!-- Separador -->
+    <MudDivider Vertical="true" FlexItem="true" DividerType="DividerType.Middle" />
+
+    <!-- Expenses -->
+    <div class="d-flex align-center" style="min-width: 180px;">
+        <MudIcon Icon="@Icons.Material.Filled.TrendingDown"
+                 Color="Color.Error"
+                 Size="Size.Large"
+                 Class="mr-3" />
+        <div>
+            <MudText Typo="Typo.caption" Class="text-muted">Expenses</MudText>
+            <MudText Typo="Typo.h6" Class="text-error">
+                <b>@FormatCurrency(Summary?.TotalExpense ?? 0)</b>
+            </MudText>
+        </div>
+    </div>
+
+    <!-- Separador -->
+    <MudDivider Vertical="true" FlexItem="true" DividerType="DividerType.Middle" />
+
+    <!-- Balance -->
+    <div class="d-flex align-center" style="min-width: 180px;">
+        <MudIcon Icon="@GetBalanceIcon()"
+                 Color="@GetBalanceColor()"
+                 Size="Size.Large"
+                 Class="mr-3" />
+        <div>
+            <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
+            <MudText Typo="Typo.h6" Class="@GetBalanceColorClass()">
+                <b>@FormatCurrency(Summary?.Balance ?? 0)</b>
+            </MudText>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public TransactionSummaryDto? Summary { get; set; }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private string GetBalanceIcon()
+    {
+        var balance = Summary?.Balance ?? 0;
+        return balance >= 0
+            ? Icons.Material.Filled.AccountBalance
+            : Icons.Material.Filled.Warning;
+    }
+
+    private Color GetBalanceColor()
+    {
+        var balance = Summary?.Balance ?? 0;
+        return balance >= 0 ? Color.Success : Color.Error;
+    }
+
+    private string GetBalanceColorClass()
+    {
+        var balance = Summary?.Balance ?? 0;
+        return balance >= 0 ? "text-success" : "text-error";
+    }
+}
