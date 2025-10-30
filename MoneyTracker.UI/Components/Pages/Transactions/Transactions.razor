@@ -9,6 +9,7 @@
 @using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components
 @using MoneyTracker.UI.Components.Shared
+@using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
@@ -17,7 +18,29 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
     <!-- Header Section -->
-    <div class="d-flex justify-space-between align-center mb-6">
+    <div class="d-flex justify-space-between align-center mb-4">
+        <!-- Breadcrumb Component -->
+        <Breadcrumb Items="@_breadcrumbItems" />
+    
+        <!-- Botones -->
+        <div class="d-flex ga-2">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.FilterList"
+                       Disabled="true">
+                Filters
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.FileDownload"
+                       OnClick="ExportTransactions"
+                       Disabled="_loading">
+                Export
+            </MudButton>
+        </div>
+    </div>
+
+    @* <div class="d-flex justify-space-between align-center mb-6">
         <div>
             <MudText Typo="Typo.h4" Class="font-weight-bold mb-2">Manage your income, expenses, and transfers</MudText>
             <MudText Typo="Typo.body1" Class="text-muted">
@@ -42,7 +65,7 @@
                 Export
             </MudButton>
         </div>
-    </div>
+    </div> *@
 
     <!-- Filtros Separados -->
     <TransactionFilters Filter="_filterDto"
@@ -362,6 +385,12 @@
     private bool _loading = true;
     private bool _hasActiveFilters = false;
     private bool _filtersLoaded = false; // Nueva variable
+
+    private List<BreadcrumbItem> _breadcrumbItems = new()
+        {
+            new BreadcrumbItem("Home", href: "/", disabled: false, icon: Icons.Material.Filled.Home),
+            new BreadcrumbItem("Transactions", href: null, disabled: true, icon: Icons.Material.Filled.Receipt)
+        };
 
     // Dialog options
     private DialogOptions _dialogOptions = new()

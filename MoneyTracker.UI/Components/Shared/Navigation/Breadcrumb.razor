@@ -1,0 +1,32 @@
+﻿@* Breadcrumb Component with Icon Support *@
+<MudBreadcrumbs Items="@Items">
+    <ItemTemplate Context="item">
+        @if (item.Disabled)
+        {
+            <div class="d-flex align-center ga-1">
+                @if (!string.IsNullOrEmpty(item.Icon))
+                {
+                    <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                }
+                <MudText Typo="Typo.body2" Class="font-weight-bold">
+                    <b>@item.Text</b>
+                </MudText>
+            </div>
+        }
+        else
+        {
+            <MudLink Href="@item.Href" Typo="Typo.body2" Class="d-flex align-center ga-1">
+                @if (!string.IsNullOrEmpty(item.Icon))
+                {
+                    <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                }
+                <span>@item.Text</span>
+            </MudLink>
+        }
+    </ItemTemplate>
+</MudBreadcrumbs>
+
+@code {
+    [Parameter]
+    public List<BreadcrumbItem> Items { get; set; } = new();
+}
