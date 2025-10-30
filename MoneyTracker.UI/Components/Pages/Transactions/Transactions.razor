@@ -10,25 +10,25 @@
 @using MoneyTracker.UI.Components
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.DataDisplay
+@using MoneyTracker.UI.Components.Shared.Filters
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
+@inject ICategoryService CategoryService
 
 <PageTitle>Transactions - MoneyTracker</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
     <!-- Header Section -->
     <div class="d-flex justify-space-between align-center mb-4">
-        <!-- Breadcrumb Component -->
         <Breadcrumb Items="@_breadcrumbItems" />
-    
-        <!-- Botones -->
+
         <div class="d-flex ga-2">
             <MudButton Variant="Variant.Text"
                        Color="Color.Secondary"
                        StartIcon="@Icons.Material.Filled.FilterList"
-                       Disabled="true">
+                       OnClick="ToggleFiltersDrawer">
                 Filters
             </MudButton>
             <MudButton Variant="Variant.Text"
@@ -41,38 +41,11 @@
         </div>
     </div>
 
-    @* <div class="d-flex justify-space-between align-center mb-6">
-        <div>
-            <MudText Typo="Typo.h4" Class="font-weight-bold mb-2">Manage your income, expenses, and transfers</MudText>
-            <MudText Typo="Typo.body1" Class="text-muted">
-                Manage your income and expenses
-                @if (_transactionSummary?.TotalCount > 0)
-                {
-                    <span> • @(_transactionSummary.TotalCount) total transactions</span>
-                    @if (_hasActiveFilters)
-                    {
-                        <span> (filtered)</span>
-                    }
-                }
-            </MudText>
-        </div>
-        <div class="d-flex ga-2">
-            <!-- ✨ NEW: Pay Credit Card Button -->
-            <MudButton Variant="Variant.Text"
-            Color="Color.Secondary"
-            StartIcon="@Icons.Material.Filled.FileDownload"
-            OnClick="ExportTransactions"
-            Disabled="_loading">
-                Export
-            </MudButton>
-        </div>
-    </div> *@
-
-    <!-- Filtros Separados -->
-    <TransactionFilters Filter="_filterDto"
-    OnFilterChanged="OnFilterChanged"
-    OnFiltersApplied="LoadTransactionsAsync"
-    OnFiltersInitialized="OnFiltersInitialized" />
+        <ActiveFiltersChips Filter="@_filterDto"
+                        Categories="@_categories"
+                        Accounts="@_accounts"
+                        OnFilterRemoved="OnFilterRemoved"
+                        OnClearAll="ClearAllFilters" />
 
     <!-- Stats Inline -->
     @if (!_loading)
@@ -301,10 +274,24 @@
             </div>
         }
     </MudPaper>
+
+    <TransactionFilters @bind-IsOpen="_filtersDrawerOpen"
+                        Filter="_filterDto"
+                        OnFilterChanged="OnFilterChanged"
+                        OnFiltersApplied="LoadTransactionsAsync"
+                        OnFiltersInitialized="OnFiltersInitialized" />
+
+
     <QuickActionsFab OnTransactionAdded="@OnTransactionChanged" />
 </MudContainer>
 
 @code {
+
+    private bool _filtersDrawerOpen = false;
+    private List<CategoryDto>? _categories;
+    private List<AccountDto>? _accounts;
+
+
     // Usando tu sistema actual
     private TransactionSummaryDto? _transactionSummary;
     private TransactionFilterDto _filterDto = new() { TimePeriod = TimePeriodFilter.ThisMonth };
@@ -326,19 +313,14 @@
             MaxWidth = MaxWidth.Large
         };
 
+    private void ToggleFiltersDrawer()
+    {
+        _filtersDrawerOpen = !_filtersDrawerOpen;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _loading = false;
-    }
-
-    // Método llamado desde el componente de filtros cuando termine de cargar
-    private async Task OnFiltersInitialized()
-    {
-        if (!_filtersLoaded)
-        {
-            _filtersLoaded = true;
-            await LoadTransactionsAsync(); // Ahora sí cargar transacciones
-        }
     }
 
     private async Task LoadTransactionsAsync()
@@ -483,6 +465,46 @@
     }
 
     private async Task OnTransactionChanged()
+    {
+        await LoadTransactionsAsync();
+    }
+
+
+    private async Task OnFiltersInitialized()
+    {
+        if (!_filtersLoaded)
+        {
+            _filtersLoaded = true;
+            await LoadFilterData();
+            await LoadTransactionsAsync();
+        }
+    }
+
+    private async Task LoadFilterData()
+    {
+        try
+        {
+            // Cargar categorías
+            var categoriesResult = await CategoryService.GetAllAsync();
+            if (categoriesResult.Success)
+            {
+                _categories = categoriesResult.Data?.ToList();
+            }
+
+            // Cargar cuentas
+            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
+            if (accountsResult.Success)
+            {
+                _accounts = accountsResult.Data?.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading filter data: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task OnFilterRemoved(string filterType)
     {
         await LoadTransactionsAsync();
     }

@@ -1,0 +1,175 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Filters
+
+@* Active Filters Chips Component *@
+@if (HasActiveFilters())
+{
+    <div class="d-flex align-center flex-wrap ga-2 mb-3">
+        <MudText Typo="Typo.caption" Class="text-muted mr-2">Active:</MudText>
+
+        <!-- Time Period Chip -->
+        @if (Filter.TimePeriod != TimePeriodFilter.ThisMonth)
+        {
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Color="Color.Info"
+                     OnClose="RemoveTimePeriodFilter">
+                📅 @GetTimePeriodText()
+            </MudChip>
+        }
+
+        <!-- Accounts Chips -->
+        @if (Filter.AccountIds?.Any() == true)
+        {
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Color="Color.Success"
+                     OnClose="RemoveAccountsFilter">
+                🏦 @GetAccountsText()
+            </MudChip>
+        }
+
+        <!-- Search Chip -->
+        @if (!string.IsNullOrWhiteSpace(Filter.SearchText))
+        {
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Color="Color.Primary"
+                     OnClose="RemoveSearchFilter">
+                🔍 "@Filter.SearchText"
+            </MudChip>
+        }
+
+        <!-- Category Chip -->
+        @if (Filter.CategoryId.HasValue)
+        {
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Color="Color.Warning"
+                     OnClose="RemoveCategoryFilter">
+                📁 @GetCategoryName()
+            </MudChip>
+        }
+
+        <!-- Type Chip -->
+        @if (Filter.Type.HasValue)
+        {
+            <MudChip T="string"
+                     Size="Size.Small"
+                     Color="@(Filter.Type.Value == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
+                     OnClose="RemoveTypeFilter">
+                @(Filter.Type.Value == CategoryTypeEnum.Income ? "💰" : "💸") @Filter.Type.Value
+            </MudChip>
+        }
+
+        <!-- Clear All Button -->
+        <MudButton Size="Size.Small"
+                   Variant="Variant.Text"
+                   Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.Clear"
+                   OnClick="ClearAllFilters">
+            Clear All
+        </MudButton>
+    </div>
+}
+
+@code {
+    [Parameter] public TransactionFilterDto Filter { get; set; } = new();
+    [Parameter] public List<CategoryDto>? Categories { get; set; }
+    [Parameter] public List<AccountDto>? Accounts { get; set; }
+    [Parameter] public EventCallback OnClearAll { get; set; }
+    [Parameter] public EventCallback<string> OnFilterRemoved { get; set; }
+
+    private bool HasActiveFilters()
+    {
+        return Filter.TimePeriod != TimePeriodFilter.ThisMonth ||
+               Filter.AccountIds?.Any() == true ||
+               !string.IsNullOrWhiteSpace(Filter.SearchText) ||
+               Filter.CategoryId.HasValue ||
+               Filter.Type.HasValue;
+    }
+
+    private string GetTimePeriodText()
+    {
+        return Filter.TimePeriod switch
+        {
+            TimePeriodFilter.LastMonth => "Last Month",
+            TimePeriodFilter.ThisYear => "This Year",
+            TimePeriodFilter.Custom => GetCustomRangeText(),
+            _ => Filter.TimePeriod.ToString()
+        };
+    }
+
+    private string GetCustomRangeText()
+    {
+        if (Filter.FromDate.HasValue && Filter.ToDate.HasValue)
+        {
+            return $"{Filter.FromDate.Value:MMM d} - {Filter.ToDate.Value:MMM d, yyyy}";
+        }
+        return "Custom Range";
+    }
+
+    private string GetAccountsText()
+    {
+        if (Filter.AccountIds?.Any() != true || Accounts?.Any() != true)
+            return "Accounts";
+
+        var selectedAccounts = Accounts.Where(a => Filter.AccountIds.Contains(a.Id)).ToList();
+
+        if (!selectedAccounts.Any())
+            return "Accounts";
+
+        if (selectedAccounts.Count == 1)
+            return selectedAccounts.First().Name;
+
+        return $"{selectedAccounts.Count} Account{(selectedAccounts.Count > 1 ? "s" : "")}";
+    }
+
+    private string GetCategoryName()
+    {
+        if (!Filter.CategoryId.HasValue || Categories?.Any() != true)
+            return "Category";
+
+        var category = Categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value);
+        return category?.Name ?? "Category";
+    }
+
+    private async Task RemoveTimePeriodFilter()
+    {
+        Filter.TimePeriod = TimePeriodFilter.ThisMonth;
+        Filter.FromDate = null;
+        Filter.ToDate = null;
+        await OnFilterRemoved.InvokeAsync("TimePeriod");
+    }
+
+    private async Task RemoveAccountsFilter()
+    {
+        Filter.AccountIds = new List<int>();
+        await OnFilterRemoved.InvokeAsync("Accounts");
+    }
+
+    private async Task RemoveSearchFilter()
+    {
+        Filter.SearchText = string.Empty;
+        await OnFilterRemoved.InvokeAsync("Search");
+    }
+
+    private async Task RemoveCategoryFilter()
+    {
+        Filter.CategoryId = null;
+        await OnFilterRemoved.InvokeAsync("Category");
+    }
+
+    private async Task RemoveTypeFilter()
+    {
+        Filter.Type = null;
+        await OnFilterRemoved.InvokeAsync("Type");
+    }
+
+    private async Task ClearAllFilters()
+    {
+        await OnClearAll.InvokeAsync();
+    }
+}
