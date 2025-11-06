@@ -1,203 +1,139 @@
 ﻿@page "/accounts"
-@using System.Linq
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Domain.Enums
 @using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Components.Shared
 @inject IAccountService AccountService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
 <PageTitle>Accounts - Money Tracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
-    <MudPaper Class="pa-6 mb-4" Elevation="2">
-        <MudGrid AlignItems="Center">
-            <MudItem xs="12" md="6">
-                <MudText Typo="Typo.h4" Class="d-flex align-center">
-                    <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Class="mr-3" Size="Size.Large" />
-                    My Accounts
-                </MudText>
-                <MudText Typo="Typo.body2" Class="text-muted mt-1">
-                    Manage your financial accounts and track balances
-                </MudText>
-            </MudItem>
-            <MudItem xs="12" md="6" Class="d-flex justify-end">
-                <MudButton Color="Color.Primary"
-                           Variant="Variant.Filled"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="OpenAddDialog"
-                           Size="Size.Large"
-                           Class="px-6">
-                    Add New Account
-                </MudButton>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <Breadcrumb Items="@_breadcrumbItems" />
+
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenAddDialog">
+            Add Account
+        </MudButton>
+    </MudStack>
 
     @if (_loading)
     {
-        <MudPaper Class="pa-8 text-center" Elevation="1">
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
             <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-            <MudText Typo="Typo.body1" Class="mt-4">Loading your accounts...</MudText>
-        </MudPaper>
+            <MudText Class="mt-4">Loading your accounts...</MudText>
+        </MudStack>
     }
     else if (!_accounts.Any())
     {
-        <MudPaper Class="pa-8 text-center" Elevation="1">
-            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Size="Size.Large" Class="mb-4 text-muted" />
-            <MudText Typo="Typo.h6" Class="mb-2">No accounts yet</MudText>
-            <MudText Typo="Typo.body2" Class="text-muted mb-4">
+    <MudPaper Class="pa-8" Elevation="1">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                     Size="Size.Large"
+                     Style="font-size: 4rem; opacity: 0.3;" />
+            <MudText Typo="Typo.h6">No accounts yet</MudText>
+            <MudText Typo="Typo.body2" Style="opacity: 0.7;">
                 Get started by adding your first financial account
             </MudText>
             <MudButton Color="Color.Primary"
                        Variant="Variant.Filled"
                        StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="OpenAddDialog">
+                       OnClick="OpenAddDialog"
+                       Size="Size.Large">
                 Add Your First Account
             </MudButton>
-        </MudPaper>
+        </MudStack>
+    </MudPaper>
     }
     else
     {
-        <!-- ✅ Statistics Cards - Corregidas -->
+    @foreach (var group in _accountGroups)
+    {
         <MudPaper Class="pa-4 mb-4" Elevation="1">
-            <MudGrid>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.body2" Class="text-muted">Total Balance</MudText>
-                    <MudText Typo="Typo.h5" Class="@GetTotalBalanceColorClass()">
-                        @GetTotalBalance()
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.body2" Class="text-muted">Total Accounts</MudText>
-                    <MudText Typo="Typo.h5" Class="font-weight-bold">
-                        @_accounts.Count
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.body2" Class="text-muted">Account Types</MudText>
-                    <MudText Typo="Typo.h5" Class="font-weight-bold">
-                        @_accounts.GroupBy(a => a.Type).Count()
-                    </MudText>
-                </MudItem>
-                <MudItem xs="12" sm="6" md="3">
-                    <MudText Typo="Typo.body2" Class="text-muted">Credit Available</MudText>
-                    <MudText Typo="Typo.h5" Class="font-weight-bold text-success">
-                        @GetTotalCreditAvailable()
-                    </MudText>
-                </MudItem>
-            </MudGrid>
+            <!-- Group Header -->
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Class="mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@group.Key.ToIcon()" />
+                    <MudText Typo="Typo.h6">@group.Key.ToLabel()</MudText>
+                    <MudChip Size="Size.Small" T="string">@group.Count()</MudChip>
+                </MudStack>
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
+                    Total: @FormatBalance(group.Sum(a => a.CurrentBalance))
+                </MudText>
+            </MudStack>
+
+            <!-- Accounts List -->
+            <MudStack Spacing="2">
+                @foreach (var account in group.OrderBy(a => a.Name))
+                {
+                    <MudPaper Class="pa-3"
+                              Elevation="0"
+                              Style="border: 1px solid var(--mud-palette-divider);">
+                        <MudStack Row="true"
+                                  Justify="Justify.SpaceBetween"
+                                  AlignItems="AlignItems.Center">
+                            <!-- Account Info -->
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Medium"
+                                           Style="@($"background-color: {account.Color};")">
+                                    <MudIcon Icon="@account.Icon.ToIcon()"
+                                             Color="Color.Surface"
+                                             Size="Size.Small" />
+                                </MudAvatar>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                        @account.Name
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                                        @account.Type.ToString()
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+
+                            <!-- Balance & Actions -->
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                <MudText Typo="Typo.h6" Class="@GetBalanceClass(account.CurrentBalance)">
+                                    @account.FormattedBalance
+                                </MudText>
+
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                         Size="Size.Small"
+                                         AnchorOrigin="Origin.BottomRight"
+                                         TransformOrigin="Origin.TopRight">
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+                                                 OnClick="@(() => ViewAccount(account.Id))">
+                                        View
+                                    </MudMenuItem>
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                 OnClick="@(() => OpenEditDialog(account.Id))">
+                                        Edit
+                                    </MudMenuItem>
+                                    <MudDivider />
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                 IconColor="Color.Error"
+                                                 OnClick="@(() => DeleteAccount(account.Id))">
+                                        Delete
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
         </MudPaper>
-
-        @foreach (var group in _accountGroups)
-        {
-            <MudPaper Class="pa-4 mb-4" Elevation="1">
-                <!-- Group Header -->
-                <MudGrid Justify="Justify.Center" Class="mb-3">
-                    <MudItem xs="12" sm="8">
-                        <MudText Typo="Typo.h6" Class="d-flex align-center">
-                            <MudIcon Icon="@group.Key.ToIcon()" Class="mr-2" />
-                            @group.Key.ToLabel()
-                            <MudChip Size="Size.Small" T="string" Class="ml-2">@group.Count() accounts</MudChip>
-                        </MudText>
-                    </MudItem>
-                    <MudItem xs="12" sm="4" Class="text-right">
-                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
-                            Total: @GetGroupTotal(group)
-                        </MudText>
-                    </MudItem>
-                </MudGrid>
-
-                <!-- Accounts Table -->
-                <MudTable Items="group.ToList()"
-                          Hover="true"
-                          Dense="false"
-                          Striped="true"
-                          Elevation="0"
-                          Class="mud-table-responsive">
-                    <HeaderContent>
-                        <MudTh><MudText Typo="Typo.caption">Account</MudText></MudTh>
-                        <MudTh><MudText Typo="Typo.caption">Balance</MudText></MudTh>
-                        <MudTh><MudText Typo="Typo.caption">Credit Limit</MudText></MudTh>
-                        <MudTh><MudText Typo="Typo.caption">Available</MudText></MudTh>
-                        <MudTh><MudText Typo="Typo.caption">Actions</MudText></MudTh>
-                    </HeaderContent>
-                    <RowTemplate>
-                        <MudTd>
-                            <div class="d-flex align-center">
-                                <MudIcon Icon="@context.Icon.ToIcon()"
-                                         Style="@($"color: {context.Color};")"
-                                         Class="mr-3" />
-                                <div>
-                                    <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                        @context.Name
-                                    </MudText>
-                                    <MudText Typo="Typo.caption" Class="text-muted">
-                                        @context.Type.ToString()
-                                    </MudText>
-                                </div>
-                            </div>
-                        </MudTd>
-                        <MudTd>
-                            <MudText Typo="Typo.body2" Class="@GetBalanceColorClass(context.CurrentBalance)">
-                                @context.FormattedBalance
-                            </MudText>
-                        </MudTd>
-                        <MudTd>
-                            <MudText Typo="Typo.body2">
-                                @if (context.Type == AccountType.Credit && context.CreditLimit > 0)
-                                {
-                                    @($"${context.CreditLimit:N2}")
-                                }
-                                else
-                                {
-                                    <span class="text-muted">N/A</span>
-                                }
-                            </MudText>
-                        </MudTd>
-                        <MudTd>
-                            <MudText Typo="Typo.body2">
-                                @if (context.Type == AccountType.Credit && context.CreditLimit > 0)
-                                {
-                                    var available = context.AvailableCredit;
-                                    var colorClass = context.IsOverLimit ? "text-error" : "text-success";
-                                    <span class="@colorClass">@($"${available:N2}")</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">N/A</span>
-                                }
-                            </MudText>
-                        </MudTd>
-                        <MudTd>
-                            <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
-                                <MudButton Color="Color.Primary"
-                                           StartIcon="@Icons.Material.Filled.Visibility"
-                                           OnClick="@(() => ViewAccount(context.Id))"
-                                           Title="View Details">
-                                    View
-                                </MudButton>
-                                <MudButton Color="Color.Secondary"
-                                           StartIcon="@Icons.Material.Filled.Edit"
-                                           OnClick="@(() => OpenEditDialog(context.Id))"
-                                           Title="Edit Account">
-                                    Edit
-                                </MudButton>
-                                <MudButton Color="Color.Error"
-                                           StartIcon="@Icons.Material.Filled.Delete"
-                                           OnClick="@(() => DeleteAccount(context.Id))"
-                                           Title="Delete Account">
-                                    Delete
-                                </MudButton>
-                            </MudButtonGroup>
-                        </MudTd>
-                    </RowTemplate>
-                </MudTable>
-            </MudPaper>
-        }
     }
+    }
+
 </MudContainer>
 
 @code {
@@ -205,13 +141,19 @@
     private bool _loading = true;
     private IEnumerable<IGrouping<AccountType, AccountDto>> _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
 
+    private readonly List<BreadcrumbItem> _breadcrumbItems = new()
+    {
+        new BreadcrumbItem("Home", href: "/", icon: Icons.Material.Filled.Home),
+        new BreadcrumbItem("Accounts", href: null, disabled: true)
+    };
+
     private readonly DialogOptions _dialogOptions = new()
-        {
-            CloseButton = true,
-            FullWidth = true,
-            MaxWidth = MaxWidth.Large,
-            CloseOnEscapeKey = true
-        };
+    {
+        CloseButton = true,
+        FullWidth = true,
+        MaxWidth = MaxWidth.Large,
+        CloseOnEscapeKey = true
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -225,7 +167,6 @@
 
         try
         {
-            // ✅ FIXED: Use GetAccountsWithBalancesAsync to get calculated balances
             var result = await AccountService.GetAccountsWithBalancesAsync();
             if (result.Success && result.Data is not null)
             {
@@ -239,9 +180,9 @@
                 _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Snackbar.Add($"Error loading accounts: {ex.Message}", Severity.Error);
+            Snackbar.Add("Error loading accounts", Severity.Error);
             _accounts.Clear();
             _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
         }
@@ -261,19 +202,19 @@
     private async Task OpenEditDialog(int id)
     {
         var parameters = new DialogParameters
-            {
-                ["AccountId"] = id,
-                ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccounts)
-            };
+        {
+            ["AccountId"] = id,
+            ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccounts)
+        };
         await DialogService.ShowAsync<UpdateAccountModal>("Update Account", parameters, _dialogOptions);
     }
 
     private async Task OpenAddDialog()
     {
         var parameters = new DialogParameters
-            {
-                ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAccounts)
-            };
+        {
+            ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAccounts)
+        };
         await DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, _dialogOptions);
     }
 
@@ -304,52 +245,25 @@
                     Snackbar.Add(result.Message ?? "Failed to delete account", Severity.Error);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Snackbar.Add($"Error deleting account: {ex.Message}", Severity.Error);
+                Snackbar.Add("Error deleting account", Severity.Error);
             }
         }
     }
 
-    // ✅ Helper Methods for Calculations
-    private string GetBalanceColorClass(decimal balance)
+    private string FormatBalance(decimal balance)
+    {
+        return balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
+    }
+
+    private string GetBalanceClass(decimal balance)
     {
         return balance switch
         {
             > 0 => "text-success",
             < 0 => "text-error",
-            _ => "text-muted"
+            _ => ""
         };
-    }
-
-    private string GetTotalBalanceColorClass()
-    {
-        var total = _accounts.Sum(a => a.CurrentBalance);
-        return total switch
-        {
-            > 0 => "font-weight-bold text-success",
-            < 0 => "font-weight-bold text-error",
-            _ => "font-weight-bold text-muted"
-        };
-    }
-
-    private string GetTotalBalance()
-    {
-        var total = _accounts.Sum(a => a.CurrentBalance);
-        return $"${total:N2}";
-    }
-
-    private string GetTotalCreditAvailable()
-    {
-        var creditAccounts = _accounts.Where(a => a.Type == AccountType.Credit && a.CreditLimit > 0);
-        var totalAvailable = creditAccounts.Sum(a => a.AvailableCredit);
-        return $"${totalAvailable:N2}";
-    }
-
-    private string GetGroupTotal(IGrouping<AccountType, AccountDto> group)
-    {
-        var total = group.Sum(a => a.CurrentBalance);
-        var colorClass = total >= 0 ? "text-success" : "text-error";
-        return $"${total:N2}";
     }
 }
