@@ -109,10 +109,9 @@
                         @if (category.Children.Any())
                         {
                             <!-- Category WITH Subcategories (Expandible) -->
-                            <MudExpansionPanels 
-                                Elevation="0" 
-                                Class="mb-2" 
-                                Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
+                            <MudExpansionPanels Elevation="0"
+                                                Class="mb-2"
+                                                Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
                                 <MudExpansionPanel Expanded="true">
                                     <TitleContent>
                                         <MudStack Row="true"
@@ -145,10 +144,6 @@
                                                      AnchorOrigin="Origin.BottomRight"
                                                      TransformOrigin="Origin.TopRight"
                                                      @onclick:stopPropagation="true">
-                                                <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
-                                                             OnClick="@(() => ViewCategory(category.Id))">
-                                                    View Details
-                                                </MudMenuItem>
                                                 <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                              OnClick="@(() => EditCategory(category.Id))">
                                                     Edit
@@ -196,10 +191,6 @@
                                                                  Dense="true"
                                                                  AnchorOrigin="Origin.BottomRight"
                                                                  TransformOrigin="Origin.TopRight">
-                                                            <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
-                                                                         OnClick="@(() => ViewCategory(subcategory.Id))">
-                                                                View Details
-                                                            </MudMenuItem>
                                                             <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                                          OnClick="@(() => EditCategory(subcategory.Id))">
                                                                 Edit
@@ -248,10 +239,6 @@
                                              Dense="true"
                                              AnchorOrigin="Origin.BottomRight"
                                              TransformOrigin="Origin.TopRight">
-                                        <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
-                                                     OnClick="@(() => ViewCategory(category.Id))">
-                                            View Details
-                                        </MudMenuItem>
                                         <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                      OnClick="@(() => EditCategory(category.Id))">
                                             Edit
@@ -276,9 +263,16 @@
     </MudPaper>
 </MudContainer>
 
+<UpdateCategoryDrawer @bind-IsOpen="_editDrawerOpen"
+                      CategoryId="_selectedCategoryId"
+                      OnCategoryUpdated="LoadCategories" />
+
 @code {
     private List<CategoryDto> _categories = new();
     private bool _loading = true;
+
+    private bool _editDrawerOpen = false;
+    private int _selectedCategoryId = 0;
 
     private List<BreadcrumbItem> _breadcrumbItems = new()
     {
@@ -359,25 +353,10 @@
         await DialogService.ShowAsync<AddCategoryModal>("Create Subcategory", parameters, _dialogOptions);
     }
 
-    private async Task EditCategory(int id)
+    private void EditCategory(int id)
     {
-        var parameters = new DialogParameters
-        {
-            ["CategoryId"] = id,
-            ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, LoadCategories)
-        };
-
-        await DialogService.ShowAsync<UpdateCategoryModal>("Update Category", parameters, _dialogOptions);
-    }
-
-    private async Task ViewCategory(int id)
-    {
-        var parameters = new DialogParameters
-        {
-            ["CategoryId"] = id
-        };
-
-        await DialogService.ShowAsync<ViewCategoryDialog>("Category Details", parameters, _dialogOptions);
+        _selectedCategoryId = id;
+        _editDrawerOpen = true;
     }
 
     private async Task DeleteCategory(int id)
