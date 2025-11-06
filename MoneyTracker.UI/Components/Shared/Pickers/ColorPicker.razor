@@ -1,0 +1,125 @@
+﻿@using MoneyTracker.Domain.Enums.Category
+
+<MudStack Spacing="2" Class="@Class" Style="@Style">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <MudText Typo="Typo.subtitle2">@Label</MudText>
+        @if (AllowCustomColor)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.Colorize"
+                           Size="Size.Small"
+                           Color="Color.Primary"
+                           OnClick="OpenCustomColorPicker"
+                           Title="Custom color" />
+        }
+    </MudStack>
+
+    <MudPaper Class="pa-3" Elevation="0" Style="border: 1px solid var(--mud-palette-divider);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 8px;">
+            @foreach (var color in PredefinedColors)
+            {
+                <MudTooltip Text="@color">
+                    <MudIconButton Style="@GetColorButtonStyle(color)"
+                                   OnClick="@(() => SelectColor(color))"
+                                   Size="Size.Small">
+                        @if (SelectedColor == color)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Surface" Size="Size.Small" />
+                        }
+                    </MudIconButton>
+                </MudTooltip>
+            }
+        </div>
+
+        @if (AllowCustomColor && !string.IsNullOrEmpty(SelectedColor) && !PredefinedColors.Contains(SelectedColor))
+        {
+            <MudDivider Class="my-3" />
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.caption">Custom:</MudText>
+                <MudIconButton Style="@GetColorButtonStyle(SelectedColor)"
+                               OnClick="OpenCustomColorPicker"
+                               Size="Size.Small">
+                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Surface" Size="Size.Small" />
+                </MudIconButton>
+                <MudText Typo="Typo.body2">@SelectedColor</MudText>
+            </MudStack>
+        }
+    </MudPaper>
+
+    @if (AllowCustomColor && _showCustomPicker)
+    {
+        <MudPaper Class="pa-3 mt-2" Elevation="1">
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.subtitle2">Custom Color</MudText>
+                <MudColorPicker @bind-Text="_tempCustomColor"
+                                ColorPickerMode="ColorPickerMode.HEX"
+                                Editable="true"
+                                ColorPickerView="ColorPickerView.Spectrum"
+                                DisableToolbar="false"
+                                DisableAlpha="true"
+                                Placeholder="#000000" />
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Text" OnClick="CancelCustomColor" FullWidth="true">
+                        Cancel
+                    </MudButton>
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ApplyCustomColor" FullWidth="true">
+                        Apply
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+</MudStack>
+
+@code {
+    [Parameter] public string SelectedColor { get; set; } = "#ef4444";
+    [Parameter] public EventCallback<string> SelectedColorChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Color";
+    [Parameter] public bool AllowCustomColor { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+
+    private bool _showCustomPicker = false;
+    private string _tempCustomColor = "#ef4444";
+
+    private readonly string[] PredefinedColors = new[]
+    {
+        "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16",
+        "#22c55e", "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9",
+        "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
+        "#ec4899", "#f43f5e", "#64748b", "#78716c", "#57534e"
+    };
+
+    private string GetColorButtonStyle(string color)
+    {
+        var isSelected = SelectedColor == color;
+        return $"background-color: {color}; " +
+               $"width: 40px; " +
+               $"height: 40px; " +
+               $"border-radius: 50%; " +
+               $"border: {(isSelected ? "3px solid var(--mud-palette-primary)" : "2px solid var(--mud-palette-divider)")};";
+    }
+
+    private async Task SelectColor(string color)
+    {
+        SelectedColor = color;
+        await SelectedColorChanged.InvokeAsync(color);
+    }
+
+    private void OpenCustomColorPicker()
+    {
+        _tempCustomColor = SelectedColor;
+        _showCustomPicker = true;
+    }
+
+    private void CancelCustomColor()
+    {
+        _showCustomPicker = false;
+    }
+
+    private async Task ApplyCustomColor()
+    {
+        SelectedColor = _tempCustomColor;
+        await SelectedColorChanged.InvokeAsync(_tempCustomColor);
+        _showCustomPicker = false;
+    }
+}

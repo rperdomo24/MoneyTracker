@@ -28,6 +28,13 @@ namespace MoneyTracker.Application.Services
             return OperationResult<List<CategoryDto>>.Ok(result);
         }
 
+        public async Task<OperationResult<List<CategoryDto>>> GetAllWithChildAsync()
+        {
+            var entities = await _repository.GetAllAsync(true);
+            var result = entities.Select(e => e.MapToDto()).ToList();
+            return OperationResult<List<CategoryDto>>.Ok(result);
+        }
+
         public async Task<OperationResult<CategoryDto?>> GetByIdAsync(int id)
         {
             var entity = await _repository.GetByIdAsync(id);

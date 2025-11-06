@@ -23,8 +23,33 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 return await _context.Categories
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
-                    .AsNoTracking() 
+                    .Include(c => c.Children)
+                    .AsNoTracking()
                     .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all categories.");
+                return new();
+            }
+        }
+
+        public async Task<List<Category>> GetAllAsync(bool includeChildren)
+        {
+            try
+            {
+                IQueryable<Category> query = _context.Categories;
+
+                if (includeChildren)
+                {
+                    query = query.Include(category => category.Children);
+                }
+
+                query = query.OrderBy(category => category.Type)
+                    .ThenBy(c => c.Name)
+                    .AsNoTracking();
+
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {

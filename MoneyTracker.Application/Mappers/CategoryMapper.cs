@@ -6,20 +6,41 @@ namespace MoneyTracker.Application.Mappers
 {
     public static class CategoryMapper
     {
+     
         public static CategoryDto MapToDto(this Category entity)
         {
+            if (entity == null)
+                return new CategoryDto();
+
             return new CategoryDto
             {
                 Id = entity.Id,
                 Name = entity.Name,
                 ParentId = entity.ParentId,
                 Type = entity.Type,
-                Icon = Enum.TryParse<CategoryIcon>(entity.Icon, out var parsedIcon) ? parsedIcon : CategoryIcon.Payments,
+                Icon = Enum.TryParse<CategoryIcon>(entity.Icon, out var parsedIcon)
+                    ? parsedIcon
+                    : CategoryIcon.Payments,
                 Color = entity.Color,
                 IsSystem = entity.IsSystem,
                 UpdatedAt = entity.UpdatedAt,
-                Parent = entity.Parent != null ? MapToDto(entity.Parent) : null,
-                Children = entity.Children?.Select(MapToDto).ToList() ?? new()
+                Parent = null,
+
+                Children = entity.Children?.Select(child => new CategoryDto
+                {
+                    Id = child.Id,
+                    Name = child.Name,
+                    ParentId = child.ParentId,
+                    Type = child.Type,
+                    Icon = Enum.TryParse<CategoryIcon>(child.Icon, out var parsedChildIcon)
+                        ? parsedChildIcon
+                        : CategoryIcon.Payments,
+                    Color = child.Color,
+                    IsSystem = child.IsSystem,
+                    UpdatedAt = child.UpdatedAt,
+                    Parent = null,
+                    Children = child.Children?.Select(MapToDto).ToList() ?? new()
+                }).ToList() ?? new()
             };
         }
 
