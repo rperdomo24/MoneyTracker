@@ -1,16 +1,18 @@
 ﻿@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Helpers
+@typeparam TIcon where TIcon : struct, Enum
 
 <MudStack Spacing="2" Class="@Class" Style="@Style">
     <MudText Typo="Typo.subtitle2">@Label</MudText>
 
     <MudPaper Class="pa-3" Elevation="0" Style="border: 1px solid var(--mud-palette-divider); max-height: 240px; overflow-y: auto;">
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 8px;">
-            @foreach (var icon in Enum.GetValues<CategoryIcon>())
+            @foreach (TIcon icon in Enum.GetValues<TIcon>())
             {
                 <MudTooltip Text="@icon.ToString()">
-                    <MudIconButton Icon="@icon.ToIcon()"
-                                   Color="@(SelectedIcon == icon ? Color.Primary : Color.Default)"
+                    <MudIconButton Icon="@GetIconString(icon)"
+                                   Color="@(EqualityComparer<TIcon>.Default.Equals(SelectedIcon, icon) ? Color.Primary : Color.Default)"
                                    Style="@GetIconButtonStyle(icon)"
                                    OnClick="@(() => SelectIcon(icon))"
                                    Size="Size.Medium" />
@@ -21,16 +23,16 @@
 </MudStack>
 
 @code {
-    [Parameter] public CategoryIcon SelectedIcon { get; set; } = CategoryIcon.LocalCafe;
-    [Parameter] public EventCallback<CategoryIcon> SelectedIconChanged { get; set; }
+    [Parameter] public TIcon SelectedIcon { get; set; }
+    [Parameter] public EventCallback<TIcon> SelectedIconChanged { get; set; }
     [Parameter] public string Label { get; set; } = "Icon";
     [Parameter] public string? PreviewColor { get; set; } = null;
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }
 
-    private string GetIconButtonStyle(CategoryIcon icon)
+    private string GetIconButtonStyle(TIcon icon)
     {
-        var isSelected = SelectedIcon == icon;
+        var isSelected = EqualityComparer<TIcon>.Default.Equals(SelectedIcon, icon);
         var backgroundColor = isSelected ? "var(--mud-palette-primary-lighten)" : "transparent";
         var border = isSelected ? "2px solid var(--mud-palette-primary)" : "1px solid var(--mud-palette-divider)";
 
@@ -41,9 +43,27 @@
                $"background-color: {backgroundColor};";
     }
 
-    private async Task SelectIcon(CategoryIcon icon)
+    private async Task SelectIcon(TIcon icon)
     {
         SelectedIcon = icon;
         await SelectedIconChanged.InvokeAsync(icon);
+    }
+
+    private string GetIconString(TIcon icon)
+    {
+        // Try CategoryIcon first
+        if (icon is CategoryIcon categoryIcon)
+        {
+            return categoryIcon.ToIcon();
+        }
+
+        // Try AccountIcon
+        if (icon is AccountIcon accountIcon)
+        {
+            return accountIcon.ToIcon();
+        }
+
+        // Fallback
+        return MudBlazor.Icons.Material.Filled.Circle;
     }
 }
