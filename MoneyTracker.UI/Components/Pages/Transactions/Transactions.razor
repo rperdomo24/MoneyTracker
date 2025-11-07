@@ -12,6 +12,7 @@
 @using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Filters
 @using MoneyTracker.UI.Components.Shared.Navigation
+@using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
@@ -149,6 +150,8 @@
                                     <MudCheckBox T="bool"
                                                  Dense="true"
                                                  Size="Size.Small"
+                                                 Value="@IsGroupSelected(group)"
+                                                 ValueChanged="@(value => ToggleGroupSelection(group, value))"
                                                  @onclick:stopPropagation="true" />
 
                                     <MudIcon Icon="@Icons.Material.Filled.CalendarToday"
@@ -188,6 +191,8 @@
                                             <MudCheckBox T="bool"
                                                          Dense="true"
                                                          Size="Size.Medium"
+                                                         Value="@_selectedTransactionIds.Contains(transaction.Id)"
+                                                         ValueChanged="@(value => ToggleTransactionSelection(transaction.Id, value))"
                                                          @onclick:stopPropagation="true" />
 
                                             <MudAvatar Size="Size.Medium"
@@ -313,7 +318,7 @@
                                     @bind-PageSize="_rowsPerPage"
                                     @bind-PageSize:after="OnRowsPerPageChanged"
                                     OnPageChanged="OnPageChanged"
-                                    ItemName="rows"
+                                    ItemName="transactions"
                                     PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })" />
 
         }
@@ -380,6 +385,11 @@
                         OnFiltersInitialized="OnFiltersInitialized" />
 
     <QuickActionsFab OnTransactionAdded="@OnTransactionChanged" />
+
+    <!-- Selection Action Bar -->
+    <SelectionActionBar SelectedCount="@SelectedCount"
+                        OnClearSelection="ClearSelection"
+                        OnDeleteSelected="DeleteSelectedTransactions" />
 </MudContainer>
 
 @code {
@@ -396,8 +406,12 @@
     private List<TransactionGroup> _groupedTransactions = new();
     private int _currentPage = 1;
     private int _totalPages = 1;
-    private int _rowsPerPage = 10; // ✅ Default 10
+    private int _rowsPerPage = 10;
     private int _totalTransactions = 0;
+
+    // Selection state
+    private HashSet<int> _selectedTransactionIds = new();
+    private int SelectedCount => _selectedTransactionIds.Count;
 
     private List<BreadcrumbItem> _breadcrumbItems = new()
     {
@@ -412,7 +426,6 @@
         MaxWidth = MaxWidth.Large
     };
 
-    // Clase para agrupar transacciones
     public class TransactionGroup
     {
         public DateTime Date { get; set; }
@@ -435,6 +448,7 @@
     private async Task LoadTransactionsAsync()
     {
         _loading = true;
+        _selectedTransactionIds.Clear();
         StateHasChanged();
 
         try
@@ -507,14 +521,98 @@
         GroupTransactions();
     }
 
-    private int GetStartRow()
+    // Selection methods
+    private bool IsGroupSelected(TransactionGroup group)
     {
-        return (_currentPage - 1) * _rowsPerPage + 1;
+        return group.Transactions.All(t => _selectedTransactionIds.Contains(t.Id));
     }
 
-    private int GetEndRow()
+    private void ToggleGroupSelection(TransactionGroup group, bool selected)
     {
-        return Math.Min(_currentPage * _rowsPerPage, _totalTransactions);
+        if (selected)
+        {
+            foreach (var transaction in group.Transactions)
+            {
+                _selectedTransactionIds.Add(transaction.Id);
+            }
+        }
+        else
+        {
+            foreach (var transaction in group.Transactions)
+            {
+                _selectedTransactionIds.Remove(transaction.Id);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void ToggleTransactionSelection(int transactionId, bool selected)
+    {
+        if (selected)
+        {
+            _selectedTransactionIds.Add(transactionId);
+        }
+        else
+        {
+            _selectedTransactionIds.Remove(transactionId);
+        }
+        StateHasChanged();
+    }
+
+    private void ClearSelection()
+    {
+        _selectedTransactionIds.Clear();
+        StateHasChanged();
+    }
+
+    private async Task DeleteSelectedTransactions()
+    {
+        if (_selectedTransactionIds.Count == 0) return;
+
+        bool confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Delete Transactions",
+            $"Are you sure you want to delete {_selectedTransactionIds.Count} transaction(s)? This action cannot be undone.",
+            "Delete",
+            Color.Error
+        );
+
+        if (confirmed)
+        {
+            try
+            {
+                int successCount = 0;
+                int failCount = 0;
+
+                foreach (var transactionId in _selectedTransactionIds.ToList())
+                {
+                    var result = await TransactionService.DeleteAsync(transactionId);
+                    if (result.Success)
+                    {
+                        successCount++;
+                    }
+                    else
+                    {
+                        failCount++;
+                    }
+                }
+
+                if (successCount > 0)
+                {
+                    Snackbar.Add($"{successCount} transaction(s) deleted successfully", Severity.Success);
+                    _selectedTransactionIds.Clear();
+                    await LoadTransactionsAsync();
+                }
+
+                if (failCount > 0)
+                {
+                    Snackbar.Add($"Failed to delete {failCount} transaction(s)", Severity.Warning);
+                }
+            }
+            catch (Exception)
+            {
+                Snackbar.Add("Error deleting transactions", Severity.Error);
+            }
+        }
     }
 
     private string FormatCurrency(decimal amount)
