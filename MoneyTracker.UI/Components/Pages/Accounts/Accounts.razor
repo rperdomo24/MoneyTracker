@@ -8,6 +8,7 @@
 @inject IAccountService AccountService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Accounts - Money Tracker</PageTitle>
 
@@ -197,10 +198,9 @@
         }
     }
 
-    private async Task ViewAccount(int id)
+    private void ViewAccount(int id)
     {
-        var parameters = new DialogParameters { ["AccountId"] = id };
-        await DialogService.ShowAsync<ViewAccountDialog>("Account Details", parameters, _dialogOptions);
+        NavigationManager.NavigateTo($"/accounts/{id}");
     }
 
     private async Task OpenEditDialog(int id)
