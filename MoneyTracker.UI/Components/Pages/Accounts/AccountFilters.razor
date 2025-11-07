@@ -1,0 +1,302 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Helpers
+@inject ICategoryService CategoryService
+
+<MudDrawer @bind-Open="@IsOpen"
+           Anchor="Anchor.Right"
+           Elevation="2"
+           Variant="@DrawerVariant.Temporary"
+           Width="400px">
+
+    <MudDrawerHeader>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           OnClick="Close"
+                           Size="Size.Small" />
+            <MudIcon Icon="@Icons.Material.Filled.FilterList" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Filters</MudText>
+        </MudStack>
+    </MudDrawerHeader>
+
+    <MudDrawerContainer Class="pa-4">
+        @if (_loadingCategories)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-4">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                <MudText Typo="Typo.caption">Loading filters...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+
+                <!-- Search -->
+                <MudTextField Label="Search Transactions"
+                              @bind-Value="_tempFilter.SearchText"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Placeholder="Search by description..."
+                              Clearable="true"
+                              Immediate="true" />
+
+                <!-- Period -->
+                <MudSelect T="TimePeriodFilter"
+                           Label="Time Period"
+                           @bind-Value="_tempFilter.TimePeriod"
+                           Variant="Variant.Outlined"
+                           AnchorOrigin="Origin.BottomCenter">
+                    <MudSelectItem Value="TimePeriodFilter.Last7Days">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
+                            <MudText>Last 7 Days</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last30Days">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
+                            <MudText>Last 30 Days</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last90Days">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
+                            <MudText>Last 90 Days</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.ThisMonth">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Today" Size="Size.Small" />
+                            <MudText>This Month</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.LastMonth">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" />
+                            <MudText>Last Month</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.ThisYear">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Small" />
+                            <MudText>This Year</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.AllTime">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.AllInclusive" Size="Size.Small" />
+                            <MudText>All Time</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                </MudSelect>
+
+                <!-- Transaction Type -->
+                <MudSelect T="CategoryTypeEnum?"
+                           Label="Transaction Type"
+                           @bind-Value="_tempFilter.Type"
+                           Variant="Variant.Outlined"
+                           Clearable="true"
+                           AnchorOrigin="Origin.BottomCenter">
+                    <MudSelectItem Value="@((CategoryTypeEnum?)null)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
+                            <MudText>All Types</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Income)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
+                                     Size="Size.Small"
+                                     Color="Color.Success" />
+                            <MudText>Income</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Expense)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown"
+                                     Size="Size.Small"
+                                     Color="Color.Error" />
+                            <MudText>Expense</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                </MudSelect>
+
+                <!-- Category -->
+                <MudSelect T="int?"
+                           Label="Category"
+                           @bind-Value="_tempFilter.CategoryId"
+                           Variant="Variant.Outlined"
+                           Clearable="true"
+                           AnchorOrigin="Origin.BottomCenter">
+                    <MudSelectItem Value="@((int?)null)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
+                            <MudText>All Categories</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    @if (_categories?.Any() == true)
+                    {
+                        @foreach (var category in _categories.OrderBy(c => c.Name))
+                        {
+                            <MudSelectItem Value="@((int?)category.Id)">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Small"
+                                               Style="@($"background-color: {category.Color}; width: 24px; height: 24px;")">
+                                        <MudIcon Icon="@category.Icon.ToIcon()"
+                                                 Color="Color.Surface"
+                                                 Size="Size.Small" />
+                                    </MudAvatar>
+                                    <MudText>@category.Name</MudText>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+
+                <!-- Active Filters Summary -->
+                @if (HasActiveFilters())
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        <MudText Typo="Typo.caption" Class="font-weight-bold">
+                            @GetActiveFiltersCount() active filter(s)
+                        </MudText>
+                    </MudAlert>
+                }
+            </MudStack>
+        }
+    </MudDrawerContainer>
+
+    <!-- Actions -->
+    <div Class="pa-4" Style="border-top: 1px solid var(--mud-palette-divider);">
+        <MudStack Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Check"
+                       OnClick="ApplyFilters">
+                Apply Filters
+            </MudButton>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearFilters"
+                       Disabled="@(!HasActiveFilters())">
+                Clear All
+            </MudButton>
+        </MudStack>
+    </div>
+</MudDrawer>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public int AccountId { get; set; }
+    [Parameter] public TransactionFilterDto Filter { get; set; } = new();
+    [Parameter] public EventCallback<TransactionFilterDto> OnFiltersApplied { get; set; }
+
+    private TransactionFilterDto _tempFilter = new();
+    private List<CategoryDto>? _categories;
+    private bool _loadingCategories = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+        InitializeFilter();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && _tempFilter != Filter)
+        {
+            InitializeFilter();
+        }
+    }
+
+    private void InitializeFilter()
+    {
+        _tempFilter = new TransactionFilterDto
+        {
+            SearchText = Filter.SearchText,
+            TimePeriod = Filter.TimePeriod,
+            Type = Filter.Type,
+            CategoryId = Filter.CategoryId,
+            AccountIds = new List<int> { AccountId } // Always filter by current account
+        };
+    }
+
+    private async Task LoadCategories()
+    {
+        _loadingCategories = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await CategoryService.GetAllAsync();
+            if (result.Success && result.Data != null)
+            {
+                _categories = result.Data.ToList();
+            }
+        }
+        catch (Exception)
+        {
+            // Silent fail - categories are optional
+            _categories = new List<CategoryDto>();
+        }
+        finally
+        {
+            _loadingCategories = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        // Ensure AccountId is always set
+        _tempFilter.AccountIds = new List<int> { AccountId };
+
+        await OnFiltersApplied.InvokeAsync(_tempFilter);
+        await Close();
+    }
+
+    private async Task ClearFilters()
+    {
+        _tempFilter = new TransactionFilterDto
+        {
+            TimePeriod = TimePeriodFilter.Last30Days,
+            AccountIds = new List<int> { AccountId }
+        };
+
+        await ApplyFilters();
+    }
+
+    private bool HasActiveFilters()
+    {
+        return _tempFilter.TimePeriod != TimePeriodFilter.Last30Days ||
+               !string.IsNullOrWhiteSpace(_tempFilter.SearchText) ||
+               _tempFilter.Type.HasValue ||
+               _tempFilter.CategoryId.HasValue;
+    }
+
+    private int GetActiveFiltersCount()
+    {
+        int count = 0;
+
+        if (_tempFilter.TimePeriod != TimePeriodFilter.Last30Days) count++;
+        if (!string.IsNullOrWhiteSpace(_tempFilter.SearchText)) count++;
+        if (_tempFilter.Type.HasValue) count++;
+        if (_tempFilter.CategoryId.HasValue) count++;
+
+        return count;
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}
