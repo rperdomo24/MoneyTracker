@@ -1,7 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Transactions;
-using MoneyTracker.Application.Validators.Transaction;
 
 namespace MoneyTracker.Application.Interfaces
 {

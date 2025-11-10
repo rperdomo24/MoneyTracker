@@ -1,4 +1,4 @@
-﻿namespace MoneyTracker.Application.Validators.Transaction
+﻿namespace MoneyTracker.Application.DTOs.Transactions
 {
     public class UpdateTransferDto
     {

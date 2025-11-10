@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.Domain.Const
 
 @if (IsTransferPair(Transaction))
 {
@@ -56,17 +57,11 @@ else
 
     private TransactionDto GetFromTransaction()
     {
-        if (Transaction.IsExpense())
-            return Transaction;
-
-        return PairedTransaction ?? Transaction;
+        return Transaction;
     }
 
     private TransactionDto GetToTransaction()
     {
-        if (Transaction.IsIncome())
-            return Transaction;
-
-        return PairedTransaction ?? Transaction;
+        return PairedTransaction!;
     }
 }

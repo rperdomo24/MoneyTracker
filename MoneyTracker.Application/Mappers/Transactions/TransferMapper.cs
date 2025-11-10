@@ -1,6 +1,5 @@
 ﻿using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
-using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Transaction;
 

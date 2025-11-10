@@ -8,7 +8,6 @@ using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
 using MoneyTracker.Application.Mappers.Transactions;
-using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;

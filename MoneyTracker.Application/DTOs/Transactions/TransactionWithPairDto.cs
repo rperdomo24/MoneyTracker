@@ -1,7 +1,6 @@
-﻿using MoneyTracker.Application.DTOs.Transactions;
-using MoneyTracker.Domain.Enums.Transaction;
+﻿using MoneyTracker.Domain.Enums.Transaction;
 
-namespace MoneyTracker.Application.Validators.Transaction
+namespace MoneyTracker.Application.DTOs.Transactions
 {
     public class TransactionWithPairDto
     {
