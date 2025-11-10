@@ -152,15 +152,19 @@
             if (result.Success && result.Data != null)
             {
                 _transactionSummary = result.Data;
+
+                // APLICAR FILTRO DE DISPLAY PARA TRANSFERS
+                _transactionSummary.Transactions = TransactionGroupingHelper
+                    .FilterForDisplay(_transactionSummary.Transactions, _filterDto);
+
+                UpdateFilterStates();
+                GroupTransactions();
             }
             else
             {
                 Snackbar.Add(result.Message ?? "Error loading transactions", Severity.Error);
                 _transactionSummary = new TransactionSummaryDto();
             }
-
-            UpdateFilterStates();
-            GroupTransactions();
         }
         catch (Exception ex)
         {
@@ -184,14 +188,34 @@
             return;
         }
 
+        // USAR HELPER PROFESIONAL
         var (groups, totalPages, totalCount) = TransactionGroupingHelper.GroupAndPaginateTransactions(
-            _transactionSummary.Transactions,
-            _currentPage,
-            _rowsPerPage);
+            _transactionSummary.Transactions, _currentPage, _rowsPerPage);
 
         _groupedTransactions = groups;
         _totalPages = totalPages;
         _totalTransactions = totalCount;
+    }
+
+    private async Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
+    {
+        _selectedTransactionIds = selectedIds;
+        StateHasChanged();
+    }
+
+    private async Task HandlePageChanged(int page)
+    {
+        _currentPage = page;
+        GroupTransactions();
+        StateHasChanged();
+    }
+
+    private async Task HandleRowsPerPageChanged(int newSize)
+    {
+        _rowsPerPage = newSize;
+        _currentPage = 1;
+        GroupTransactions();
+        StateHasChanged();
     }
 
     private void UpdateFilterStates()
@@ -482,24 +506,4 @@
         await LoadTransactionsAsync();
     }
 
-    private async Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
-    {
-        _selectedTransactionIds = selectedIds;
-        StateHasChanged();
-    }
-
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        GroupTransactions();
-        StateHasChanged();
-    }
-
-    private async Task HandleRowsPerPageChanged(int newSize)
-    {
-        _rowsPerPage = newSize;
-        _currentPage = 1;
-        GroupTransactions();
-        StateHasChanged();
-    }
 }

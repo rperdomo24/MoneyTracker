@@ -9,7 +9,6 @@ namespace MoneyTracker.UI.Components.Pages.Transactions
 {
     public partial class TransactionListBase
     {
-        // ========== PARAMETERS ==========
         [Parameter] public List<TransactionGroupDto> GroupedTransactions { get; set; } = new();
         [Parameter] public bool Loading { get; set; }
         [Parameter] public bool ShowAccounts { get; set; } = true;
@@ -43,10 +42,8 @@ namespace MoneyTracker.UI.Components.Pages.Transactions
         // ========== METHODS ==========
         private TransactionDto? GetPairedTransaction(TransactionDto transaction)
         {
-            if (!transaction.TransferPairId.HasValue || AllTransactions == null)
-                return null;
-
-            return AllTransactions.FirstOrDefault(t => t.Id == transaction.TransferPairId.Value);
+            // USAR HELPER PROFESIONAL
+            return TransactionGroupingHelper.GetPairedTransaction(transaction, AllTransactions ?? new());
         }
 
         private bool IsTransactionSelected(int transactionId)
@@ -114,6 +111,5 @@ namespace MoneyTracker.UI.Components.Pages.Transactions
             await OnRowsPerPageChanged.InvokeAsync(newSize);
         }
     }
-
 }
 

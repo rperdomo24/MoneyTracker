@@ -5,31 +5,32 @@
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Components.Shared.Selection
+@using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
 <!-- Transactions List Component -->
 <TransactionListBase GroupedTransactions="@_groupedTransactions"
-                 Loading="@_loading"
-                 ShowAccounts="false"
-                 HasActiveFilters="@_hasActiveFilters"
-                 EmptyStateMessage="Start by adding your first transaction for this account"
-                 TotalTransactions="@_totalTransactions"
-                 CurrentPage="@_currentPage"
-                 TotalPages="@_totalPages"
-                 RowsPerPage="@_rowsPerPage"
-                 PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })"
-                 SelectedTransactionIds="@_selectedTransactionIds"
-                 SelectedTransactionIdsChanged="@OnSelectedTransactionsChanged"
-                 AllTransactions="@_transactionSummary?.Transactions"
-                 OnEdit="EditTransaction"
-                 OnDuplicate="DuplicateTransaction"
-                 OnDelete="DeleteTransaction"
-                 OnClearFilters="OnClearFilters"
-                 OnDeleteSelected="DeleteSelectedTransactions"
-                 OnPageChanged="HandlePageChanged"
-                 OnRowsPerPageChanged="HandleRowsPerPageChanged" />
+                     Loading="@_loading"
+                     ShowAccounts="false"
+                     HasActiveFilters="@_hasActiveFilters"
+                     EmptyStateMessage="Start by adding your first transaction for this account"
+                     TotalTransactions="@_totalTransactions"
+                     CurrentPage="@_currentPage"
+                     TotalPages="@_totalPages"
+                     RowsPerPage="@_rowsPerPage"
+                     PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })"
+                     SelectedTransactionIds="@_selectedTransactionIds"
+                     SelectedTransactionIdsChanged="@OnSelectedTransactionsChanged"
+                     AllTransactions="@_transactionSummary?.Transactions"
+                     OnEdit="EditTransaction"
+                     OnDuplicate="DuplicateTransaction"
+                     OnDelete="DeleteTransaction"
+                     OnClearFilters="OnClearFilters"
+                     OnDeleteSelected="DeleteSelectedTransactions"
+                     OnPageChanged="HandlePageChanged"
+                     OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
 <SelectionActionBar SelectedCount="@_selectedTransactionIds.Count"
                     OnClearSelection="ClearSelection"
@@ -74,10 +75,15 @@
             }
 
             var result = await TransactionService.GetFilteredAsync(Filter);
-            
+
             if (result.Success && result.Data != null)
             {
                 _transactionSummary = result.Data;
+
+                // APLICAR FILTRO DE DISPLAY PARA TRANSFERS
+                _transactionSummary.Transactions = TransactionGroupingHelper
+                    .FilterForDisplay(_transactionSummary.Transactions, Filter);
+
                 _hasActiveFilters = HasActiveFilters(Filter);
                 GroupTransactions();
             }
@@ -101,24 +107,13 @@
             return;
         }
 
-        _totalTransactions = _transactionSummary.Transactions.Count;
-        _totalPages = (int)Math.Ceiling(_totalTransactions / (double)_rowsPerPage);
+        // USAR HELPER PROFESIONAL
+        var (groups, totalPages, totalCount) = TransactionGroupingHelper.GroupAndPaginateTransactions(
+            _transactionSummary.Transactions, _currentPage, _rowsPerPage);
 
-        var pagedTransactions = _transactionSummary.Transactions
-            .OrderByDescending(t => t.Date)
-            .Skip((_currentPage - 1) * _rowsPerPage)
-            .Take(_rowsPerPage)
-            .ToList();
-
-        _groupedTransactions = pagedTransactions
-            .GroupBy(t => t.Date.Date)
-            .OrderByDescending(g => g.Key)
-            .Select(g => new TransactionGroupDto
-            {
-                Date = g.Key,
-                Transactions = g.OrderByDescending(t => t.Date).ToList()
-            })
-            .ToList();
+        _groupedTransactions = groups;
+        _totalPages = totalPages;
+        _totalTransactions = totalCount;
     }
 
     private async Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
@@ -149,10 +144,11 @@
         try
         {
             var result = await TransactionService.DuplicateTransactionAsync(tx.Id);
-            if (result.Success) { 
-                Snackbar.Add("Transaction duplicated", Severity.Success); 
-                await LoadTransactions(); 
-                await OnTransactionChanged.InvokeAsync(); 
+            if (result.Success)
+            {
+                Snackbar.Add("Transaction duplicated", Severity.Success);
+                await LoadTransactions();
+                await OnTransactionChanged.InvokeAsync();
             }
             else Snackbar.Add("Error duplicating", Severity.Error);
         }
@@ -162,24 +158,25 @@
     private async Task DeleteTransaction(TransactionDto tx)
     {
         var isTransfer = tx.TransferPairId.HasValue;
-        var message = isTransfer ? 
-            "Delete this transfer? This will delete both transactions." : 
+        var message = isTransfer ?
+            "Delete this transfer? This will delete both transactions." :
             $"Delete '{tx.Name}'?";
-        
+
         bool confirmed = await DialogService.ShowMessageBox(
-            $"Delete {(isTransfer ? "Transfer" : "Transaction")}", 
+            $"Delete {(isTransfer ? "Transfer" : "Transaction")}",
             message, yesText: "Delete", cancelText: "Cancel") ?? false;
-        
+
         if (confirmed)
         {
-            var result = isTransfer ? 
-                await TransactionService.DeleteTransferAsync(tx.Id) : 
+            var result = isTransfer ?
+                await TransactionService.DeleteTransferAsync(tx.Id) :
                 await TransactionService.DeleteAsync(tx.Id);
-            
-            if (result.Success) { 
-                Snackbar.Add("Deleted", Severity.Success); 
-                await LoadTransactions(); 
-                await OnTransactionChanged.InvokeAsync(); 
+
+            if (result.Success)
+            {
+                Snackbar.Add("Deleted", Severity.Success);
+                await LoadTransactions();
+                await OnTransactionChanged.InvokeAsync();
             }
             else Snackbar.Add("Error deleting", Severity.Error);
         }
@@ -188,12 +185,12 @@
     private async Task DeleteSelectedTransactions()
     {
         if (_selectedTransactionIds.Count == 0) return;
-        
+
         bool confirmed = await DialogService.ShowMessageBox(
-            "Delete Transactions", 
-            $"Delete {_selectedTransactionIds.Count} transaction(s)?", 
+            "Delete Transactions",
+            $"Delete {_selectedTransactionIds.Count} transaction(s)?",
             yesText: "Delete", cancelText: "Cancel") ?? false;
-        
+
         if (confirmed)
         {
             int successCount = 0;
@@ -201,28 +198,30 @@
             {
                 var tx = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == id);
                 if (tx == null) continue;
-                
-                var result = tx.TransferPairId.HasValue ? 
-                    await TransactionService.DeleteTransferAsync(id) : 
+
+                var result = tx.TransferPairId.HasValue ?
+                    await TransactionService.DeleteTransferAsync(id) :
                     await TransactionService.DeleteAsync(id);
-                
+
                 if (result.Success) successCount++;
             }
-            
-            if (successCount > 0) { 
-                Snackbar.Add($"{successCount} deleted", Severity.Success); 
-                _selectedTransactionIds.Clear(); 
-                await LoadTransactions(); 
-                await OnTransactionChanged.InvokeAsync(); 
+
+            if (successCount > 0)
+            {
+                Snackbar.Add($"{successCount} deleted", Severity.Success);
+                _selectedTransactionIds.Clear();
+                await LoadTransactions();
+                await OnTransactionChanged.InvokeAsync();
             }
         }
     }
 
     private void ClearSelection() { _selectedTransactionIds.Clear(); StateHasChanged(); }
 
-    private async Task OnTransactionUpdatedHandler() { 
-        await LoadTransactions(); 
-        await OnTransactionChanged.InvokeAsync(); 
+    private async Task OnTransactionUpdatedHandler()
+    {
+        await LoadTransactions();
+        await OnTransactionChanged.InvokeAsync();
     }
 
     private bool HasActiveFilters(TransactionFilterDto filter)
@@ -232,4 +231,5 @@
                filter.CategoryId.HasValue ||
                filter.Type.HasValue;
     }
+
 }
