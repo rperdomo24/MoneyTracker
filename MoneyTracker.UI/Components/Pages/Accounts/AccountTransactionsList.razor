@@ -1,172 +1,43 @@
-﻿@using MoneyTracker.Application.Common
-@using MoneyTracker.Application.Common.Extensions
-@using MoneyTracker.Application.DTOs
+﻿@* Components/Pages/Accounts/AccountTransactionList.razor *@
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Pages.Transactions
-@using MoneyTracker.UI.Components.Shared.Cards
-@using MoneyTracker.UI.Components.Shared.DataDisplay
+@using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Components.Shared.Selection
-@using MoneyTracker.UI.Helpers
 @inject ITransactionService TransactionService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudPaper Elevation="2">
-    @if (_loading)
-    {
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
-            <MudText Class="mt-4">Loading transactions...</MudText>
-        </MudStack>
-    }
-    else if (_groupedTransactions?.Any() == true)
-    {
-        <!-- Toolbar Simple -->
-        <MudStack Row="true"
-                  Justify="Justify.SpaceBetween"
-                  AlignItems="AlignItems.Center"
-                  Class="px-4 py-2"
-                  Style="border-bottom: 1px solid var(--mud-palette-divider);">
-            <MudText Typo="Typo.subtitle1">
-                Transactions (@_totalTransactions)
-            </MudText>
+<!-- Transactions List Component -->
+<TransactionListBase GroupedTransactions="@_groupedTransactions"
+                 Loading="@_loading"
+                 ShowAccounts="false"
+                 HasActiveFilters="@_hasActiveFilters"
+                 EmptyStateMessage="Start by adding your first transaction for this account"
+                 TotalTransactions="@_totalTransactions"
+                 CurrentPage="@_currentPage"
+                 TotalPages="@_totalPages"
+                 RowsPerPage="@_rowsPerPage"
+                 PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })"
+                 SelectedTransactionIds="@_selectedTransactionIds"
+                 SelectedTransactionIdsChanged="@OnSelectedTransactionsChanged"
+                 AllTransactions="@_transactionSummary?.Transactions"
+                 OnEdit="EditTransaction"
+                 OnDuplicate="DuplicateTransaction"
+                 OnDelete="DeleteTransaction"
+                 OnClearFilters="OnClearFilters"
+                 OnDeleteSelected="DeleteSelectedTransactions"
+                 OnPageChanged="HandlePageChanged"
+                 OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
-            @if (_hasActiveFilters)
-            {
-                <MudChip T="string"
-                         Size="Size.Small"
-                         Color="Color.Primary"
-                         Variant="Variant.Text">
-                    Filtered
-                </MudChip>
-            }
-        </MudStack>
-
-        <!-- Expansion Panels -->
-        <MudExpansionPanels MultiExpansion="true"
-                            Elevation="0"
-                            Square="true">
-            @foreach (var group in _groupedTransactions)
-            {
-                <MudExpansionPanel Expanded="true">
-                    <TitleContent>
-                        <MudStack Row="true"
-                                  Justify="Justify.SpaceBetween"
-                                  AlignItems="AlignItems.Center"
-                                  Style="width: 100%;">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                <MudCheckBox T="bool"
-                                             Dense="true"
-                                             Size="Size.Small"
-                                             Value="@IsGroupSelected(group)"
-                                             ValueChanged="@(value => ToggleGroupSelection(group, value))"
-                                             @onclick:stopPropagation="true" />
-
-                                <MudIcon Icon="@Icons.Material.Filled.CalendarToday"
-                                         Size="Size.Small"
-                                         Color="Color.Default"
-                                         Style="opacity: 0.6;" />
-
-                                <MudText Typo="Typo.body2" Color="Color.Default" Style="font-weight: 500; opacity: 0.7;">
-                                    @group.DateDisplay
-                                </MudText>
-
-                                <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.5;">
-                                    · @group.Count transactions
-                                </MudText>
-                            </MudStack>
-
-                            <MudText Typo="Typo.body2"
-                                     Color="@GetGroupTotalColor(group.Total)"
-                                     Style="font-weight: 500; opacity: 0.7;">
-                                @FormatCurrency(group.Total)
-                            </MudText>
-                        </MudStack>
-                    </TitleContent>
-
-                    <ChildContent>
-                        <div class="pa-2">
-                            @foreach (var transaction in group.Transactions)
-                            {
-                                @* ========== USAR TransactionCardGroup ========== *@
-                                <TransactionCardGroup Transaction="@transaction"
-                                                      PairedTransaction="@GetPairedTransaction(transaction)"
-                                                      ShowAccounts="true"
-                                                      ShowActions="true"
-                                                      ShowCheckbox="true"
-                                                      IsSelected="@_selectedTransactionIds.Contains(transaction.Id)"
-                                                      OnSelectionChanged="@(value => ToggleTransactionSelection(transaction.Id, value))"
-                                                      IsDuplicating="@(_isDuplicating && _contextMenuTransactionId == transaction.Id)"
-                                                      OnCardClick="@EditTransactionFromCard"
-                                                      OnEdit="@EditTransactionFromCard"
-                                                      OnDuplicate="@DuplicateTransactionFromCard"
-                                                      OnDelete="@DeleteTransactionFromCard" />
-                            }
-                        </div>
-                    </ChildContent>
-                </MudExpansionPanel>
-            }
-        </MudExpansionPanels>
-
-        <!-- Paginación Reutilizable -->
-        <PaginationWithPageSize CurrentPage="@_currentPage"
-                                TotalPages="@_totalPages"
-                                TotalItems="@_totalTransactions"
-                                @bind-PageSize="_rowsPerPage"
-                                @bind-PageSize:after="OnRowsPerPageChanged"
-                                OnPageChanged="OnPageChanged"
-                                ItemName="transactions"
-                                PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })" />
-    }
-    else
-    {
-        <!-- Empty State -->
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
-            @if (_hasActiveFilters)
-            {
-                <MudIcon Icon="@Icons.Material.Filled.SearchOff"
-                         Size="Size.Large"
-                         Color="Color.Default"
-                         Style="font-size: 4rem; opacity: 0.3;"
-                         Class="mb-4" />
-                <MudText Typo="Typo.h6" Class="mb-2">No transactions found</MudText>
-                <MudText Typo="Typo.body1" Color="Color.Default" Class="mb-4" Style="opacity: 0.7;">
-                    No transactions match your current filters.
-                </MudText>
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Primary"
-                           OnClick="@(() => OnClearFilters.InvokeAsync())">
-                    Clear Filters
-                </MudButton>
-            }
-            else
-            {
-                <MudIcon Icon="@Icons.Material.Filled.Receipt"
-                         Size="Size.Large"
-                         Color="Color.Default"
-                         Style="font-size: 4rem; opacity: 0.3;"
-                         Class="mb-4" />
-                <MudText Typo="Typo.h6" Class="mb-2">No transactions yet</MudText>
-                <MudText Typo="Typo.body1" Color="Color.Default" Style="opacity: 0.7;">
-                    Start by adding your first transaction for this account
-                </MudText>
-            }
-        </MudStack>
-    }
-</MudPaper>
-
-<!-- Selection Action Bar -->
-<SelectionActionBar SelectedCount="@SelectedCount"
+<SelectionActionBar SelectedCount="@_selectedTransactionIds.Count"
                     OnClearSelection="ClearSelection"
                     OnDeleteSelected="DeleteSelectedTransactions" />
 
-@* ========== UpdateTransactionDrawer ========== *@
 <UpdateTransactionDrawer @bind-IsOpen="_drawerOpen"
                          TransactionId="@_selectedTransactionId"
-                         OnTransactionUpdated="OnTransactionChanged" />
+                         OnTransactionUpdated="OnTransactionUpdatedHandler" />
 
 @code {
     [Parameter] public int AccountId { get; set; }
@@ -176,50 +47,18 @@
 
     private bool _loading = true;
     private bool _hasActiveFilters = false;
-    private List<TransactionGroup> _groupedTransactions = new();
+    private List<TransactionGroupDto> _groupedTransactions = new();
     private int _currentPage = 1;
     private int _totalPages = 1;
     private int _rowsPerPage = 10;
     private int _totalTransactions = 0;
     private TransactionSummaryDto? _transactionSummary;
-
-    // Selection state
     private HashSet<int> _selectedTransactionIds = new();
-    private int SelectedCount => _selectedTransactionIds.Count;
-
-    // Drawer state
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
 
-    // Duplicate state
-    private int _contextMenuTransactionId = 0;
-    private bool _isDuplicating = false;
-
-    private readonly DialogOptions _dialogOptions = new()
-    {
-        CloseButton = true,
-        FullWidth = true,
-        MaxWidth = MaxWidth.Large
-    };
-
-    public class TransactionGroup
-    {
-        public DateTime Date { get; set; }
-        public string DateDisplay => Date.ToString("MMMM dd, yyyy");
-        public List<TransactionDto> Transactions { get; set; } = new();
-        public int Count => Transactions.Count;
-        public decimal Total => Transactions.Sum(t => t.IsIncome() ? t.Amount : -t.Amount);
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadTransactions();
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        await LoadTransactions();
-    }
+    protected override async Task OnInitializedAsync() => await LoadTransactions();
+    protected override async Task OnParametersSetAsync() => await LoadTransactions();
 
     private async Task LoadTransactions()
     {
@@ -229,16 +68,17 @@
 
         try
         {
-            if (Filter.AccountIds?.Contains(AccountId) != true)
+            if (AccountId > 0)
             {
                 Filter.AccountIds = new List<int> { AccountId };
             }
 
             var result = await TransactionService.GetFilteredAsync(Filter);
+            
             if (result.Success && result.Data != null)
             {
                 _transactionSummary = result.Data;
-                _hasActiveFilters = HasActiveFilters();
+                _hasActiveFilters = HasActiveFilters(Filter);
                 GroupTransactions();
             }
             else
@@ -247,22 +87,13 @@
                 _groupedTransactions = new();
             }
         }
-        catch (Exception)
-        {
-            Snackbar.Add("Error loading transactions", Severity.Error);
-            _transactionSummary = new TransactionSummaryDto();
-            _groupedTransactions = new();
-        }
-        finally
-        {
-            _loading = false;
-            StateHasChanged();
-        }
+        catch { Snackbar.Add("Error loading transactions", Severity.Error); }
+        finally { _loading = false; StateHasChanged(); }
     }
 
     private void GroupTransactions()
     {
-        if (_transactionSummary?.Transactions?.Any() != true)
+        if (_transactionSummary?.Transactions == null)
         {
             _groupedTransactions = new();
             _totalPages = 1;
@@ -282,7 +113,7 @@
         _groupedTransactions = pagedTransactions
             .GroupBy(t => t.Date.Date)
             .OrderByDescending(g => g.Key)
-            .Select(g => new TransactionGroup
+            .Select(g => new TransactionGroupDto
             {
                 Date = g.Key,
                 Transactions = g.OrderByDescending(t => t.Date).ToList()
@@ -290,249 +121,115 @@
             .ToList();
     }
 
-    private void OnPageChanged(int page)
+    private async Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
+    {
+        _selectedTransactionIds = selectedIds;
+        StateHasChanged();
+    }
+
+    private async Task HandlePageChanged(int page)
     {
         _currentPage = page;
         GroupTransactions();
+        StateHasChanged();
     }
 
-    private void OnRowsPerPageChanged()
+    private async Task HandleRowsPerPageChanged(int newSize)
     {
+        _rowsPerPage = newSize;
         _currentPage = 1;
         GroupTransactions();
-    }
-
-    // ✅ GetPairedTransaction
-    private TransactionDto? GetPairedTransaction(TransactionDto transaction)
-    {
-        if (!transaction.TransferPairId.HasValue)
-            return null;
-
-        return _transactionSummary?.Transactions?
-            .FirstOrDefault(t => t.Id == transaction.TransferPairId.Value);
-    }
-
-    // ✅ NUEVO: EditTransactionFromCard
-    private void EditTransactionFromCard(TransactionDto transaction)
-    {
-        _selectedTransactionId = transaction.Id;
-        _drawerOpen = true;
-    }
-
-    // ✅ NUEVO: DuplicateTransactionFromCard
-    private async Task DuplicateTransactionFromCard(TransactionDto transaction)
-    {
-        if (_isDuplicating) return;
-
-        _isDuplicating = true;
-        _contextMenuTransactionId = transaction.Id;
         StateHasChanged();
+    }
 
+    private void EditTransaction(TransactionDto tx) { _selectedTransactionId = tx.Id; _drawerOpen = true; }
+
+    private async Task DuplicateTransaction(TransactionDto tx)
+    {
         try
         {
-            var result = await TransactionService.DuplicateTransactionAsync(transaction.Id);
-
-            if (result.Success)
-            {
-                Snackbar.Add(result.Message ?? "Transaction duplicated successfully", Severity.Success);
-                await LoadTransactions();
-                await OnTransactionChanged.InvokeAsync();
+            var result = await TransactionService.DuplicateTransactionAsync(tx.Id);
+            if (result.Success) { 
+                Snackbar.Add("Transaction duplicated", Severity.Success); 
+                await LoadTransactions(); 
+                await OnTransactionChanged.InvokeAsync(); 
             }
-            else
-            {
-                Snackbar.Add(result.Message ?? "Error duplicating transaction", Severity.Error);
-            }
+            else Snackbar.Add("Error duplicating", Severity.Error);
         }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _isDuplicating = false;
-            _contextMenuTransactionId = 0;
-            StateHasChanged();
-        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", Severity.Error); }
     }
 
-    // ✅ NUEVO: DeleteTransactionFromCard
-    private async Task DeleteTransactionFromCard(TransactionDto transaction)
+    private async Task DeleteTransaction(TransactionDto tx)
     {
-        var isTransfer = transaction.IsTransfer();
-
-        var message = isTransfer
-            ? "Are you sure you want to delete this transfer? This will delete both the outgoing and incoming transactions. This action cannot be undone."
-            : $"Are you sure you want to delete '{transaction.Name}'? This action cannot be undone.";
-
+        var isTransfer = tx.TransferPairId.HasValue;
+        var message = isTransfer ? 
+            "Delete this transfer? This will delete both transactions." : 
+            $"Delete '{tx.Name}'?";
+        
         bool confirmed = await DialogService.ShowMessageBox(
-            $"Delete {(isTransfer ? "Transfer" : "Transaction")}",
-            message,
-            yesText: "Delete",
-            cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true }) ?? false;
-
+            $"Delete {(isTransfer ? "Transfer" : "Transaction")}", 
+            message, yesText: "Delete", cancelText: "Cancel") ?? false;
+        
         if (confirmed)
         {
-            try
-            {
-                OperationResult<bool> result;
-
-                if (isTransfer)
-                {
-                    result = await TransactionService.DeleteTransferAsync(transaction.Id);
-                }
-                else
-                {
-                    result = await TransactionService.DeleteAsync(transaction.Id);
-                }
-
-                if (result.Success)
-                {
-                    Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
-                    await LoadTransactions();
-                    await OnTransactionChanged.InvokeAsync();
-                }
-                else
-                {
-                    Snackbar.Add(result.Message ?? "Error deleting", Severity.Error);
-                }
+            var result = isTransfer ? 
+                await TransactionService.DeleteTransferAsync(tx.Id) : 
+                await TransactionService.DeleteAsync(tx.Id);
+            
+            if (result.Success) { 
+                Snackbar.Add("Deleted", Severity.Success); 
+                await LoadTransactions(); 
+                await OnTransactionChanged.InvokeAsync(); 
             }
-            catch (Exception ex)
-            {
-                Snackbar.Add($"Error: {ex.Message}", Severity.Error);
-            }
+            else Snackbar.Add("Error deleting", Severity.Error);
         }
-    }
-
-    // Selection methods
-    private bool IsGroupSelected(TransactionGroup group)
-    {
-        return group.Transactions.All(t => _selectedTransactionIds.Contains(t.Id));
-    }
-
-    private void ToggleGroupSelection(TransactionGroup group, bool selected)
-    {
-        if (selected)
-        {
-            foreach (var transaction in group.Transactions)
-            {
-                _selectedTransactionIds.Add(transaction.Id);
-            }
-        }
-        else
-        {
-            foreach (var transaction in group.Transactions)
-            {
-                _selectedTransactionIds.Remove(transaction.Id);
-            }
-        }
-        StateHasChanged();
-    }
-
-    private void ToggleTransactionSelection(int transactionId, bool selected)
-    {
-        if (selected)
-        {
-            _selectedTransactionIds.Add(transactionId);
-        }
-        else
-        {
-            _selectedTransactionIds.Remove(transactionId);
-        }
-        StateHasChanged();
-    }
-
-    private void ClearSelection()
-    {
-        _selectedTransactionIds.Clear();
-        StateHasChanged();
     }
 
     private async Task DeleteSelectedTransactions()
     {
         if (_selectedTransactionIds.Count == 0) return;
-
+        
         bool confirmed = await DialogService.ShowMessageBox(
-            "Delete Transactions",
-            $"Are you sure you want to delete {_selectedTransactionIds.Count} transaction(s)? This action cannot be undone.",
-            yesText: "Delete",
-            cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true }) ?? false;
-
+            "Delete Transactions", 
+            $"Delete {_selectedTransactionIds.Count} transaction(s)?", 
+            yesText: "Delete", cancelText: "Cancel") ?? false;
+        
         if (confirmed)
         {
-            try
+            int successCount = 0;
+            foreach (var id in _selectedTransactionIds.ToList())
             {
-                int successCount = 0;
-                int failCount = 0;
-
-                foreach (var transactionId in _selectedTransactionIds.ToList())
-                {
-                    var transaction = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == transactionId);
-                    if (transaction == null) continue;
-
-                    OperationResult<bool> result;
-
-                    // ✅ Detectar si es transfer y usar método correcto
-                    if (transaction.IsTransfer())
-                    {
-                        result = await TransactionService.DeleteTransferAsync(transactionId);
-                    }
-                    else
-                    {
-                        result = await TransactionService.DeleteAsync(transactionId);
-                    }
-
-                    if (result.Success)
-                    {
-                        successCount++;
-                    }
-                    else
-                    {
-                        failCount++;
-                    }
-                }
-
-                if (successCount > 0)
-                {
-                    Snackbar.Add($"{successCount} transaction(s) deleted successfully", Severity.Success);
-                    _selectedTransactionIds.Clear();
-                    await LoadTransactions();
-                    await OnTransactionChanged.InvokeAsync();
-                }
-
-                if (failCount > 0)
-                {
-                    Snackbar.Add($"Failed to delete {failCount} transaction(s)", Severity.Warning);
-                }
+                var tx = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == id);
+                if (tx == null) continue;
+                
+                var result = tx.TransferPairId.HasValue ? 
+                    await TransactionService.DeleteTransferAsync(id) : 
+                    await TransactionService.DeleteAsync(id);
+                
+                if (result.Success) successCount++;
             }
-            catch (Exception)
-            {
-                Snackbar.Add("Error deleting transactions", Severity.Error);
+            
+            if (successCount > 0) { 
+                Snackbar.Add($"{successCount} deleted", Severity.Success); 
+                _selectedTransactionIds.Clear(); 
+                await LoadTransactions(); 
+                await OnTransactionChanged.InvokeAsync(); 
             }
         }
     }
 
-    private bool HasActiveFilters()
-    {
-        return Filter.TimePeriod != Domain.Enums.Filters.TimePeriodFilter.Last30Days ||
-               !string.IsNullOrWhiteSpace(Filter.SearchText) ||
-               Filter.Type.HasValue ||
-               Filter.CategoryId.HasValue;
+    private void ClearSelection() { _selectedTransactionIds.Clear(); StateHasChanged(); }
+
+    private async Task OnTransactionUpdatedHandler() { 
+        await LoadTransactions(); 
+        await OnTransactionChanged.InvokeAsync(); 
     }
 
-    private string FormatCurrency(decimal amount)
+    private bool HasActiveFilters(TransactionFilterDto filter)
     {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
-
-    private Color GetGroupTotalColor(decimal total)
-    {
-        return total switch
-        {
-            > 0 => Color.Success,
-            < 0 => Color.Error,
-            _ => Color.Default
-        };
+        return !string.IsNullOrEmpty(filter.SearchText) ||
+               filter.AccountIds.Any() ||
+               filter.CategoryId.HasValue ||
+               filter.Type.HasValue;
     }
 }
