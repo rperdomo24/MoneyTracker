@@ -1306,7 +1306,7 @@
                 ["OnTransactionUpdated"] = EventCallback.Factory.Create(this, OnTransactionUpdated)
             };
 
-        await DialogService.ShowAsync<UpdateTransactionModal>("Edit Transaction", parameters, _dialogOptions);
+        // await DialogService.ShowAsync<UpdateTransactionModal>("Edit Transaction", parameters, _dialogOptions);
     }
 
     private async Task DuplicateTransaction()

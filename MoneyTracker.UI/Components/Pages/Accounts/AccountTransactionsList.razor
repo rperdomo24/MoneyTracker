@@ -1,9 +1,11 @@
-﻿@using MoneyTracker.Application.Common.Extensions
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.Common.Extensions
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Pages.Transactions
+@using MoneyTracker.UI.Components.Shared.Cards
 @using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Components.Shared.Selection
@@ -42,37 +44,6 @@
                 </MudChip>
             }
         </MudStack>
-
-        <!-- Table Header -->
-        <MudPaper Elevation="0"
-                  Class="px-4 py-1"
-                  Style="position: sticky; top: 0; z-index: 10; background-color: var(--mud-palette-surface); border-bottom: 1px solid var(--mud-palette-divider);">
-            <MudStack Row="true"
-                      AlignItems="AlignItems.Center"
-                      Justify="Justify.SpaceBetween">
-
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex: 3;">
-                    <div style="width: 40px;"></div>
-                    <div style="width: 40px;"></div>
-                    <MudText Typo="Typo.caption" Color="Color.Default" Style="font-weight: 400; font-size: 0.7rem; opacity: 0.5; text-transform: uppercase;">
-                        Transaction
-                    </MudText>
-                </MudStack>
-
-                <div Style="flex: 1;">
-                    <MudText Typo="Typo.caption" Color="Color.Default" Style="font-weight: 400; font-size: 0.7rem; opacity: 0.5; text-transform: uppercase;">
-                        Category
-                    </MudText>
-                </div>
-
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex: 1; justify-content: flex-end;">
-                    <MudText Typo="Typo.caption" Color="Color.Default" Style="font-weight: 400; font-size: 0.7rem; opacity: 0.5; text-transform: uppercase;">
-                        Amount
-                    </MudText>
-                    <div style="width: 40px;"></div>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
 
         <!-- Expansion Panels -->
         <MudExpansionPanels MultiExpansion="true"
@@ -117,127 +88,24 @@
                     </TitleContent>
 
                     <ChildContent>
-                        @foreach (var transaction in group.Transactions)
-                        {
-                            <MudPaper Elevation="0"
-                                      Class="px-4 py-3"
-                                      Style="border-bottom: 1px solid var(--mud-palette-divider);">
-                                <MudStack Row="true"
-                                          AlignItems="AlignItems.Center"
-                                          Justify="Justify.SpaceBetween">
-
-                                    @* LEFT: Checkbox + Avatar + Transaction Info *@
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex: 3;">
-                                        <MudCheckBox T="bool"
-                                                     Dense="true"
-                                                     Size="Size.Medium"
-                                                     Value="@_selectedTransactionIds.Contains(transaction.Id)"
-                                                     ValueChanged="@(value => ToggleTransactionSelection(transaction.Id, value))"
-                                                     @onclick:stopPropagation="true" />
-
-                                        <MudAvatar Size="Size.Medium"
-                                                   Style="@($"background-color: {transaction.GetTransactionColor()}; width: 40px; height: 40px;")">
-                                            <MudText Typo="Typo.body2" Class="font-weight-bold">
-                                                @transaction.Name.Substring(0, 1).ToUpper()
-                                            </MudText>
-                                        </MudAvatar>
-
-                                        <MudStack Spacing="0">
-                                            <MudLink Typo="Typo.body1"
-                                                     Class="font-weight-bold"
-                                                     Underline="Underline.Hover"
-                                                     OnClick="@(() => ViewTransaction(transaction.Id))"
-                                                     Style="cursor: pointer; line-height: 1.4; font-size: 0.95rem;">
-                                                @transaction.Name
-                                            </MudLink>
-
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                                @if (transaction.IsTransfer())
-                                                {
-                                                    <MudChip T="string"
-                                                             Size="Size.Small"
-                                                             Color="Color.Info"
-                                                             Variant="Variant.Outlined"
-                                                             Style="height: 20px; font-size: 0.7rem;">
-                                                        Transfer
-                                                    </MudChip>
-                                                }
-                                                else
-                                                {
-                                                    <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.7; font-size: 0.8rem;">
-                                                        @(transaction.IsIncome() ? "Income" : "Expense")
-                                                    </MudText>
-                                                }
-
-                                                <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.5;">
-                                                    @transaction.Date.ToString("MMM dd, yyyy")
-                                                </MudText>
-                                            </MudStack>
-                                        </MudStack>
-                                    </MudStack>
-
-                                    @* CENTER: Category *@
-                                    <div Style="flex: 1;">
-                                        @if (transaction.Category != null)
-                                        {
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                                <MudAvatar Size="Size.Small"
-                                                           Style="@($"background-color: {transaction.Category.Color}; width: 28px; height: 28px;")">
-                                                    <MudIcon Icon="@transaction.Category.Icon.ToIcon()"
-                                                             Color="Color.Surface"
-                                                             Size="Size.Small" />
-                                                </MudAvatar>
-                                                <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                                                    @transaction.Category.Name
-                                                </MudText>
-                                            </MudStack>
-                                        }
-                                        else
-                                        {
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                                <MudAvatar Size="Size.Small" Color="Color.Default" Style="width: 28px; height: 28px;">
-                                                    <MudIcon Icon="@Icons.Material.Filled.QuestionMark" Size="Size.Small" />
-                                                </MudAvatar>
-                                                <MudText Typo="Typo.body2" Color="Color.Default" Style="opacity: 0.6;">
-                                                    Uncategorized
-                                                </MudText>
-                                            </MudStack>
-                                        }
-                                    </div>
-
-                                    @* RIGHT: Amount + Menu *@
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex: 1; justify-content: flex-end;">
-                                        <MudText Typo="Typo.h6"
-                                                 Class="font-weight-bold"
-                                                 Color="@GetAmountColor(transaction)"
-                                                 Style="font-size: 1.1rem;">
-                                            @transaction.GetAmountDisplay()
-                                        </MudText>
-
-                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                                 Size="Size.Small"
-                                                 Dense="true"
-                                                 AnchorOrigin="Origin.BottomRight"
-                                                 TransformOrigin="Origin.TopRight"
-                                                 @onclick:stopPropagation="true">
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
-                                                         OnClick="@(() => ViewTransaction(transaction.Id))">
-                                                View Details
-                                            </MudMenuItem>
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                         OnClick="@(() => EditTransaction(transaction.Id))">
-                                                Edit
-                                            </MudMenuItem>
-                                            <MudDivider />
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                         OnClick="@(() => DeleteTransaction(transaction.Id, transaction.Name))">
-                                                <MudText Color="Color.Error">Delete</MudText>
-                                            </MudMenuItem>
-                                        </MudMenu>
-                                    </MudStack>
-                                </MudStack>
-                            </MudPaper>
-                        }
+                        <div class="pa-2">
+                            @foreach (var transaction in group.Transactions)
+                            {
+                                @* ========== USAR TransactionCardGroup ========== *@
+                                <TransactionCardGroup Transaction="@transaction"
+                                                      PairedTransaction="@GetPairedTransaction(transaction)"
+                                                      ShowAccounts="true"
+                                                      ShowActions="true"
+                                                      ShowCheckbox="true"
+                                                      IsSelected="@_selectedTransactionIds.Contains(transaction.Id)"
+                                                      OnSelectionChanged="@(value => ToggleTransactionSelection(transaction.Id, value))"
+                                                      IsDuplicating="@(_isDuplicating && _contextMenuTransactionId == transaction.Id)"
+                                                      OnCardClick="@EditTransactionFromCard"
+                                                      OnEdit="@EditTransactionFromCard"
+                                                      OnDuplicate="@DuplicateTransactionFromCard"
+                                                      OnDelete="@DeleteTransactionFromCard" />
+                            }
+                        </div>
                     </ChildContent>
                 </MudExpansionPanel>
             }
@@ -295,6 +163,11 @@
                     OnClearSelection="ClearSelection"
                     OnDeleteSelected="DeleteSelectedTransactions" />
 
+@* ========== UpdateTransactionDrawer ========== *@
+<UpdateTransactionDrawer @bind-IsOpen="_drawerOpen"
+                         TransactionId="@_selectedTransactionId"
+                         OnTransactionUpdated="OnTransactionChanged" />
+
 @code {
     [Parameter] public int AccountId { get; set; }
     [Parameter] public TransactionFilterDto Filter { get; set; } = new();
@@ -313,6 +186,14 @@
     // Selection state
     private HashSet<int> _selectedTransactionIds = new();
     private int SelectedCount => _selectedTransactionIds.Count;
+
+    // Drawer state
+    private bool _drawerOpen = false;
+    private int _selectedTransactionId = 0;
+
+    // Duplicate state
+    private int _contextMenuTransactionId = 0;
+    private bool _isDuplicating = false;
 
     private readonly DialogOptions _dialogOptions = new()
     {
@@ -421,6 +302,108 @@
         GroupTransactions();
     }
 
+    // ✅ GetPairedTransaction
+    private TransactionDto? GetPairedTransaction(TransactionDto transaction)
+    {
+        if (!transaction.TransferPairId.HasValue)
+            return null;
+
+        return _transactionSummary?.Transactions?
+            .FirstOrDefault(t => t.Id == transaction.TransferPairId.Value);
+    }
+
+    // ✅ NUEVO: EditTransactionFromCard
+    private void EditTransactionFromCard(TransactionDto transaction)
+    {
+        _selectedTransactionId = transaction.Id;
+        _drawerOpen = true;
+    }
+
+    // ✅ NUEVO: DuplicateTransactionFromCard
+    private async Task DuplicateTransactionFromCard(TransactionDto transaction)
+    {
+        if (_isDuplicating) return;
+
+        _isDuplicating = true;
+        _contextMenuTransactionId = transaction.Id;
+        StateHasChanged();
+
+        try
+        {
+            var result = await TransactionService.DuplicateTransactionAsync(transaction.Id);
+
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Transaction duplicated successfully", Severity.Success);
+                await LoadTransactions();
+                await OnTransactionChanged.InvokeAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error duplicating transaction", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isDuplicating = false;
+            _contextMenuTransactionId = 0;
+            StateHasChanged();
+        }
+    }
+
+    // ✅ NUEVO: DeleteTransactionFromCard
+    private async Task DeleteTransactionFromCard(TransactionDto transaction)
+    {
+        var isTransfer = transaction.IsTransfer();
+
+        var message = isTransfer
+            ? "Are you sure you want to delete this transfer? This will delete both the outgoing and incoming transactions. This action cannot be undone."
+            : $"Are you sure you want to delete '{transaction.Name}'? This action cannot be undone.";
+
+        bool confirmed = await DialogService.ShowMessageBox(
+            $"Delete {(isTransfer ? "Transfer" : "Transaction")}",
+            message,
+            yesText: "Delete",
+            cancelText: "Cancel",
+            options: new DialogOptions { CloseButton = true }) ?? false;
+
+        if (confirmed)
+        {
+            try
+            {
+                OperationResult<bool> result;
+
+                if (isTransfer)
+                {
+                    result = await TransactionService.DeleteTransferAsync(transaction.Id);
+                }
+                else
+                {
+                    result = await TransactionService.DeleteAsync(transaction.Id);
+                }
+
+                if (result.Success)
+                {
+                    Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
+                    await LoadTransactions();
+                    await OnTransactionChanged.InvokeAsync();
+                }
+                else
+                {
+                    Snackbar.Add(result.Message ?? "Error deleting", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
     // Selection methods
     private bool IsGroupSelected(TransactionGroup group)
     {
@@ -485,7 +468,21 @@
 
                 foreach (var transactionId in _selectedTransactionIds.ToList())
                 {
-                    var result = await TransactionService.DeleteAsync(transactionId);
+                    var transaction = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == transactionId);
+                    if (transaction == null) continue;
+
+                    OperationResult<bool> result;
+
+                    // ✅ Detectar si es transfer y usar método correcto
+                    if (transaction.IsTransfer())
+                    {
+                        result = await TransactionService.DeleteTransferAsync(transactionId);
+                    }
+                    else
+                    {
+                        result = await TransactionService.DeleteAsync(transactionId);
+                    }
+
                     if (result.Success)
                     {
                         successCount++;
@@ -537,74 +534,5 @@
             < 0 => Color.Error,
             _ => Color.Default
         };
-    }
-
-    private Color GetAmountColor(TransactionDto transaction)
-    {
-        if (transaction.IsIncome()) return Color.Success;
-        if (transaction.IsExpense()) return Color.Error;
-        return Color.Default;
-    }
-
-    private async Task ViewTransaction(int transactionId)
-    {
-        var parameters = new DialogParameters
-        {
-            ["TransactionId"] = transactionId,
-            ["OnTransactionChanged"] = EventCallback.Factory.Create(this, async () =>
-            {
-                await LoadTransactions();
-                await OnTransactionChanged.InvokeAsync();
-            })
-        };
-
-        await DialogService.ShowAsync<ViewTransactionModal>("Transaction Details", parameters, _dialogOptions);
-    }
-
-    private async Task EditTransaction(int transactionId)
-    {
-        var parameters = new DialogParameters
-        {
-            ["TransactionId"] = transactionId,
-            ["OnTransactionUpdated"] = EventCallback.Factory.Create(this, async () =>
-            {
-                await LoadTransactions();
-                await OnTransactionChanged.InvokeAsync();
-            })
-        };
-
-        await DialogService.ShowAsync<UpdateTransactionModal>("Edit Transaction", parameters, _dialogOptions);
-    }
-
-    private async Task DeleteTransaction(int transactionId, string transactionName)
-    {
-        bool confirmed = await DialogService.ShowMessageBox(
-            "Delete Transaction",
-            $"Are you sure you want to delete '{transactionName}'? This action cannot be undone.",
-            yesText: "Delete",
-            cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true }) ?? false;
-
-        if (confirmed)
-        {
-            try
-            {
-                var result = await TransactionService.DeleteAsync(transactionId);
-                if (result.Success)
-                {
-                    Snackbar.Add("Transaction deleted successfully", Severity.Success);
-                    await LoadTransactions();
-                    await OnTransactionChanged.InvokeAsync();
-                }
-                else
-                {
-                    Snackbar.Add(result.Message ?? "Error deleting transaction", Severity.Error);
-                }
-            }
-            catch (Exception)
-            {
-                Snackbar.Add("Error deleting transaction", Severity.Error);
-            }
-        }
     }
 }

@@ -166,25 +166,81 @@ public class TransactionRepository : ITransactionRepository
 
     private (DateTime? startDateUtc, DateTime? endDateUtc) GetDateRangeUtc(TimePeriodFilter timePeriod)
     {
-        // Trabajar con UTC desde el inicio para evitar problemas con PostgreSQL
         var nowUtc = DateTime.UtcNow;
+        var todayUtc = nowUtc.Date;
 
         return timePeriod switch
         {
+            // ✅ Rolling periods (últimos X días desde hoy)
+            TimePeriodFilter.Last7Days => (
+                DateTime.SpecifyKind(todayUtc.AddDays(-7), DateTimeKind.Utc),
+                DateTime.SpecifyKind(todayUtc.AddDays(1).AddMilliseconds(-1), DateTimeKind.Utc) // Fin del día de hoy
+            ),
+
+            TimePeriodFilter.Last30Days => (
+                DateTime.SpecifyKind(todayUtc.AddDays(-30), DateTimeKind.Utc),
+                DateTime.SpecifyKind(todayUtc.AddDays(1).AddMilliseconds(-1), DateTimeKind.Utc)
+            ),
+
+            TimePeriodFilter.Last90Days => (
+                DateTime.SpecifyKind(todayUtc.AddDays(-90), DateTimeKind.Utc),
+                DateTime.SpecifyKind(todayUtc.AddDays(1).AddMilliseconds(-1), DateTimeKind.Utc)
+            ),
+
+            // ✅ Calendar periods (mes/año específico)
             TimePeriodFilter.LastMonth => (
-                DateTime.SpecifyKind(new DateTime(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month, 1, 0, 0, 0), DateTimeKind.Utc),
-                DateTime.SpecifyKind(new DateTime(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month, DateTime.DaysInMonth(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month), 23, 59, 59).AddMilliseconds(999), DateTimeKind.Utc)
+                DateTime.SpecifyKind(
+                    new DateTime(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month, 1, 0, 0, 0),
+                    DateTimeKind.Utc),
+                DateTime.SpecifyKind(
+                    new DateTime(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month,
+                        DateTime.DaysInMonth(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month),
+                        23, 59, 59).AddMilliseconds(999),
+                    DateTimeKind.Utc)
             ),
+
             TimePeriodFilter.ThisMonth => (
-                DateTime.SpecifyKind(new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0), DateTimeKind.Utc),
-                DateTime.SpecifyKind(new DateTime(nowUtc.Year, nowUtc.Month, DateTime.DaysInMonth(nowUtc.Year, nowUtc.Month), 23, 59, 59).AddMilliseconds(999), DateTimeKind.Utc)
+                DateTime.SpecifyKind(
+                    new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0),
+                    DateTimeKind.Utc),
+                DateTime.SpecifyKind(
+                    new DateTime(nowUtc.Year, nowUtc.Month,
+                        DateTime.DaysInMonth(nowUtc.Year, nowUtc.Month),
+                        23, 59, 59).AddMilliseconds(999),
+                    DateTimeKind.Utc)
             ),
+
             TimePeriodFilter.ThisYear => (
-                DateTime.SpecifyKind(new DateTime(nowUtc.Year, 1, 1, 0, 0, 0), DateTimeKind.Utc),
-                DateTime.SpecifyKind(new DateTime(nowUtc.Year, 12, 31, 23, 59, 59).AddMilliseconds(999), DateTimeKind.Utc)
+                DateTime.SpecifyKind(
+                    new DateTime(nowUtc.Year, 1, 1, 0, 0, 0),
+                    DateTimeKind.Utc),
+                DateTime.SpecifyKind(
+                    new DateTime(nowUtc.Year, 12, 31, 23, 59, 59).AddMilliseconds(999),
+                    DateTimeKind.Utc)
             ),
+
+            // ✅ Special cases
+            TimePeriodFilter.AllTime => (null, null), // Sin filtro de fecha
+
+            TimePeriodFilter.Custom => (null, null), // Las fechas vienen en FromDate/ToDate
+
             _ => (null, null)
         };
+    }
+
+    public async Task<int> AddAndReturnIdAsync(Transaction transaction)
+    {
+        try
+        {
+            _context.Transaction.Add(transaction);
+            await _context.SaveChangesAsync();
+            return transaction.Id;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding transaction and returning ID");
+            throw;
+        }
     }
 }
 

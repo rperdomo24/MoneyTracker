@@ -4,7 +4,9 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Pages
+@using MoneyTracker.UI.Components.Pages.Transactions
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
@@ -343,10 +345,26 @@
         }
     }
 
-    private void OpenAddTransactionDialog()
+    private async Task OpenAddTransactionDialog()
     {
-        // TODO: Implement add transaction modal
-        Snackbar.Add("Add transaction - To be implemented", Severity.Info);
+        var parameters = new DialogParameters
+        {
+            ["TransactionType"] = TransactionTypeEnum.Expense,
+            ["PreselectedAccountId"] = Id,
+            ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged)
+        };
+
+        await DialogService.ShowAsync<AddTransactionModal>(
+            "New Transaction",
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                CloseButton = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = true
+            });
     }
 
     private void ToggleFiltersDrawer()

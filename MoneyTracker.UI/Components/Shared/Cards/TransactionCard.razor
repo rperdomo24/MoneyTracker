@@ -1,0 +1,170 @@
+﻿@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.UI.Helpers
+
+<MudCard Outlined="true" Class="@GetCardClass()" Elevation="@(Highlighted ? 4 : 0)">
+    <MudCardContent Class="pa-3">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+
+            @* ========== LEFT: Checkbox + Icon + Info ========== *@
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex: 1; min-width: 0;">
+
+                @* ✅ CHECKBOX *@
+                @if (ShowCheckbox)
+                {
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Size="Size.Medium"
+                                 Value="@IsSelected"
+                                 ValueChanged="@OnSelectionChanged"
+                                 Disabled="@(!CanBeSelected)"
+                                 @onclick:stopPropagation="true" />
+                }
+
+                <MudAvatar Size="Size.Medium"
+                           Style="@($"background-color: {Transaction.Category?.Color ?? "#6366f1"}; flex-shrink: 0;")"
+                           @onclick="HandleCardClick"
+                           Class="cursor-pointer">
+                    <MudIcon Icon="@(Transaction.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Receipt)"
+                             Color="Color.Surface" />
+                </MudAvatar>
+
+                <div style="flex: 1; min-width: 0;" @onclick="HandleCardClick" class="cursor-pointer">
+                    <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        @Transaction.Name
+                    </MudText>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                            @Transaction.Category?.Name
+                        </MudText>
+
+                        @if (ShowAccount && Transaction.Account != null)
+                        {
+                            <MudText Typo="Typo.caption" Style="opacity: 0.5;">•</MudText>
+                            <MudLink Href="@GetAccountLink()"
+                                     Typo="Typo.caption"
+                                     Style="opacity: 0.7;"
+                                     Underline="Underline.Hover"
+                                     @onclick:stopPropagation="true">
+                                @Transaction.Account.Name
+                            </MudLink>
+                        }
+
+                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">•</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                            @Transaction.Date.ToString("MMM dd, yyyy")
+                        </MudText>
+                    </MudStack>
+                </div>
+            </MudStack>
+
+            @* ========== RIGHT: Amount + Menu ========== *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink: 0;">
+                <MudText Typo="Typo.h6" Class="@GetAmountClass()">
+                    @Transaction.GetAmountDisplay()
+                </MudText>
+
+                @if (ShowActions)
+                {
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                             Size="Size.Small"
+                             Dense="true"
+                             AnchorOrigin="Origin.BottomLeft"
+                             TransformOrigin="Origin.TopRight">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                     OnClick="HandleEdit">
+                            Edit
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.ContentCopy"
+                                     OnClick="HandleDuplicate"
+                                     Disabled="@IsDuplicating">
+                            @if (IsDuplicating)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Duplicating...</span>
+                            }
+                            else
+                            {
+                                <span>Duplicate</span>
+                            }
+                        </MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                     OnClick="HandleDelete">
+                            <MudText Color="Color.Error">Delete</MudText>
+                        </MudMenuItem>
+                    </MudMenu>
+                }
+            </MudStack>
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public TransactionDto Transaction { get; set; } = default!;
+    [Parameter] public bool ShowAccount { get; set; } = true;
+    [Parameter] public bool ShowActions { get; set; } = true;
+    [Parameter] public bool Highlighted { get; set; } = false;
+    [Parameter] public bool IsDuplicating { get; set; } = false;
+
+    // ✅ CHECKBOX PARAMETERS
+    [Parameter] public bool ShowCheckbox { get; set; } = false;
+    [Parameter] public bool IsSelected { get; set; } = false;
+    [Parameter] public bool CanBeSelected { get; set; } = true;
+    [Parameter] public EventCallback<bool> OnSelectionChanged { get; set; }
+
+    [Parameter] public EventCallback<TransactionDto> OnCardClick { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnDuplicate { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnDelete { get; set; }
+
+    private async Task HandleCardClick()
+    {
+        if (OnCardClick.HasDelegate)
+        {
+            await OnCardClick.InvokeAsync(Transaction);
+        }
+    }
+
+    private async Task HandleEdit()
+    {
+        if (OnEdit.HasDelegate)
+        {
+            await OnEdit.InvokeAsync(Transaction);
+        }
+    }
+
+    private async Task HandleDuplicate()
+    {
+        if (OnDuplicate.HasDelegate)
+        {
+            await OnDuplicate.InvokeAsync(Transaction);
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (OnDelete.HasDelegate)
+        {
+            await OnDelete.InvokeAsync(Transaction);
+        }
+    }
+
+    private string GetCardClass()
+    {
+        var baseClass = "mb-2";
+        return Highlighted ? $"{baseClass} mud-theme-primary" : baseClass;
+    }
+
+    private string GetAmountClass()
+    {
+        return Transaction.IsIncome()
+            ? "text-success font-weight-bold"
+            : "text-error font-weight-bold";
+    }
+
+    private string GetAccountLink()
+    {
+        return $"/accounts/{Transaction.AccountId}";
+    }
+}

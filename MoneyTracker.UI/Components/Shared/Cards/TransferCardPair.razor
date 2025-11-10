@@ -1,0 +1,182 @@
+﻿@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.UI.Helpers
+
+<MudCard Outlined="true" Class="@GetCardClass()" Elevation="@(Highlighted ? 4 : 0)">
+    <MudCardContent Class="pa-3">
+
+        @* ========== FROM Transaction (compacta) ========== *@
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.CallMade"
+                         Color="Color.Error"
+                         Size="Size.Small" />
+                <MudText Typo="Typo.body2" Style="opacity: 0.8;">
+                    From: @GetFromAccountName()
+                </MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Class="text-error">
+                -@FromTransaction.Amount.ToString("C")
+            </MudText>
+        </MudStack>
+
+        <MudDivider Class="my-2" />
+
+        @* ========== TO Transaction (destacada) ========== *@
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+
+            @* LEFT: Checkbox + Icon + Info *@
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex: 1; min-width: 0;">
+
+                @* ✅ CHECKBOX - DESHABILITADO para transfers *@
+                @if (ShowCheckbox)
+                {
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Size="Size.Medium"
+                                 Value="@IsSelected"
+                                 Disabled="true"
+                                 @onclick:stopPropagation="true">
+                        <MudTooltip Text="Transfers cannot be selected individually">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                        </MudTooltip>
+                    </MudCheckBox>
+                }
+
+                <MudAvatar Size="Size.Medium"
+                           Style="background-color: #4caf50; flex-shrink: 0;"
+                           @onclick="HandleCardClick"
+                           Class="cursor-pointer">
+                    <MudIcon Icon="@Icons.Material.Filled.CallReceived" Color="Color.Surface" />
+                </MudAvatar>
+
+                <div style="flex: 1; min-width: 0;" @onclick="HandleCardClick" class="cursor-pointer">
+                    <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        Transfer to @GetToAccountName()
+                    </MudText>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                            @GetTransferTypeLabel()
+                        </MudText>
+
+                        @if (ShowAccounts)
+                        {
+                            <MudText Typo="Typo.caption" Style="opacity: 0.5;">•</MudText>
+                            <MudLink Href="@GetToAccountLink()"
+                                     Typo="Typo.caption"
+                                     Style="opacity: 0.7;"
+                                     Underline="Underline.Hover"
+                                     @onclick:stopPropagation="true">
+                                @GetToAccountName()
+                            </MudLink>
+                        }
+
+                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">•</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                            @ToTransaction.Date.ToString("MMM dd, yyyy")
+                        </MudText>
+                    </MudStack>
+                </div>
+            </MudStack>
+
+            @* RIGHT: Amount + Menu *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink: 0;">
+                <MudText Typo="Typo.h6" Class="text-success font-weight-bold">
+                    +@ToTransaction.Amount.ToString("C")
+                </MudText>
+
+                @if (ShowActions)
+                {
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                             Size="Size.Small"
+                             Dense="true"
+                             AnchorOrigin="Origin.BottomLeft"
+                             TransformOrigin="Origin.TopRight">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                     OnClick="HandleEdit">
+                            Edit Transfer
+                        </MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                     OnClick="HandleDelete">
+                            <MudText Color="Color.Error">Delete Transfer</MudText>
+                        </MudMenuItem>
+                    </MudMenu>
+                }
+            </MudStack>
+        </MudStack>
+
+        @if (!string.IsNullOrWhiteSpace(ToTransaction.Description))
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2" Style="padding: 8px;">
+                <MudText Typo="Typo.caption">@ToTransaction.Description</MudText>
+            </MudAlert>
+        }
+
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public TransactionDto FromTransaction { get; set; } = default!;
+    [Parameter] public TransactionDto ToTransaction { get; set; } = default!;
+    [Parameter] public bool ShowAccounts { get; set; } = true;
+    [Parameter] public bool ShowActions { get; set; } = true;
+    [Parameter] public bool Highlighted { get; set; } = false;
+
+    // ✅ CHECKBOX PARAMETERS - Transfers NO son seleccionables
+    [Parameter] public bool ShowCheckbox { get; set; } = false;
+    [Parameter] public bool IsSelected { get; set; } = false;
+
+    [Parameter] public EventCallback<TransactionDto> OnCardClick { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnDelete { get; set; }
+
+    private async Task HandleCardClick()
+    {
+        if (OnCardClick.HasDelegate)
+        {
+            await OnCardClick.InvokeAsync(ToTransaction);
+        }
+    }
+
+    private async Task HandleEdit()
+    {
+        if (OnEdit.HasDelegate)
+        {
+            await OnEdit.InvokeAsync(ToTransaction);
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (OnDelete.HasDelegate)
+        {
+            await OnDelete.InvokeAsync(ToTransaction);
+        }
+    }
+
+    private string GetCardClass()
+    {
+        var baseClass = "mb-2";
+        return Highlighted ? $"{baseClass} mud-theme-info" : baseClass;
+    }
+
+    private string GetFromAccountName() => FromTransaction.Account?.Name ?? "Unknown Account";
+    private string GetToAccountName() => ToTransaction.Account?.Name ?? "Unknown Account";
+
+    private string GetTransferTypeLabel()
+    {
+        if (FromTransaction.TransferType.HasValue)
+        {
+            return FromTransaction.TransferType.Value switch
+            {
+                Domain.Enums.Transaction.TransferTypeEnum.CreditPayment => "Credit Payment",
+                Domain.Enums.Transaction.TransferTypeEnum.CreditAdvance => "Credit Advance",
+                _ => "Transfer"
+            };
+        }
+        return "Transfer";
+    }
+
+    private string GetToAccountLink() => $"/accounts/{ToTransaction.AccountId}";
+}

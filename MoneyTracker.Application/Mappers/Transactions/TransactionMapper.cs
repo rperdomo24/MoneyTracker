@@ -1,6 +1,7 @@
 ﻿using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Transaction;
 
 namespace MoneyTracker.Application.Mappers.Transactions;
 
@@ -69,5 +70,28 @@ public static class TransactionMapper
         entity.TransferPairId = dto.TransferPairId;
         entity.TransferType = dto.TransferType;
         entity.UpdatedAt = timeZoneService.GetNowInUtc();
+    }
+
+    public static Transaction MapToDuplicate(
+    this Transaction original,
+    ITimeZoneService timeZoneService)
+    {
+        var nowUtc = timeZoneService.GetNowInUtc();
+        var todayUtc = timeZoneService.ConvertToUtc(DateTime.Today);
+
+        return new Transaction
+        {
+            Name = $"{original.Name} (Copy)",
+            Amount = original.Amount,
+            Date = todayUtc,
+            Description = original.Description,
+            CategoryId = original.CategoryId,
+            AccountId = original.AccountId,
+            PaymentMethod = original.PaymentMethod,
+            Status = TransactionStatus.Completed,
+            IsSystemGenerated = false,
+            CreatedAt = nowUtc,
+            UpdatedAt = nowUtc
+        };
     }
 }

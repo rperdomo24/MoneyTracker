@@ -1,0 +1,72 @@
+﻿@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Common.Extensions
+
+@if (IsTransferPair(Transaction))
+{
+    <TransferCardPair FromTransaction="@GetFromTransaction()"
+                      ToTransaction="@GetToTransaction()"
+                      ShowAccounts="@ShowAccounts"
+                      ShowActions="@ShowActions"
+                      Highlighted="@Highlighted"
+                      ShowCheckbox="@ShowCheckbox"
+                      IsSelected="@IsSelected"
+                      OnCardClick="@OnCardClick"
+                      OnEdit="@OnEdit"
+                      OnDelete="@OnDelete" />
+}
+else
+{
+    <TransactionCard Transaction="@Transaction"
+                     ShowAccount="@ShowAccounts"
+                     ShowActions="@ShowActions"
+                     Highlighted="@Highlighted"
+                     IsDuplicating="@IsDuplicating"
+                     ShowCheckbox="@ShowCheckbox"
+                     IsSelected="@IsSelected"
+                     CanBeSelected="@(!Transaction.IsTransfer())"
+                     OnSelectionChanged="@OnSelectionChanged"
+                     OnCardClick="@OnCardClick"
+                     OnEdit="@OnEdit"
+                     OnDuplicate="@OnDuplicate"
+                     OnDelete="@OnDelete" />
+}
+
+@code {
+    [Parameter] public TransactionDto Transaction { get; set; } = default!;
+    [Parameter] public TransactionDto? PairedTransaction { get; set; }
+    [Parameter] public bool ShowAccounts { get; set; } = true;
+    [Parameter] public bool ShowActions { get; set; } = true;
+    [Parameter] public bool Highlighted { get; set; } = false;
+    [Parameter] public bool IsDuplicating { get; set; } = false;
+
+    // ✅ CHECKBOX PARAMETERS
+    [Parameter] public bool ShowCheckbox { get; set; } = false;
+    [Parameter] public bool IsSelected { get; set; } = false;
+    [Parameter] public EventCallback<bool> OnSelectionChanged { get; set; }
+
+    [Parameter] public EventCallback<TransactionDto> OnCardClick { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnDuplicate { get; set; }
+    [Parameter] public EventCallback<TransactionDto> OnDelete { get; set; }
+
+    private bool IsTransferPair(TransactionDto transaction)
+    {
+        return transaction.IsTransfer() && PairedTransaction != null;
+    }
+
+    private TransactionDto GetFromTransaction()
+    {
+        if (Transaction.IsExpense())
+            return Transaction;
+
+        return PairedTransaction ?? Transaction;
+    }
+
+    private TransactionDto GetToTransaction()
+    {
+        if (Transaction.IsIncome())
+            return Transaction;
+
+        return PairedTransaction ?? Transaction;
+    }
+}

@@ -79,5 +79,11 @@ namespace MoneyTracker.Domain.Const
 
         public static bool IsCreditRelatedCategory(int categoryId)
             => categoryId >= 10 && categoryId <= 13;
+
+        public static bool IsTransferOutCategory(int categoryId)
+                 => categoryId == TRANSFER_OUT_ID;
+
+        public static bool IsTransferInCategory(int categoryId)
+            => categoryId == TRANSFER_IN_ID;
     }
 }
