@@ -4,123 +4,92 @@
 
 <MudCard Outlined="true" Class="@GetCardClass()" Elevation="@(Highlighted ? 4 : 0)">
     <MudCardContent Class="pa-3">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
 
-        @* ========== HEADER: Transfer Type & Date ========== *@
-        <MudStack Row="true"  Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled">
-                <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Class="mr-1" />
-                @GetTransferTypeLabel()
-            </MudChip>
-            <MudText Typo="Typo.caption" Style="opacity: 0.7;">
-                @FromTransaction.Date.ToString("MMM dd, yyyy")
-            </MudText>
-        </MudStack>
+            @* ========== LEFT: Checkbox + Icon + Transfer Info ========== *@
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex: 1; min-width: 0;">
+                
+                @* ✅ CHECKBOX READONLY PARA SIMETRÍA *@
+                @if (ShowCheckbox)
+                {
+                    <MudCheckBox T="bool"
+                                 Dense="true"
+                                 Size="Size.Medium"
+                                 @bind-Checked="@IsSelected"
+                                 ReadOnly="true"
+                                 Disabled="true"
+                                 @onclick:stopPropagation="true">
+                    </MudCheckBox>
+                }
 
-        @* ========== FROM Account (Outgoing) ========== *@
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                <MudIcon Icon="@Icons.Material.Filled.CallMade"
-                         Color="Color.Error"
-                         Size="Size.Small" />
-                <div>
-                    <MudText Typo="Typo.body2" Style="opacity: 0.9; font-weight: 500;">
-                        From @FromTransaction.Account?.Name
-                    </MudText>
-                    @if (ShowAccounts && FromTransaction.Account != null)
-                    {
-                        <MudLink Href="@GetFromAccountLink()"
-                                 Typo="Typo.caption"
-                                 Style="opacity: 0.6;"
+                @* TRANSFER ICON *@
+                <MudAvatar Size="Size.Medium" Style="background-color: #2196f3;" Class="cursor-pointer">
+                    <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Surface" />
+                </MudAvatar>
+
+                @* TRANSFER DETAILS *@
+                <div style="flex: 1; min-width: 0;" class="cursor-pointer">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <MudLink Href="@GetAccountLink(FromTransaction)" 
+                                 Typo="Typo.body1"
+                                 Class="font-weight-medium text-inherit"
                                  Underline="Underline.Hover"
                                  @onclick:stopPropagation="true">
-                            View Account
+                            @FromTransaction.Account?.Name
                         </MudLink>
-                    }
-                </div>
-            </MudStack>
-            <MudText Typo="Typo.body1" Class="text-error font-weight-bold">
-                -@FromTransaction.Amount.ToString("C")
-            </MudText>
-        </MudStack>
-
-        <MudDivider Class="my-2" />
-
-        @* ========== TO Account (Incoming) ========== *@
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                <MudIcon Icon="@Icons.Material.Filled.CallReceived"
-                         Color="Color.Success"
-                         Size="Size.Small" />
-                <div>
-                    <MudText Typo="Typo.body2" Style="opacity: 0.9; font-weight: 500;">
-                        To @ToTransaction.Account?.Name
-                    </MudText>
-                    @if (ShowAccounts && ToTransaction.Account != null)
-                    {
-                        <MudLink Href="@GetToAccountLink()"
-                                 Typo="Typo.caption"
-                                 Style="opacity: 0.6;"
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="opacity: 0.6;" />
+                        <MudLink Href="@GetAccountLink(ToTransaction)" 
+                                 Typo="Typo.body1"
+                                 Class="font-weight-medium text-inherit"
                                  Underline="Underline.Hover"
                                  @onclick:stopPropagation="true">
-                            View Account
+                            @ToTransaction.Account?.Name
                         </MudLink>
-                    }
+                        
+                        <MudTooltip Text="Linked transfer - cannot be selected individually">
+                            <MudIcon Icon="@Icons.Material.Filled.Link" 
+                                     Size="Size.Small" 
+                                     Style="opacity: 0.5; margin-left: 4px;" />
+                        </MudTooltip>
+                    </MudStack>
+                    
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled" Class="mr-1">
+                            @GetTransferTypeLabel()
+                        </MudChip>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                            @FromTransaction.Date.ToString("MMM dd, yyyy")
+                        </MudText>
+                    </MudStack>
                 </div>
             </MudStack>
-            <MudText Typo="Typo.body1" Class="text-success font-weight-bold">
-                +@ToTransaction.Amount.ToString("C")
-            </MudText>
-        </MudStack>
 
-        @* ========== ACTIONS ========== *@
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mt-3">
-            @* LEFT: Checkbox *@
-            @if (ShowCheckbox)
-            {
-                <MudCheckBox T="bool"
+            @* ========== RIGHT: Amount + Menu ========== *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink: 0;">
+                <MudText Typo="Typo.h6" Class="font-weight-bold" Style="color: #666;">
+                    @FromTransaction.GetAmountDisplayWithSign()
+                </MudText>
+
+                @if (ShowActions)
+                {
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                             Size="Size.Small"
                              Dense="true"
-                             Size="Size.Medium"
-                             Value="@IsSelected"
-                             Disabled="true"
-                             @onclick:stopPropagation="true">
-                    <MudTooltip Text="Transfers cannot be selected individually">
-                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
-                    </MudTooltip>
-                </MudCheckBox>
-            }
-            else
-            {
-                <div></div> @* Spacer *@
-            }
-
-            @* RIGHT: Menu *@
-            @if (ShowActions)
-            {
-                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                         Size="Size.Small"
-                         Dense="true"
-                         AnchorOrigin="Origin.BottomLeft"
-                         TransformOrigin="Origin.TopRight">
-                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                 OnClick="HandleEdit">
-                        Edit Transfer
-                    </MudMenuItem>
-                    <MudDivider />
-                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                 OnClick="HandleDelete">
-                        <MudText Color="Color.Error">Delete Transfer</MudText>
-                    </MudMenuItem>
-                </MudMenu>
-            }
+                             AnchorOrigin="Origin.BottomLeft"
+                             TransformOrigin="Origin.TopRight">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                     OnClick="HandleEdit">
+                            Edit Transfer
+                        </MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                     OnClick="HandleDelete">
+                            <MudText Color="Color.Error">Delete Transfer</MudText>
+                        </MudMenuItem>
+                    </MudMenu>
+                }
+            </MudStack>
         </MudStack>
-
-        @if (!string.IsNullOrWhiteSpace(FromTransaction.Description))
-        {
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2" Style="padding: 8px;">
-                <MudText Typo="Typo.caption">@FromTransaction.Description</MudText>
-            </MudAlert>
-        }
-
     </MudCardContent>
 </MudCard>
 
@@ -169,8 +138,7 @@
         return Highlighted ? $"{baseClass} mud-theme-info" : baseClass;
     }
 
-    private string GetFromAccountLink() => $"/accounts/{FromTransaction.AccountId}";
-    private string GetToAccountLink() => $"/accounts/{ToTransaction.AccountId}";
+    private string GetAccountLink(TransactionDto transaction) => $"/accounts/{transaction.AccountId}";
 
     private string GetTransferTypeLabel()
     {
@@ -179,7 +147,7 @@
             return FromTransaction.TransferType.Value switch
             {
                 Domain.Enums.Transaction.TransferTypeEnum.CreditPayment => "Credit Payment",
-                Domain.Enums.Transaction.TransferTypeEnum.CreditAdvance => "Credit Advance", 
+                Domain.Enums.Transaction.TransferTypeEnum.CreditAdvance => "Credit Advance",
                 Domain.Enums.Transaction.TransferTypeEnum.AccountTransfer => "Account Transfer",
                 _ => "Transfer"
             };

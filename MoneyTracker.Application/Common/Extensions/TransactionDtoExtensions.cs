@@ -17,79 +17,80 @@ namespace MoneyTracker.Application.Common.Extensions
             return transaction.Category?.Type == CategoryTypeEnum.Expense;
         }
 
-        // Agregar estos métodos a TransactionDtoExtensions.cs
         public static bool IsCreditPayment(this TransactionDto transaction)
         {
             return SystemCategories.IsCreditRelatedCategory(transaction.CategoryId);
-            //return transaction.Category?.Name == "Credit Card Payment" &&
-            //       transaction.Category?.Type == CategoryTypeEnum.Expense;
         }
 
         public static bool IsTransfer(this TransactionDto transaction)
         {
             return SystemCategories.IsTransferCategory(transaction.CategoryId);
-            //return transaction.GetDerivedType() == TransactionTypeEnum.Transfer;
-        }
-
-        public static string GetAmountColorClass(this TransactionDto transaction)
-        {
-            if (transaction.IsIncome())
-                return "text-success";
-            else if (transaction.IsExpense())
-                return "text-error";
-            else
-                return transaction.Category?.Color
-                    ?? "text-default";
-        }
-
-        public static string GetTransactionColor(this TransactionDto transaction)
-        {
-            // Check if it's a credit payment first
-            if (transaction.IsCreditPayment())
-                return "#ff5722"; // Orange for credit payments
-
-            if (transaction.Category?.Color != null)
-                return transaction.Category.Color;
-
-            return transaction.IsIncome() ? "#4caf50" : "#f44336";
         }
 
         public static string GetAmountDisplay(this TransactionDto transaction)
         {
             if (transaction.Amount <= 0) return "$0.00";
 
-            if (transaction.TransactionType == TransactionTypeEnum.Transfer || transaction.TransactionType == TransactionTypeEnum.CreditPayment)
+            if (transaction.TransactionType == TransactionTypeEnum.Transfer ||
+                transaction.TransactionType == TransactionTypeEnum.CreditPayment)
             {
                 return transaction.Amount.ToString("C");
             }
 
             var sign = transaction.TransactionType == TransactionTypeEnum.Income ? "+" : "-";
             return $"{sign}{transaction.Amount:C}";
-
-
-            //var prefix = transaction.IsIncome() ? "+" : "-";
-            //return $"{prefix}{Math.Abs(transaction.Amount):C}";
-            //if (transaction == null) return "$0.00";
-
-            //var sign = transaction.Category?.Type == CategoryTypeEnum.Income ? "+" : "-";
-            //return $"{sign}{transaction.Amount:C}";
         }
 
-        public static string GetShortFormattedDate(this TransactionDto transaction)
+        public static string GetAmountDisplayWithSign(this TransactionDto transaction)
         {
-            return transaction.Date.ToString("MMM dd");
+            if (transaction.Amount <= 0) return "$0.00";
+
+            if (transaction.IsTransfer())
+                return FormatWithSign(transaction.Amount);
+
+            var sign = transaction.IsIncome() ? "+" : "-";
+            return $"{sign}{transaction.Amount:C}";
         }
 
+        private static string FormatWithSign(decimal amount)
+        {
+            if (amount == 0) return "$0.00";
+            return amount >= 0 ? $"+${Math.Abs(amount):N2}" : $"-${Math.Abs(amount):N2}";
+        }
         public static TransactionTypeEnum GetDerivedType(this TransactionDto transaction)
         {
             // Transfers = categorías del sistema 8-13
-            if (transaction.CategoryId >= 8 && transaction.CategoryId <= 13)
+            if (SystemCategories.IsTransferCategory(transaction.CategoryId))
                 return TransactionTypeEnum.Transfer;
 
             // Income/Expense se deriva de la categoría
             return transaction.Category.Type == CategoryTypeEnum.Income
                 ? TransactionTypeEnum.Income
                 : TransactionTypeEnum.Expense;
+        }
+
+        public static bool IsOutgoingTransfer(this TransactionDto transaction)
+        {
+            return SystemCategories.IsTransferOutCategory(transaction.CategoryId) ||
+                   transaction.CategoryId == SystemCategories.CREDIT_PAYMENT_ID ||
+                   transaction.CategoryId == SystemCategories.CREDIT_ADVANCE_ID;
+        }
+
+        public static bool IsIncomingTransfer(this TransactionDto transaction)
+        {
+            return SystemCategories.IsTransferInCategory(transaction.CategoryId) ||
+                   transaction.CategoryId == SystemCategories.PAYMENT_RECEIVED_ID ||
+                   transaction.CategoryId == SystemCategories.ADVANCE_RECEIVED_ID;
+        }
+
+        public static TransactionDto GetFromTransaction(this TransactionDto transaction, TransactionDto pairedTransaction)
+        {
+            return transaction.IsOutgoingTransfer() ? transaction : pairedTransaction;
+        }
+
+        public static TransactionDto GetToTransaction(this TransactionDto transaction, TransactionDto pairedTransaction)
+        {
+            return transaction.IsOutgoingTransfer() ? pairedTransaction : transaction;
         }
     }
 }

@@ -30,18 +30,5 @@ namespace MoneyTracker.UI.Helpers
                 _ => accountType.ToString()
             };
         }
-
-        public static string ToDescription(this AccountType accountType)
-        {
-            return accountType switch
-            {
-                AccountType.Checking => "For everyday transactions and bill payments",
-                AccountType.Savings => "For saving money and earning interest",
-                AccountType.Credit => "For credit card purchases and payments",
-                AccountType.Investment => "For stocks, bonds, and other investments",
-                AccountType.Cash => "For physical cash and petty cash",
-                _ => "General purpose account"
-            };
-        }
     }
 }

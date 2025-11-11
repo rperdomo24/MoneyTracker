@@ -62,7 +62,6 @@
     }
 
     <!-- Transactions List Component -->
-    <!-- Transactions List Component -->
     <TransactionListBase GroupedTransactions="@_groupedTransactions"
                          Loading="@_loading"
                          ShowAccounts="true"
@@ -75,7 +74,7 @@
                          PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })"
                          SelectedTransactionIds="@_selectedTransactionIds"
                          SelectedTransactionIdsChanged="@OnSelectedTransactionsChanged"
-                         AllTransactions="@_transactionSummary?.Transactions"
+                         AllTransactions="@_allTransactionsUnfiltered"
                          OnEdit="EditTransaction"
                          OnDuplicate="DuplicateTransaction"
                          OnDelete="DeleteTransaction"
@@ -104,6 +103,7 @@
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
     private TransactionSummaryDto? _transactionSummary;
+    private List<TransactionDto>? _allTransactionsUnfiltered; // ✅ NUEVO - Para encontrar parejas
     private TransactionFilterDto _filterDto = new() { TimePeriod = TimePeriodFilter.ThisMonth };
     private bool _loading = true;
     private bool _hasActiveFilters = false;
@@ -153,9 +153,15 @@
             {
                 _transactionSummary = result.Data;
 
-                // APLICAR FILTRO DE DISPLAY PARA TRANSFERS
-                _transactionSummary.Transactions = TransactionGroupingHelper
-                    .FilterForDisplay(_transactionSummary.Transactions, _filterDto);
+                // ✅ GUARDAR TODAS LAS TRANSACCIONES ANTES DE FILTRAR
+                _allTransactionsUnfiltered = _transactionSummary.Transactions?.ToList() ?? new();
+
+                // ✅ APLICAR FILTRO DE DISPLAY PARA TRANSFERS (modifica la lista)
+                if (_transactionSummary.Transactions != null)
+                {
+                    _transactionSummary.Transactions = TransactionGroupingHelper
+                        .FilterForDisplay(_transactionSummary.Transactions, _filterDto);
+                }
 
                 UpdateFilterStates();
                 GroupTransactions();
@@ -164,12 +170,14 @@
             {
                 Snackbar.Add(result.Message ?? "Error loading transactions", Severity.Error);
                 _transactionSummary = new TransactionSummaryDto();
+                _allTransactionsUnfiltered = new();
             }
         }
         catch (Exception ex)
         {
             Snackbar.Add("Error loading data: " + ex.Message, Severity.Error);
             _transactionSummary = new TransactionSummaryDto();
+            _allTransactionsUnfiltered = new();
         }
         finally
         {
@@ -188,7 +196,6 @@
             return;
         }
 
-        // USAR HELPER PROFESIONAL
         var (groups, totalPages, totalCount) = TransactionGroupingHelper.GroupAndPaginateTransactions(
             _transactionSummary.Transactions, _currentPage, _rowsPerPage);
 
@@ -505,5 +512,4 @@
     {
         await LoadTransactionsAsync();
     }
-
 }

@@ -22,17 +22,18 @@
                 }
 
                 <MudAvatar Size="Size.Medium"
-                           Style="@($"background-color: {Transaction.Category?.Color ?? "#6366f1"}; flex-shrink: 0;")"
+                           Style="@GetAvatarStyle()"
                            @onclick="HandleCardClick"
                            Class="cursor-pointer">
-                    <MudIcon Icon="@(Transaction.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Receipt)"
+                    <MudIcon Icon="@GetTransactionIcon()"
                              Color="Color.Surface" />
                 </MudAvatar>
 
                 <div style="flex: 1; min-width: 0;" @onclick="HandleCardClick" class="cursor-pointer">
                     <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        @Transaction.Name
+                        @GetDisplayName()
                     </MudText>
+
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
                         <MudText Typo="Typo.caption" Style="opacity: 0.7;">
                             @Transaction.Category?.Name
@@ -158,13 +159,47 @@
 
     private string GetAmountClass()
     {
+        if (Transaction.IsTransfer())
+        {
+            return Transaction.IsOutgoingTransfer()
+                ? "text-error font-weight-bold"
+                : "text-success font-weight-bold";
+        }
+
         return Transaction.IsIncome()
             ? "text-success font-weight-bold"
             : "text-error font-weight-bold";
     }
 
-    private string GetAccountLink()
+    private string GetAccountLink() => $"/accounts/{Transaction.AccountId}";
+
+    // ✅ NUEVOS MÉTODOS REUTILIZABLES
+    private string GetAvatarStyle()
     {
-        return $"/accounts/{Transaction.AccountId}";
+        if (Transaction.IsTransfer())
+        {
+            return Transaction.IsOutgoingTransfer()
+                ? "background-color: #f44336;"  // Rojo para saliente
+                : "background-color: #4caf50;"; // Verde para entrante
+        }
+
+        return $"background-color: {Transaction.Category?.Color ?? "#6366f1"}";
+    }
+
+    private string GetTransactionIcon()
+    {
+        if (Transaction.IsTransfer())
+        {
+            return Transaction.IsOutgoingTransfer()
+                ? Icons.Material.Filled.CallMade
+                : Icons.Material.Filled.CallReceived;
+        }
+
+        return Transaction.Category?.Icon.ToIcon() ?? Icons.Material.Filled.Receipt;
+    }
+
+    private string GetDisplayName()
+    {
+        return Transaction.Name;
     }
 }

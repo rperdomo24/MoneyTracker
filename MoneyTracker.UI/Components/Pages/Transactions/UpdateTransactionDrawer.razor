@@ -1,4 +1,4 @@
-@using MoneyTracker.Application.Common
+ï»¿@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
@@ -7,6 +7,7 @@
 @using MoneyTracker.UI.Components.Pages.Categories
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.Common.Extensions
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
@@ -230,7 +231,7 @@
     private bool _loading = true;
     private bool _saving = false;
 
-    // Transaction data - ? USAR TransactionWithPairDto
+    // Transaction data
     private TransactionWithPairDto? _transactionWithPair;
     private TransactionDto? _originalTransaction;
     private TransactionDto _transaction = new();
@@ -269,7 +270,6 @@
 
         try
         {
-            // ? USAR GetByIdWithPairAsync - 1 LLAMADA EN VEZ DE 2
             var transactionResult = await TransactionService.GetByIdWithPairAsync(TransactionId);
             if (!transactionResult.Success || transactionResult.Data == null)
             {
@@ -405,7 +405,6 @@
         {
             if (_isTransfer)
             {
-                // ? USAR UpdateTransferAsync - 1 LLAMADA ATÓMICA
                 var updateDto = new UpdateTransferDto
                 {
                     TransactionId = TransactionId,
@@ -490,7 +489,6 @@
 
             if (_isTransfer)
             {
-                // ? USAR DeleteTransferAsync - ELIMINA AMBAS TRANSACCIONES
                 result = await TransactionService.DeleteTransferAsync(TransactionId);
             }
             else
@@ -540,14 +538,24 @@
         StateHasChanged();
     }
 
-    // Helper methods
     private string GetTitle() => _isTransfer ? "Edit Transfer" : $"Edit {_originalTransaction?.Category?.Type}";
     private string GetSubtitle() => _isTransfer ? "Update transfer details" : "Update transaction details";
     private string GetTransactionIcon() => _isTransfer ? Icons.Material.Filled.SwapHoriz : Icons.Material.Filled.Edit;
     private Color GetTransactionColor() => _isTransfer ? Color.Info : (_originalTransaction?.Category?.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error);
 
-    private string GetFromAccountName() => _originalTransaction?.Account?.Name ?? "Unknown";
-    private string GetToAccountName() => _transactionWithPair?.PairedTransaction?.Account?.Name ?? "Unknown";
+    private string GetFromAccountName()
+    {
+        if (_transactionWithPair == null || _originalTransaction == null) return "Unknown";
+        var fromTransaction = _originalTransaction.GetFromTransaction(_transactionWithPair.PairedTransaction);
+        return fromTransaction?.Account?.Name ?? "Unknown";
+    }
+
+    private string GetToAccountName()
+    {
+        if (_transactionWithPair == null || _originalTransaction == null) return "Unknown";
+        var toTransaction = _originalTransaction.GetToTransaction(_transactionWithPair.PairedTransaction);
+        return toTransaction?.Account?.Name ?? "Unknown";
+    }
 
     public record ChangeItem(string Field, string OldValue, string NewValue);
 }

@@ -23,26 +23,11 @@ namespace MoneyTracker.UI.Helpers
                 _ => Color.Default
             };
         }
-
-        /// <summary>
-        /// Gets CSS class for amount color
-        /// </summary>
-        public static string GetAmountColorClass(decimal amount)
+        public static string FormatWithSign(decimal amount)
         {
-            return amount switch
-            {
-                > 0 => "text-success",
-                < 0 => "text-error",
-                _ => "text-default"
-            };
+            return amount >= 0 ? $"+${Math.Abs(amount):N2}" : $"-${Math.Abs(amount):N2}";
         }
 
-        /// <summary>
-        /// Gets font weight class based on amount
-        /// </summary>
-        public static string GetAmountWeightClass(decimal amount, bool isBold = true)
-        {
-            return isBold ? "font-weight-bold" : "font-weight-medium";
-        }
+
     }
 }

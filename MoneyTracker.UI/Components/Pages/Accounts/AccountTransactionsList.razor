@@ -23,7 +23,7 @@
                      PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })"
                      SelectedTransactionIds="@_selectedTransactionIds"
                      SelectedTransactionIdsChanged="@OnSelectedTransactionsChanged"
-                     AllTransactions="@_transactionSummary?.Transactions"
+                     AllTransactions="@_allTransactionsUnfiltered"
                      OnEdit="EditTransaction"
                      OnDuplicate="DuplicateTransaction"
                      OnDelete="DeleteTransaction"
@@ -54,6 +54,7 @@
     private int _rowsPerPage = 10;
     private int _totalTransactions = 0;
     private TransactionSummaryDto? _transactionSummary;
+    private List<TransactionDto>? _allTransactionsUnfiltered; // ✅ NUEVO - Para encontrar parejas
     private HashSet<int> _selectedTransactionIds = new();
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
@@ -80,9 +81,15 @@
             {
                 _transactionSummary = result.Data;
 
-                // APLICAR FILTRO DE DISPLAY PARA TRANSFERS
-                _transactionSummary.Transactions = TransactionGroupingHelper
-                    .FilterForDisplay(_transactionSummary.Transactions, Filter);
+                // ✅ GUARDAR TODAS LAS TRANSACCIONES ANTES DE FILTRAR
+                _allTransactionsUnfiltered = _transactionSummary.Transactions?.ToList() ?? new();
+
+                // ✅ APLICAR FILTRO DE DISPLAY PARA TRANSFERS
+                if (_transactionSummary.Transactions != null)
+                {
+                    _transactionSummary.Transactions = TransactionGroupingHelper
+                        .FilterForDisplay(_transactionSummary.Transactions, Filter);
+                }
 
                 _hasActiveFilters = HasActiveFilters(Filter);
                 GroupTransactions();
@@ -90,11 +97,20 @@
             else
             {
                 _transactionSummary = new TransactionSummaryDto();
+                _allTransactionsUnfiltered = new();
                 _groupedTransactions = new();
             }
         }
-        catch { Snackbar.Add("Error loading transactions", Severity.Error); }
-        finally { _loading = false; StateHasChanged(); }
+        catch
+        {
+            Snackbar.Add("Error loading transactions", Severity.Error);
+            _allTransactionsUnfiltered = new();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
     }
 
     private void GroupTransactions()

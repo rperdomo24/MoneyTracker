@@ -10,7 +10,6 @@ namespace MoneyTracker.UI.Helpers
             TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
             TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
             TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
-            TransactionTypeEnum.CreditPayment => Icons.Material.Filled.CreditCard,
             _ => Icons.Material.Filled.AttachMoney
         };
 
@@ -19,7 +18,6 @@ namespace MoneyTracker.UI.Helpers
             TransactionTypeEnum.Income => Color.Success,
             TransactionTypeEnum.Expense => Color.Error,
             TransactionTypeEnum.Transfer => Color.Surface,
-            TransactionTypeEnum.CreditPayment => Color.Warning,
             _ => Color.Primary
         };
 
@@ -28,7 +26,6 @@ namespace MoneyTracker.UI.Helpers
             TransactionTypeEnum.Income => "#4caf50",
             TransactionTypeEnum.Expense => "#f44336",
             TransactionTypeEnum.Transfer => "#2196f3",
-            TransactionTypeEnum.CreditPayment => "#ff5722",
             _ => "#6366f1"
         };
     }

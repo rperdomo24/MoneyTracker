@@ -19,16 +19,5 @@ namespace MoneyTracker.UI.Helpers
                 _ => Icons.Material.Filled.AccountBalanceWallet
             };
         }
-
-        public static string ToLabel(this AccountIcon accountIcon)
-        {
-            return accountIcon switch
-            {
-                AccountIcon.Wallet => "Wallet",
-                AccountIcon.CreditCard => "Credit Card",
-                AccountIcon.Savings => "Savings",
-                _ => accountIcon.ToString()
-            };
-        }
     }
 }

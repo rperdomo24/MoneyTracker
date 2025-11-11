@@ -42,7 +42,6 @@ namespace MoneyTracker.UI.Components.Pages.Transactions
         // ========== METHODS ==========
         private TransactionDto? GetPairedTransaction(TransactionDto transaction)
         {
-            // USAR HELPER PROFESIONAL
             return TransactionGroupingHelper.GetPairedTransaction(transaction, AllTransactions ?? new());
         }
 

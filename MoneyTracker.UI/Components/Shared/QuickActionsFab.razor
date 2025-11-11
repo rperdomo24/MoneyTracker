@@ -21,14 +21,7 @@
     {
         <div class="fab-actions" @onclick:stopPropagation="true">
 
-            <!-- 💳 Pay Credit Card -->
-            <MudFab Color="Color.Warning"
-                    StartIcon="@Icons.Material.Filled.CreditCard"
-                    Size="Size.Medium"
-                    Class="fab-action fab-action-4"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.CreditPayment))" />
-
-            <!-- 🔄 Transfer -->
+            <!-- 🔄 Transfer  && 💳 Pay Credit Card -->
             <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
                     StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
                     Size="Size.Medium"
@@ -96,13 +89,13 @@
     [Parameter] public DialogOptions? DialogOptions { get; set; }
 
     private DialogOptions _defaultDialogOptions => new()
-        {
-            MaxWidth = MaxWidth.Large,
-            FullWidth = true,
-            CloseButton = true,
-            CloseOnEscapeKey = true,
-            BackdropClick = true
-        };
+    {
+        MaxWidth = MaxWidth.Large,
+        FullWidth = true,
+        CloseButton = true,
+        CloseOnEscapeKey = true,
+        BackdropClick = true
+    };
 
     private void ToggleExpanded()
     {
@@ -174,10 +167,10 @@
     private async Task OpenTransactionModal(TransactionTypeEnum transactionType)
     {
         var parameters = new DialogParameters
-            {
-                ["TransactionType"] = transactionType,
-                ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionAddedInternal)
-            };
+        {
+            ["TransactionType"] = transactionType,
+            ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionAddedInternal)
+        };
 
         var title = transactionType switch
         {
@@ -212,9 +205,9 @@
     private async Task OpenAddAccountModal()
     {
         var parameters = new DialogParameters
-            {
-                ["OnAccountAdded"] = EventCallback.Factory.Create(this, OnTransactionAddedInternal)
-            };
+        {
+            ["OnAccountAdded"] = EventCallback.Factory.Create(this, OnTransactionAddedInternal)
+        };
 
         var options = DialogOptions ?? _defaultDialogOptions;
 
