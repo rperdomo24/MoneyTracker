@@ -1,109 +1,146 @@
-﻿
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.Interfaces;
-using System.Runtime;
+using Microsoft.Extensions.Logging;
 
 namespace MoneyTracker.Infrastructure.Services
 {
     public class TimeZoneService : ITimeZoneService
     {
         private readonly TimeZoneInfo _timeZone;
+        private readonly ILogger<TimeZoneService> _logger;
+        private readonly string _timeZoneId;
 
-        public TimeZoneService(IOptions<ApplicationSettings> options)
+        public TimeZoneService(IOptions<ApplicationSettings> options, ILogger<TimeZoneService> logger)
         {
-            _timeZone = TimeZoneInfo.FindSystemTimeZoneById(options.Value.DefaultTimeZone);
+            _logger = logger;
+            _timeZoneId = options.Value.DefaultTimeZone;
+
+            try
+            {
+                _timeZone = TimeZoneInfo.FindSystemTimeZoneById(_timeZoneId);
+                _logger.LogInformation("✅ TimeZoneService inicializado: {TimeZone} (UTC{Offset})",
+                    _timeZone.DisplayName,
+                    _timeZone.BaseUtcOffset);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                _logger.LogWarning("⚠️ TimeZone '{TimeZoneId}' no encontrado, usando UTC como fallback", _timeZoneId);
+                _timeZone = TimeZoneInfo.Utc;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error configurando timezone '{TimeZoneId}'", _timeZoneId);
+                _timeZone = TimeZoneInfo.Utc;
+            }
         }
 
         public DateTime ConvertToUtc(DateTime localDate)
         {
             try
             {
-                // Asegurar que el DateTime es 'Unspecified' para indicar que pertenece a esa zona
-                var dateWithCorrectKind = DateTime.SpecifyKind(localDate, DateTimeKind.Unspecified);
+                // Si ya es UTC, no convertir
+                if (localDate.Kind == DateTimeKind.Utc)
+                    return localDate;
 
-                return TimeZoneInfo.ConvertTimeToUtc(dateWithCorrectKind, _timeZone);
+                var dateWithCorrectKind = DateTime.SpecifyKind(localDate, DateTimeKind.Unspecified);
+                var utcDate = TimeZoneInfo.ConvertTimeToUtc(dateWithCorrectKind, _timeZone);
+
+                _logger.LogDebug("🕐 Convertido a UTC: {Local} -> {Utc}", localDate, utcDate);
+                return utcDate;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] No se encontró el TimeZone '{_timeZone}', usando UTC.");
-                return localDate.ToUniversalTime(); // fallback
+                _logger.LogWarning(ex, "⚠️ Error convirtiendo hora local a UTC, usando fallback");
+                return localDate.Kind == DateTimeKind.Utc ? localDate : localDate.ToUniversalTime();
             }
         }
 
         public DateTime? ConvertToUtc(DateTime? localDate)
         {
-            if (localDate == null)
+            if (!localDate.HasValue)
                 return null;
-
 
             try
             {
                 return ConvertToUtc(localDate.Value);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] No se encontró el TimeZone '{_timeZone}', usando UTC.");
+                _logger.LogWarning(ex, "⚠️ Error convirtiendo fecha nullable a UTC");
                 return localDate.Value.ToUniversalTime();
             }
         }
 
         public DateTime ConvertFromUtc(DateTime utcDate)
         {
-
             try
             {
-                return TimeZoneInfo.ConvertTimeFromUtc(utcDate, _timeZone);
+                // Asegurar que sea UTC
+                if (utcDate.Kind != DateTimeKind.Utc)
+                {
+                    _logger.LogWarning("🔄 Se recibió fecha no-UTC para conversión, forzando UTC: {DateKind}", utcDate.Kind);
+                    utcDate = DateTime.SpecifyKind(utcDate, DateTimeKind.Utc);
+                }
+
+                var localDate = TimeZoneInfo.ConvertTimeFromUtc(utcDate, _timeZone);
+
+                _logger.LogDebug("🕐 Convertido desde UTC: {Utc} -> {Local}", utcDate, localDate);
+                return localDate;
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] No se encontró el TimeZone '{_timeZone}', retornando UTC.");
-                return utcDate; // Fallback: devolver UTC sin cambios
+                _logger.LogWarning(ex, "⚠️ Error convirtiendo UTC a hora local, retornando UTC como fallback");
+                return utcDate;
             }
         }
 
         public DateTime? ConvertFromUtc(DateTime? utcDate)
         {
             if (!utcDate.HasValue)
-                return null; // Si la fecha es null, devolver null
+                return null;
 
             try
             {
-                return TimeZoneInfo.ConvertTimeFromUtc(utcDate.Value, _timeZone);
+                return ConvertFromUtc(utcDate.Value);
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] No se encontró el TimeZone '{_timeZone}', retornando null.");
-                return null; // Si hay error, devolver null
+                _logger.LogWarning(ex, "⚠️ Error convirtiendo fecha nullable desde UTC");
+                return utcDate.Value;
             }
         }
 
         public DateTime GetNowInUtc()
         {
-
             try
             {
-                var localNow = TimeZoneInfo.ConvertTime(DateTime.Now, _timeZone); // 'Ahora' en zona horaria configurada
-                return TimeZoneInfo.ConvertTimeToUtc(localNow, _timeZone);
+                var localNow = TimeZoneInfo.ConvertTime(DateTime.Now, _timeZone);
+                var utcNow = TimeZoneInfo.ConvertTimeToUtc(localNow, _timeZone);
+
+                _logger.LogDebug("🕐 GetNowInUtc: {UtcNow}", utcNow);
+                return utcNow;
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] No se encontró el TimeZone '{_timeZone}', usando UTC.");
-                return DateTime.UtcNow; // Fallback a UTC si hay error
+                _logger.LogWarning(ex, "⚠️ Error obteniendo hora actual en UTC, usando DateTime.UtcNow");
+                return DateTime.UtcNow;
             }
         }
 
         public DateTime GetLocalTimeInConfiguredTimeZone()
         {
-
             try
             {
-                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
+                var localTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
+
+                _logger.LogDebug("🕐 GetLocalTimeInConfiguredTimeZone: {LocalTime}", localTime);
+                return localTime;
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine($"[ERROR] No se encontró el TimeZone '{_timeZone}', retornando DateTime.Now local.");
-                return DateTime.Now; // Fallback: hora local del servidor
+                _logger.LogWarning(ex, "⚠️ Error obteniendo hora local, usando DateTime.Now");
+                return DateTime.Now;
             }
         }
     }

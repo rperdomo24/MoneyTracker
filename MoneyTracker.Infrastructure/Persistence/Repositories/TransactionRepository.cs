@@ -95,7 +95,11 @@ public class TransactionRepository : ITransactionRepository
         }
     }
 
-    public async Task<List<Transaction>> GetFilteredAsync(TimePeriodFilter TimePeriod, DateTime? FromDate, DateTime? ToDate, List<int> AccountIds, List<int> TransactionTypeIds)
+    public async Task<List<Transaction>> GetFilteredAsync(
+       DateTime? FromDate,
+       DateTime? ToDate,
+       List<int> AccountIds,
+       List<int> TransactionTypeIds)
     {
         try
         {
@@ -105,52 +109,13 @@ public class TransactionRepository : ITransactionRepository
                 .Include(e => e.Account)
                 .AsQueryable();
 
-            // Filtro por período de tiempo - las fechas ya vienen en UTC desde el mapper
-            if (TimePeriod != TimePeriodFilter.Custom)
-            {
-                // Para períodos predefinidos, calcular fechas en UTC directamente
-                var (startDateUtc, endDateUtc) = GetDateRangeUtc(TimePeriod);
-                if (startDateUtc.HasValue)
-                    query = query.Where(t => t.Date >= startDateUtc.Value);
-                if (endDateUtc.HasValue)
-                    query = query.Where(t => t.Date <= endDateUtc.Value);
-            }
-            else
-            {
-                // Para Custom, usar las fechas que ya vienen convertidas a UTC
-                // Verificar y asegurar que tengan DateTimeKind.Utc
-                if (FromDate.HasValue)
-                {
-                    var fromDateUtc = FromDate.Value.Kind == DateTimeKind.Utc ?
-                        FromDate.Value :
-                        DateTime.SpecifyKind(FromDate.Value, DateTimeKind.Utc);
-                    query = query.Where(t => t.Date >= fromDateUtc);
-                }
-                if (ToDate.HasValue)
-                {
-                    var toDateUtc = ToDate.Value.Kind == DateTimeKind.Utc ?
-                        ToDate.Value :
-                        DateTime.SpecifyKind(ToDate.Value, DateTimeKind.Utc);
-                    query = query.Where(t => t.Date <= toDateUtc);
-                }
-            }
+            query = ApplyDateFilter(query, FromDate, ToDate);
 
-            // Filtro por cuentas activas
+            // Filtro por cuentas
             if (AccountIds.Any())
             {
                 query = query.Where(t => AccountIds.Contains(t.AccountId));
             }
-            else
-            {
-                // Solo mostrar transacciones de cuentas activas por defecto
-                //query = query.Where(t => t.Account.IsActive);
-            }
-
-            // Filtro por tipos de transacción (si existe en tu modelo)
-            //if (TransactionTypeIds.Any())
-            //{
-            //    query = query.Where(t => TransactionTypeIds.Contains(t.TransactionType.GetHashCode()));
-            //}
 
             return await query
                 .OrderByDescending(t => t.Date)
@@ -164,68 +129,15 @@ public class TransactionRepository : ITransactionRepository
         }
     }
 
-    private (DateTime? startDateUtc, DateTime? endDateUtc) GetDateRangeUtc(TimePeriodFilter timePeriod)
+    private IQueryable<Transaction> ApplyDateFilter(IQueryable<Transaction> query, DateTime? startDateUtc, DateTime? endDateUtc)
     {
-        var nowUtc = DateTime.UtcNow;
-        var todayUtc = nowUtc.Date;
+        if (startDateUtc.HasValue)
+            query = query.Where(t => t.Date >= startDateUtc.Value);
 
-        return timePeriod switch
-        {
-            // ✅ Rolling periods (últimos X días desde hoy)
-            TimePeriodFilter.Last7Days => (
-                DateTime.SpecifyKind(todayUtc.AddDays(-7), DateTimeKind.Utc),
-                DateTime.SpecifyKind(todayUtc.AddDays(1).AddMilliseconds(-1), DateTimeKind.Utc) // Fin del día de hoy
-            ),
+        if (endDateUtc.HasValue)
+            query = query.Where(t => t.Date <= endDateUtc.Value);
 
-            TimePeriodFilter.Last30Days => (
-                DateTime.SpecifyKind(todayUtc.AddDays(-30), DateTimeKind.Utc),
-                DateTime.SpecifyKind(todayUtc.AddDays(1).AddMilliseconds(-1), DateTimeKind.Utc)
-            ),
-
-            TimePeriodFilter.Last90Days => (
-                DateTime.SpecifyKind(todayUtc.AddDays(-90), DateTimeKind.Utc),
-                DateTime.SpecifyKind(todayUtc.AddDays(1).AddMilliseconds(-1), DateTimeKind.Utc)
-            ),
-
-            // ✅ Calendar periods (mes/año específico)
-            TimePeriodFilter.LastMonth => (
-                DateTime.SpecifyKind(
-                    new DateTime(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month, 1, 0, 0, 0),
-                    DateTimeKind.Utc),
-                DateTime.SpecifyKind(
-                    new DateTime(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month,
-                        DateTime.DaysInMonth(nowUtc.AddMonths(-1).Year, nowUtc.AddMonths(-1).Month),
-                        23, 59, 59).AddMilliseconds(999),
-                    DateTimeKind.Utc)
-            ),
-
-            TimePeriodFilter.ThisMonth => (
-                DateTime.SpecifyKind(
-                    new DateTime(nowUtc.Year, nowUtc.Month, 1, 0, 0, 0),
-                    DateTimeKind.Utc),
-                DateTime.SpecifyKind(
-                    new DateTime(nowUtc.Year, nowUtc.Month,
-                        DateTime.DaysInMonth(nowUtc.Year, nowUtc.Month),
-                        23, 59, 59).AddMilliseconds(999),
-                    DateTimeKind.Utc)
-            ),
-
-            TimePeriodFilter.ThisYear => (
-                DateTime.SpecifyKind(
-                    new DateTime(nowUtc.Year, 1, 1, 0, 0, 0),
-                    DateTimeKind.Utc),
-                DateTime.SpecifyKind(
-                    new DateTime(nowUtc.Year, 12, 31, 23, 59, 59).AddMilliseconds(999),
-                    DateTimeKind.Utc)
-            ),
-
-            // ✅ Special cases
-            TimePeriodFilter.AllTime => (null, null), // Sin filtro de fecha
-
-            TimePeriodFilter.Custom => (null, null), // Las fechas vienen en FromDate/ToDate
-
-            _ => (null, null)
-        };
+        return query;
     }
 
     public async Task<int> AddAndReturnIdAsync(Transaction transaction)

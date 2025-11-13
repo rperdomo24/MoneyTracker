@@ -24,6 +24,7 @@ namespace MoneyTracker.Application.Services
         private readonly IValidator<CreateTransferDto> _transferValidator;
         private readonly ILogger<TransactionService> _logger;
         private readonly ITimeZoneService _timeZoneService;
+        private readonly ITimeRangeService _timeRangeService;
 
         public TransactionService(
             ITransactionRepository repository,
@@ -31,7 +32,8 @@ namespace MoneyTracker.Application.Services
             IValidator<TransactionDto> validator,
             IValidator<CreateTransferDto> transferValidator,
             ILogger<TransactionService> logger,
-            ITimeZoneService timeZoneService)
+            ITimeZoneService timeZoneService,
+            ITimeRangeService timeRangeService)
         {
             _repository = repository;
             _accountRepository = accountRepository;
@@ -39,6 +41,7 @@ namespace MoneyTracker.Application.Services
             _transferValidator = transferValidator;
             _logger = logger;
             _timeZoneService = timeZoneService;
+            _timeRangeService = timeRangeService;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -390,17 +393,18 @@ namespace MoneyTracker.Application.Services
         {
             try
             {
-                // Convertir fechas a UTC usando el mapper antes de llamar al repositorio
-                var (timePeriod, fromDateUtc, toDateUtc, accountIds, transactionTypeIds) =
-                    filter.MapToRepositoryParameters(_timeZoneService);
+                var (fromDateUtc, toDateUtc) = _timeRangeService.GetDateRangeUtc(
+                    filter.TimePeriod,
+                    filter.FromDate,
+                    filter.ToDate
+                );
 
                 // Llamar al repositorio con fechas ya convertidas a UTC
                 var transactions = await _repository.GetFilteredAsync(
-                    timePeriod,
                     fromDateUtc,
                     toDateUtc,
-                    accountIds,
-                    transactionTypeIds
+                    filter.AccountIds,
+                    filter.TransactionTypeIds
                 );
 
                 // Convertir entidades a DTOs (las fechas se convierten de UTC a zona local aquí)

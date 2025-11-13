@@ -10,6 +10,5 @@
         Last7Days = 5,      
         Last30Days = 6,     
         Last90Days = 7,
-        
     }
 }

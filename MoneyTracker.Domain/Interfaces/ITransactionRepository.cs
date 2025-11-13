@@ -10,7 +10,7 @@ namespace MoneyTracker.Domain.Interfaces
         Task AddAsync(Transaction expense);
         Task UpdateAsync(Transaction expense);
         Task DeleteAsync(int id);
-        Task<List<Transaction>> GetFilteredAsync(TimePeriodFilter TimePeriod, DateTime? FromDate, DateTime? ToDate, List<int> AccountIds, List<int> TransactionTypeIds);
+        Task<List<Transaction>> GetFilteredAsync(DateTime? FromDate, DateTime? ToDate, List<int> AccountIds, List<int> TransactionTypeIds);
         Task<int> AddAndReturnIdAsync(Transaction transaction);
     }
 }

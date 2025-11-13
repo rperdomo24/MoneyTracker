@@ -47,7 +47,7 @@ namespace MoneyTracker.UI
             builder.Services.Configure<ApplicationSettings>(
             builder.Configuration.GetSection("ApplicationSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
-
+            builder.Services.AddScoped<ITimeRangeService, TimeRangeService>();
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IAccountRepository, AccountRepository>();
             builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
@@ -60,7 +60,6 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
             builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
             builder.Services.AddScoped<IDashboardService, DashboardService>();
-
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
 
