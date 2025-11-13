@@ -181,53 +181,47 @@ namespace MoneyTracker.Application.Services
         private async Task CreateInitialBalanceTransactionAsync(int accountId, decimal amount, string accountName)
         {
             var isIncome = amount >= 0;
-            var transactionType = isIncome ? TransactionTypeEnum.Income : TransactionTypeEnum.Expense;
+            var transactionType = SystemCategories.GetInitialBalanceTransactionType(isIncome);
             var categoryId = SystemCategories.GetInitialBalanceCategoryId(isIncome);
 
-            // ✅ Create DTO and use mapper to convert to entity
             var transactionDto = new TransactionDto
             {
-                Name = transactionType.ToString(), // Based on your mapper structure
+                Name = transactionType.ToString(),
                 AccountId = accountId,
                 Amount = Math.Abs(amount),
                 CategoryId = categoryId,
-                Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(), // Local time - mapper will convert to UTC
-                Description = $"{SystemCategories.INITIAL_BALANCE_NAME} - {accountName}",
+                Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
+                Description = $"{SystemCategoryNames.INITIAL_BALANCE_NAME} - {accountName}",
                 CreatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
                 UpdatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone()
             };
 
-            // ✅ Use transaction service which will handle mapping internally
             await _transactionService.CreateAsync(transactionDto);
         }
 
         private async Task CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
         {
             var isIncome = adjustment >= 0;
-            var transactionType = isIncome ? TransactionTypeEnum.Income : TransactionTypeEnum.Expense;
+            var transactionType = SystemCategories.GetBalanceAdjustmentTransactionType(isIncome);
             var categoryId = SystemCategories.GetBalanceAdjustmentCategoryId(isIncome);
 
-            // ✅ Create DTO and use mapper to convert to entity
             var transactionDto = new TransactionDto
             {
-                Name = transactionType.ToString(), // Based on your mapper structure
+                Name = transactionType.ToString(),
                 AccountId = accountId,
                 Amount = Math.Abs(adjustment),
-                CategoryId = categoryId, // ✅ FIXED: Use correct categoryId, not GetHashCode()
-                Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(), // Local time - mapper will convert to UTC
-                Description = $"{SystemCategories.BALANCE_ADJUSTMENT_NAME} - {accountName}",
+                CategoryId = categoryId,
+                Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
+                Description = $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - {accountName}",
                 CreatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
                 UpdatedAt = _timeZoneService.GetLocalTimeInConfiguredTimeZone()
             };
 
-            // ✅ Add notes if provided
             if (!string.IsNullOrEmpty(reason))
             {
-                // Assuming TransactionDto has Notes property
                 // transactionDto.Notes = reason;
             }
 
-            // ✅ Use transaction service which will handle mapping internally
             await _transactionService.CreateAsync(transactionDto);
         }
 

@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MoneyTracker.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Iniciando : Migration
+    public partial class initialdata : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -132,28 +132,28 @@ namespace MoneyTracker.Infrastructure.Migrations
                 columns: new[] { "Id", "Color", "CreatedAt", "DeletedAt", "Icon", "IsDeleted", "IsSystem", "Name", "ParentId", "Type", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "AttachMoney", false, false, "Salario", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 2, "#66BB6A", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "WorkOutline", false, false, "Freelance", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 3, "#81C784", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "TrendingUp", false, false, "Inversiones", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 4, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "AccountBalanceWallet", false, true, "Balance Inicial", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 5, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "AccountBalanceWallet", false, true, "Balance Inicial", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 6, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CurrencyExchange", false, true, "Ajuste de Balance", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 7, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CurrencyExchange", false, true, "Ajuste de Balance", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 8, "#FF9800", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "TrendingDown", false, true, "Transferencia Enviada", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 9, "#FF9800", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "TrendingUp", false, true, "Transferencia Recibida", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 10, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CreditCard", false, true, "Pago de Tarjeta", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 11, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Payments", false, true, "Pago Recibido", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 12, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CreditScore", false, true, "Adelanto de Efectivo", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 13, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Receipt", false, true, "Adelanto Recibido", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 14, "#FF5722", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Restaurant", false, false, "Comida", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 15, "#2196F3", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Commute", false, false, "Transporte", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 16, "#3F51B5", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Home", false, false, "Alquiler/Hipoteca", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 17, "#FFC107", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Bolt", false, false, "Servicios Públicos", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 18, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "LocalHospital", false, false, "Salud", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 19, "#9C27B0", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "SportsEsports", false, false, "Entretenimiento", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 20, "#E91E63", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "ShoppingCart", false, false, "Compras", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 21, "#00BCD4", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "School", false, false, "Educación", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
-                    { 22, "#FF9800", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "FlightTakeoff", false, false, "Viajes", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) }
+                    { 1, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "AccountBalanceWallet", false, true, "Initial Balance", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 2, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "AccountBalanceWallet", false, true, "Initial Balance", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 3, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CurrencyExchange", false, true, "Balance Adjustment", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 4, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CurrencyExchange", false, true, "Balance Adjustment", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 5, "#FF9800", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "TrendingDown", false, true, "Transfer Out", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 6, "#FF9800", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "TrendingUp", false, true, "Transfer In", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 7, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CreditCard", false, true, "Credit Card Payment", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 8, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Payments", false, true, "Payment Received", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 9, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "CreditScore", false, true, "Credit Advance", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 10, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Receipt", false, true, "Advance Received", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 11, "#4CAF50", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "AttachMoney", false, false, "Salary", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 12, "#66BB6A", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "WorkOutline", false, false, "Freelance", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 13, "#81C784", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "TrendingUp", false, false, "Investments", null, 1, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 14, "#FF5722", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Restaurant", false, false, "Food", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 15, "#2196F3", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Commute", false, false, "Transport", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 16, "#3F51B5", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Home", false, false, "Rent/Mortgage", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 17, "#FFC107", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "Bolt", false, false, "Utilities", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 18, "#F44336", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "LocalHospital", false, false, "Health", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 19, "#9C27B0", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "SportsEsports", false, false, "Entertainment", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 20, "#E91E63", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "ShoppingCart", false, false, "Shopping", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 21, "#00BCD4", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "School", false, false, "Education", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) },
+                    { 22, "#FF9800", new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), null, "FlightTakeoff", false, false, "Travel", null, 2, new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified) }
                 });
 
             migrationBuilder.CreateIndex(

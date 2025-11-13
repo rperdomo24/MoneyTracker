@@ -10,6 +10,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task UpdateAsync(Category category);
         Task DeleteAsync(int id);
         Task<bool> ExistsAsync(string name, int? excludeId = null);
-        Task<List<Category>> GetAllAsync(bool includeChildren);
+        Task<List<Category>> GetAllAsync(bool includeChildren, bool incluideSystem);
     }
 }

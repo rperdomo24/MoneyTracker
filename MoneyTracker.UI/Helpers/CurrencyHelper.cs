@@ -23,11 +23,5 @@ namespace MoneyTracker.UI.Helpers
                 _ => Color.Default
             };
         }
-        public static string FormatWithSign(decimal amount)
-        {
-            return amount >= 0 ? $"+${Math.Abs(amount):N2}" : $"-${Math.Abs(amount):N2}";
-        }
-
-
     }
 }

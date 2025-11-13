@@ -23,12 +23,12 @@
                 }
 
                 @* TRANSFER ICON *@
-                <MudAvatar Size="Size.Medium" Style="background-color: #2196f3;" Class="cursor-pointer">
+                <MudAvatar Size="Size.Medium" Style="background-color: #2196f3;" Class="cursor-pointer" @onclick="HandleCardClick">
                     <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Surface" />
                 </MudAvatar>
 
                 @* TRANSFER DETAILS *@
-                <div style="flex: 1; min-width: 0;" class="cursor-pointer">
+                <div style="flex: 1; min-width: 0;" @onclick="HandleCardClick" class="cursor-pointer">
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                         <MudLink Href="@GetAccountLink(FromTransaction)" 
                                  Typo="Typo.body1"

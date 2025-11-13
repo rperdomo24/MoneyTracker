@@ -27,36 +27,6 @@ namespace MoneyTracker.Application.Common.Extensions
             return SystemCategories.IsTransferCategory(transaction.CategoryId);
         }
 
-        public static string GetAmountDisplay(this TransactionDto transaction)
-        {
-            if (transaction.Amount <= 0) return "$0.00";
-
-            if (transaction.TransactionType == TransactionTypeEnum.Transfer ||
-                transaction.TransactionType == TransactionTypeEnum.CreditPayment)
-            {
-                return transaction.Amount.ToString("C");
-            }
-
-            var sign = transaction.TransactionType == TransactionTypeEnum.Income ? "+" : "-";
-            return $"{sign}{transaction.Amount:C}";
-        }
-
-        public static string GetAmountDisplayWithSign(this TransactionDto transaction)
-        {
-            if (transaction.Amount <= 0) return "$0.00";
-
-            if (transaction.IsTransfer())
-                return FormatWithSign(transaction.Amount);
-
-            var sign = transaction.IsIncome() ? "+" : "-";
-            return $"{sign}{transaction.Amount:C}";
-        }
-
-        private static string FormatWithSign(decimal amount)
-        {
-            if (amount == 0) return "$0.00";
-            return amount >= 0 ? $"+${Math.Abs(amount):N2}" : $"-${Math.Abs(amount):N2}";
-        }
         public static TransactionTypeEnum GetDerivedType(this TransactionDto transaction)
         {
             // Transfers = categorías del sistema 8-13
@@ -91,6 +61,35 @@ namespace MoneyTracker.Application.Common.Extensions
         public static TransactionDto GetToTransaction(this TransactionDto transaction, TransactionDto pairedTransaction)
         {
             return transaction.IsOutgoingTransfer() ? pairedTransaction : transaction;
+        }
+
+        public static string GetAmountDisplay(this TransactionDto transaction)
+        {
+            if (transaction.Amount == 0) return "$0.00";
+
+            if (transaction.TransactionType == TransactionTypeEnum.Transfer ||
+                transaction.TransactionType == TransactionTypeEnum.CreditPayment)
+            {
+                return transaction.Amount.ToString("C");
+            }
+
+            return transaction.Amount.ToString("C");
+        }
+
+        public static string GetAmountDisplayWithSign(this TransactionDto transaction)
+        {
+            if (transaction.Amount == 0) return "$0.00";
+
+            if (transaction.IsTransfer())
+                return FormatWithSign(transaction.Amount);
+
+            return transaction.Amount.ToString("C");
+        }
+
+        private static string FormatWithSign(decimal amount)
+        {
+            if (amount == 0) return "$0.00";
+            return amount >= 0 ? $"+${amount:N2}" : $"-${Math.Abs(amount):N2}";
         }
     }
 }

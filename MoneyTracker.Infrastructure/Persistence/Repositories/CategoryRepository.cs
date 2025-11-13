@@ -34,11 +34,15 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
-        public async Task<List<Category>> GetAllAsync(bool includeChildren)
+        public async Task<List<Category>> GetAllAsync(bool includeChildren, bool incluideSystem)
         {
             try
             {
                 IQueryable<Category> query = _context.Categories;
+
+                query = incluideSystem
+                    ? query.Where(category => category.IsSystem)
+                    : query.Where(category => !category.IsSystem);
 
                 if (includeChildren)
                 {

@@ -12,15 +12,15 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MoneyTracker.Infrastructure.Migrations
 {
     [DbContext(typeof(MoneyTrackerDbContext))]
-    [Migration("20250703040455_Iniciando")]
-    partial class Iniciando
+    [Migration("20251112162726_initial data")]
+    partial class initialdata
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.5")
+                .HasAnnotation("ProductVersion", "9.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -118,16 +118,136 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Id = 1,
                             Color = "#4CAF50",
                             CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "AttachMoney",
+                            Icon = "AccountBalanceWallet",
                             IsDeleted = false,
-                            IsSystem = false,
-                            Name = "Salario",
+                            IsSystem = true,
+                            Name = "Initial Balance",
                             Type = 1,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = 2,
+                            Color = "#F44336",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "AccountBalanceWallet",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Initial Balance",
+                            Type = 2,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Color = "#4CAF50",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "CurrencyExchange",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Balance Adjustment",
+                            Type = 1,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Color = "#F44336",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "CurrencyExchange",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Balance Adjustment",
+                            Type = 2,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Color = "#FF9800",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "TrendingDown",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Transfer Out",
+                            Type = 2,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Color = "#FF9800",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "TrendingUp",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Transfer In",
+                            Type = 1,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Color = "#4CAF50",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "CreditCard",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Credit Card Payment",
+                            Type = 2,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Color = "#4CAF50",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "Payments",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Payment Received",
+                            Type = 1,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Color = "#F44336",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "CreditScore",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Credit Advance",
+                            Type = 2,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Color = "#F44336",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "Receipt",
+                            IsDeleted = false,
+                            IsSystem = true,
+                            Name = "Advance Received",
+                            Type = 1,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Color = "#4CAF50",
+                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            Icon = "AttachMoney",
+                            IsDeleted = false,
+                            IsSystem = false,
+                            Name = "Salary",
+                            Type = 1,
+                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
+                        },
+                        new
+                        {
+                            Id = 12,
                             Color = "#66BB6A",
                             CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Icon = "WorkOutline",
@@ -139,133 +259,13 @@ namespace MoneyTracker.Infrastructure.Migrations
                         },
                         new
                         {
-                            Id = 3,
+                            Id = 13,
                             Color = "#81C784",
                             CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Icon = "TrendingUp",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Inversiones",
-                            Type = 1,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Color = "#4CAF50",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "AccountBalanceWallet",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Balance Inicial",
-                            Type = 1,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Color = "#F44336",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "AccountBalanceWallet",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Balance Inicial",
-                            Type = 2,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Color = "#4CAF50",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "CurrencyExchange",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Ajuste de Balance",
-                            Type = 1,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Color = "#F44336",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "CurrencyExchange",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Ajuste de Balance",
-                            Type = 2,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Color = "#FF9800",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "TrendingDown",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Transferencia Enviada",
-                            Type = 2,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Color = "#FF9800",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "TrendingUp",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Transferencia Recibida",
-                            Type = 1,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 10,
-                            Color = "#4CAF50",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "CreditCard",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Pago de Tarjeta",
-                            Type = 2,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 11,
-                            Color = "#4CAF50",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "Payments",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Pago Recibido",
-                            Type = 1,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 12,
-                            Color = "#F44336",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "CreditScore",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Adelanto de Efectivo",
-                            Type = 2,
-                            UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
-                        },
-                        new
-                        {
-                            Id = 13,
-                            Color = "#F44336",
-                            CreatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            Icon = "Receipt",
-                            IsDeleted = false,
-                            IsSystem = true,
-                            Name = "Adelanto Recibido",
+                            Name = "Investments",
                             Type = 1,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -277,7 +277,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "Restaurant",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Comida",
+                            Name = "Food",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -289,7 +289,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "Commute",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Transporte",
+                            Name = "Transport",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -301,7 +301,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "Home",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Alquiler/Hipoteca",
+                            Name = "Rent/Mortgage",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -313,7 +313,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "Bolt",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Servicios Públicos",
+                            Name = "Utilities",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -325,7 +325,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "LocalHospital",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Salud",
+                            Name = "Health",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -337,7 +337,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "SportsEsports",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Entretenimiento",
+                            Name = "Entertainment",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -349,7 +349,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "ShoppingCart",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Compras",
+                            Name = "Shopping",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -361,7 +361,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "School",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Educación",
+                            Name = "Education",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
@@ -373,7 +373,7 @@ namespace MoneyTracker.Infrastructure.Migrations
                             Icon = "FlightTakeoff",
                             IsDeleted = false,
                             IsSystem = false,
-                            Name = "Viajes",
+                            Name = "Travel",
                             Type = 2,
                             UpdatedAt = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         });

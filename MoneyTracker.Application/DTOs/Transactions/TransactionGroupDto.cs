@@ -8,7 +8,7 @@ namespace MoneyTracker.Application.DTOs.Transactions
         public string DateDisplay => Date.ToString("MMMM dd, yyyy");
         public List<TransactionDto> Transactions { get; set; } = new();
         public int Count => Transactions.Count;
-        public decimal Total => Transactions.Sum(t => t.IsIncome() ? t.Amount : -t.Amount);
+        public decimal Total => Transactions.Sum(t => t.Amount);
         public List<int> TransactionIds => Transactions.Select(t => t.Id).ToList();
     }
 }

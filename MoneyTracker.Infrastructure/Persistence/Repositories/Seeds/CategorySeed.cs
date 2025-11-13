@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;
 
@@ -9,11 +10,117 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
         public static void Seed(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Category>().HasData(
-                // Income Categories (1-3)
+                // ========================
+                // CATEGORÍAS DEL SISTEMA (IsSystem = true) - IDs 1-10
+                // ========================
+
+                // Balance Management Categories (1-4)
                 new Category
                 {
                     Id = 1,
-                    Name = "Salario",
+                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.AccountBalanceWallet.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 2,
+                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.AccountBalanceWallet.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 3,
+                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.CurrencyExchange.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 4,
+                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.CurrencyExchange.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
+
+                // Transfer Categories (5-6)
+                new Category
+                {
+                    Id = 5,
+                    Name = SystemCategoryNames.TRANSFER_OUT_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.TrendingDown.ToString(),
+                    Color = "#FF9800",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 6,
+                    Name = SystemCategoryNames.TRANSFER_IN_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.TrendingUp.ToString(),
+                    Color = "#FF9800",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+
+                // Credit Payment Categories (7-8)
+                new Category
+                {
+                    Id = 7,
+                    Name = SystemCategoryNames.CREDIT_PAYMENT_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.CreditCard.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 8,
+                    Name = SystemCategoryNames.PAYMENT_RECEIVED_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.Payments.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+
+                // Credit Advance Categories (9-10)
+                new Category
+                {
+                    Id = 9,
+                    Name = SystemCategoryNames.CREDIT_ADVANCE_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.CreditScore.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 10,
+                    Name = SystemCategoryNames.ADVANCE_RECEIVED_NAME, // ← USANDO CONST
+                    Icon = CategoryIcon.Receipt.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+
+                // ========================
+                // CATEGORÍAS DE USUARIO (IsSystem = false) - IDs 11+
+                // ========================
+
+                // Income Categories (11-13) - NOMBRES EN INGLÉS
+                new Category
+                {
+                    Id = 11,
+                    Name = "Salary",
                     Icon = CategoryIcon.AttachMoney.ToString(),
                     Color = "#4CAF50",
                     Type = CategoryTypeEnum.Income,
@@ -21,7 +128,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 },
                 new Category
                 {
-                    Id = 2,
+                    Id = 12,
                     Name = "Freelance",
                     Icon = CategoryIcon.WorkOutline.ToString(),
                     Color = "#66BB6A",
@@ -30,116 +137,19 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 },
                 new Category
                 {
-                    Id = 3,
-                    Name = "Inversiones",
+                    Id = 13,
+                    Name = "Investments",
                     Icon = CategoryIcon.TrendingUp.ToString(),
                     Color = "#81C784",
                     Type = CategoryTypeEnum.Income,
                     IsSystem = false,
                 },
 
-                // Balance Management Categories (4-7)
-                new Category
-                {
-                    Id = 4,
-                    Name = "Balance Inicial",
-                    Icon = CategoryIcon.AccountBalanceWallet.ToString(),
-                    Color = "#4CAF50", // Verde para Income
-                    Type = CategoryTypeEnum.Income,
-                    IsSystem = true,
-                },
-                new Category
-                {
-                    Id = 5,
-                    Name = "Balance Inicial",
-                    Icon = CategoryIcon.AccountBalanceWallet.ToString(),
-                    Color = "#F44336", // Rojo para Expense
-                    Type = CategoryTypeEnum.Expense,
-                    IsSystem = true,
-                },
-                new Category
-                {
-                    Id = 6,
-                    Name = "Ajuste de Balance",
-                    Icon = CategoryIcon.CurrencyExchange.ToString(),
-                    Color = "#4CAF50", // Verde para Income
-                    Type = CategoryTypeEnum.Income,
-                    IsSystem = true,
-                },
-                new Category
-                {
-                    Id = 7,
-                    Name = "Ajuste de Balance",
-                    Icon = CategoryIcon.CurrencyExchange.ToString(),
-                    Color = "#F44336", // Rojo para Expense
-                    Type = CategoryTypeEnum.Expense,
-                    IsSystem = true,
-                },
-
-                // Transfer Categories (8-9)
-                new Category
-                {
-                    Id = 8,
-                    Name = "Transferencia Enviada",
-                    Icon = CategoryIcon.TrendingDown.ToString(),
-                    Color = "#FF9800", // Naranja para transfers
-                    Type = CategoryTypeEnum.Expense,
-                    IsSystem = true,
-                },
-                new Category
-                {
-                    Id = 9,
-                    Name = "Transferencia Recibida",
-                    Icon = CategoryIcon.TrendingUp.ToString(),
-                    Color = "#FF9800", // Naranja para transfers
-                    Type = CategoryTypeEnum.Income,
-                    IsSystem = true,
-                },
-
-                // Credit Payment Categories (10-11)
-                new Category
-                {
-                    Id = 10,
-                    Name = "Pago de Tarjeta",
-                    Icon = CategoryIcon.CreditCard.ToString(),
-                    Color = "#4CAF50", // Verde (good for net worth)
-                    Type = CategoryTypeEnum.Expense,
-                    IsSystem = true,
-                },
-                new Category
-                {
-                    Id = 11,
-                    Name = "Pago Recibido",
-                    Icon = CategoryIcon.Payments.ToString(),
-                    Color = "#4CAF50", // Verde (good for net worth)
-                    Type = CategoryTypeEnum.Income,
-                    IsSystem = true,
-                },
-
-                // Credit Advance Categories (12-13)
-                new Category
-                {
-                    Id = 12,
-                    Name = "Adelanto de Efectivo",
-                    Icon = CategoryIcon.CreditScore.ToString(),
-                    Color = "#F44336", // Rojo (bad for net worth)
-                    Type = CategoryTypeEnum.Expense,
-                    IsSystem = true,
-                },
-                new Category
-                {
-                    Id = 13,
-                    Name = "Adelanto Recibido",
-                    Icon = CategoryIcon.Receipt.ToString(),
-                    Color = "#F44336", // Rojo (bad for net worth)
-                    Type = CategoryTypeEnum.Income,
-                    IsSystem = true,
-                },
-
+                // Expense Categories (14-22) - NOMBRES EN INGLÉS
                 new Category
                 {
                     Id = 14,
-                    Name = "Comida",
+                    Name = "Food",
                     Icon = CategoryIcon.Restaurant.ToString(),
                     Color = "#FF5722",
                     Type = CategoryTypeEnum.Expense,
@@ -148,7 +158,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 15,
-                    Name = "Transporte",
+                    Name = "Transport",
                     Icon = CategoryIcon.Commute.ToString(),
                     Color = "#2196F3",
                     Type = CategoryTypeEnum.Expense,
@@ -157,7 +167,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 16,
-                    Name = "Alquiler/Hipoteca",
+                    Name = "Rent/Mortgage",
                     Icon = CategoryIcon.Home.ToString(),
                     Color = "#3F51B5",
                     Type = CategoryTypeEnum.Expense,
@@ -166,7 +176,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 17,
-                    Name = "Servicios Públicos",
+                    Name = "Utilities",
                     Icon = CategoryIcon.Bolt.ToString(),
                     Color = "#FFC107",
                     Type = CategoryTypeEnum.Expense,
@@ -175,7 +185,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 18,
-                    Name = "Salud",
+                    Name = "Health",
                     Icon = CategoryIcon.LocalHospital.ToString(),
                     Color = "#F44336",
                     Type = CategoryTypeEnum.Expense,
@@ -184,7 +194,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 19,
-                    Name = "Entretenimiento",
+                    Name = "Entertainment",
                     Icon = CategoryIcon.SportsEsports.ToString(),
                     Color = "#9C27B0",
                     Type = CategoryTypeEnum.Expense,
@@ -193,7 +203,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 20,
-                    Name = "Compras",
+                    Name = "Shopping",
                     Icon = CategoryIcon.ShoppingCart.ToString(),
                     Color = "#E91E63",
                     Type = CategoryTypeEnum.Expense,
@@ -202,7 +212,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 21,
-                    Name = "Educación",
+                    Name = "Education",
                     Icon = CategoryIcon.School.ToString(),
                     Color = "#00BCD4",
                     Type = CategoryTypeEnum.Expense,
@@ -211,12 +221,11 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 22,
-                    Name = "Viajes",
+                    Name = "Travel",
                     Icon = CategoryIcon.FlightTakeoff.ToString(),
                     Color = "#FF9800",
                     Type = CategoryTypeEnum.Expense,
                     IsSystem = false,
-               
                 }
             );
         }
