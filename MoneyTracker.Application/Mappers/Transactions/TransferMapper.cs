@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Transaction;
 
@@ -11,7 +12,6 @@ namespace MoneyTracker.Application.Mappers.Transactions
             this CreateTransferDto dto,
             int fromCategoryId,
             int toCategoryId,
-            TransferTypeEnum transferType,
             string fromAccountName,
             string toAccountName,
             ITimeZoneService timeZoneService)
@@ -19,19 +19,22 @@ namespace MoneyTracker.Application.Mappers.Transactions
             var dateUtc = timeZoneService.ConvertToUtc(dto.Date);
             var nowUtc = timeZoneService.GetNowInUtc();
 
+            // ✅ Obtener el nombre del tipo de transferencia basado en las categorías
+            var transferTypeName = SystemCategories.GetTransferTypeName(fromCategoryId, toCategoryId);
+
             var description = string.IsNullOrWhiteSpace(dto.Description)
-                ? $"Transfer from {fromAccountName} to {toAccountName}"
+                ? $"{transferTypeName} from {fromAccountName} to {toAccountName}"
                 : dto.Description;
 
             var fromTransaction = new Transaction
             {
-                Name = $"Transfer to {toAccountName}",
+                Name = $"{transferTypeName} to {toAccountName}",
                 Amount = dto.Amount,
                 Date = dateUtc,
                 Description = description,
                 AccountId = dto.FromAccountId,
                 CategoryId = fromCategoryId,
-                TransferType = transferType,
+                PaymentMethod = dto.PaymentMethod,
                 IsSystemGenerated = false,
                 Status = TransactionStatus.Completed,
                 CreatedAt = nowUtc,
@@ -40,13 +43,13 @@ namespace MoneyTracker.Application.Mappers.Transactions
 
             var toTransaction = new Transaction
             {
-                Name = $"Transfer from {fromAccountName}",
+                Name = $"{transferTypeName} from {fromAccountName}",
                 Amount = dto.Amount,
                 Date = dateUtc,
                 Description = description,
                 AccountId = dto.ToAccountId,
                 CategoryId = toCategoryId,
-                TransferType = transferType,
+                PaymentMethod = dto.PaymentMethod,
                 IsSystemGenerated = false,
                 Status = TransactionStatus.Completed,
                 CreatedAt = nowUtc,
@@ -55,7 +58,6 @@ namespace MoneyTracker.Application.Mappers.Transactions
 
             return (fromTransaction, toTransaction);
         }
-
 
         public static void UpdateTransferPair(
             Transaction transaction,
@@ -82,11 +84,19 @@ namespace MoneyTracker.Application.Mappers.Transactions
             Transaction? paired,
             ITimeZoneService timeZoneService)
         {
+            // ✅ Determinar el tipo de transferencia basado en las categorías
+            string? transferTypeName = null;
+            if (paired != null && SystemCategories.IsTransferCategory(transaction.CategoryId))
+            {
+                transferTypeName = SystemCategories.GetTransferTypeName(
+                    transaction.CategoryId,
+                    paired.CategoryId);
+            }
+
             return new TransactionWithPairDto
             {
                 Transaction = transaction.MapToDto(timeZoneService),
                 PairedTransaction = paired?.MapToDto(timeZoneService),
-                TransferType = transaction.TransferType
             };
         }
 
@@ -101,11 +111,11 @@ namespace MoneyTracker.Application.Mappers.Transactions
                 ToAccountId = toTransaction.AccountId,
                 Amount = fromTransaction.Amount,
                 Date = DateTime.Today,
+                PaymentMethod = fromTransaction.PaymentMethod,
                 Description = string.IsNullOrWhiteSpace(fromTransaction.Description)
                     ? null
                     : $"{fromTransaction.Description} (Copy)"
             };
         }
-
     }
 }

@@ -7,6 +7,5 @@ namespace MoneyTracker.Application.DTOs.Transactions
         public TransactionDto Transaction { get; set; } = default!;
         public TransactionDto? PairedTransaction { get; set; }
         public bool IsTransfer => PairedTransaction != null;
-        public TransferTypeEnum? TransferType { get; set; }
     }
 }

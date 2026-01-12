@@ -23,7 +23,6 @@ public static class TransactionMapper
             ScheduledDate = entity.ScheduledDate,
             IsSystemGenerated = entity.IsSystemGenerated,
             TransferPairId = entity.TransferPairId,
-            TransferType = entity.TransferType,
             CreatedAt = timeZoneService.ConvertFromUtc(entity.CreatedAt),
             UpdatedAt = timeZoneService.ConvertFromUtc(entity.UpdatedAt),
             Account = entity.Account?.MapToDto(),
@@ -48,7 +47,6 @@ public static class TransactionMapper
             ScheduledDate = dto.ScheduledDate,
             IsSystemGenerated = dto.IsSystemGenerated,
             TransferPairId = dto.TransferPairId,
-            TransferType = dto.TransferType,
             UpdatedAt = timeZoneService.ConvertToUtc(dto.UpdatedAt),
             CreatedAt = timeZoneService.ConvertToUtc(dto.CreatedAt),
             IsDeleted = false
@@ -68,7 +66,6 @@ public static class TransactionMapper
         entity.ScheduledDate = dto.ScheduledDate;
         entity.IsSystemGenerated = dto.IsSystemGenerated;
         entity.TransferPairId = dto.TransferPairId;
-        entity.TransferType = dto.TransferType;
         entity.UpdatedAt = timeZoneService.GetNowInUtc();
     }
 

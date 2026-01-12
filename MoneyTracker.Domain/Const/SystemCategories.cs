@@ -1,5 +1,4 @@
 ﻿using MoneyTracker.Domain.Enums.Account;
-using MoneyTracker.Domain.Enums.Transaction;
 
 namespace MoneyTracker.Domain.Const
 {
@@ -25,39 +24,68 @@ namespace MoneyTracker.Domain.Const
         public const int CREDIT_ADVANCE_ID = 9;
         public const int ADVANCE_RECEIVED_ID = 10;
 
-        // User Income Categories (11-13)
-        public const int SALARY_ID = 11;
-        public const int FREELANCE_ID = 12;
-        public const int INVESTMENTS_ID = 13;
-
-        // ✅ Helper methods for transfer intelligence
-        public static (int fromCategoryId, int toCategoryId) GetTransferCategories(TransferTypeEnum transferType)
-        {
-            return transferType switch
-            {
-                TransferTypeEnum.AccountTransfer => (TRANSFER_OUT_ID, TRANSFER_IN_ID),
-                TransferTypeEnum.CreditPayment => (CREDIT_PAYMENT_ID, PAYMENT_RECEIVED_ID),
-                TransferTypeEnum.CreditAdvance => (CREDIT_ADVANCE_ID, ADVANCE_RECEIVED_ID),
-                _ => throw new ArgumentException($"Invalid transfer type: {transferType}")
-            };
-        }
-
-        public static TransferTypeEnum DetermineTransferType(AccountType fromType, AccountType toType)
+        // ✅ NEW: Helper method based on AccountType instead of TransferTypeEnum
+        public static (int fromCategoryId, int toCategoryId) GetTransferCategoriesByAccountType(
+            AccountType fromType,
+            AccountType toType)
         {
             return (fromType, toType) switch
             {
-                (_, AccountType.Credit) => TransferTypeEnum.CreditPayment,
-                (AccountType.Credit, _) => TransferTypeEnum.CreditAdvance,
-                (_, _) => TransferTypeEnum.AccountTransfer
+                // Payment TO credit card
+                (_, AccountType.Credit) => (CREDIT_PAYMENT_ID, PAYMENT_RECEIVED_ID),
+
+                // Advance FROM credit card
+                (AccountType.Credit, _) => (CREDIT_ADVANCE_ID, ADVANCE_RECEIVED_ID),
+
+                // Regular transfer between accounts
+                _ => (TRANSFER_OUT_ID, TRANSFER_IN_ID)
             };
         }
 
-        public static TransactionTypeEnum GetInitialBalanceTransactionType(bool isIncome)
-            => isIncome ? TransactionTypeEnum.Income : TransactionTypeEnum.Expense;
+        // ✅ NEW: Determine transfer type by category IDs
+        public static string GetTransferTypeName(int fromCategoryId, int toCategoryId)
+        {
+            return (fromCategoryId, toCategoryId) switch
+            {
+                (TRANSFER_OUT_ID, TRANSFER_IN_ID) => "Account Transfer",
+                (CREDIT_PAYMENT_ID, PAYMENT_RECEIVED_ID) => "Credit Payment",
+                (CREDIT_ADVANCE_ID, ADVANCE_RECEIVED_ID) => "Credit Advance",
+                _ => "Unknown Transfer"
+            };
+        }
 
-        public static TransactionTypeEnum GetBalanceAdjustmentTransactionType(bool isIncome)
-            => isIncome ? TransactionTypeEnum.Income : TransactionTypeEnum.Expense;
+        public static string GetSystemCategoryTypeName(int categoryId)
+        {
+            return categoryId switch
+            {
+                INITIAL_BALANCE_INCOME_ID => SystemCategoryNames.INITIAL_BALANCE_NAME + "- Income",
+                INITIAL_BALANCE_EXPENSE_ID => SystemCategoryNames.INITIAL_BALANCE_NAME + "- Expense",
+                BALANCE_ADJUSTMENT_INCOME_ID => $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - Income",
+                BALANCE_ADJUSTMENT_EXPENSE_ID => $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - Expense",
+                TRANSFER_OUT_ID => $"{SystemCategoryNames.TRANSFER_OUT_NAME}",
+                TRANSFER_IN_ID => $"{SystemCategoryNames.TRANSFER_IN_NAME}",
+                CREDIT_PAYMENT_ID => $"{SystemCategoryNames.CREDIT_PAYMENT_NAME}",
+                PAYMENT_RECEIVED_ID => $"{SystemCategoryNames.PAYMENT_RECEIVED_NAME}",
+                CREDIT_ADVANCE_ID => $"{SystemCategoryNames.CREDIT_ADVANCE_NAME}",
+                ADVANCE_RECEIVED_ID => $"{SystemCategoryNames.ADVANCE_RECEIVED_NAME}",
+                _ => ""
+            };
+        }
 
+
+        // ✅ NEW: Check if category pair is valid for transfers
+        public static bool IsValidTransferPair(int fromCategoryId, int toCategoryId)
+        {
+            return (fromCategoryId, toCategoryId) switch
+            {
+                (TRANSFER_OUT_ID, TRANSFER_IN_ID) => true,
+                (CREDIT_PAYMENT_ID, PAYMENT_RECEIVED_ID) => true,
+                (CREDIT_ADVANCE_ID, ADVANCE_RECEIVED_ID) => true,
+                _ => false
+            };
+        }
+
+        // Existing helper methods
         public static int GetInitialBalanceCategoryId(bool isIncome)
             => isIncome ? INITIAL_BALANCE_INCOME_ID : INITIAL_BALANCE_EXPENSE_ID;
 
@@ -73,10 +101,30 @@ namespace MoneyTracker.Domain.Const
         public static bool IsCreditRelatedCategory(int categoryId)
             => categoryId >= 7 && categoryId <= 10;
 
+        // ✅ NEW: More specific transfer category checks
         public static bool IsTransferOutCategory(int categoryId)
-            => categoryId == TRANSFER_OUT_ID;
+            => categoryId == TRANSFER_OUT_ID ||
+               categoryId == CREDIT_PAYMENT_ID ||
+               categoryId == CREDIT_ADVANCE_ID;
 
         public static bool IsTransferInCategory(int categoryId)
-            => categoryId == TRANSFER_IN_ID;
+            => categoryId == TRANSFER_IN_ID ||
+               categoryId == PAYMENT_RECEIVED_ID ||
+               categoryId == ADVANCE_RECEIVED_ID;
+
+        // ✅ NEW: Get paired category for transfers
+        public static int? GetPairedTransferCategory(int categoryId)
+        {
+            return categoryId switch
+            {
+                TRANSFER_OUT_ID => TRANSFER_IN_ID,
+                TRANSFER_IN_ID => TRANSFER_OUT_ID,
+                CREDIT_PAYMENT_ID => PAYMENT_RECEIVED_ID,
+                PAYMENT_RECEIVED_ID => CREDIT_PAYMENT_ID,
+                CREDIT_ADVANCE_ID => ADVANCE_RECEIVED_ID,
+                ADVANCE_RECEIVED_ID => CREDIT_ADVANCE_ID,
+                _ => null
+            };
+        }
     }
 }

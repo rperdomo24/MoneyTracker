@@ -13,12 +13,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 // ========================
                 // CATEGORÍAS DEL SISTEMA (IsSystem = true) - IDs 1-10
                 // ========================
-
-                // Balance Management Categories (1-4)
                 new Category
                 {
                     Id = 1,
-                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME,
                     Icon = CategoryIcon.AccountBalanceWallet.ToString(),
                     Color = "#4CAF50",
                     Type = CategoryTypeEnum.Income,
@@ -27,7 +25,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 2,
-                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME,
                     Icon = CategoryIcon.AccountBalanceWallet.ToString(),
                     Color = "#F44336",
                     Type = CategoryTypeEnum.Expense,
@@ -36,7 +34,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 3,
-                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME,
                     Icon = CategoryIcon.CurrencyExchange.ToString(),
                     Color = "#4CAF50",
                     Type = CategoryTypeEnum.Income,
@@ -45,70 +43,66 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 new Category
                 {
                     Id = 4,
-                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME,
                     Icon = CategoryIcon.CurrencyExchange.ToString(),
                     Color = "#F44336",
                     Type = CategoryTypeEnum.Expense,
                     IsSystem = true,
                 },
 
-                // Transfer Categories (5-6)
+                // Transfer Categories (5-10) - AHORA CON TYPE = Transfer
                 new Category
                 {
                     Id = 5,
-                    Name = SystemCategoryNames.TRANSFER_OUT_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.TRANSFER_OUT_NAME,
                     Icon = CategoryIcon.TrendingDown.ToString(),
                     Color = "#FF9800",
-                    Type = CategoryTypeEnum.Expense,
+                    Type = CategoryTypeEnum.Transfer,
                     IsSystem = true,
                 },
                 new Category
                 {
                     Id = 6,
-                    Name = SystemCategoryNames.TRANSFER_IN_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.TRANSFER_IN_NAME,
                     Icon = CategoryIcon.TrendingUp.ToString(),
-                    Color = "#FF9800",
-                    Type = CategoryTypeEnum.Income,
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Transfer, 
                     IsSystem = true,
                 },
-
-                // Credit Payment Categories (7-8)
                 new Category
                 {
                     Id = 7,
-                    Name = SystemCategoryNames.CREDIT_PAYMENT_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.CREDIT_PAYMENT_NAME,
                     Icon = CategoryIcon.CreditCard.ToString(),
-                    Color = "#4CAF50",
-                    Type = CategoryTypeEnum.Expense,
+                    Color = "#2196F3",
+                    Type = CategoryTypeEnum.Transfer, 
                     IsSystem = true,
                 },
                 new Category
                 {
                     Id = 8,
-                    Name = SystemCategoryNames.PAYMENT_RECEIVED_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.PAYMENT_RECEIVED_NAME,
                     Icon = CategoryIcon.Payments.ToString(),
                     Color = "#4CAF50",
-                    Type = CategoryTypeEnum.Income,
+                    Type = CategoryTypeEnum.Transfer,
                     IsSystem = true,
                 },
-
-                // Credit Advance Categories (9-10)
                 new Category
                 {
                     Id = 9,
-                    Name = SystemCategoryNames.CREDIT_ADVANCE_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.CREDIT_ADVANCE_NAME,
                     Icon = CategoryIcon.CreditScore.ToString(),
-                    Color = "#F44336",
-                    Type = CategoryTypeEnum.Expense,
+                    Color = "#FF5722",
+                    Type = CategoryTypeEnum.Transfer,
                     IsSystem = true,
                 },
                 new Category
                 {
                     Id = 10,
-                    Name = SystemCategoryNames.ADVANCE_RECEIVED_NAME, // ← USANDO CONST
+                    Name = SystemCategoryNames.ADVANCE_RECEIVED_NAME,
                     Icon = CategoryIcon.Receipt.ToString(),
-                    Color = "#F44336",
-                    Type = CategoryTypeEnum.Income,
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Transfer, 
                     IsSystem = true,
                 },
 
@@ -116,7 +110,6 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                 // CATEGORÍAS DE USUARIO (IsSystem = false) - IDs 11+
                 // ========================
 
-                // Income Categories (11-13) - NOMBRES EN INGLÉS
                 new Category
                 {
                     Id = 11,
@@ -145,7 +138,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
                     IsSystem = false,
                 },
 
-                // Expense Categories (14-22) - NOMBRES EN INGLÉS
+                // Expense Categories (14-22)
                 new Category
                 {
                     Id = 14,

@@ -33,7 +33,6 @@ namespace MoneyTracker.Domain.Entities
 
         // For transfers
         public int? TransferPairId { get; set; }
-        public TransferTypeEnum? TransferType { get; set; } = TransferTypeEnum.AccountTransfer;
 
         // Audit fields
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

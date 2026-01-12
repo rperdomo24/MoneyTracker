@@ -57,11 +57,12 @@ else
 
     private TransactionDto GetFromTransaction()
     {
-        return Transaction;
+        return Transaction.IsOutgoingTransfer() ? Transaction : PairedTransaction!;
+
     }
 
     private TransactionDto GetToTransaction()
     {
-        return PairedTransaction!;
+        return PairedTransaction.IsIncome() ? PairedTransaction : Transaction!;
     }
 }

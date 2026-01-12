@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.Domain.Const
 @using MoneyTracker.UI.Helpers
 
 <MudCard Outlined="true" Class="@GetCardClass()" Elevation="@(Highlighted ? 4 : 0)">
@@ -8,7 +9,7 @@
 
             @* ========== LEFT: Checkbox + Icon + Transfer Info ========== *@
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex: 1; min-width: 0;">
-                
+
                 @* ✅ CHECKBOX READONLY PARA SIMETRÍA *@
                 @if (ShowCheckbox)
                 {
@@ -30,7 +31,7 @@
                 @* TRANSFER DETAILS *@
                 <div style="flex: 1; min-width: 0;" @onclick="HandleCardClick" class="cursor-pointer">
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        <MudLink Href="@GetAccountLink(FromTransaction)" 
+                        <MudLink Href="@GetAccountLink(FromTransaction)"
                                  Typo="Typo.body1"
                                  Class="font-weight-medium text-inherit"
                                  Underline="Underline.Hover"
@@ -38,21 +39,21 @@
                             @FromTransaction.Account?.Name
                         </MudLink>
                         <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Style="opacity: 0.6;" />
-                        <MudLink Href="@GetAccountLink(ToTransaction)" 
+                        <MudLink Href="@GetAccountLink(ToTransaction)"
                                  Typo="Typo.body1"
                                  Class="font-weight-medium text-inherit"
                                  Underline="Underline.Hover"
                                  @onclick:stopPropagation="true">
                             @ToTransaction.Account?.Name
                         </MudLink>
-                        
+
                         <MudTooltip Text="Linked transfer - cannot be selected individually">
-                            <MudIcon Icon="@Icons.Material.Filled.Link" 
-                                     Size="Size.Small" 
+                            <MudIcon Icon="@Icons.Material.Filled.Link"
+                                     Size="Size.Small"
                                      Style="opacity: 0.5; margin-left: 4px;" />
                         </MudTooltip>
                     </MudStack>
-                    
+
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
                         <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled" Class="mr-1">
                             @GetTransferTypeLabel()
@@ -144,13 +145,7 @@
     {
         if (FromTransaction.TransferType.HasValue)
         {
-            return FromTransaction.TransferType.Value switch
-            {
-                Domain.Enums.Transaction.TransferTypeEnum.CreditPayment => "Credit Payment",
-                Domain.Enums.Transaction.TransferTypeEnum.CreditAdvance => "Credit Advance",
-                Domain.Enums.Transaction.TransferTypeEnum.AccountTransfer => "Account Transfer",
-                _ => "Transfer"
-            };
+            return FromTransaction.TransactionType.GetDescription();
         }
         return "Transfer";
     }

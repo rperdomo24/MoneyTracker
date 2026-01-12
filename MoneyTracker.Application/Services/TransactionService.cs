@@ -139,11 +139,9 @@ namespace MoneyTracker.Application.Services
                 if (toAccount == null)
                     return OperationResult<bool>.Fail(OperationMessages.TransferDestinationNotFound);
 
-                var transferType = SystemCategories.DetermineTransferType(
+                var (fromCategoryId, toCategoryId) = SystemCategories.GetTransferCategoriesByAccountType(
                     fromAccount.Type,
                     toAccount.Type);
-
-                var (fromCategoryId, toCategoryId) = SystemCategories.GetTransferCategories(transferType);
 
                 var fromAccountDto = fromAccount.MapToDto();
                 var toAccountDto = toAccount.MapToDto();
@@ -151,7 +149,6 @@ namespace MoneyTracker.Application.Services
                 var (fromTransaction, toTransaction) = dto.MapToTransferPair(
                     fromCategoryId,
                     toCategoryId,
-                    transferType,
                     fromAccountDto.Name,
                     toAccountDto.Name,
                     _timeZoneService);

@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Domain.Enums.Transaction;
 using MudBlazor;
+using System.ComponentModel;
 
 namespace MoneyTracker.UI.Helpers
 {
@@ -28,5 +29,15 @@ namespace MoneyTracker.UI.Helpers
             TransactionTypeEnum.Transfer => "#2196f3",
             _ => "#6366f1"
         };
+
+        public static string GetDescription(this TransactionTypeEnum transactionType)
+        {
+            var fieldInfo = transactionType.GetType().GetField(transactionType.ToString());
+            var attributes = fieldInfo.GetCustomAttributes(typeof(DescriptionAttribute), false);
+
+            return attributes.Length > 0
+                ? ((DescriptionAttribute)attributes[0]).Description
+                : transactionType.ToString();
+        }
     }
 }

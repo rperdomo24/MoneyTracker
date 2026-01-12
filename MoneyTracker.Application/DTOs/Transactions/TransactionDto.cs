@@ -21,15 +21,25 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         public PaymentMethodEnum? PaymentMethod { get; set; }
 
-        // For scheduled transactions
-        public TransactionStatus Status { get; set; }
-        public DateTime? ScheduledDate { get; set; }
-        public bool IsSystemGenerated { get; set; }
-
         // For transfers
         public int? TransferPairId { get; set; }
 
-        public TransferTypeEnum? TransferType { get; set; }
+        public TransferTypeEnum? TransferType
+        {
+            get
+            {
+                if (TransferPairId.HasValue
+                    && (TransactionType is TransactionTypeEnum.Transfer
+                    || TransactionType is TransactionTypeEnum.CreditPayment))
+                {
+                    return this.IsOutgoingTransfer()
+                        ? TransferTypeEnum.Outgoing
+                        : TransferTypeEnum.Incoming;
+                }
+
+                return null;
+            }
+        }
 
         public TransactionTypeEnum TransactionType
         {
@@ -45,6 +55,10 @@ namespace MoneyTracker.Application.DTOs.Transactions
                 }
             }
         }
+
+        public TransactionStatus Status { get; set; }
+        public DateTime? ScheduledDate { get; set; }
+        public bool IsSystemGenerated { get; set; }
 
         public DateTime CreatedAt { get; set; }
 

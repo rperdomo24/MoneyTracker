@@ -181,8 +181,8 @@ namespace MoneyTracker.Application.Services
         private async Task CreateInitialBalanceTransactionAsync(int accountId, decimal amount, string accountName)
         {
             var isIncome = amount >= 0;
-            var transactionType = SystemCategories.GetInitialBalanceTransactionType(isIncome);
             var categoryId = SystemCategories.GetInitialBalanceCategoryId(isIncome);
+            var transactionType = SystemCategories.GetSystemCategoryTypeName(categoryId);
 
             var transactionDto = new TransactionDto
             {
@@ -202,8 +202,8 @@ namespace MoneyTracker.Application.Services
         private async Task CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
         {
             var isIncome = adjustment >= 0;
-            var transactionType = SystemCategories.GetBalanceAdjustmentTransactionType(isIncome);
             var categoryId = SystemCategories.GetBalanceAdjustmentCategoryId(isIncome);
+            var transactionType = SystemCategories.GetSystemCategoryTypeName(categoryId);
 
             var transactionDto = new TransactionDto
             {
