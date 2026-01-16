@@ -72,7 +72,6 @@ namespace MoneyTracker.Domain.Const
             };
         }
 
-
         // ✅ NEW: Check if category pair is valid for transfers
         public static bool IsValidTransferPair(int fromCategoryId, int toCategoryId)
         {

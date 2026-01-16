@@ -68,7 +68,7 @@
             @* ========== RIGHT: Amount + Menu ========== *@
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink: 0;">
                 <MudText Typo="Typo.h6" Class="font-weight-bold" Style="color: #666;">
-                    @FromTransaction.GetAmountDisplayWithSign()
+                    @ShowAmountTransaction(ToTransaction.Amount)
                 </MudText>
 
                 @if (ShowActions)
@@ -143,10 +143,17 @@
 
     private string GetTransferTypeLabel()
     {
-        if (FromTransaction.TransferType.HasValue)
+        if (ToTransaction.TransferType.HasValue)
         {
-            return FromTransaction.TransactionType.GetDescription();
+            return ToTransaction.TransactionType.GetDescription();
         }
         return "Transfer";
+    }
+
+    private static string ShowAmountTransaction(decimal amount)
+    {
+        if (amount == 0) return "$0.00";
+
+        return $"-/+${amount:N2}";
     }
 }

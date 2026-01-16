@@ -65,7 +65,6 @@ namespace MoneyTracker.Application.DTOs.Transactions
         public DateTime UpdatedAt { get; set; }
 
         public AccountDto Account { get; set; }
-
         public CategoryDto? Category { get; set; }
 
     }

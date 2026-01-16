@@ -29,7 +29,8 @@ namespace MoneyTracker.Application.Mappers.Transactions
             var fromTransaction = new Transaction
             {
                 Name = $"{transferTypeName} to {toAccountName}",
-                Amount = dto.Amount,
+               //From transaction is the one with negative amount
+                Amount = (dto.Amount * -1),
                 Date = dateUtc,
                 Description = description,
                 AccountId = dto.FromAccountId,
@@ -68,12 +69,14 @@ namespace MoneyTracker.Application.Mappers.Transactions
             var dateUtc = timeZoneService.ConvertToUtc(dto.Date);
             var nowUtc = timeZoneService.GetNowInUtc();
 
-            transaction.Amount = dto.Amount;
+            //From transaction is the one with negative amount
+            transaction.Amount = SystemCategories.IsTransferInCategory(transaction.CategoryId) ? Math.Abs(dto.Amount) :  (dto.Amount * -1);
             transaction.Date = dateUtc;
             transaction.Description = dto.Description;
             transaction.UpdatedAt = nowUtc;
 
-            paired.Amount = dto.Amount;
+            //Paired (to) transaction is the one with positive amount
+            paired.Amount = SystemCategories.IsTransferInCategory(paired.CategoryId) ? Math.Abs(dto.Amount) : (dto.Amount * -1);
             paired.Date = dateUtc;
             paired.Description = dto.Description;
             paired.UpdatedAt = nowUtc;

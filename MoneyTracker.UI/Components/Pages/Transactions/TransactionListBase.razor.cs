@@ -1,9 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
-using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.Transactions;
-using MoneyTracker.Application.Interfaces;
 using MoneyTracker.UI.Helpers;
-using MudBlazor;
 
 namespace MoneyTracker.UI.Components.Pages.Transactions
 {

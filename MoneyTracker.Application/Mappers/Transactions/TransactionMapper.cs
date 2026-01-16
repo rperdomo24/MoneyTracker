@@ -1,4 +1,5 @@
-﻿using MoneyTracker.Application.DTOs.Transactions;
+﻿using MoneyTracker.Application.Common.Extensions;
+using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Transaction;
@@ -38,7 +39,7 @@ public static class TransactionMapper
             Id = dto.Id,
             Name = dto.Name,
             Date = timeZoneService.ConvertToUtc(dto.Date),
-            Amount = dto.Amount,
+            Amount = dto.GetSignedAmount(),
             Description = dto.Description,
             AccountId = dto.AccountId,
             CategoryId = dto.CategoryId,
@@ -57,7 +58,7 @@ public static class TransactionMapper
     {
         entity.Name = dto.Name;
         entity.Date = timeZoneService.ConvertToUtc(dto.Date);
-        entity.Amount = dto.Amount;
+        entity.Amount = dto.GetSignedAmount();
         entity.Description = dto.Description;
         entity.AccountId = dto.AccountId;
         entity.CategoryId = dto.CategoryId;

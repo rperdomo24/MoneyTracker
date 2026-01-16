@@ -287,12 +287,14 @@
             {
                 Id = _originalTransaction.Id,
                 Name = _originalTransaction.Name,
-                Amount = _originalTransaction.Amount,
                 Description = _originalTransaction.Description,
                 Date = _originalTransaction.Date,
                 CategoryId = _originalTransaction.CategoryId,
                 AccountId = _originalTransaction.AccountId
             };
+
+            _transaction.Amount = _originalTransaction.GetAbsoluteAmountss();
+            _originalTransaction.Amount = _originalTransaction.GetAbsoluteAmountss();
 
             _transactionDate = _transaction.Date;
 
@@ -433,6 +435,7 @@
                 _transaction.Date = _transactionDate!.Value;
                 _transaction.CategoryId = _selectedCategory!.Id;
                 _transaction.AccountId = _selectedAccount!.Id;
+                _transaction.Category = _selectedCategory;
 
                 var result = await TransactionService.UpdateAsync(_transaction);
 

@@ -41,16 +41,12 @@ namespace MoneyTracker.Application.Common.Extensions
 
         public static bool IsOutgoingTransfer(this TransactionDto transaction)
         {
-            return SystemCategories.IsTransferOutCategory(transaction.CategoryId) ||
-                   transaction.CategoryId == SystemCategories.CREDIT_PAYMENT_ID ||
-                   transaction.CategoryId == SystemCategories.CREDIT_ADVANCE_ID;
+            return SystemCategories.IsTransferOutCategory(transaction.CategoryId);
         }
 
         public static bool IsIncomingTransfer(this TransactionDto transaction)
         {
-            return SystemCategories.IsTransferInCategory(transaction.CategoryId) ||
-                   transaction.CategoryId == SystemCategories.PAYMENT_RECEIVED_ID ||
-                   transaction.CategoryId == SystemCategories.ADVANCE_RECEIVED_ID;
+            return SystemCategories.IsTransferInCategory(transaction.CategoryId);
         }
 
         public static TransactionDto GetFromTransaction(this TransactionDto transaction, TransactionDto pairedTransaction)
@@ -90,6 +86,19 @@ namespace MoneyTracker.Application.Common.Extensions
         {
             if (amount == 0) return "$0.00";
             return amount >= 0 ? $"+${amount:N2}" : $"-${Math.Abs(amount):N2}";
+        }
+
+        public static decimal GetSignedAmount(this TransactionDto transaction)
+        {
+            return (transaction.IsIncomingTransfer()
+                            || transaction.IsIncome())
+                                ? transaction.Amount
+                                : (transaction.Amount * -1);
+        }
+
+        public static decimal GetAbsoluteAmountss(this TransactionDto transaction)
+        {
+            return Math.Abs(transaction.Amount);
         }
     }
 }

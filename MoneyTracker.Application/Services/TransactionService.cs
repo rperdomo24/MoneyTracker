@@ -25,6 +25,7 @@ namespace MoneyTracker.Application.Services
         private readonly ILogger<TransactionService> _logger;
         private readonly ITimeZoneService _timeZoneService;
         private readonly ITimeRangeService _timeRangeService;
+        private readonly ICategoryService _categoryService;
 
         public TransactionService(
             ITransactionRepository repository,
@@ -33,7 +34,9 @@ namespace MoneyTracker.Application.Services
             IValidator<CreateTransferDto> transferValidator,
             ILogger<TransactionService> logger,
             ITimeZoneService timeZoneService,
-            ITimeRangeService timeRangeService)
+            ITimeRangeService timeRangeService,
+            ICategoryRepository categoryRepository,
+            ICategoryService categoryService)
         {
             _repository = repository;
             _accountRepository = accountRepository;
@@ -42,6 +45,7 @@ namespace MoneyTracker.Application.Services
             _logger = logger;
             _timeZoneService = timeZoneService;
             _timeRangeService = timeRangeService;
+            _categoryService = categoryService;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -111,8 +115,18 @@ namespace MoneyTracker.Application.Services
 
             try
             {
+                if (dto.Category is null)
+                {
+                    var categoryResult = await _categoryService.GetByIdAsync(dto.CategoryId);
+                    if (categoryResult.Success)
+                    {
+                        dto.Category = categoryResult.Data;
+                    }
+                }
+
                 var entity = dto.MapToEntity(_timeZoneService);
                 entity.CreatedAt = _timeZoneService.GetNowInUtc();
+               
                 await _repository.AddAsync(entity);
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }
@@ -204,7 +218,6 @@ namespace MoneyTracker.Application.Services
 
             try
             {
-                // Obtener transacción principal
                 var transaction = await _repository.GetByIdAsync(dto.TransactionId);
                 if (transaction == null)
                     return OperationResult<bool>.Fail(OperationMessages.NotFound);

@@ -7,7 +7,6 @@ using MoneyTracker.Application.Mappers;
 using MoneyTracker.Application.Mappers.Transactions;
 using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Enums.Account;
-using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Application.Services
