@@ -166,8 +166,7 @@ namespace MoneyTracker.Application.Services
                 var accountTransactions = transactionsResult.Data
                     .Where(t => t.AccountId == accountId);
 
-                var balance = accountTransactions.Sum(t =>
-                    t.IsIncome() ? t.Amount : -t.Amount);
+                var balance = accountTransactions.Sum(t => t.Amount );
 
                 return OperationResult<decimal>.Ok(balance, "Balance calculated");
             }
@@ -235,9 +234,10 @@ namespace MoneyTracker.Application.Services
 
                 foreach (var account in accounts)
                 {
-                    var accountTransactions = transactions.Where(t => t.AccountId == account.Id);
-                    account.CurrentBalance = accountTransactions.Sum(t =>
-                        t.IsIncome() ? t.Amount : -t.Amount);
+                    var accountTransactions =
+                        transactions.Where(t => t.AccountId == account.Id);
+                    account.CurrentBalance =
+                        accountTransactions.Sum(t => t.Amount);
                 }
             }
             catch
@@ -246,6 +246,7 @@ namespace MoneyTracker.Application.Services
                 // Could log error here if needed
             }
         }
+
         public async Task<OperationResult<bool>> HasAccountByType(AccountType accountType)
         {
             bool hasAccounts = await _repository.HasAccountsByTypeAsync(accountType);

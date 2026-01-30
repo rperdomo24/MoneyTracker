@@ -111,19 +111,9 @@ namespace MoneyTracker.Domain.Const
                categoryId == PAYMENT_RECEIVED_ID ||
                categoryId == ADVANCE_RECEIVED_ID;
 
-        // ✅ NEW: Get paired category for transfers
-        public static int? GetPairedTransferCategory(int categoryId)
-        {
-            return categoryId switch
-            {
-                TRANSFER_OUT_ID => TRANSFER_IN_ID,
-                TRANSFER_IN_ID => TRANSFER_OUT_ID,
-                CREDIT_PAYMENT_ID => PAYMENT_RECEIVED_ID,
-                PAYMENT_RECEIVED_ID => CREDIT_PAYMENT_ID,
-                CREDIT_ADVANCE_ID => ADVANCE_RECEIVED_ID,
-                ADVANCE_RECEIVED_ID => CREDIT_ADVANCE_ID,
-                _ => null
-            };
-        }
+        public static bool IsIncomeCategory(int categoryId)
+            => categoryId == INITIAL_BALANCE_INCOME_ID ||
+               categoryId == BALANCE_ADJUSTMENT_INCOME_ID;
+
     }
 }

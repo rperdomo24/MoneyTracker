@@ -104,6 +104,7 @@ public class TransactionRepository : ITransactionRepository
         try
         {
             var query = _context.Transaction
+                .Where(t => !t.IsDeleted)
                 .AsNoTracking()
                 .Include(e => e.Category)
                 .Include(e => e.Account)

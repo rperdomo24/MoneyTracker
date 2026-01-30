@@ -9,7 +9,14 @@ namespace MoneyTracker.Application.Common.Extensions
     {
         public static bool IsIncome(this TransactionDto transaction)
         {
-            return transaction.Category?.Type == CategoryTypeEnum.Income;
+            if (transaction.Category?.Type == CategoryTypeEnum.Income)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         public static bool IsExpense(this TransactionDto transaction)

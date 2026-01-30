@@ -126,7 +126,7 @@ namespace MoneyTracker.Application.Services
 
                 var entity = dto.MapToEntity(_timeZoneService);
                 entity.CreatedAt = _timeZoneService.GetNowInUtc();
-               
+
                 await _repository.AddAsync(entity);
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }
@@ -425,11 +425,11 @@ namespace MoneyTracker.Application.Services
 
                 // Calcular estadísticas basadas en los datos filtrados (excluir transfers)
                 var totalIncome = transactionDtos
-                    .Where(t => t.IsIncome() && !t.IsTransfer())
+                    .Where(t => t.IsIncome())
                     .Sum(t => t.Amount);
 
                 var totalExpense = transactionDtos
-                    .Where(t => t.IsExpense() && !t.IsTransfer())
+                    .Where(t => t.IsExpense())
                     .Sum(t => t.Amount);
 
                 var summary = new TransactionSummaryDto
@@ -437,7 +437,7 @@ namespace MoneyTracker.Application.Services
                     Transactions = transactionDtos,
                     TotalIncome = totalIncome,
                     TotalExpense = totalExpense,
-                    Balance = totalIncome - totalExpense,
+                    Balance = totalIncome - Math.Abs(totalExpense),
                     TotalCount = transactionDtos.Count
                 };
 
