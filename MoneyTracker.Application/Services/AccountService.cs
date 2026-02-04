@@ -1,5 +1,4 @@
 ﻿using MoneyTracker.Application.Common;
-using MoneyTracker.Application.Common.Extensions;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
@@ -30,7 +29,7 @@ namespace MoneyTracker.Application.Services
         public async Task<OperationResult<List<AccountDto>>> GetAllAsync()
         {
             var accounts = await _repository.GetAllAsync();
-            var result = accounts.Select(x => x.MapToDto()).ToList();
+            List<AccountDto> result = accounts.Select(x => x.MapToDto()).OrderBy(accounts => accounts.Type).ToList();
             return OperationResult<List<AccountDto>>.Ok(result, OperationMessages.DataRetrieved);
         }
 
@@ -166,7 +165,7 @@ namespace MoneyTracker.Application.Services
                 var accountTransactions = transactionsResult.Data
                     .Where(t => t.AccountId == accountId);
 
-                var balance = accountTransactions.Sum(t => t.Amount );
+                var balance = accountTransactions.Sum(t => t.Amount);
 
                 return OperationResult<decimal>.Ok(balance, "Balance calculated");
             }

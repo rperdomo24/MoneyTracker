@@ -300,7 +300,7 @@
 
         try
         {
-            var result = await CategoryService.GetAllWithChildAsync();
+            var result = await CategoryService.GetAllWithChildAsync(incluideSystem: false);
             if (result.Success)
             {
                 _categories = result.Data ?? new List<CategoryDto>();

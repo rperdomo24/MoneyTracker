@@ -40,18 +40,16 @@
                     @if (_transactionType == TransactionTypeEnum.Transfer)
                     {
                         @* ========== TRANSFER FORM ========== *@
-                        <MudTextField T="string"
-                                      Label="Description (Optional)"
-                                      @bind-Value="_description"
-                                      Variant="Variant.Outlined"
-                                      Lines="2"
-                                      Counter="500"
-                                      MaxLength="500"
-                                      Placeholder="e.g., Monthly savings, Credit card payment..." />
-
                         <AccountSelector @bind-SelectedAccount="_fromAccount"
                                          Accounts="@(_accounts ?? new())"
                                          Label="From Account"
+                                         Required="true"
+                                         ShowBalance="true" />
+
+                        <AccountSelector @bind-SelectedAccount="_toAccount"
+                                         Accounts="@(_accounts ?? new())"
+                                         ExcludeAccountId="@_fromAccount?.Id"
+                                         Label="To Account"
                                          Required="true"
                                          ShowBalance="true" />
 
@@ -66,13 +64,6 @@
                                          AdornmentText="$"
                                          HideSpinButtons="false" />
 
-                        <AccountSelector @bind-SelectedAccount="_toAccount"
-                                         Accounts="@(_accounts ?? new())"
-                                         ExcludeAccountId="@_fromAccount?.Id"
-                                         Label="To Account"
-                                         Required="true"
-                                         ShowBalance="true" />
-
                         <MudDatePicker Label="Date"
                                        @bind-Date="_transactionDate"
                                        Variant="Variant.Outlined"
@@ -81,6 +72,14 @@
                                        Editable="true"
                                        DateFormat="MM/dd/yyyy"
                                        AutoClose="true" />
+
+                        <MudTextField T="string"
+                                      Label="Description (Optional)"
+                                      @bind-Value="_description"
+                                      Variant="Variant.Outlined"
+                                      Lines="2"
+                                      MaxLength="500"
+                                      Placeholder="e.g., Monthly savings, Credit card payment..." />
                     }
                     else
                     {
@@ -90,7 +89,6 @@
                                       @bind-Value="_transactionName"
                                       Variant="Variant.Outlined"
                                       Required="true"
-                                      Counter="100"
                                       MaxLength="100"
                                       Placeholder="e.g., Grocery shopping, Salary, Dinner..."
                                       Immediate="true" />
@@ -219,7 +217,7 @@
     {
         CloseButton = true,
         FullWidth = true,
-        MaxWidth = MaxWidth.Medium
+        MaxWidth = MaxWidth.Small
     };
 
     protected override async Task OnInitializedAsync()
@@ -236,16 +234,17 @@
         try
         {
             // Load categories
-            var categoriesResult = await CategoryService.GetAllAsync();
+            var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
             if (categoriesResult.Success)
             {
                 _categories = categoriesResult.Data?
-                    .Where(c => !c.IsSystem)
                     .ToList() ?? new List<CategoryDto>();
 
-                FilterCategoriesByType();
+                if (_categories.Count > 0)
+                {
+                    FilterCategoriesByType();
+                }
             }
-
             // Load accounts
             var accountsResult = await AccountService.GetAllAsync();
             if (accountsResult.Success)

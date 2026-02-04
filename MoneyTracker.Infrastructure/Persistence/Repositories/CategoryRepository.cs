@@ -21,10 +21,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
+                    .AsNoTracking()
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
                     .Include(c => c.Children)
-                    .AsNoTracking()
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -38,11 +38,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                IQueryable<Category> query = _context.Categories;
+                IQueryable<Category> query = _context.Categories.AsNoTracking();
 
-                query = incluideSystem
-                    ? query.Where(category => category.IsSystem)
-                    : query.Where(category => !category.IsSystem);
+                if (!incluideSystem)
+                {
+                    query = query.Where(category => !category.IsSystem);
+                }
 
                 if (includeChildren)
                 {
@@ -50,8 +51,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 }
 
                 query = query.OrderBy(category => category.Type)
-                    .ThenBy(c => c.Name)
-                    .AsNoTracking();
+                    .ThenBy(c => c.Name);
 
                 return await query.ToListAsync();
             }

@@ -21,7 +21,9 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Accounts.ToListAsync();
+                return await _context.Accounts
+                    .AsNoTracking()
+                    .ToListAsync();
             }
             catch (Exception ex)
             {
