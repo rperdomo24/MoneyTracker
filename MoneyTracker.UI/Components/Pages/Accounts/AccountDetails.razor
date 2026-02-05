@@ -180,7 +180,8 @@
         <AccountTransactionsList AccountId="@Id"
                                  Filter="_filterDto"
                                  OnTransactionChanged="OnTransactionChanged"
-                                 OnClearFilters="ClearAllFilters" />
+                                 OnClearFilters="ClearAllFilters" 
+                                 @key="_transactionsKey" />
 
     }
 
@@ -201,6 +202,7 @@
     private AccountDto? _account;
     private bool _loading = true;
     private bool _filtersDrawerOpen = false;
+    private int _transactionsKey = 0;
 
     private TransactionFilterDto _filterDto = new()
     {
@@ -220,11 +222,6 @@
         FullWidth = true,
         MaxWidth = MaxWidth.Large
     };
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadAccount();
-    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -351,11 +348,12 @@
         {
             ["TransactionType"] = TransactionTypeEnum.Expense,
             ["PreselectedAccountId"] = Id,
-            ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged)
+            ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged),
+            ["ShowTransactionTypeSwitcher"] = true
         };
 
         await DialogService.ShowAsync<AddTransactionModal>(
-            "New Transaction",
+            null,
             parameters,
             new DialogOptions
             {
@@ -375,12 +373,14 @@
     private async Task OnFiltersApplied(TransactionFilterDto filter)
     {
         _filterDto = filter;
+        _transactionsKey++;
         StateHasChanged();
     }
 
     private async Task OnSearchChanged()
     {
         // Search is reactive through @bind-Value
+        _transactionsKey++;
         StateHasChanged();
     }
 

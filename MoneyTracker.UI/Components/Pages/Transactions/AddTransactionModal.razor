@@ -15,13 +15,12 @@
 
 <MudDialog MaxWidth="MaxWidth.Small">
     <TitleContent>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
-            <div>
-                <MudText Typo="Typo.h6" Class="font-weight-bold">@GetModalTitle()</MudText>
-                <MudText Typo="Typo.body2" Style="opacity: 0.7;">@GetModalSubtitle()</MudText>
-            </div>
-        </MudStack>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
+                <div>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@GetModalTitle()</MudText>
+                </div>
+            </MudStack>
     </TitleContent>
 
     <DialogContent>
@@ -36,6 +35,19 @@
         {
             <MudForm @ref="_form">
                 <MudStack Spacing="3">
+
+                    @if (ShowTransactionTypeSwitcher)
+                    {
+                        <MudToggleGroup T="TransactionTypeEnum"
+                        Value="_transactionType"
+                        ValueChanged="OnTransactionTypeChanged"
+                        Exclusive="true"
+                        Class="mb-2">
+                            <MudToggleItem Value="TransactionTypeEnum.Expense" Text="Expense" />
+                            <MudToggleItem Value="TransactionTypeEnum.Income" Text="Income" />
+                            <MudToggleItem Value="TransactionTypeEnum.Transfer" Text="Transfer" />
+                        </MudToggleGroup>
+                    }
 
                     @if (_transactionType == TransactionTypeEnum.Transfer)
                     {
@@ -187,6 +199,7 @@
     [Parameter] public int? PreselectedAccountId { get; set; }
     [Parameter] public EventCallback OnTransactionAdded { get; set; }
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public bool ShowTransactionTypeSwitcher { get; set; } = false;
 
     private MudForm _form = default!;
     private bool _loading = true;
@@ -211,7 +224,6 @@
     // Data
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
-    private List<CategoryDto>? _filteredCategories;
 
     private readonly DialogOptions _dialogOptions = new()
     {
@@ -234,17 +246,7 @@
         try
         {
             // Load categories
-            var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
-            if (categoriesResult.Success)
-            {
-                _categories = categoriesResult.Data?
-                    .ToList() ?? new List<CategoryDto>();
-
-                if (_categories.Count > 0)
-                {
-                    FilterCategoriesByType();
-                }
-            }
+            await ReloadCategories();
             // Load accounts
             var accountsResult = await AccountService.GetAllAsync();
             if (accountsResult.Success)
@@ -274,19 +276,6 @@
         }
     }
 
-    private void FilterCategoriesByType()
-    {
-        if (_categories == null) return;
-
-        var targetCategoryType = _transactionType == TransactionTypeEnum.Income
-            ? CategoryTypeEnum.Income
-            : CategoryTypeEnum.Expense;
-
-        _filteredCategories = _categories
-            .Where(c => c.Type == targetCategoryType)
-            .OrderBy(c => c.Name)
-            .ToList();
-    }
 
     private bool IsFormValid()
     {
@@ -321,13 +310,21 @@
 
     private async Task SaveTransfer()
     {
-        if (!IsFormValid() || _fromAccount == null || _toAccount == null || _saving) return;
+        if (_saving) return;
+
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        if (_fromAccount == null || _toAccount == null) return;
+        if (_fromAccount.Id == _toAccount.Id) { Snackbar.Add("You can't transfer to the same account.", Severity.Warning); return; }
+        if (!_transactionDate.HasValue) return;
 
         _saving = true;
         StateHasChanged();
 
         try
         {
+
             var transferDto = new CreateTransferDto
             {
                 FromAccountId = _fromAccount.Id,
@@ -371,7 +368,13 @@
 
     private async Task SaveRegularTransaction()
     {
-        if (!IsFormValid() || _selectedAccount == null || _saving) return;
+        if (_saving) return;
+
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        if (_selectedAccount == null || _selectedCategory == null) return;
+        if (!_transactionDate.HasValue) return;
 
         _saving = true;
         StateHasChanged();
@@ -430,7 +433,7 @@
         _transactionName = string.Empty;
         _amount = 0;
         _description = null;
-        _selectedCategory = null;
+        // _selectedCategory = null;
         _selectedAccount = PreselectedAccountId.HasValue
             ? _accounts?.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)
             : _accounts?.FirstOrDefault();
@@ -454,14 +457,49 @@
         {
             ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, async () =>
             {
-                await LoadData();
+                await ReloadCategories();
+                StateHasChanged();
             })
         };
 
         await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters, _dialogOptions);
     }
 
+    private async Task ReloadCategories()
+    {
+        var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
+        if (categoriesResult.Success)
+            _categories = categoriesResult.Data?.ToList() ?? new();
+    }
+
     private void Cancel() => MudDialog.Cancel();
+
+    private async Task OnTransactionTypeChanged(TransactionTypeEnum newType)
+    {
+        if (_transactionType == newType) return;
+
+        _transactionType = newType;
+
+        // Reset del form para evitar data cruzada
+        _amount = 0;
+        _description = string.Empty;
+        _transactionDate = DateTime.Today;
+
+        _transactionName = string.Empty;
+        _selectedCategory = null;
+
+        _fromAccount = null;
+        _toAccount = null;
+
+        await MudDialog.SetTitleAsync(GetModalTitle());
+
+        // Si no es transfer y hay cuentas, selecciona una por defecto (si aplica)
+        if (_accounts?.Any() == true && _transactionType != TransactionTypeEnum.Transfer)
+            _selectedAccount = _accounts.FirstOrDefault(a => a.Id == PreselectedAccountId) ?? _accounts.First();
+
+        StateHasChanged();
+    }
+
 
     // Helper methods
     private string GetModalTitle()
@@ -472,17 +510,6 @@
             TransactionTypeEnum.Income => "Add Income",
             TransactionTypeEnum.Expense => "Add Expense",
             _ => "Add Transaction"
-        };
-    }
-
-    private string GetModalSubtitle()
-    {
-        return _transactionType switch
-        {
-            TransactionTypeEnum.Transfer => "Move money between your accounts",
-            TransactionTypeEnum.Income => "Record income transaction",
-            TransactionTypeEnum.Expense => "Record expense transaction",
-            _ => "Record a new transaction"
         };
     }
 

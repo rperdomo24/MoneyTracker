@@ -59,8 +59,21 @@
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
 
-    protected override async Task OnInitializedAsync() => await LoadTransactions();
-    protected override async Task OnParametersSetAsync() => await LoadTransactions();
+
+    private int _lastAccountId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AccountId <= 0) return;
+
+        if (AccountId == _lastAccountId)
+            return;
+
+        _lastAccountId = AccountId;
+
+        await LoadTransactions();
+    }
+
 
     private async Task LoadTransactions()
     {
@@ -72,6 +85,7 @@
         {
             if (AccountId > 0)
             {
+
                 Filter.AccountIds = new List<int> { AccountId };
             }
 
