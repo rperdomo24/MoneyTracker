@@ -11,11 +11,12 @@
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters
+@using MoneyTracker.UI.Services.Filters.Interface
 @inject IAccountService AccountService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
-@inject ITransactionFilterStorage FilterStorage
+@inject IAccountFilterStateService FilterStorage
 
 
 <PageTitle>@(_account?.Name ?? "Account") - Money Tracker</PageTitle>
@@ -226,19 +227,32 @@
         MaxWidth = MaxWidth.Large
     };
 
+    private int? _lastStorageAccountId;
+
     protected override async Task OnParametersSetAsync()
     {
         if (_account?.Id != Id)
-        {
-            var saved = await FilterStorage.GetAccountFilterAsync(Id);
-            if (saved != null)
-            {
-                saved.AccountIds = new List<int> { Id };
-                _filterDto = saved;
-            }
-
             await LoadAccount();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_lastStorageAccountId == Id) return;
+
+        _lastStorageAccountId = Id;
+
+        var saved = await FilterStorage.GetAsync(Id);
+        if (saved != null)
+        {
+            saved.AccountIds = new List<int> { Id };
+            _filterDto = saved;
         }
+        else
+        {
+            _filterDto = new TransactionFilterDto { TimePeriod = TimePeriodFilter.Last30Days, AccountIds = new List<int> { Id } };
+        }
+
+        StateHasChanged();
     }
 
     private async Task LoadAccount()
@@ -385,7 +399,7 @@
         _filterDto = filter;
         _filterDto.AccountIds = new List<int> { Id };
 
-        await FilterStorage.SaveAccountFilterAsync(Id, _filterDto);
+        await FilterStorage.SaveAsync(Id, _filterDto);
 
         _transactionsKey++;
         StateHasChanged();
@@ -406,7 +420,7 @@
             AccountIds = new List<int> { Id }
         };
 
-        await FilterStorage.ClearAccountFilterAsync(Id);
+        await FilterStorage.ClearAsync(Id);
 
         _transactionsKey++; 
         StateHasChanged();

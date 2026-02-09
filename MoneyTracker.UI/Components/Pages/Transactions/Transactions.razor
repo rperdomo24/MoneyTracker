@@ -13,6 +13,8 @@
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Filters.Interface
+@inject ITransactionFilterStateService TransactionFilterState
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
@@ -138,6 +140,26 @@
     {
         _loading = false;
     }
+
+    private bool _bootstrapped;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _bootstrapped) return;
+        _bootstrapped = true;
+
+        // 1) Leer filtro guardado (ya es seguro)
+        var saved = await TransactionFilterState.GetAsync();
+        if (saved != null)
+            _filterDto = saved;
+
+        // 2) Cargar data y UI
+        await LoadFilterData();
+        await LoadTransactionsAsync();
+
+        StateHasChanged();
+    }
+
 
     // ========== DATA LOADING ==========
     private async Task LoadTransactionsAsync()
@@ -442,22 +464,32 @@
     private async Task OnFilterChanged(TransactionFilterDto filter)
     {
         _filterDto = filter;
+        await TransactionFilterState.SaveAsync(_filterDto);
+        UpdateFilterStates();
     }
 
     private async Task ClearAllFilters()
     {
         _filterDto = TransactionFilterHelper.ResetToDefaults();
+        await TransactionFilterState.ClearAsync();
+
+        UpdateFilterStates();
         await LoadTransactionsAsync();
     }
 
     private async Task OnFiltersInitialized()
     {
-        if (!_filtersLoaded)
-        {
-            _filtersLoaded = true;
-            await LoadFilterData();
-            await LoadTransactionsAsync();
-        }
+        if (_filtersLoaded) return;
+
+        _filtersLoaded = true;
+
+        await LoadFilterData();
+
+        var saved = await TransactionFilterState.GetAsync();
+        if (saved != null)
+            _filterDto = saved;
+
+        await LoadTransactionsAsync();
     }
 
     private async Task LoadFilterData()
@@ -484,6 +516,8 @@
 
     private async Task OnFilterRemoved(string filterType)
     {
+        await TransactionFilterState.SaveAsync(_filterDto);
+        UpdateFilterStates();
         await LoadTransactionsAsync();
     }
 
