@@ -13,6 +13,9 @@ using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Persistence.Repositories;
 using MoneyTracker.Infrastructure.Services;
 using MoneyTracker.UI.Components;
+using MoneyTracker.UI.Services.Filters;
+using MoneyTracker.UI.Services.User;
+using MoneyTracker.UI.Utility.Settings;
 using MudBlazor;
 using MudBlazor.Services;
 using Serilog;
@@ -43,6 +46,14 @@ namespace MoneyTracker.UI
             CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
             builder.Host.UseSerilog();
+
+            builder.Services.Configure<UISettings>(builder.Configuration.GetSection("UISettings"));
+
+            builder.Services.AddScoped<ICurrentUserKeyProvider, CurrentUserKeyProvider>();
+
+            builder.Services.AddScoped<ProtectedSessionStorage>();
+
+            builder.Services.AddScoped<ITransactionFilterStorage, TransactionFilterStorage>();
 
             builder.Services.Configure<ApplicationSettings>(
             builder.Configuration.GetSection("ApplicationSettings"));

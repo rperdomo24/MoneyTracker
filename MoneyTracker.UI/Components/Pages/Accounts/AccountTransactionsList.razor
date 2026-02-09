@@ -1,6 +1,7 @@
 ﻿@* Components/Pages/Accounts/AccountTransactionList.razor *@
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Components.Pages.Transactions
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.Navigation
@@ -83,29 +84,31 @@
 
         try
         {
-            if (AccountId > 0)
+            var requestFilter = new TransactionFilterDto
             {
+                SearchText = Filter.SearchText,
+                TimePeriod = Filter.TimePeriod,
+                Type = Filter.Type,
+                CategoryId = Filter.CategoryId,
+                AccountIds = new List<int> { AccountId }
+            };
 
-                Filter.AccountIds = new List<int> { AccountId };
-            }
-
-            var result = await TransactionService.GetFilteredAsync(Filter);
+            var result = await TransactionService.GetFilteredAsync(requestFilter);
 
             if (result.Success && result.Data != null)
             {
                 _transactionSummary = result.Data;
 
-                // ✅ GUARDAR TODAS LAS TRANSACCIONES ANTES DE FILTRAR
                 _allTransactionsUnfiltered = _transactionSummary.Transactions?.ToList() ?? new();
 
-                // ✅ APLICAR FILTRO DE DISPLAY PARA TRANSFERS
                 if (_transactionSummary.Transactions != null)
                 {
                     _transactionSummary.Transactions = TransactionGroupingHelper
-                        .FilterForDisplay(_transactionSummary.Transactions, Filter);
+                        .FilterForDisplay(_transactionSummary.Transactions, requestFilter);
                 }
 
-                _hasActiveFilters = HasActiveFilters(Filter);
+                _hasActiveFilters = HasActiveFilters(requestFilter);
+
                 GroupTransactions();
             }
             else
@@ -127,6 +130,7 @@
         }
     }
 
+
     private void GroupTransactions()
     {
         if (_transactionSummary?.Transactions == null)
@@ -137,7 +141,6 @@
             return;
         }
 
-        // USAR HELPER PROFESIONAL
         var (groups, totalPages, totalCount) = TransactionGroupingHelper.GroupAndPaginateTransactions(
             _transactionSummary.Transactions, _currentPage, _rowsPerPage);
 
@@ -256,10 +259,9 @@
 
     private bool HasActiveFilters(TransactionFilterDto filter)
     {
-        return !string.IsNullOrEmpty(filter.SearchText) ||
-               filter.AccountIds.Any() ||
+        return filter.TimePeriod != TimePeriodFilter.Last30Days ||
+               !string.IsNullOrWhiteSpace(filter.SearchText) ||
                filter.CategoryId.HasValue ||
                filter.Type.HasValue;
     }
-
 }

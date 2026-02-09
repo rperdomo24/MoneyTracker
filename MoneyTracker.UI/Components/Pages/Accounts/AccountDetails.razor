@@ -10,10 +10,13 @@
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Filters
 @inject IAccountService AccountService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
+@inject ITransactionFilterStorage FilterStorage
+
 
 <PageTitle>@(_account?.Name ?? "Account") - Money Tracker</PageTitle>
 
@@ -227,6 +230,13 @@
     {
         if (_account?.Id != Id)
         {
+            var saved = await FilterStorage.GetAccountFilterAsync(Id);
+            if (saved != null)
+            {
+                saved.AccountIds = new List<int> { Id };
+                _filterDto = saved;
+            }
+
             await LoadAccount();
         }
     }
@@ -373,6 +383,10 @@
     private async Task OnFiltersApplied(TransactionFilterDto filter)
     {
         _filterDto = filter;
+        _filterDto.AccountIds = new List<int> { Id };
+
+        await FilterStorage.SaveAccountFilterAsync(Id, _filterDto);
+
         _transactionsKey++;
         StateHasChanged();
     }
@@ -391,8 +405,13 @@
             TimePeriod = TimePeriodFilter.Last30Days,
             AccountIds = new List<int> { Id }
         };
+
+        await FilterStorage.ClearAccountFilterAsync(Id);
+
+        _transactionsKey++; 
         StateHasChanged();
     }
+
 
     private async Task OnTransactionChanged()
     {
