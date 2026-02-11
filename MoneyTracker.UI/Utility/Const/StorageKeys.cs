@@ -15,6 +15,9 @@
 
             public static string AccountTransactions(string? userKey, int accountId)
                 => $"{Prefix}:{NormalizeUserKey(userKey)}:account:{accountId}:transactions";
+
+            public static string Budgets(string userKey)
+                => $"{Prefix}:{userKey}:budgets";
         }
     }
 }

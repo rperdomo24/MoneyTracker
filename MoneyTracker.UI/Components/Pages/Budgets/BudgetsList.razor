@@ -1,0 +1,233 @@
+﻿@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Helpers.VM
+
+@if (Loading)
+{
+    <MudStack Class="pa-6" AlignItems="AlignItems.Center" Justify="Justify.Center">
+        <MudProgressCircular Indeterminate="true" />
+        <MudText Class="mt-2">Loading budgets...</MudText>
+    </MudStack>
+}
+else if (Items?.Any() != true)
+{
+    <MudPaper Class="pa-6" Elevation="0">
+        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Filled.Wallet" Size="Size.Large" />
+            <MudText Typo="Typo.subtitle1" Class="font-weight-medium">@EmptyMessage</MudText>
+            <MudText Typo="Typo.caption" Style="opacity:0.75;">Add a budget to start tracking.</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+
+    var parents = Items!
+    .Where(x => x.ParentCategoryId is null)
+    .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ✅ primero con movimiento
+    .ThenByDescending(x => x.Amount > 0)              // opcional: luego los que tienen budget
+    .ThenBy(x => x.CategoryName)
+    .ToList();
+
+    var childrenByParent = Items!
+        .Where(x => x.ParentCategoryId is not null)
+        .GroupBy(x => x.ParentCategoryId!.Value)
+        .ToDictionary(
+            g => g.Key,
+            g => g
+                .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ✅ hijos con movimiento primero
+                .ThenByDescending(x => x.Amount > 0)             // opcional
+                .ThenBy(x => x.CategoryName)
+                .ToList()
+        );
+
+
+    <MudStack Spacing="2" Class="mt-2">
+
+        @foreach (var parent in parents)
+        {
+            var hasChildren = childrenByParent.TryGetValue(parent.CategoryId, out var children) && children.Count > 0;
+            var isExpanded = hasChildren && _expandedParents.Contains(parent.CategoryId);
+
+            <MudPaper Class="pa-4" Elevation="1" Style="border-radius:16px;">
+                <MudStack Spacing="2">
+
+                    <!-- Header row -->
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+
+                            <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
+                                <!-- ✅ CategoryIcon ya es string: no usamos ToIcon() -->
+                                <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
+                                         Color="Color.Surface" />
+                            </MudAvatar>
+
+                            <div>
+                                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@parent.CategoryName</MudText>
+
+                                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                                    @parent.CategoryType
+                                    @if (hasChildren)
+                                    {
+                                        <span style="opacity:0.75;"> • @children!.Count subcategories</span>
+                                    }
+                                </MudText>
+                            </div>
+                        </MudStack>
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+
+                            @if (hasChildren)
+                            {
+                                <MudIconButton Icon="@(isExpanded? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                               Color="Color.Inherit"
+                                               Size="Size.Small"
+                                               OnClick="@(() => ToggleParent(parent.CategoryId))" />
+                            }
+
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                                <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(parent))">
+                                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" /> View transactions
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(parent))">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" /> Edit
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(() => OnDelete.InvokeAsync(parent))">
+                                    <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" /> Delete
+                                </MudMenuItem>
+                            </MudMenu>
+
+                        </MudStack>
+                    </MudStack>
+
+                    <!-- Amount row -->
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.End">
+                        <div>
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Budget</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">@FormatCurrency(parent.Amount)</MudText>
+                        </div>
+
+                        <div style="text-align:right;">
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Remaining</MudText>
+
+                            <!-- ✅ Si Remaining < 0, lo resaltamos (over) -->
+                            <MudText Typo="Typo.subtitle1"
+                                     Class="font-weight-medium"
+                                     Style="@(parent.Remaining < 0 ? "color: var(--mud-palette-error);" : null)">
+                                @FormatCurrency(parent.Remaining)
+                            </MudText>
+                        </div>
+                    </MudStack>
+
+                    <MudProgressLinear Value="@parent.ProgressPercent" Rounded="true" />
+
+                    <MudStack Row="true" Spacing="1">
+                        @if (parent.IncludeChildren)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Include Children</MudChip>
+                        }
+                        @if (parent.RolloverEnabled)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Rollover</MudChip>
+                        }
+                    </MudStack>
+
+                    <!-- Children list -->
+                    @if (hasChildren)
+                    {
+                        <MudCollapse Expanded="@isExpanded">
+                            <MudStack Spacing="1" Class="mt-2">
+
+                                @foreach (var child in children!)
+                                {
+                                    <MudPaper Elevation="0"
+                                              Class="pa-3"
+                                              Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <!-- Indent/arrow -->
+                                                <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight"
+                                                         Style="opacity:0.7;" />
+
+                                                <MudAvatar Size="Size.Small" Style="@($"background-color:{child.CategoryColor};")">
+                                                    <MudIcon Icon="@(child.CategoryIcon.ToIcon())"
+                                                             Color="Color.Surface"
+                                                             Size="Size.Small" />
+                                                </MudAvatar>
+
+                                                <div>
+                                                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">@child.CategoryName</MudText>
+
+                                                    <!-- Remaining label: left / over -->
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                                                        @if (child.Remaining < 0)
+                                                        {
+                                                            <span style="color: var(--mud-palette-error);">
+                                                                @FormatCurrency(Math.Abs(child.Remaining)) over
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>@FormatCurrency(child.Remaining) left</span>
+                                                        }
+                                                    </MudText>
+                                                </div>
+                                            </MudStack>
+
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <div style="text-align:right;">
+                                                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
+                                                        @FormatCurrency(child.Used)
+                                                    </MudText>
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                                                        from @FormatCurrency(child.Amount)
+                                                    </MudText>
+                                                </div>
+
+                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                                                    <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(child))">
+                                                        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" /> View transactions
+                                                    </MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(child))">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" /> Edit
+                                                    </MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => OnDelete.InvokeAsync(child))">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" /> Delete
+                                                    </MudMenuItem>
+                                                </MudMenu>
+                                            </MudStack>
+
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                            </MudStack>
+                        </MudCollapse>
+                    }
+
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string EmptyMessage { get; set; } = "No budgets found.";
+    [Parameter] public List<BudgetListItemVm>? Items { get; set; }
+
+    [Parameter] public EventCallback<BudgetListItemVm> OnEdit { get; set; }
+    [Parameter] public EventCallback<BudgetListItemVm> OnDelete { get; set; }
+    [Parameter] public EventCallback<BudgetListItemVm> OnViewTransactions { get; set; }
+
+    private readonly HashSet<int> _expandedParents = new();
+
+    private void ToggleParent(int parentCategoryId)
+    {
+        if (!_expandedParents.Add(parentCategoryId))
+            _expandedParents.Remove(parentCategoryId);
+    }
+
+    private string FormatCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+}

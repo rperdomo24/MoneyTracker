@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.13.35913.81
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11429.125
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MoneyTracker.Application", "MoneyTracker.Application\MoneyTracker.Application.csproj", "{CC42E0C5-B8DE-46F7-AD13-0FC77D655EE9}"
 EndProject

@@ -1,0 +1,270 @@
+﻿using FluentValidation;
+using Microsoft.Extensions.Logging;
+using MoneyTracker.Application.Common;
+using MoneyTracker.Application.Constants;
+using MoneyTracker.Application.DTOs.Budgets;
+using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Application.Mappers;
+using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Category;
+using MoneyTracker.Domain.Interfaces;
+
+namespace MoneyTracker.Application.Services
+{
+    public class BudgetService : IBudgetService
+    {
+        private readonly IBudgetRepository _budgetRepository;
+        private readonly ICategoryRepository _categoryRepository;
+        private readonly ITransactionRepository _transactionRepository;
+        private readonly ILogger<BudgetService> _logger;
+        private readonly ITimeZoneService _timeZoneService;
+
+        public BudgetService(
+            IBudgetRepository budgetRepository,
+            ICategoryRepository categoryRepository,
+            ITransactionRepository transactionRepository,
+            ITimeZoneService timeZoneService,
+            ILogger<BudgetService> logger)
+        {
+            _budgetRepository = budgetRepository;
+            _categoryRepository = categoryRepository;
+            _transactionRepository = transactionRepository;
+            _timeZoneService = timeZoneService;
+            _logger = logger;
+        }
+
+        public async Task<OperationResult<BudgetDto>> GetByIdAsync(int id)
+        {
+            try
+            {
+                var entity = await _budgetRepository.GetByIdAsync(id);
+                if (entity == null)
+                    return OperationResult<BudgetDto>.Fail(OperationMessages.NotFound);
+
+                var dto = entity.MapToDto();
+                return OperationResult<BudgetDto>.Ok(dto, OperationMessages.DataRetrieved);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<BudgetDto>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult<bool>> CreateOrUpdateAsync(BudgetDto dto)
+        {
+            try
+            {
+                // Validaciones mínimas (luego metemos FluentValidation)
+                if (dto.CategoryId <= 0)
+                    return OperationResult<bool>.Fail(ValidationMessages.Required);
+
+                if (dto.Year <= 0 || dto.Month is < 1 or > 12)
+                    return OperationResult<bool>.Fail("Invalid year/month.");
+
+                if (dto.Amount < 0)
+                    return OperationResult<bool>.Fail("Amount must be >= 0.");
+
+                // Si ya existe budget para CategoryId+Year+Month (no deleted), actualiza
+                var existing = await _budgetRepository.GetByCategoryMonthAsync(dto.CategoryId, dto.Year, dto.Month);
+
+                if (existing == null)
+                {
+                    var entity = new Budget
+                    {
+                        CategoryId = dto.CategoryId,
+                        Year = dto.Year,
+                        Month = dto.Month,
+                        Amount = dto.Amount,
+                        IncludeChildren = dto.IncludeChildren,
+                        RolloverEnabled = dto.RolloverEnabled,
+                        RolloverMode = dto.RolloverMode,
+                        CreatedAt = _timeZoneService.GetNowInUtc(),
+                        UpdatedAt = _timeZoneService.GetNowInUtc(),
+                        IsDeleted = false
+                    };
+
+                    await _budgetRepository.AddAsync(entity);
+                    return OperationResult<bool>.Ok(true, OperationMessages.Created);
+                }
+                else
+                {
+                    existing.Amount = dto.Amount;
+                    existing.IncludeChildren = dto.IncludeChildren;
+                    existing.RolloverEnabled = dto.RolloverEnabled;
+                    existing.RolloverMode = dto.RolloverMode;
+                    existing.UpdatedAt = _timeZoneService.GetNowInUtc();
+
+                    await _budgetRepository.UpdateAsync(existing);
+                    return OperationResult<bool>.Ok(true, OperationMessages.Updated);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult<bool>> DeleteAsync(int id)
+        {
+            try
+            {
+                await _budgetRepository.SoftDeleteAsync(id);
+                return OperationResult<bool>.Ok(true, OperationMessages.Deleted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult<List<BudgetWithUsageDto>>> GetMonthlyWithUsageAsync(int year, int month)
+        {
+            try
+            {
+                // 1) Budgets del mes (ideal: que vengan con Category incluida)
+                var budgets = await _budgetRepository.GetByMonthAsync(year, month);
+
+                // 2) Rango del mes en UTC (respetando TimeZoneService)
+                var localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+                var localEnd = localStart.AddMonths(1).AddTicks(-1);
+
+                var fromUtc = _timeZoneService.ConvertToUtc(localStart);
+                var toUtc = _timeZoneService.ConvertToUtc(localEnd);
+
+                // 3) Categorías con hijos (para armar árbol)
+                var categories = await _categoryRepository.GetAllAsync(includeChildren: true, incluideSystem: true);
+
+                // Solo Income/Expense (Transfer fuera)
+                categories = categories
+                    .Where(c => !c.IsDeleted && c.Type != CategoryTypeEnum.Transfer)
+                    .ToList();
+
+                var categoriesById = categories.ToDictionary(c => c.Id);
+
+                // byParent => lista de ids hijo por parent
+                var byParent = categories
+                    .Where(c => c.ParentId.HasValue)
+                    .GroupBy(c => c.ParentId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
+
+                HashSet<int> GetDescendantIds(int categoryId)
+                {
+                    var result = new HashSet<int>();
+                    var stack = new Stack<int>();
+                    stack.Push(categoryId);
+
+                    while (stack.Count > 0)
+                    {
+                        var current = stack.Pop();
+                        if (!byParent.TryGetValue(current, out var children)) continue;
+
+                        foreach (var childId in children)
+                        {
+                            if (result.Add(childId))
+                                stack.Push(childId);
+                        }
+                    }
+
+                    return result;
+                }
+
+                // 4) Transacciones del mes (sin filtrar por cuentas)
+                var tx = await _transactionRepository.GetFilteredAsync(
+                    fromUtc,
+                    toUtc,
+                    new List<int>(),
+                    new List<int>()
+                );
+
+                // 5) Used base por categoría (sin includeChildren)
+                //    Expense => ABS (porque tú guardas gastos negativos)
+                //    Income  => directo
+                var usedByCategoryId = new Dictionary<int, decimal>();
+
+                foreach (var t in tx.Where(t => !t.IsDeleted))
+                {
+                    // cuidado: CategoryId puede ser null si lo permites; aquí asumo int
+                    var categoryId = t.CategoryId;
+
+                    if (!categoriesById.TryGetValue(categoryId, out var cat))
+                        continue;
+
+                    decimal used = cat.Type == CategoryTypeEnum.Expense
+                        ? Math.Abs(t.Amount)
+                        : t.Amount;
+
+                    if (usedByCategoryId.TryGetValue(categoryId, out var acc))
+                        usedByCategoryId[categoryId] = acc + used;
+                    else
+                        usedByCategoryId[categoryId] = used;
+                }
+
+                // 6) Budget por CategoryId (solo 1 por mes por tu índice)
+                var budgetByCategoryId = budgets
+                    .Where(b => !b.IsDeleted)
+                    .ToDictionary(b => b.CategoryId, b => b);
+
+                // 7) Armar respuesta POR CATEGORÍA
+                var response = new List<BudgetWithUsageDto>(categories.Count);
+
+                foreach (var cat in categories)
+                {
+                    // budget real o “vacío”
+                    var hasBudget = budgetByCategoryId.TryGetValue(cat.Id, out var b);
+
+                    var budgetDto = hasBudget
+                        ? b!.MapToDto()
+                        : new BudgetDto
+                        {
+                            Id = 0,
+                            CategoryId = cat.Id,
+                            Year = year,
+                            Month = month,
+                            Amount = 0,
+                            IncludeChildren = false,
+                            RolloverEnabled = false,
+                            RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None
+                        };
+
+                    // Used: por defecto solo esta categoría
+                    usedByCategoryId.TryGetValue(cat.Id, out var baseUsed);
+                    var used = baseUsed;
+
+                    // Si tiene budget y IncludeChildren => sumar descendientes
+                    if (hasBudget && b!.IncludeChildren)
+                    {
+                        var descendants = GetDescendantIds(cat.Id);
+                        foreach (var childId in descendants)
+                        {
+                            if (usedByCategoryId.TryGetValue(childId, out var childUsed))
+                                used += childUsed;
+                        }
+                    }
+
+                    response.Add(new BudgetWithUsageDto
+                    {
+                        Budget = budgetDto,
+                        Category = cat.MapToDto(),
+                        Used = used
+                    });
+                }
+
+                response = response
+                    .OrderBy(x => x.ParentCategoryId.HasValue ? 1 : 0)
+                    .ThenBy(x => x.CategoryName)
+                    .ToList();
+
+                return OperationResult<List<BudgetWithUsageDto>>.Ok(response, OperationMessages.DataRetrieved);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<List<BudgetWithUsageDto>>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+    }
+}
+

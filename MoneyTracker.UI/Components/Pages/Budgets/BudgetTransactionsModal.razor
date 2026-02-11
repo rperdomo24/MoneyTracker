@@ -1,0 +1,94 @@
+﻿@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.UI.Components.Shared.Cards
+
+<MudDialog>
+    <DialogContent>
+
+        <MudStack Spacing="2">
+
+            <!-- Header -->
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <div>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CategoryName</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.7;">
+                        @($"{Transactions?.Count ?? 0} transactions")
+                    </MudText>
+                </div>
+
+                <MudText Typo="Typo.h6" Class="@GetTotalClass()">
+                    @TotalAmountDisplay
+                </MudText>
+            </MudStack>
+
+            <MudDivider />
+
+            @if (Transactions?.Any() != true)
+            {
+                <MudPaper Class="pa-6" Elevation="0">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" />
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                            No transactions found.
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                            This category had no activity for the selected month.
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <!-- Scroll list -->
+                <div style="max-height: 60vh; overflow:auto; padding-right: 6px;">
+                    <MudStack Spacing="1">
+                        @foreach (var tx in Transactions)
+                        {
+                            <!-- ✅ Reusa tu card de transacción -->
+                            <TransactionCard Transaction="tx"
+                                             ShowAccount="true"
+                                             ShowActions="false"
+                                             ShowCheckbox="false" />
+                        }
+                    </MudStack>
+                </div>
+            }
+        </MudStack>
+
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Close">
+            Close
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // MudBlazor sí lo tiene (solo asegúrate del using MudBlazor en _Imports.razor)
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public List<TransactionDto> Transactions { get; set; } = new();
+    [Parameter] public string CategoryName { get; set; } = string.Empty;
+
+    private void Close() => MudDialog.Close();
+
+    // Total “usado” visual (para budgets suele ser gasto => abs)
+    private decimal TotalAmount =>
+        Transactions?.Sum(t => t.IsExpense() ? Math.Abs(t.Amount) : t.Amount) ?? 0m;
+
+    private string TotalAmountDisplay => TotalAmount.ToString("C");
+
+    private string GetTotalClass()
+    {
+        // Si quieres: en Income se ve verde, Expense rojo
+        // Como el modal puede mezclar, usamos regla simple:
+        var hasIncome = Transactions?.Any(t => t.IsIncome()) == true;
+        var hasExpense = Transactions?.Any(t => t.IsExpense()) == true;
+
+        if (hasIncome && !hasExpense) return "text-success font-weight-bold";
+        if (!hasIncome && hasExpense) return "text-error font-weight-bold";
+
+        return "font-weight-bold";
+    }
+}

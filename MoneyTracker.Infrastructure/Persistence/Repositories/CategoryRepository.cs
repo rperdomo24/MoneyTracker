@@ -38,19 +38,21 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                IQueryable<Category> query = _context.Categories.AsNoTracking();
+                IQueryable<Category> query = _context.Categories
+                    .AsNoTracking()
+                    .Where(c => !c.IsDeleted);
 
                 if (!incluideSystem)
-                {
-                    query = query.Where(category => !category.IsSystem);
-                }
+                    query = query.Where(c => !c.IsSystem);
 
+                // Para budgets NO necesitas Include.
+                // Si lo querés conservar para otras pantallas, ok:
                 if (includeChildren)
-                {
-                    query = query.Include(category => category.Children);
-                }
+                    query = query.Include(c => c.Children);
 
-                query = query.OrderBy(category => category.Type)
+                query = query
+                    .OrderBy(c => c.Type)
+                    .ThenBy(c => c.ParentId)   // ayuda cuando lo agrupas por parent
                     .ThenBy(c => c.Name);
 
                 return await query.ToListAsync();
@@ -61,6 +63,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 return new();
             }
         }
+
 
         public async Task<List<Category>> GetAllWithSubcategoriesAsync()
         {

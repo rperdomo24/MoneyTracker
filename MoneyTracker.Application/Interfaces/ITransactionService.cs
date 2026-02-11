@@ -19,5 +19,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<bool>> UpdateTransferAsync(UpdateTransferDto dto);
         Task<OperationResult<bool>> DeleteTransferAsync(int transactionId);
         Task<OperationResult<int>> DuplicateTransactionAsync(int transactionId);
+        Task<OperationResult<List<TransactionDto>>> GetByCategoryForMonthAsync(int categoryId, int year, int month);
     }
 }

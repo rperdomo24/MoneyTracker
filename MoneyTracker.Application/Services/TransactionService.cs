@@ -480,5 +480,33 @@ namespace MoneyTracker.Application.Services
                 .ThenByDescending(t => t.CreatedAt)
                 .ToList();
         }
+
+        public async Task<OperationResult<List<TransactionDto>>> GetByCategoryForMonthAsync(int categoryId, int year, int month)
+        {
+            try
+            {
+                var localStart = new DateTime(year, month, 1);
+                var localEnd = localStart.AddMonths(1).AddTicks(-1);
+
+                var fromUtc = _timeZoneService.ConvertToUtc(localStart);
+                var toUtc = _timeZoneService.ConvertToUtc(localEnd);
+
+                var transactions = await _repository
+                    .GetByCategoryTreeAsync(categoryId, fromUtc, toUtc);
+
+                var dto = transactions
+                    .Select(t => t.MapToDto(_timeZoneService))
+                    .ToList();
+
+                return OperationResult<List<TransactionDto>>
+                    .Ok(dto, OperationMessages.DataRetrieved);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<List<TransactionDto>>
+                    .Fail(OperationMessages.UnexpectedError);
+            }
+        }
     }
 }

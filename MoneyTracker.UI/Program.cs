@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.DTOs;
+using MoneyTracker.Application.DTOs.Budgets;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
 using MoneyTracker.Application.Validators;
+using MoneyTracker.Application.Validators.Budgets;
 using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
@@ -55,7 +57,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IFilterStorageService, FilterStorageService>();
             builder.Services.AddScoped<IAccountFilterStateService, AccountFilterStateService>();
             builder.Services.AddScoped<ITransactionFilterStateService, TransactionFilterStateService>();
-
+            builder.Services.AddScoped<IBudgetFilterStateService, BudgetFilterStateService>();
 
             builder.Services.Configure<ApplicationSettings>(
             builder.Configuration.GetSection("ApplicationSettings"));
@@ -73,6 +75,11 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
             builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
             builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+            builder.Services.AddScoped<IBudgetRepository, BudgetRepository>();
+            builder.Services.AddScoped<IBudgetService, BudgetService>();
+            builder.Services.AddScoped<IValidator<CreateBudgetDto>, CreateBudgetValidator>();
+            builder.Services.AddScoped<IValidator<UpdateBudgetDto>, UpdateBudgetValidator>();
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
 

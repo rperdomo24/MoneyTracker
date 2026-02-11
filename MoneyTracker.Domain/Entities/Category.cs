@@ -28,6 +28,8 @@ namespace MoneyTracker.Domain.Entities
 
         public Category? Parent { get; set; }
         public ICollection<Category> Children { get; set; } = new List<Category>();
+        public ICollection<Budget> Budgets { get; set; } = new List<Budget>();
+
         public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     }
 }

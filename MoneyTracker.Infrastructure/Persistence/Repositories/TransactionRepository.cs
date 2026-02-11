@@ -155,5 +155,39 @@ public class TransactionRepository : ITransactionRepository
             throw;
         }
     }
+
+    public async Task<List<Transaction>> GetByCategoryTreeAsync(
+    int categoryId,
+    DateTime fromUtc,
+    DateTime toUtc)
+    {
+        var sql = @"
+        WITH RECURSIVE category_tree AS (
+            SELECT ""Id""
+            FROM ""Categories""
+            WHERE ""Id"" = {0}
+
+            UNION ALL
+
+            SELECT c.""Id""
+            FROM ""Categories"" c
+            INNER JOIN category_tree ct
+                ON c.""ParentId"" = ct.""Id""
+        )
+        SELECT t.*
+        FROM ""Transaction"" t
+        WHERE t.""CategoryId"" IN (SELECT ""Id"" FROM category_tree)
+          AND t.""Date"" BETWEEN {1} AND {2}
+          AND NOT t.""IsDeleted""
+        ORDER BY t.""Date"" DESC";
+
+        return await _context.Transaction
+            .FromSqlRaw(sql, categoryId, fromUtc, toUtc)
+            .Include(t => t.Category)
+            .Include(t => t.Account)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
 }
 
