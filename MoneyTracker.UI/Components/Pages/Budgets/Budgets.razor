@@ -139,16 +139,13 @@
 
             if (result.Success && result.Data != null)
             {
-                // ✅ 1) Convertimos a VM (una sola vez)
                 var all = result.Data.Select(MapToVm).ToList();
 
-                // ✅ 2) Aplicamos el filtro "Only with activity" (este es el punto 4)
                 if (_onlyWithActivity)
                 {
                     all = ApplyOnlyWithActivity(all);
                 }
 
-                // ✅ 3) Separar por tabs
                 _expenseBudgets = all
                     .Where(x => x.CategoryType == CategoryTypeEnum.Expense)
                     .ToList();
@@ -177,10 +174,8 @@
         }
     }
 
-    // ✅ Punto 4: filtro correcto (padres se quedan si algún hijo tiene Used > 0)
     private static List<BudgetListItemVm> ApplyOnlyWithActivity(List<BudgetListItemVm> items)
     {
-        // build: parentId -> children[]
         var childrenByParent = items
             .Where(x => x.ParentCategoryId.HasValue)
             .GroupBy(x => x.ParentCategoryId!.Value)
@@ -288,13 +283,14 @@
         await OpenAddBudgetModal(type);
     }
 
-    private async Task OpenAddBudgetModal(CategoryTypeEnum type)
+    private async Task OpenAddBudgetModal(CategoryTypeEnum type, int categoryId = 0)
     {
         var parameters = new DialogParameters
         {
             ["Year"] = _year,
             ["Month"] = _month,
             ["CategoryType"] = type,
+            ["CategoryId"] = categoryId,
             ["OnBudgetSaved"] = EventCallback.Factory.Create(this, async () => await LoadBudgets())
         };
 
@@ -305,7 +301,7 @@
     {
         if (item.Id <= 0)
         {
-            await OpenAddBudgetModal(item.CategoryType);
+            await OpenAddBudgetModal(item.CategoryType, item.CategoryId);
             return;
         }
 

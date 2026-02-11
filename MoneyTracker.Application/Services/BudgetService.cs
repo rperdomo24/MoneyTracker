@@ -124,54 +124,27 @@ namespace MoneyTracker.Application.Services
         {
             try
             {
-                // 1) Budgets del mes (ideal: que vengan con Category incluida)
                 var budgets = await _budgetRepository.GetByMonthAsync(year, month);
 
-                // 2) Rango del mes en UTC (respetando TimeZoneService)
                 var localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
                 var localEnd = localStart.AddMonths(1).AddTicks(-1);
 
                 var fromUtc = _timeZoneService.ConvertToUtc(localStart);
                 var toUtc = _timeZoneService.ConvertToUtc(localEnd);
 
-                // 3) Categorías con hijos (para armar árbol)
                 var categories = await _categoryRepository.GetAllAsync(includeChildren: true, incluideSystem: true);
 
-                // Solo Income/Expense (Transfer fuera)
                 categories = categories
                     .Where(c => !c.IsDeleted && c.Type != CategoryTypeEnum.Transfer)
                     .ToList();
 
                 var categoriesById = categories.ToDictionary(c => c.Id);
 
-                // byParent => lista de ids hijo por parent
                 var byParent = categories
                     .Where(c => c.ParentId.HasValue)
                     .GroupBy(c => c.ParentId!.Value)
                     .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
 
-                HashSet<int> GetDescendantIds(int categoryId)
-                {
-                    var result = new HashSet<int>();
-                    var stack = new Stack<int>();
-                    stack.Push(categoryId);
-
-                    while (stack.Count > 0)
-                    {
-                        var current = stack.Pop();
-                        if (!byParent.TryGetValue(current, out var children)) continue;
-
-                        foreach (var childId in children)
-                        {
-                            if (result.Add(childId))
-                                stack.Push(childId);
-                        }
-                    }
-
-                    return result;
-                }
-
-                // 4) Transacciones del mes (sin filtrar por cuentas)
                 var tx = await _transactionRepository.GetFilteredAsync(
                     fromUtc,
                     toUtc,
@@ -179,14 +152,12 @@ namespace MoneyTracker.Application.Services
                     new List<int>()
                 );
 
-                // 5) Used base por categoría (sin includeChildren)
-                //    Expense => ABS (porque tú guardas gastos negativos)
-                //    Income  => directo
                 var usedByCategoryId = new Dictionary<int, decimal>();
 
-                foreach (var t in tx.Where(t => !t.IsDeleted))
+                foreach (var t in tx)
                 {
-                    // cuidado: CategoryId puede ser null si lo permites; aquí asumo int
+                    if (t.IsDeleted) continue;
+
                     var categoryId = t.CategoryId;
 
                     if (!categoriesById.TryGetValue(categoryId, out var cat))
@@ -202,24 +173,48 @@ namespace MoneyTracker.Application.Services
                         usedByCategoryId[categoryId] = used;
                 }
 
-                // 6) Budget por CategoryId (solo 1 por mes por tu índice)
                 var budgetByCategoryId = budgets
                     .Where(b => !b.IsDeleted)
                     .ToDictionary(b => b.CategoryId, b => b);
 
-                // 7) Armar respuesta POR CATEGORÍA
+                var descendantsCache = new Dictionary<int, List<int>>();
+
+                List<int> GetDescendants(int categoryId)
+                {
+                    if (descendantsCache.TryGetValue(categoryId, out var cached))
+                        return cached;
+
+                    var result = new List<int>();
+                    var stack = new Stack<int>();
+                    stack.Push(categoryId);
+
+                    while (stack.Count > 0)
+                    {
+                        var current = stack.Pop();
+                        if (!byParent.TryGetValue(current, out var children)) continue;
+
+                        foreach (var childId in children)
+                        {
+                            result.Add(childId);
+                            stack.Push(childId);
+                        }
+                    }
+
+                    descendantsCache[categoryId] = result;
+                    return result;
+                }
+
                 var response = new List<BudgetWithUsageDto>(categories.Count);
 
                 foreach (var cat in categories)
                 {
-                    // budget real o “vacío”
                     var hasBudget = budgetByCategoryId.TryGetValue(cat.Id, out var b);
 
                     var budgetDto = hasBudget
                         ? b!.MapToDto()
                         : new BudgetDto
                         {
-                            Id = 0,
+                            Id = 0, 
                             CategoryId = cat.Id,
                             Year = year,
                             Month = month,
@@ -229,15 +224,10 @@ namespace MoneyTracker.Application.Services
                             RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None
                         };
 
-                    // Used: por defecto solo esta categoría
-                    usedByCategoryId.TryGetValue(cat.Id, out var baseUsed);
-                    var used = baseUsed;
-
-                    // Si tiene budget y IncludeChildren => sumar descendientes
+                    usedByCategoryId.TryGetValue(cat.Id, out var used);
                     if (hasBudget && b!.IncludeChildren)
                     {
-                        var descendants = GetDescendantIds(cat.Id);
-                        foreach (var childId in descendants)
+                        foreach (var childId in GetDescendants(cat.Id))
                         {
                             if (usedByCategoryId.TryGetValue(childId, out var childUsed))
                                 used += childUsed;

@@ -1,7 +1,9 @@
 ﻿@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Budgets
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Budgets
 @using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 @inject IBudgetService BudgetService
@@ -30,27 +32,12 @@
         {
             <MudForm @ref="_form">
                 <MudStack Spacing="3">
-                    <MudSelect T="int"
-                               Label="Category"
-                               Variant="Variant.Outlined"
-                               @bind-Value="_categoryId"
-                               Required="true"
-                               AnchorOrigin="Origin.BottomCenter">
-                        @if (_categories?.Any() == true)
-                        {
-                            @foreach (var c in _categories.OrderBy(x => x.Name))
-                            {
-                                <MudSelectItem Value="@c.Id">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <MudAvatar Size="Size.Small" Style="@($"background-color: {c.Color}; width: 24px; height: 24px;")">
-                                            <MudIcon Icon="@c.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
-                                        </MudAvatar>
-                                        <MudText>@c.Name</MudText>
-                                    </MudStack>
-                                </MudSelectItem>
-                            }
-                        }
-                    </MudSelect>
+
+                    <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                      Categories="@(_categories ?? new())"
+                                      FilterByType="@CategoryType"
+                                      Disabled="@IsCategoryLocked"
+                                      ShowAddButton="false" />
 
                     <MudNumericField T="decimal"
                                      Label="Budget Amount"
@@ -71,16 +58,18 @@
                         <MudText Typo="Typo.body2">Enable rollover</MudText>
                     </MudCheckBox>
 
-                    <MudSelect T="int"
+                    <MudSelect T="RolloverMode"
                                Label="Rollover Mode"
                                Variant="Variant.Outlined"
                                @bind-Value="_rolloverMode"
                                Disabled="@(!_rolloverEnabled)"
                                AnchorOrigin="Origin.BottomCenter">
-                        <MudSelectItem Value="0">Carry remaining balance</MudSelectItem>
-                        <MudSelectItem Value="1">Carry overspend</MudSelectItem>
-                        <MudSelectItem Value="2">Carry both (advanced)</MudSelectItem>
+                        <MudSelectItem Value="RolloverMode.None">None</MudSelectItem>
+                        <MudSelectItem Value="RolloverMode.CarryOverRemaining">Carry remaining balance</MudSelectItem>
+                        <MudSelectItem Value="RolloverMode.CarryOverOverspend">Carry overspend</MudSelectItem>
+                        <MudSelectItem Value="RolloverMode.Reset">Reset next month</MudSelectItem>
                     </MudSelect>
+
                 </MudStack>
             </MudForm>
         }
@@ -116,7 +105,9 @@
     [Parameter] public int Month { get; set; } // 1..12
     [Parameter] public CategoryTypeEnum CategoryType { get; set; } = CategoryTypeEnum.Expense;
 
-    // Parent will refresh budgets list
+    // ✅ Optional preselected category (when coming from a category context)
+    [Parameter] public int? CategoryId { get; set; }
+
     [Parameter] public EventCallback OnBudgetSaved { get; set; }
 
     private MudForm _form = default!;
@@ -124,13 +115,15 @@
     private bool _saving = false;
 
     private List<CategoryDto>? _categories;
+    private CategoryDto? _selectedCategory;
 
-    private int _categoryId;
     private decimal _amount = 0;
     private bool _includeChildren = true;
 
     private bool _rolloverEnabled = false;
-    private int _rolloverMode = 0;
+    private RolloverMode _rolloverMode = RolloverMode.None;
+
+    private bool IsCategoryLocked => CategoryId.HasValue && CategoryId.Value > 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -144,22 +137,38 @@
 
         try
         {
-            var result = await CategoryService.GetAllAsync();
+            // ✅ Standardized categories source/shape (same behavior everywhere)
+            var result = await CategoryService.GetAllWithChildAsync(false);
+
             if (result.Success && result.Data != null)
             {
                 _categories = result.Data
-                    .Where(c => c.Type == CategoryType)
+                    .Where(c => !c.IsSystem && c.Type == CategoryType)
                     .ToList();
+
+                // ✅ If CategoryId is provided, preselect and lock
+                if (IsCategoryLocked)
+                {
+                    _selectedCategory = _categories.FirstOrDefault(c => c.Id == CategoryId!.Value);
+                }
+                else
+                {
+                    // Ensure selection is valid if list changed
+                    if (_selectedCategory != null && !_categories.Any(c => c.Id == _selectedCategory.Id))
+                        _selectedCategory = null;
+                }
             }
             else
             {
                 _categories = new();
+                _selectedCategory = null;
                 Snackbar.Add(result.Message ?? "Error loading categories", Severity.Warning);
             }
         }
         catch (Exception ex)
         {
             _categories = new();
+            _selectedCategory = null;
             Snackbar.Add($"Error loading categories: {ex.Message}", Severity.Error);
         }
         finally
@@ -177,7 +186,7 @@
         if (!_form.IsValid)
             return;
 
-        if (_categoryId <= 0)
+        if (_selectedCategory == null)
         {
             Snackbar.Add("Category is required", Severity.Warning);
             return;
@@ -197,13 +206,13 @@
             var dto = new BudgetDto
             {
                 Id = 0,
-                CategoryId = _categoryId,
+                CategoryId = _selectedCategory.Id,
                 Year = Year,
                 Month = Month,
                 Amount = _amount,
                 IncludeChildren = _includeChildren,
                 RolloverEnabled = _rolloverEnabled,
-                // RolloverMode = _rolloverMode
+                RolloverMode = _rolloverMode
             };
 
             var result = await BudgetService.CreateOrUpdateAsync(dto);
