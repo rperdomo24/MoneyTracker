@@ -5,6 +5,7 @@
 @using MoneyTracker.Application.Validators
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Shared.Pickers
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
@@ -52,15 +53,18 @@
                             <MudText Typo="Typo.h5">
                                 @(!string.IsNullOrWhiteSpace(_category.Name) ? _category.Name : "Category Name")
                             </MudText>
+
                             <MudChip T="string" Size="Size.Small" Color="@_category.Type.GetColor()">
                                 @_category.Type.GetDisplayName()
                             </MudChip>
+
                             @if (_parentCategory != null)
                             {
                                 <MudText Typo="Typo.caption" Style="opacity: 0.7;">
                                     Subcategory of @_parentCategory.Name
                                 </MudText>
                             }
+
                             @if (_category.Children?.Any() == true)
                             {
                                 <MudText Typo="Typo.caption" Style="opacity: 0.7;">
@@ -100,6 +104,7 @@
                         </MudSelectItem>
                     }
                 </MudSelect>
+
                 @if (_hasChildren || _isSubcategory)
                 {
                     <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" Style="margin-top: -12px;">
@@ -114,32 +119,18 @@
                     </MudAlert>
                 }
 
-                <!-- Parent Category -->
-                <MudSelect T="int?"
-                           Label="Parent Category"
-                           @bind-Value="_category.ParentId"
-                           Variant="Variant.Outlined"
-                           Clearable="true"
-                           Disabled="@_hasChildren"
-                           Class="mb-4">
-                    <MudSelectItem T="int?" Value="null">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
-                            <MudText><strong>None</strong> - Main Category</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    @foreach (var parent in GetAvailableParents())
-                    {
-                        <MudSelectItem T="int?" Value="@parent.Id">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudAvatar Size="Size.Small" Style="@($"background-color: {parent.Color};")">
-                                    <MudIcon Icon="@parent.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
-                                </MudAvatar>
-                                <MudText>@parent.Name</MudText>
-                            </MudStack>
-                        </MudSelectItem>
-                    }
-                </MudSelect>
+                <!-- ✅ Parent Category (CategorySelector) -->
+                <CategorySelector @bind-SelectedCategory="_selectedParent"
+                                  Categories="@GetAvailableParents().ToList()"
+                                  FilterByType="@_category.Type"
+                                  Label="Parent Category"
+                                  Required="false"
+                                  Clearable="true"
+                                  Disabled="@_hasChildren"
+                                  ShowNoneOption="true"
+                                  NoneText="None (Main Category)"
+                                  ShowAddButton="false" />
+
                 @if (_hasChildren)
                 {
                     <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4" Style="margin-top: -12px;">
@@ -185,6 +176,7 @@
                     <span>Update</span>
                 }
             </MudButton>
+
             <MudButton Variant="Variant.Text"
                        Color="Color.Default"
                        FullWidth="true"
@@ -202,9 +194,15 @@
     [Parameter] public EventCallback OnCategoryUpdated { get; set; }
 
     private readonly CategoryValidator validationRules = new();
+
     private CategoryDto? _category;
     private CategoryDto? _parentCategory;
+
+    private CategoryDto? _selectedParent;
+
+    private List<CategoryDto> _allCategories = new();
     private List<CategoryDto> _availableParents = new();
+
     private MudForm _form = null!;
     private bool _loading = true;
     private bool _isSaving = false;
@@ -217,6 +215,7 @@
         {
             await LoadCategory();
             await LoadAvailableParents();
+            SyncSelectedParent();
         }
     }
 
@@ -238,9 +237,11 @@
                 {
                     var parentResult = await CategoryService.GetByIdAsync(_category.ParentId.Value);
                     if (parentResult.Success)
-                    {
                         _parentCategory = parentResult.Data;
-                    }
+                }
+                else
+                {
+                    _parentCategory = null;
                 }
             }
             else
@@ -249,7 +250,7 @@
                 await Close();
             }
         }
-        catch (Exception)
+        catch
         {
             Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
             await Close();
@@ -265,16 +266,18 @@
     {
         try
         {
-            var result = await CategoryService.GetAllAsync();
+            var result = await CategoryService.GetAllWithChildAsync(false);
             if (result.Success && result.Data != null)
             {
-                _availableParents = result.Data
-                    .Where(c => c.ParentId == null && c.Id != CategoryId)
+                _allCategories = result.Data.ToList();
+
+                _availableParents = _allCategories
+                    .Where(c => c.ParentId == null && !c.IsSystem && c.Id != CategoryId)
                     .OrderBy(c => c.Name)
                     .ToList();
             }
         }
-        catch (Exception)
+        catch
         {
             Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
         }
@@ -282,20 +285,33 @@
 
     private IEnumerable<CategoryDto> GetAvailableParents()
     {
+        if (_category == null) return Enumerable.Empty<CategoryDto>();
+
         return _availableParents
             .Where(p => p.Type == _category.Type)
             .OrderBy(p => p.Name);
     }
 
+    private void SyncSelectedParent()
+    {
+        if (_category == null)
+            return;
+
+        _selectedParent = _category.ParentId.HasValue
+            ? _availableParents.FirstOrDefault(p => p.Id == _category.ParentId.Value)
+            : null;
+    }
+
     private void OnTypeChanged()
     {
-        if (_category.ParentId.HasValue)
+        if (_category == null) return;
+
+        // If type changed, parent might be invalid now
+        if (_selectedParent != null && _selectedParent.Type != _category.Type)
         {
-            var selectedParent = _availableParents.FirstOrDefault(p => p.Id == _category.ParentId.Value);
-            if (selectedParent != null && selectedParent.Type != _category.Type)
-            {
-                _category.ParentId = null;
-            }
+            _selectedParent = null;
+            _category.ParentId = null;
+            _parentCategory = null;
         }
     }
 
@@ -317,7 +333,14 @@
                 return;
             }
 
+            // ✅ Sync ParentId from selector
+            _category!.ParentId = _selectedParent?.Id;
+
+            // Refresh preview text
+            _parentCategory = _selectedParent;
+
             var result = await CategoryService.UpdateAsync(_category);
+
             if (result.Success)
             {
                 Snackbar.Add(OperationMessages.Updated, Severity.Success);
@@ -329,7 +352,7 @@
                 Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
             }
         }
-        catch (Exception)
+        catch
         {
             Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
         }

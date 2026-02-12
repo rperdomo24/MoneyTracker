@@ -5,6 +5,7 @@
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
@@ -42,7 +43,11 @@
                            @bind-Value="_tempFilter.TimePeriod"
                            @bind-Value:after="OnTimePeriodChanged"
                            Variant="Variant.Outlined"
-                           AnchorOrigin="Origin.BottomCenter">
+                           MaxHeight="400">
+                    <MudSelectItem Value="TimePeriodFilter.AllTime">All Time</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last7Days">Last 7 Days</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last30Days">Last 30 Days</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last90Days">Last 90 Days</MudSelectItem>
                     <MudSelectItem Value="TimePeriodFilter.LastMonth">Last Month</MudSelectItem>
                     <MudSelectItem Value="TimePeriodFilter.ThisMonth">This Month</MudSelectItem>
                     <MudSelectItem Value="TimePeriodFilter.ThisYear">This Year</MudSelectItem>
@@ -68,15 +73,15 @@
                 </MudItem>
             }
 
-            <!-- Type Filter (siempre visible) -->
+            <!-- Type Filter -->
             <MudItem xs="12" md="12">
-                <MudSelect T="string"
+                <MudSelect T="CategoryTypeEnum ?"
                            Label="Type"
-                           @bind-Value="_selectedTypeString"
+                           @bind-Value="_tempFilter.Type"
                            @bind-Value:after="OnTypeChanged"
                            Variant="Variant.Outlined"
                            Clearable="true">
-                    <MudSelectItem Value="@("Income")">
+                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Income)">
                         <div class="d-flex align-center">
                             <MudIcon Icon="@CategoryTypeEnum.Income.GetIcon()"
                                      Color="@CategoryTypeEnum.Income.GetColor()"
@@ -84,7 +89,8 @@
                             Income
                         </div>
                     </MudSelectItem>
-                    <MudSelectItem Value="@("Expense")">
+
+                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Expense)">
                         <div class="d-flex align-center">
                             <MudIcon Icon="@CategoryTypeEnum.Expense.GetIcon()"
                                      Color="@CategoryTypeEnum.Expense.GetColor()"
@@ -95,58 +101,20 @@
                 </MudSelect>
             </MudItem>
 
-            <!-- Category Filter (filtrado por Type) -->
+            <!-- Category Filter (con CategorySelector) -->
             <MudItem xs="12" md="12">
-                <MudSelect T="string"
-                           Label="Category"
-                           @bind-Value="_selectedCategoryString"
-                           @bind-Value:after="OnCategoryChanged"
-                           Variant="Variant.Outlined"
-                           Clearable="true"
-                           Disabled="@(GetFilteredCategories()?.Any() != true)">
-                    @if (GetFilteredCategories()?.Any() == true)
-                    {
-                        @foreach (var category in GetFilteredCategories())
-                        {
-                            <MudSelectItem Value="@category.Id.ToString()">
-                                <div class="d-flex align-center">
-                                    <MudAvatar Size="Size.Small"
-                                               Style="@($"background-color: {category.Color}; margin-right: 8px;")">
-                                        <MudIcon Icon="@category.Icon.ToIcon()"
-                                                 Color="Color.Surface"
-                                                 Size="Size.Small" />
-                                    </MudAvatar>
-                                    @category.Name
-                                    <MudSpacer />
-                                    <MudChip T="string" Size="Size.Small"
-                                             Color="@(category.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
-                                             Variant="Variant.Text">
-                                        @category.Type
-                                    </MudChip>
-                                </div>
-                            </MudSelectItem>
-                        }
-                    }
-                    else
-                    {
-                        <MudText Class="pa-4 text-center text-muted">
-                            @if (_loadingCategories)
-                            {
-                                <span>Loading categories...</span>
-                            }
-                            else if (_tempFilter.Type.HasValue)
-                            {
-                                <span>No @_tempFilter.Type.Value categories available</span>
-                            }
-                            else
-                            {
-                                <span>Select a Type first</span>
-                            }
-                        </MudText>
-                    }
-                </MudSelect>
+                <CategorySelector SelectedCategory="_selectedCategory"
+                                  SelectedCategoryChanged="OnCategorySelected"
+                                  Categories="@(_categories ?? new())"
+                                  FilterByType="@(_tempFilter.Type ?? CategoryTypeEnum.Expense)"
+                                  Label="Category"
+                                  Required="false"
+                                  Clearable="true"
+                                  Disabled="@(!_tempFilter.Type.HasValue)"
+                                  ShowAddButton="false" />
             </MudItem>
 
+            <!-- ✅ Accounts Filter (REUTILIZA AccountsMultiSelector por IDs) -->
             @if (_orderedAccounts?.Any() == true)
             {
                 <MudItem xs="12" md="12">
@@ -225,7 +193,7 @@
             </MudItem>
         </MudGrid>
 
-        <!-- Debug Info - Solo en desarrollo -->
+        <!-- Debug Info -->
         @if (_showDebugInfo && System.Diagnostics.Debugger.IsAttached)
         {
             <MudAlert Severity="Severity.Info" Class="mt-4">
@@ -270,7 +238,6 @@
     [Parameter] public EventCallback OnFiltersApplied { get; set; }
     [Parameter] public EventCallback OnFiltersInitialized { get; set; }
 
-    // ✅ Filtro temporal - todos los cambios se hacen aquí
     private TransactionFilterDto _tempFilter = new();
 
     private List<CategoryDto>? _categories;
@@ -281,10 +248,8 @@
     private string _loadError = string.Empty;
     private bool _showDebugInfo = false;
 
-    private string _selectedCategoryString = string.Empty;
-    private string _selectedTypeString = string.Empty;
+    private CategoryDto? _selectedCategory;
 
-    // ✅ Accounts usa _tempFilter
     private IEnumerable<int> SelectedAccountIds
     {
         get => _tempFilter.AccountIds ?? Enumerable.Empty<int>();
@@ -301,27 +266,26 @@
         await OnFiltersInitialized.InvokeAsync();
     }
 
-    // ✅ Cuando se abre el drawer, copiar filtros actuales a temp
     protected override void OnParametersSet()
     {
-        if (IsOpen)
+        if (!IsOpen) return;
+
+        _tempFilter = new TransactionFilterDto
         {
-            _tempFilter = new TransactionFilterDto
-            {
-                TimePeriod = Filter.TimePeriod,
-                FromDate = Filter.FromDate,
-                ToDate = Filter.ToDate,
-                AccountIds = Filter.AccountIds?.ToList(),
-                SearchText = Filter.SearchText,
-                CategoryId = Filter.CategoryId,
-                Type = Filter.Type
-            };
+            TimePeriod = Filter.TimePeriod,
+            FromDate = Filter.FromDate,
+            ToDate = Filter.ToDate,
+            AccountIds = Filter.AccountIds?.ToList(),
+            SearchText = Filter.SearchText,
+            CategoryId = Filter.CategoryId,
+            Type = Filter.Type
+        };
 
-            _selectedCategoryString = Filter.CategoryId?.ToString() ?? string.Empty;
-            _selectedTypeString = Filter.Type?.ToString() ?? string.Empty;
+        _selectedCategory = Filter.CategoryId.HasValue
+            ? _categories?.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)
+            : null;
 
-            CalculateActiveFilterCount();
-        }
+        CalculateActiveFilterCount();
     }
 
     private async Task LoadFilterOptions()
@@ -331,28 +295,13 @@
 
         try
         {
-            if (CategoryService == null)
-            {
-                _loadError = "CategoryService is null - DI problem";
-                return;
-            }
-
             _loadError = "Loading categories...";
             var categoriesResult = await CategoryService.GetAllAsync();
 
             if (categoriesResult.Success)
             {
-                var allCategories = categoriesResult.Data?.ToList() ?? new List<CategoryDto>();
-                _categories = allCategories.ToList();
-
-                if (_categories.Count == 0)
-                {
-                    _loadError = "No categories found in database";
-                }
-                else
-                {
-                    _loadError = string.Empty;
-                }
+                _categories = categoriesResult.Data?.ToList() ?? new List<CategoryDto>();
+                _loadError = _categories.Count == 0 ? "No categories found in database" : string.Empty;
             }
             else
             {
@@ -368,12 +317,10 @@
             if (accountsResult.Success)
             {
                 _activeAccounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-
                 _orderedAccounts = _activeAccounts
                     .OrderBy(a => (int)a.Type)
                     .ThenBy(a => a.Name)
                     .ToList();
-
                 _loadError = string.Empty;
             }
             else
@@ -395,24 +342,12 @@
         finally
         {
             _loadingCategories = false;
+
+            if (_selectedCategory == null && _tempFilter.CategoryId.HasValue)
+                _selectedCategory = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
+
             StateHasChanged();
         }
-    }
-
-    // ✅ Filtrado reactivo usa _tempFilter
-    private IEnumerable<CategoryDto> GetFilteredCategories()
-    {
-        if (_categories == null || !_categories.Any())
-            return Enumerable.Empty<CategoryDto>();
-
-        var filtered = _categories.AsEnumerable();
-
-        if (_tempFilter.Type.HasValue)
-        {
-            filtered = filtered.Where(c => c.Type == _tempFilter.Type.Value);
-        }
-
-        return filtered.OrderBy(c => c.Name);
     }
 
     private string GetSelectedAccountsText(List<string> selectedValues)
@@ -447,23 +382,7 @@
         return $"{selectedAccounts.Count} accounts ({FormatCurrency(totalBalance)})";
     }
 
-    private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
-
-    private string GetBalanceColorClass(decimal balance)
-    {
-        return balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => "text-muted"
-        };
-    }
-
-    // ✅ Todos los métodos de cambio usan _tempFilter
-    private async Task OnTimePeriodChanged()
+    private Task OnTimePeriodChanged()
     {
         if (_tempFilter.TimePeriod != TimePeriodFilter.Custom)
         {
@@ -471,47 +390,30 @@
             _tempFilter.ToDate = null;
         }
         CalculateActiveFilterCount();
+        return Task.CompletedTask;
     }
 
-    private async Task OnCategoryChanged()
+    private Task OnTypeChanged()
     {
-        if (!string.IsNullOrWhiteSpace(_selectedCategoryString) && int.TryParse(_selectedCategoryString, out int categoryId))
+        if (_selectedCategory != null && _tempFilter.Type.HasValue && _selectedCategory.Type != _tempFilter.Type.Value)
         {
-            _tempFilter.CategoryId = categoryId;
-        }
-        else
-        {
-            _tempFilter.CategoryId = null;
-        }
-        CalculateActiveFilterCount();
-    }
-
-    private async Task OnTypeChanged()
-    {
-        if (!string.IsNullOrWhiteSpace(_selectedTypeString))
-        {
-            _tempFilter.Type = _selectedTypeString == "Income" ? CategoryTypeEnum.Income : CategoryTypeEnum.Expense;
-        }
-        else
-        {
-            _tempFilter.Type = null;
+            _selectedCategory = null;
         }
 
-        // Limpiar categoría si ya no es válida
-        if (_tempFilter.CategoryId.HasValue && _tempFilter.Type.HasValue)
-        {
-            var selectedCategory = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
-            if (selectedCategory != null && selectedCategory.Type != _tempFilter.Type.Value)
-            {
-                _tempFilter.CategoryId = null;
-                _selectedCategoryString = string.Empty;
-            }
-        }
+        _tempFilter.CategoryId = _selectedCategory?.Id;
 
         CalculateActiveFilterCount();
+        return Task.CompletedTask;
     }
 
-    // ✅ CalculateActiveFilterCount usa _tempFilter
+    private Task OnCategorySelected(CategoryDto? value)
+    {
+        _selectedCategory = value;
+        _tempFilter.CategoryId = value?.Id;
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
     private void CalculateActiveFilterCount()
     {
         _activeFilterCount = 0;
@@ -523,16 +425,14 @@
         if (_tempFilter.Type.HasValue) _activeFilterCount++;
     }
 
-    // ✅ Clear limpia solo _tempFilter
-    private async Task ClearAllFilters()
+    private Task ClearAllFilters()
     {
         _tempFilter = new TransactionFilterDto();
-        _selectedCategoryString = string.Empty;
-        _selectedTypeString = string.Empty;
+        _selectedCategory = null;
         CalculateActiveFilterCount();
+        return Task.CompletedTask;
     }
 
-    // ✅ Apply copia _tempFilter → Filter
     private async Task ApplyAndClose()
     {
         Filter.TimePeriod = _tempFilter.TimePeriod;
@@ -550,10 +450,24 @@
         await IsOpenChanged.InvokeAsync(IsOpen);
     }
 
-    // ✅ Cancel descarta cambios
     private async Task CancelAndClose()
     {
         IsOpen = false;
         await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    }
+
+    private string GetBalanceColorClass(decimal balance)
+    {
+        return balance switch
+        {
+            > 0 => "text-success",
+            < 0 => "text-error",
+            _ => "text-muted"
+        };
     }
 }

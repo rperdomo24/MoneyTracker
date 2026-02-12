@@ -4,14 +4,15 @@
 
 <MudSelect T="AccountDto"
            Label="@Label"
-           Value="@SelectedAccount"
-           ValueChanged="@((AccountDto value) => OnSelectedAccountChanged(value))"
+           @bind-Value="SelectedAccount"
            Variant="Variant.Outlined"
            Required="@Required"
            Disabled="@Disabled"
            Clearable="@Clearable"
-           ToStringFunc="@(a => a?.Name ?? "")"
+           Searchable="true"
+           ToStringFunc="@(a => a?.Name ?? string.Empty)"
            Filter="new Func<AccountDto, string, bool>(FilterAccounts)">
+
     @foreach (var account in FilteredAccounts)
     {
         <MudSelectItem Value="@account">
@@ -19,7 +20,9 @@
                 <MudIcon Icon="@account.Icon.ToIcon()"
                          Style="@($"color: {account.Color};")"
                          Size="Size.Small" />
+
                 <MudText Typo="Typo.body2">@account.Name</MudText>
+
                 @if (ShowBalance)
                 {
                     <MudText Typo="Typo.caption" Style="opacity: 0.6; margin-left: auto;">
@@ -34,6 +37,7 @@
 @code {
     [Parameter] public AccountDto? SelectedAccount { get; set; }
     [Parameter] public EventCallback<AccountDto?> SelectedAccountChanged { get; set; }
+
     [Parameter] public List<AccountDto> Accounts { get; set; } = new();
     [Parameter] public int? ExcludeAccountId { get; set; }
     [Parameter] public string Label { get; set; } = "Account";
@@ -50,14 +54,10 @@
             var filtered = Accounts.AsEnumerable();
 
             if (ExcludeAccountId.HasValue)
-            {
                 filtered = filtered.Where(a => a.Id != ExcludeAccountId.Value);
-            }
 
             if (FilterByType.HasValue)
-            {
                 filtered = filtered.Where(a => a.Type == FilterByType.Value);
-            }
 
             return filtered.OrderBy(a => a.Name).ToList();
         }
@@ -66,13 +66,6 @@
     private bool FilterAccounts(AccountDto account, string searchString)
     {
         if (string.IsNullOrWhiteSpace(searchString)) return true;
-
         return account.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private async Task OnSelectedAccountChanged(AccountDto? value)
-    {
-        SelectedAccount = value;
-        await SelectedAccountChanged.InvokeAsync(value);
     }
 }

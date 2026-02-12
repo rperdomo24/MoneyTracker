@@ -4,19 +4,30 @@
 
 <div style="display: flex; gap: 8px; width: 100%;">
     <div style="flex: 1;">
-        <MudSelect T="CategoryDto"
+        <MudSelect T="CategoryDto?"
                    Label="@Label"
                    Value="@SelectedCategory"
-                   ValueChanged="@((CategoryDto value) => OnSelectedCategoryChanged(value))"
+                   ValueChanged="@((CategoryDto? value) => OnSelectedCategoryChanged(value))"
                    Variant="Variant.Outlined"
                    Required="@Required"
                    Disabled="@Disabled"
                    Clearable="@Clearable"
                    ToStringFunc="@(c => c?.Name ?? "")"
-                   Filter="new Func<CategoryDto, string, bool>(FilterCategories)">
+                   Filter="new Func<CategoryDto?, string, bool>(FilterCategories)">
+
+            @if (ShowNoneOption)
+            {
+                <MudSelectItem T="CategoryDto?" Value="@(null as CategoryDto)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">@NoneText</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            }
+
             @foreach (var category in FilteredCategories)
             {
-                <MudSelectItem Value="@category">
+                <MudSelectItem T="CategoryDto?" Value="@category">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudAvatar Size="Size.Small" Style="@($"background-color: {category.Color}; width: 28px; height: 28px;")">
                             <MudIcon Icon="@category.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
@@ -49,6 +60,11 @@
     [Parameter] public bool Required { get; set; } = true;
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public bool Clearable { get; set; } = false;
+
+    // ✅ Parent use-case
+    [Parameter] public bool ShowNoneOption { get; set; } = false;
+    [Parameter] public string NoneText { get; set; } = "None (Main Category)";
+
     [Parameter] public bool ShowAddButton { get; set; } = true;
     [Parameter] public EventCallback OnAddCategory { get; set; }
 
@@ -57,8 +73,9 @@
         .OrderBy(c => c.Name)
         .ToList();
 
-    private bool FilterCategories(CategoryDto category, string searchString)
+    private bool FilterCategories(CategoryDto? category, string searchString)
     {
+        if (category is null) return true;
         if (string.IsNullOrWhiteSpace(searchString)) return true;
 
         return category.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);

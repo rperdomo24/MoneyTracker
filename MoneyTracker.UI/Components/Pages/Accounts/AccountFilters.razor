@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 
@@ -95,9 +96,10 @@
                 </MudSelect>
 
                 <!-- Transaction Type -->
-                <MudSelect T="CategoryTypeEnum?"
+                <MudSelect T="CategoryTypeEnum ?"
                            Label="Transaction Type"
                            @bind-Value="_tempFilter.Type"
+                           @bind-Value:after="OnTypeChanged"
                            Variant="Variant.Outlined"
                            Clearable="true"
                            AnchorOrigin="Origin.BottomCenter">
@@ -125,39 +127,16 @@
                     </MudSelectItem>
                 </MudSelect>
 
-                <!-- Category -->
-                <MudSelect T="int?"
-                           Label="Category"
-                           @bind-Value="_tempFilter.CategoryId"
-                           Variant="Variant.Outlined"
-                           Clearable="true"
-                           AnchorOrigin="Origin.BottomCenter">
-                    <MudSelectItem Value="@((int?)null)">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
-                            <MudText>All Categories</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    @if (_categories?.Any() == true)
-                    {
-                        @foreach (var category in _categories.OrderBy(c => c.Name))
-                        {
-                            <MudSelectItem Value="@((int?)category.Id)">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                    <MudAvatar Size="Size.Small"
-                                               Style="@($"background-color: {category.Color}; width: 24px; height: 24px;")">
-                                        <MudIcon Icon="@category.Icon.ToIcon()"
-                                                 Color="Color.Surface"
-                                                 Size="Size.Small" />
-                                    </MudAvatar>
-                                    <MudText>@category.Name</MudText>
-                                </MudStack>
-                            </MudSelectItem>
-                        }
-                    }
-                </MudSelect>
+                <!-- Category (CategorySelector: type-to-search like Add Transaction) -->
+                <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                  Categories="@(_categories ?? new())"
+                                  FilterByType="@(_tempFilter.Type ?? CategoryTypeEnum.Expense)"
+                                  Label="Category"
+                                  Required="false"
+                                  Clearable="true"
+                                  ShowAddButton="false"
+                                  Disabled="@(!_tempFilter.Type.HasValue)" />
 
-                <!-- Active Filters Summary -->
                 @if (HasActiveFilters())
                 {
                     <MudAlert Severity="Severity.Info" Dense="true">
@@ -170,7 +149,6 @@
         }
     </MudDrawerContainer>
 
-    <!-- Actions -->
     <div Class="pa-4" Style="border-top: 1px solid var(--mud-palette-divider);">
         <MudStack Spacing="2">
             <MudButton Variant="Variant.Filled"
@@ -180,6 +158,7 @@
                        OnClick="ApplyFilters">
                 Apply Filters
             </MudButton>
+
             <MudButton Variant="Variant.Text"
                        Color="Color.Default"
                        FullWidth="true"
@@ -203,6 +182,20 @@
     private List<CategoryDto>? _categories;
     private bool _loadingCategories = true;
 
+    // ✅ Bridge between CategorySelector (object) and Filter (CategoryId int?)
+    private CategoryDto? _selectedCategory
+    {
+        get
+        {
+            if (!_tempFilter.CategoryId.HasValue) return null;
+            return _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
+        }
+        set
+        {
+            _tempFilter.CategoryId = value?.Id;
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadCategories();
@@ -211,7 +204,7 @@
 
     protected override void OnParametersSet()
     {
-        if (IsOpen && _tempFilter != Filter)
+        if (IsOpen)
         {
             InitializeFilter();
         }
@@ -225,8 +218,17 @@
             TimePeriod = Filter.TimePeriod,
             Type = Filter.Type,
             CategoryId = Filter.CategoryId,
-            AccountIds = new List<int> { AccountId } // Always filter by current account
+            AccountIds = new List<int> { AccountId }
         };
+
+        // If category exists but type is null, keep it as-is (it will show once type selected)
+        // If type exists, ensure selected category matches the type
+        if (_tempFilter.CategoryId.HasValue && _tempFilter.Type.HasValue)
+        {
+            var cat = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
+            if (cat != null && cat.Type != _tempFilter.Type.Value)
+                _tempFilter.CategoryId = null;
+        }
     }
 
     private async Task LoadCategories()
@@ -236,16 +238,21 @@
 
         try
         {
-            var result = await CategoryService.GetAllAsync();
+            var result = await CategoryService.GetAllWithChildAsync(false);
             if (result.Success && result.Data != null)
             {
-                _categories = result.Data.ToList();
+                _categories = result.Data
+                    .Where(c => !c.IsSystem)
+                    .ToList();
+            }
+            else
+            {
+                _categories = new();
             }
         }
-        catch (Exception)
+        catch
         {
-            // Silent fail - categories are optional
-            _categories = new List<CategoryDto>();
+            _categories = new();
         }
         finally
         {
@@ -254,11 +261,24 @@
         }
     }
 
+    private void OnTypeChanged()
+    {
+        // When type changes, clear category if it doesn't belong to that type
+        if (_tempFilter.CategoryId.HasValue && _tempFilter.Type.HasValue)
+        {
+            var selected = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
+            if (selected != null && selected.Type != _tempFilter.Type.Value)
+                _tempFilter.CategoryId = null;
+        }
+
+        // If user cleared type => also clear category
+        if (!_tempFilter.Type.HasValue)
+            _tempFilter.CategoryId = null;
+    }
+
     private async Task ApplyFilters()
     {
-        // Ensure AccountId is always set
         _tempFilter.AccountIds = new List<int> { AccountId };
-
         await OnFiltersApplied.InvokeAsync(_tempFilter);
         await Close();
     }
@@ -268,7 +288,10 @@
         _tempFilter = new TransactionFilterDto
         {
             TimePeriod = TimePeriodFilter.Last30Days,
-            AccountIds = new List<int> { AccountId }
+            AccountIds = new List<int> { AccountId },
+            Type = null,
+            CategoryId = null,
+            SearchText = null
         };
 
         await ApplyFilters();
@@ -285,12 +308,10 @@
     private int GetActiveFiltersCount()
     {
         int count = 0;
-
         if (_tempFilter.TimePeriod != TimePeriodFilter.Last30Days) count++;
         if (!string.IsNullOrWhiteSpace(_tempFilter.SearchText)) count++;
         if (_tempFilter.Type.HasValue) count++;
         if (_tempFilter.CategoryId.HasValue) count++;
-
         return count;
     }
 
