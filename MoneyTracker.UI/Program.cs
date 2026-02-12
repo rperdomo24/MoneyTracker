@@ -81,6 +81,9 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<CreateBudgetDto>, CreateBudgetValidator>();
             builder.Services.AddScoped<IValidator<UpdateBudgetDto>, UpdateBudgetValidator>();
 
+            builder.Services.AddScoped<ITextImportService, TextImportService>();
+
+
             builder.Services.AddScoped<ProtectedSessionStorage>();
 
             Log.Logger = new LoggerConfiguration()

@@ -6,6 +6,7 @@
 @using MoneyTracker.UI.Components.Pages.Accounts
 @using MoneyTracker.UI.Components.Pages.Transactions
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Components.Shared.TextImport 
 @inject IAccountService AccountService
 
 <div class="quick-actions-fab-container">
@@ -41,6 +42,13 @@
                     Size="Size.Medium"
                     Class="fab-action fab-action-1"
                     OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />
+
+            <MudFab Color="Color.Info"
+                    StartIcon="@Icons.Material.Filled.ContentPaste"
+                    Size="Size.Medium"
+                    Class="fab-action fab-action-4"
+                    OnClick="@((MouseEventArgs e) => HandleImportFromTextClick(e))" />
+
         </div>
     }
 
@@ -48,14 +56,13 @@
     @if (_isExpanded && ShowLabels)
     {
         <div class="fab-labels">
-            <div class="fab-label fab-label-4">
-                @("Pay Card")
-            </div>
+            <div class="fab-label fab-label-4">Import</div>
             <div class="fab-label fab-label-3">Transfer</div>
             <div class="fab-label fab-label-2">Add Income</div>
             <div class="fab-label fab-label-1">Add Expense</div>
         </div>
     }
+
 
     <!-- 🌑 Backdrop (para cerrar al hacer clic fuera) -->
     @*  @if (_isExpanded)
@@ -246,4 +253,28 @@
             cancelText
         );
     }
+
+    private async Task HandleImportFromTextClick(MouseEventArgs e)
+    {
+        if (_isProcessingAction) return;
+        _isProcessingAction = true;
+
+        try
+        {
+            CloseExpanded();
+            await Task.Delay(50);
+
+            var options = DialogOptions ?? _defaultDialogOptions;
+
+            // Use a slightly bigger width for textarea
+            options = options with { MaxWidth = MaxWidth.Medium, FullWidth = true };
+
+            await DialogService.ShowAsync<ImportFromTextDialog>("Import from text", new DialogParameters(), options);
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
+    }
+
 }
