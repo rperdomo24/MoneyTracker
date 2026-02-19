@@ -20,13 +20,12 @@ else if (Items?.Any() != true)
 }
 else
 {
-
     var parents = Items!
-    .Where(x => x.ParentCategoryId is null)
-    .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ✅ primero con movimiento
-    .ThenByDescending(x => x.Amount > 0)              // opcional: luego los que tienen budget
-    .ThenBy(x => x.CategoryName)
-    .ToList();
+        .Where(x => x.ParentCategoryId is null)
+        .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ✅ primero con movimiento
+        .ThenByDescending(x => x.Amount > 0)              // opcional: luego los que tienen budget
+        .ThenBy(x => x.CategoryName)
+        .ToList();
 
     var childrenByParent = Items!
         .Where(x => x.ParentCategoryId is not null)
@@ -39,7 +38,6 @@ else
                 .ThenBy(x => x.CategoryName)
                 .ToList()
         );
-
 
     <MudStack Spacing="2" Class="mt-2">
 
@@ -56,23 +54,67 @@ else
 
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 
-                            <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
-                                <!-- ✅ CategoryIcon ya es string: no usamos ToIcon() -->
-                                <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
-                                         Color="Color.Surface" />
-                            </MudAvatar>
+                            <!-- Parent icon with circular progress (clean, like child) -->
+                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
 
-                            <div>
+                                <!-- PC / Large screens -->
+                                <MudHidden Breakpoint="Breakpoint.MdAndDown">
+                                    <MudProgressCircular Rounded="true"
+                                                         Size="Size.Large"
+                                                         StrokeWidth="4"
+                                                         Value="@Math.Clamp(parent.ProgressPercent, 0, 100)"
+                                                         Color="@GetBudgetColor(parent)">
+                                        <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
+                                            <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
+                                                     Color="Color.Surface"
+                                                     Size="Size.Medium" />
+                                        </MudAvatar>
+                                    </MudProgressCircular>
+                                </MudHidden>
+
+                                <!-- Tablet + Phone -->
+                                <MudHidden Breakpoint="Breakpoint.LgAndUp">
+                                    <MudProgressCircular Rounded="true"
+                                                         Size="Size.Large"
+                                                         StrokeWidth="4"
+                                                         Value="@Math.Clamp(parent.ProgressPercent, 0, 100)"
+                                                         Color="@GetBudgetColor(parent)">
+                                        <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
+                                            <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
+                                                     Color="Color.Surface"
+                                                     Size="Size.Medium" />
+                                        </MudAvatar>
+                                    </MudProgressCircular>
+                                </MudHidden>
+
+                            </MudStack>
+
+
+
+                            <MudStack Spacing="0">
                                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@parent.CategoryName</MudText>
 
                                 <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                                    @parent.CategoryType
+                                    @if (parent.Remaining < 0)
+                                    {
+                                        <span style="color: var(--mud-palette-error);">
+                                            @FormatCurrency(Math.Abs(parent.Remaining)) over
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: var(--mud-palette-success);">
+                                            @FormatCurrency(parent.Remaining) left
+                                        </span>
+                                    }
+
                                     @if (hasChildren)
                                     {
                                         <span style="opacity:0.75;"> • @children!.Count subcategories</span>
                                     }
                                 </MudText>
-                            </div>
+                            </MudStack>
+
                         </MudStack>
 
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
@@ -108,19 +150,14 @@ else
                         </div>
 
                         <div style="text-align:right;">
-                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Remaining</MudText>
-
-                            <!-- ✅ Si Remaining < 0, lo resaltamos (over) -->
-                            <MudText Typo="Typo.subtitle1"
-                                     Class="font-weight-medium"
-                                     Style="@(parent.Remaining < 0 ? "color: var(--mud-palette-error);" : null)">
-                                @FormatCurrency(parent.Remaining)
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Used</MudText>
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                                @FormatCurrency(parent.Used)
                             </MudText>
                         </div>
                     </MudStack>
 
-                    <MudProgressLinear Value="@parent.ProgressPercent" Rounded="true" />
-
+                    <!-- chips -->
                     <MudStack Row="true" Spacing="1">
                         @if (parent.IncludeChildren)
                         {
@@ -143,70 +180,90 @@ else
                                     <MudPaper Elevation="0"
                                               Class="pa-3"
                                               Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                                <!-- Indent/arrow -->
-                                                <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight"
-                                                         Style="opacity:0.7;" />
+                                        <MudGrid Spacing="1" AlignItems="AlignItems.Center">
 
-                                                <MudAvatar Size="Size.Small" Style="@($"background-color:{child.CategoryColor};")">
-                                                    <MudIcon Icon="@(child.CategoryIcon.ToIcon())"
-                                                             Color="Color.Surface"
-                                                             Size="Size.Small" />
-                                                </MudAvatar>
+                                            <!-- Left: icon + name + remaining -->
+                                            <MudItem xs="12" sm="7">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 
-                                                <div>
-                                                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">@child.CategoryName</MudText>
+                                                    <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight" Style="opacity:0.7;" />
 
-                                                    <!-- Remaining label: left / over -->
-                                                    <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                                                        @if (child.Remaining < 0)
-                                                        {
-                                                            <span style="color: var(--mud-palette-error);">
-                                                                @FormatCurrency(Math.Abs(child.Remaining)) over
-                                                            </span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span>@FormatCurrency(child.Remaining) left</span>
-                                                        }
-                                                    </MudText>
-                                                </div>
-                                            </MudStack>
+                                                    <!-- Child icon with circular progress around it -->
+                                                    <MudProgressCircular Rounded="true"
+                                                                         Size="Size.Medium"
+                                                                         StrokeWidth="3"
+                                                                         Value="@child.ProgressPercent"
+                                                                         Color="@GetBudgetColor(child)">
+                                                        <MudAvatar Size="Size.Small" Style="@($"background-color:{child.CategoryColor};")">
+                                                            <MudIcon Icon="@(child.CategoryIcon.ToIcon())"
+                                                                     Color="Color.Surface"
+                                                                     Size="Size.Small" />
+                                                        </MudAvatar>
+                                                    </MudProgressCircular>
 
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                                <div style="text-align:right;">
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">@child.CategoryName</MudText>
+
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                                                            @if (child.Remaining < 0)
+                                                            {
+                                                                <span style="color: var(--mud-palette-error);">
+                                                                    @FormatCurrency(Math.Abs(child.Remaining)) over
+                                                                </span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span style="color: var(--mud-palette-success);">
+                                                                    @FormatCurrency(child.Remaining) left
+                                                                </span>
+                                                            }
+                                                        </MudText>
+                                                    </MudStack>
+
+                                                </MudStack>
+                                            </MudItem>
+
+                                            <!-- Right: amounts -->
+                                            <MudItem xs="10" sm="4">
+                                                <MudStack AlignItems="AlignItems.End" Spacing="0">
                                                     <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
                                                         @FormatCurrency(child.Used)
                                                     </MudText>
                                                     <MudText Typo="Typo.caption" Style="opacity:0.75;">
                                                         from @FormatCurrency(child.Amount)
                                                     </MudText>
-                                                </div>
+                                                </MudStack>
+                                            </MudItem>
 
-                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
-                                                    <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(child))">
-                                                        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" /> View transactions
-                                                    </MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(child))">
-                                                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" /> Edit
-                                                    </MudMenuItem>
-                                                    <MudMenuItem OnClick="@(() => OnDelete.InvokeAsync(child))">
-                                                        <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" /> Delete
-                                                    </MudMenuItem>
-                                                </MudMenu>
-                                            </MudStack>
+                                            <!-- Menu -->
+                                            <MudItem xs="2" sm="1">
+                                                <MudStack AlignItems="AlignItems.End">
+                                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                                                        <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(child))">
+                                                            <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" /> View transactions
+                                                        </MudMenuItem>
+                                                        <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(child))">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" /> Edit
+                                                        </MudMenuItem>
+                                                        <MudMenuItem OnClick="@(() => OnDelete.InvokeAsync(child))">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" /> Delete
+                                                        </MudMenuItem>
+                                                    </MudMenu>
+                                                </MudStack>
+                                            </MudItem>
 
-                                        </MudStack>
+                                        </MudGrid>
                                     </MudPaper>
                                 }
+
                             </MudStack>
                         </MudCollapse>
                     }
 
                 </MudStack>
             </MudPaper>
+
         }
     </MudStack>
 }
@@ -230,4 +287,18 @@ else
 
     private string FormatCurrency(decimal amount)
         => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+
+    private Color GetBudgetColor(BudgetListItemVm item)
+    {
+        if (item.Remaining < 0)
+            return Color.Error;
+
+        if (item.Amount <= 0)
+            return Color.Default;
+
+        if (item.ProgressPercent >= 80)
+            return Color.Warning;
+
+        return Color.Success;
+    }
 }

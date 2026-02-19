@@ -1,0 +1,145 @@
+﻿@using MudBlazor
+@using MoneyTracker.Application.DTOs.Budgets
+@using MoneyTracker.UI.Helpers.VM
+
+<MudPaper Elevation="1" Class="pa-4" Style="border-radius:16px;">
+    <MudStack Spacing="3">
+
+        <!-- Header -->
+        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@MonthLabel</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    @(IsExpenseTab ? "Expenses overview" : "Income overview")
+                </MudText>
+            </MudStack>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Size="Size.Small"
+                       OnClick="OnAddBudget">
+                New budget
+            </MudButton>
+        </MudStack>
+
+        @if (_hasChartData)
+        {
+            <!-- Donut + Center text -->
+            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+
+                <MudChart ChartType="ChartType.Donut"
+                          InputData="@_inputData"
+                          InputLabels="@_inputLabels"
+                          Width="280px"
+                          Height="280px" />
+
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    @(IsExpenseTab ? "Spent" : "Earned")
+                </MudText>
+
+                <MudText Typo="Typo.h4"
+                         Class="font-weight-bold"
+                         Style="@(IsExpenseTab ? "color: var(--mud-palette-error);" : "color: var(--mud-palette-success);")">
+                    @FormatCurrency(Summary.TotalUsed)
+                </MudText>
+
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    of @FormatCurrency(Summary.TotalBudgeted)
+                </MudText>
+
+            </MudStack>
+
+            <!-- Legend -->
+            <MudStack Spacing="1">
+                @foreach (var s in _legendSlices)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudAvatar Size="Size.Small" Style="@($"background-color:{s.Color};")" />
+                            <MudText Typo="Typo.body2">@s.Name</MudText>
+                        </MudStack>
+
+                        <MudText Typo="Typo.body2" Class="font-weight-medium">
+                            @($"{s.Percent}%")
+                        </MudText>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+        else
+        {
+            <!-- Empty -->
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="pa-6">
+                <MudText Typo="Typo.h4" Style="opacity:0.5;">
+                    @FormatCurrency(0)
+                </MudText>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OnAddBudget">
+                    New budget
+                </MudButton>
+            </MudStack>
+        }
+
+        <!-- Totals -->
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Budgeted</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@FormatCurrency(Summary.TotalBudgeted)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Remaining</MudText>
+                    <MudText Typo="Typo.h6"
+                             Class="font-weight-bold"
+                             Style="@(Summary.TotalRemaining < 0 ? "color: var(--mud-palette-error);" : "color: var(--mud-palette-success);")">
+                        @FormatCurrency(Summary.TotalRemaining)
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string MonthLabel { get; set; } = "";
+    [Parameter] public bool IsExpenseTab { get; set; }
+    [Parameter] public BudgetMonthlySummaryDto Summary { get; set; } = new();
+    [Parameter] public List<BudgetCategorySliceVm>? Slices { get; set; }
+    [Parameter] public EventCallback OnAddBudget { get; set; }
+
+    private double[] _inputData = Array.Empty<double>();
+    private string[] _inputLabels = Array.Empty<string>();
+    private List<BudgetCategorySliceVm> _legendSlices = new();
+    private bool _hasChartData;
+
+    protected override void OnParametersSet()
+    {
+        _hasChartData = false;
+        _inputData = Array.Empty<double>();
+        _inputLabels = Array.Empty<string>();
+        _legendSlices = new();
+
+        if (Slices?.Any() != true)
+            return;
+
+        var cleaned = Slices.Where(x => x.Used > 0).ToList();
+        if (!cleaned.Any())
+            return;
+
+        _legendSlices = cleaned;
+        _inputData = cleaned.Select(x => (double)x.Used).ToArray();
+        _inputLabels = cleaned.Select(x => x.Name).ToArray();
+        _hasChartData = true;
+    }
+
+    private static string FormatCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+}

@@ -13,66 +13,158 @@
 
 <PageTitle>Budgets - MoneyTracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-2 pa-sm-6">
 
     <!-- Header -->
-    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-        <MudText Typo="Typo.h5" Class="font-weight-bold">Budgets</MudText>
+    <MudGrid Spacing="2" Justify="Justify.Center" Class="mb-4">
 
-        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                           Color="Color.Secondary"
-                           OnClick="PrevMonth" />
+        <!-- Title -->
+        <MudItem xs="12" md="4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h5" Class="font-weight-bold">Budgets</MudText>
+            </MudStack>
+        </MudItem>
 
-            <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
-                @_currentMonthLabel
-            </MudText>
+        <!-- Desktop: month nav + switch (NO Add button) -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudItem xs="12" md="8">
+                <MudStack Row="true"
+                          Wrap="Wrap.Wrap"
+                          Spacing="2"
+                          AlignItems="AlignItems.Center">
 
-            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                           Color="Color.Secondary"
-                           OnClick="NextMonth" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                   Color="Color.Secondary"
+                                   OnClick="PrevMonth" />
 
-            <MudSwitch T="bool"
-                       Color="Color.Secondary"
-                       @bind-Checked="_onlyWithActivity"
-                       ValueChanged="OnOnlyWithActivityChanged"
-                       Label="Only with activity" />
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                        @_currentMonthLabel
+                    </MudText>
 
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="OpenAddBudgetModalFromTab">
-                Add Budget
-            </MudButton>
-        </MudStack>
-    </MudStack>
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                   Color="Color.Secondary"
+                                   OnClick="NextMonth" />
 
-    <!-- Tabs -->
-    <MudTabs Rounded="true"
-             Border="true"
-             Elevation="0"
-             ActivePanelIndex="@_activeTabIndex"
-             ActivePanelIndexChanged="OnTabChanged">
+                    <MudSwitch T="bool"
+                               Color="Color.Secondary"
+                               @bind-Checked="_onlyWithActivity"
+                               ValueChanged="OnOnlyWithActivityChanged"
+                               Label="Only with activity" />
+                </MudStack>
+            </MudItem>
+        </MudHidden>
 
-        <MudTabPanel Text="Expenses" Icon="@Icons.Material.Filled.TrendingDown">
-            <BudgetsList Items="@_expenseBudgets"
-                         Loading="@_loading"
-                         EmptyMessage="No expense budgets for this month."
-                         OnEdit="HandleEdit"
-                         OnDelete="HandleDelete"
-                         OnViewTransactions="HandleViewTransactions" />
-        </MudTabPanel>
+        <!-- Mobile: month nav + switch (compact) -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudItem xs="12">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
 
-        <MudTabPanel Text="Income" Icon="@Icons.Material.Filled.TrendingUp">
-            <BudgetsList Items="@_incomeBudgets"
-                         Loading="@_loading"
-                         EmptyMessage="No income budgets for this month."
-                         OnEdit="HandleEdit"
-                         OnDelete="HandleDelete"
-                         OnViewTransactions="HandleViewTransactions" />
-        </MudTabPanel>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                       Color="Color.Secondary"
+                                       OnClick="PrevMonth" />
 
-    </MudTabs>
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                            @_currentMonthLabel
+                        </MudText>
+
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                       Color="Color.Secondary"
+                                       OnClick="NextMonth" />
+                    </MudStack>
+
+                    <MudSwitch T="bool"
+                               Color="Color.Secondary"
+                               @bind-Checked="_onlyWithActivity"
+                               ValueChanged="OnOnlyWithActivityChanged" />
+                </MudStack>
+
+                <MudText Typo="Typo.caption" Style="opacity:0.75;" Class="mt-1">
+                    Only with activity
+                </MudText>
+            </MudItem>
+        </MudHidden>
+
+    </MudGrid>
+
+    <!-- MAIN LAYOUT: Overview (left) + List (right) -->
+    <MudGrid Spacing="3">
+
+        <!-- LEFT: Overview -->
+        <MudItem xs="12" md="5">
+            <BudgetsOverviewCard MonthLabel="@_currentMonthLabel"
+                                 IsExpenseTab="@(_activeTabIndex == 0)"
+                                 Summary="@CurrentSummary"
+                                 Slices="@CurrentSlices"
+                                 OnAddBudget="OpenAddBudgetModalFromTab" />
+        </MudItem>
+
+        <!-- RIGHT: Tabs + Lists -->
+        <MudItem xs="12" md="7">
+
+            <!-- Desktop Tabs -->
+            <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                <MudTabs Rounded="true"
+                         Border="true"
+                         Elevation="0"
+                         ActivePanelIndex="@_activeTabIndex"
+                         ActivePanelIndexChanged="OnTabChanged"
+                         ApplyEffectsToContainer="true">
+
+                    <MudTabPanel Text="Expenses" Icon="@Icons.Material.Filled.TrendingDown">
+                        <BudgetsList Items="@_expenseBudgets"
+                                     Loading="@_loading"
+                                     EmptyMessage="No expense budgets for this month."
+                                     OnEdit="HandleEdit"
+                                     OnDelete="HandleDelete"
+                                     OnViewTransactions="HandleViewTransactions" />
+                    </MudTabPanel>
+
+                    <MudTabPanel Text="Income" Icon="@Icons.Material.Filled.TrendingUp">
+                        <BudgetsList Items="@_incomeBudgets"
+                                     Loading="@_loading"
+                                     EmptyMessage="No income budgets for this month."
+                                     OnEdit="HandleEdit"
+                                     OnDelete="HandleDelete"
+                                     OnViewTransactions="HandleViewTransactions" />
+                    </MudTabPanel>
+                </MudTabs>
+            </MudHidden>
+
+            <!-- Mobile Tabs (icons only) -->
+            <MudHidden Breakpoint="Breakpoint.MdAndUp">
+                <MudTabs Rounded="true"
+                         Border="true"
+                         Elevation="0"
+                         ActivePanelIndex="@_activeTabIndex"
+                         ActivePanelIndexChanged="OnTabChanged"
+                         ApplyEffectsToContainer="true"
+                         Centered="true">
+
+                    <MudTabPanel Icon="@Icons.Material.Filled.TrendingDown">
+                        <BudgetsList Items="@_expenseBudgets"
+                                     Loading="@_loading"
+                                     EmptyMessage="No expense budgets for this month."
+                                     OnEdit="HandleEdit"
+                                     OnDelete="HandleDelete"
+                                     OnViewTransactions="HandleViewTransactions" />
+                    </MudTabPanel>
+
+                    <MudTabPanel Icon="@Icons.Material.Filled.TrendingUp">
+                        <BudgetsList Items="@_incomeBudgets"
+                                     Loading="@_loading"
+                                     EmptyMessage="No income budgets for this month."
+                                     OnEdit="HandleEdit"
+                                     OnDelete="HandleDelete"
+                                     OnViewTransactions="HandleViewTransactions" />
+                    </MudTabPanel>
+
+                </MudTabs>
+            </MudHidden>
+
+        </MudItem>
+
+    </MudGrid>
 
 </MudContainer>
 
@@ -83,10 +175,24 @@
     private int _year;
     private int _month;
     private string _currentMonthLabel = string.Empty;
-    private bool _onlyWithActivity;
+
+    // Default ON (si no hay saved filter, queda true)
+    private bool _onlyWithActivity = true;
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();
+
+    private BudgetMonthlySummaryDto _expenseSummary = new();
+    private BudgetMonthlySummaryDto _incomeSummary = new();
+
+    private List<BudgetCategorySliceVm> _expenseSlices = new();
+    private List<BudgetCategorySliceVm> _incomeSlices = new();
+
+    private BudgetMonthlySummaryDto CurrentSummary
+        => _activeTabIndex == 0 ? _expenseSummary : _incomeSummary;
+
+    private List<BudgetCategorySliceVm> CurrentSlices
+        => _activeTabIndex == 0 ? _expenseSlices : _incomeSlices;
 
     private bool _initializedFromStorage = false;
 
@@ -113,7 +219,7 @@
             _year = saved.Year ?? today.Year;
             _month = saved.Month ?? today.Month;
             _activeTabIndex = saved.ActiveTabIndex;
-            _onlyWithActivity = saved.OnlyWithActivity;
+            _onlyWithActivity = saved.OnlyWithActivity; // respeta lo guardado
         }
 
         BuildMonthLabel();
@@ -137,41 +243,107 @@
         {
             var result = await BudgetService.GetMonthlyWithUsageAsync(_year, _month);
 
-            if (result.Success && result.Data != null)
+            if (!result.Success || result.Data is null)
             {
-                var all = result.Data.Select(MapToVm).ToList();
-
-                if (_onlyWithActivity)
-                {
-                    all = ApplyOnlyWithActivity(all);
-                }
-
-                _expenseBudgets = all
-                    .Where(x => x.CategoryType == CategoryTypeEnum.Expense)
-                    .ToList();
-
-                _incomeBudgets = all
-                    .Where(x => x.CategoryType == CategoryTypeEnum.Income)
-                    .ToList();
-            }
-            else
-            {
-                _expenseBudgets = new();
-                _incomeBudgets = new();
+                ResetState();
                 Snackbar.Add(result.Message ?? "Error loading budgets", Severity.Error);
+                return;
             }
+
+            var all = result.Data.Select(MapToVm).ToList();
+
+            if (_onlyWithActivity)
+                all = ApplyOnlyWithActivity(all);
+
+            _expenseBudgets = all.Where(x => x.CategoryType == CategoryTypeEnum.Expense).ToList();
+            _incomeBudgets = all.Where(x => x.CategoryType == CategoryTypeEnum.Income).ToList();
+
+            _expenseSummary = BuildSummaryDto(all, CategoryTypeEnum.Expense);
+            _incomeSummary = BuildSummaryDto(all, CategoryTypeEnum.Income);
+
+            _expenseSlices = BuildSlices(all, CategoryTypeEnum.Expense);
+            _incomeSlices = BuildSlices(all, CategoryTypeEnum.Income);
         }
         catch (Exception ex)
         {
+            ResetState();
             Snackbar.Add($"Error loading budgets: {ex.Message}", Severity.Error);
-            _expenseBudgets = new();
-            _incomeBudgets = new();
         }
         finally
         {
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    private void ResetState()
+    {
+        _expenseBudgets = new();
+        _incomeBudgets = new();
+        _expenseSummary = new();
+        _incomeSummary = new();
+        _expenseSlices = new();
+        _incomeSlices = new();
+    }
+
+    // Expense negative / Income positive
+    private BudgetMonthlySummaryDto BuildSummaryDto(List<BudgetListItemVm> all, CategoryTypeEnum type)
+    {
+        var parents = all
+            .Where(x => x.CategoryType == type && x.ParentCategoryId is null)
+            .ToList();
+
+        var totalBudgeted = parents.Sum(x => x.Amount);
+
+        decimal totalUsedDisplay;
+
+        if (type == CategoryTypeEnum.Expense)
+            totalUsedDisplay = parents.Sum(x => NormalizeExpenseUsed(x.Used));
+        else
+            totalUsedDisplay = parents.Sum(x => NormalizeIncomeUsed(x.Used));
+
+        return new BudgetMonthlySummaryDto
+        {
+            Year = _year,
+            Month = _month,
+            TotalBudgeted = totalBudgeted,
+            TotalUsed = totalUsedDisplay
+        };
+    }
+
+    // All categories (no "Others")
+    private List<BudgetCategorySliceVm> BuildSlices(List<BudgetListItemVm> all, CategoryTypeEnum type)
+    {
+        var parents = all
+            .Where(x => x.CategoryType == type && x.ParentCategoryId is null)
+            .ToList();
+
+        var slices = parents
+            .Select(x =>
+            {
+                var value = type == CategoryTypeEnum.Expense
+                    ? NormalizeExpenseUsed(x.Used)
+                    : NormalizeIncomeUsed(x.Used);
+
+                return new BudgetCategorySliceVm
+                {
+                    CategoryId = x.CategoryId,
+                    Name = x.CategoryName,
+                    Color = x.CategoryColor,
+                    Used = value
+                };
+            })
+            .Where(x => x.Used > 0)
+            .OrderByDescending(x => x.Used)
+            .ToList();
+
+        var total = slices.Sum(x => x.Used);
+        if (total <= 0) return new();
+
+        foreach (var s in slices)
+            s.Percent = (int)Math.Round((double)(s.Used / total) * 100d);
+
+        return slices;
     }
 
     private static List<BudgetListItemVm> ApplyOnlyWithActivity(List<BudgetListItemVm> items)
@@ -181,38 +353,33 @@
             .GroupBy(x => x.ParentCategoryId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var hasActivityMemo = new Dictionary<int, bool>();
+        var memo = new Dictionary<int, bool>();
 
         bool HasActivityTree(int categoryId)
         {
-            if (hasActivityMemo.TryGetValue(categoryId, out var cached))
+            if (memo.TryGetValue(categoryId, out var cached))
                 return cached;
 
-            // item actual
             var current = items.FirstOrDefault(x => x.CategoryId == categoryId);
             if (current is null)
-                return hasActivityMemo[categoryId] = false;
+                return memo[categoryId] = false;
 
-            // actividad directa
-            if (current.Used > 0)
-                return hasActivityMemo[categoryId] = true;
+            if (Math.Abs(current.Used) > 0.01m)
+                return memo[categoryId] = true;
 
-            // actividad en hijos
             if (!childrenByParent.TryGetValue(categoryId, out var children))
-                return hasActivityMemo[categoryId] = false;
+                return memo[categoryId] = false;
 
             foreach (var child in children)
             {
                 if (HasActivityTree(child.CategoryId))
-                    return hasActivityMemo[categoryId] = true;
+                    return memo[categoryId] = true;
             }
 
-            return hasActivityMemo[categoryId] = false;
+            return memo[categoryId] = false;
         }
 
-        return items
-            .Where(x => HasActivityTree(x.CategoryId))
-            .ToList();
+        return items.Where(x => HasActivityTree(x.CategoryId)).ToList();
     }
 
     private static BudgetListItemVm MapToVm(BudgetWithUsageDto x) => new()
@@ -275,6 +442,7 @@
     {
         _activeTabIndex = index;
         await PersistStateAsync();
+        StateHasChanged();
     }
 
     private async Task OpenAddBudgetModalFromTab()
@@ -348,9 +516,21 @@
             ["CategoryName"] = item.CategoryName
         };
 
-        await DialogService.ShowAsync<BudgetTransactionsModal>(
-            "Transactions",
-            parameters,
-            DialogHelper.DefaultOptions);
+        await DialogService.ShowAsync<BudgetTransactionsModal>("Transactions", parameters, DialogHelper.DefaultOptions);
     }
+
+    private static decimal NormalizeExpenseUsed(decimal used)
+    {
+        // Si viene negativo => lo convertimos a positivo
+        // Si viene positivo => lo dejamos positivo
+        return used < 0 ? -used : used;
+    }
+
+    private static decimal NormalizeIncomeUsed(decimal used)
+    {
+        // Income debería ser positivo; si viniera negativo por error, lo volvemos positivo
+        return used < 0 ? -used : used;
+    }
+
 }
+
