@@ -4,100 +4,250 @@
 
 <MudCard Outlined="true" Class="@GetCardClass()" Elevation="@(Highlighted ? 4 : 0)">
     <MudCardContent Class="pa-3">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
 
-            @* ========== LEFT: Checkbox + Icon + Info ========== *@
-            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex: 1; min-width: 0;">
+        <!-- ================= MOBILE (<600px) ================= -->
+        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+            <MudStack Spacing="2">
 
-                @* ✅ CHECKBOX *@
-                @if (ShowCheckbox)
-                {
-                    <MudCheckBox T="bool"
+                <!-- Row 1: left content + menu -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
+
+                    <!-- LEFT -->
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex:1; min-width:0;" Class="cursor-pointer" @onclick="HandleCardClick">
+
+                        @if (ShowCheckbox)
+                        {
+                            <MudCheckBox T="bool"
+                                         Dense="true"
+                                         Size="Size.Medium"
+                                         Value="@IsSelected"
+                                         ValueChanged="@OnSelectionChanged"
+                                         Disabled="@(!CanBeSelected)"
+                                         @onclick:stopPropagation="true" />
+                        }
+
+                        <MudAvatar Size="Size.Medium"
+                                   Style="@GetAvatarStyle()"
+                                   Class="cursor-pointer"
+                                   @onclick="HandleCardClick">
+                            <MudIcon Icon="@GetTransactionIcon()" Color="Color.Surface" />
+                        </MudAvatar>
+
+                        <MudStack Spacing="0" Style="min-width:0;">
+                            <MudText Typo="Typo.body1" Class="font-weight-medium text-truncate">
+                                @GetDisplayName()
+                            </MudText>
+
+                            <MudText Typo="Typo.caption" Class="text-truncate" Style="opacity:0.7;">
+                                @Transaction.Category?.Name
+                            </MudText>
+                        </MudStack>
+
+                    </MudStack>
+
+                    <!-- RIGHT: menu only (doesn't steal width from title) -->
+                    @if (ShowActions)
+                    {
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                 Size="Size.Small"
                                  Dense="true"
-                                 Size="Size.Medium"
-                                 Value="@IsSelected"
-                                 ValueChanged="@OnSelectionChanged"
-                                 Disabled="@(!CanBeSelected)"
-                                 @onclick:stopPropagation="true" />
-                }
+                                 AnchorOrigin="Origin.BottomLeft"
+                                 TransformOrigin="Origin.TopRight"
+                                 @onclick:stopPropagation="true">
+                            <MudMenuItem Icon="@Icons.Material.Filled.Edit" OnClick="HandleEdit">Edit</MudMenuItem>
 
-                <MudAvatar Size="Size.Medium"
-                           Style="@GetAvatarStyle()"
-                           @onclick="HandleCardClick"
-                           Class="cursor-pointer">
-                    <MudIcon Icon="@GetTransactionIcon()"
-                             Color="Color.Surface" />
-                </MudAvatar>
+                            <MudMenuItem Icon="@Icons.Material.Filled.ContentCopy"
+                                         OnClick="HandleDuplicate"
+                                         Disabled="@IsDuplicating">
+                                @if (IsDuplicating)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <MudText>Duplicating...</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Duplicate</MudText>
+                                }
+                            </MudMenuItem>
 
-                <div style="flex: 1; min-width: 0;" @onclick="HandleCardClick" class="cursor-pointer">
-                    <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        @GetDisplayName()
-                    </MudText>
+                            <MudDivider />
 
-                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
-                            @Transaction.Category?.Name
-                        </MudText>
+                            <MudMenuItem Icon="@Icons.Material.Filled.Delete" OnClick="HandleDelete">
+                                <MudText Color="Color.Error">Delete</MudText>
+                            </MudMenuItem>
+                        </MudMenu>
+                    }
 
+                </MudStack>
+
+                <!-- Row 2: amount aligned right -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="min-width:0;">
                         @if (ShowAccount && Transaction.Account != null)
                         {
-                            <MudText Typo="Typo.caption" Style="opacity: 0.5;">•</MudText>
                             <MudLink Href="@GetAccountLink()"
                                      Typo="Typo.caption"
-                                     Style="opacity: 0.7;"
+                                     Class="text-truncate"
+                                     Style="opacity:0.7; min-width:0;"
                                      Underline="Underline.Hover"
                                      @onclick:stopPropagation="true">
                                 @Transaction.Account.Name
                             </MudLink>
+
+                            <MudText Typo="Typo.caption" Style="opacity:0.5;">•</MudText>
                         }
 
-                        <MudText Typo="Typo.caption" Style="opacity: 0.5;">•</MudText>
-                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                        <MudText Typo="Typo.caption" Style="opacity:0.7;">
                             @Transaction.Date.ToString("MMM dd, yyyy")
                         </MudText>
                     </MudStack>
-                </div>
+
+                    <MudText Typo="Typo.body1" Class="@GetAmountClass()">
+                        @Transaction.GetAmountDisplay()
+                    </MudText>
+
+                </MudStack>
+
+            </MudStack>
+        </MudHidden>
+
+        <!-- ================= TABLET / DESKTOP ================= -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center">
+
+                <!-- LEFT -->
+                <MudStack Row="true"
+                          Spacing="2"
+                          AlignItems="AlignItems.Center"
+                          Style="flex:1; min-width:0;">
+
+                    @if (ShowCheckbox)
+                    {
+                        <MudCheckBox T="bool"
+                                     Dense="true"
+                                     Size="Size.Medium"
+                                     Value="@IsSelected"
+                                     ValueChanged="@OnSelectionChanged"
+                                     Disabled="@(!CanBeSelected)"
+                                     @onclick:stopPropagation="true" />
+                    }
+
+                    <MudAvatar Size="Size.Medium"
+                               Style="@GetAvatarStyle()"
+                               @onclick="HandleCardClick"
+                               Class="cursor-pointer">
+                        <MudIcon Icon="@GetTransactionIcon()"
+                                 Color="Color.Surface" />
+                    </MudAvatar>
+
+                    <MudStack Spacing="0"
+                              Style="min-width:0;"
+                              Class="cursor-pointer"
+                              @onclick="HandleCardClick">
+
+                        <MudText Typo="Typo.body1"
+                                 Class="font-weight-medium text-truncate">
+                            @GetDisplayName()
+                        </MudText>
+
+                        <MudStack Row="true"
+                                  Spacing="1"
+                                  AlignItems="AlignItems.Center"
+                                  Style="min-width:0;">
+
+                            <MudText Typo="Typo.caption"
+                                     Class="text-truncate"
+                                     Style="opacity:0.7;">
+                                @Transaction.Category?.Name
+                            </MudText>
+
+                            @if (ShowAccount && Transaction.Account != null)
+                            {
+                                <MudText Typo="Typo.caption"
+                                         Style="opacity:0.5;">•</MudText>
+
+                                <MudLink Href="@GetAccountLink()"
+                                         Typo="Typo.caption"
+                                         Class="text-truncate"
+                                         Style="opacity:0.7;"
+                                         Underline="Underline.Hover"
+                                         @onclick:stopPropagation="true">
+                                    @Transaction.Account.Name
+                                </MudLink>
+                            }
+
+                            <MudText Typo="Typo.caption"
+                                     Style="opacity:0.5;">•</MudText>
+
+                            <MudText Typo="Typo.caption"
+                                     Style="opacity:0.7;">
+                                @Transaction.Date.ToString("MMM dd, yyyy")
+                            </MudText>
+
+                        </MudStack>
+                    </MudStack>
+                </MudStack>
+
+                <!-- RIGHT -->
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Spacing="2"
+                          Style="flex-shrink:0;">
+
+                    <MudText Typo="Typo.h6"
+                             Class="@GetAmountClass()">
+                        @Transaction.GetAmountDisplay()
+                    </MudText>
+
+                    @if (ShowActions)
+                    {
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                 Size="Size.Small"
+                                 Dense="true"
+                                 AnchorOrigin="Origin.BottomLeft"
+                                 TransformOrigin="Origin.TopRight">
+
+                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                         OnClick="HandleEdit">
+                                Edit
+                            </MudMenuItem>
+
+                            <MudMenuItem Icon="@Icons.Material.Filled.ContentCopy"
+                                         OnClick="HandleDuplicate"
+                                         Disabled="@IsDuplicating">
+
+                                @if (IsDuplicating)
+                                {
+                                    <MudProgressCircular Size="Size.Small"
+                                                         Indeterminate="true"
+                                                         Class="mr-2" />
+                                    <MudText>Duplicating...</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Duplicate</MudText>
+                                }
+                            </MudMenuItem>
+
+                            <MudDivider />
+
+                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                         OnClick="HandleDelete">
+                                <MudText Color="Color.Error">Delete</MudText>
+                            </MudMenuItem>
+
+                        </MudMenu>
+                    }
+                </MudStack>
+
             </MudStack>
 
-            @* ========== RIGHT: Amount + Menu ========== *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink: 0;">
-                <MudText Typo="Typo.h6" Class="@GetAmountClass()">
-                    @Transaction.GetAmountDisplay()
-                </MudText>
+        </MudHidden>
 
-                @if (ShowActions)
-                {
-                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                             Size="Size.Small"
-                             Dense="true"
-                             AnchorOrigin="Origin.BottomLeft"
-                             TransformOrigin="Origin.TopRight">
-                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                     OnClick="HandleEdit">
-                            Edit
-                        </MudMenuItem>
-                        <MudMenuItem Icon="@Icons.Material.Filled.ContentCopy"
-                                     OnClick="HandleDuplicate"
-                                     Disabled="@IsDuplicating">
-                            @if (IsDuplicating)
-                            {
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                                <span>Duplicating...</span>
-                            }
-                            else
-                            {
-                                <span>Duplicate</span>
-                            }
-                        </MudMenuItem>
-                        <MudDivider />
-                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                     OnClick="HandleDelete">
-                            <MudText Color="Color.Error">Delete</MudText>
-                        </MudMenuItem>
-                    </MudMenu>
-                }
-            </MudStack>
-        </MudStack>
     </MudCardContent>
 </MudCard>
 

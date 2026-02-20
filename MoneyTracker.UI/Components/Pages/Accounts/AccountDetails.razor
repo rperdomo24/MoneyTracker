@@ -18,7 +18,6 @@
 @inject NavigationManager NavigationManager
 @inject IAccountFilterStateService FilterStorage
 
-
 <PageTitle>@(_account?.Name ?? "Account") - Money Tracker</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
@@ -48,156 +47,321 @@
     }
     else
     {
-        <!-- Breadcrumbs & Menu -->
-        <MudStack Row="true"
-                  Justify="Justify.SpaceBetween"
-                  AlignItems="AlignItems.Center"
-                  Class="mb-4">
-            <Breadcrumb Items="@_breadcrumbItems" />
+        <!-- Header: Mobile -->
+        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+            <MudStack Spacing="1" Class="mb-3">
 
-            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                     AnchorOrigin="Origin.BottomRight"
-                     TransformOrigin="Origin.TopRight">
-                <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                             OnClick="OpenEditDialog">
-                    Edit Account
-                </MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.SyncAlt"
-                             OnClick="OpenAdjustBalanceDialog">
-                    Adjust Balance
-                </MudMenuItem>
-                <MudDivider />
-                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                             IconColor="Color.Error"
-                             OnClick="DeleteAccount">
-                    <MudText Color="Color.Error">Delete Account</MudText>
-                </MudMenuItem>
-            </MudMenu>
-        </MudStack>
+                <!-- Row 1: Breadcrumb + Menu (same row) -->
+                <MudStack Row="true"
+                          AlignItems="AlignItems.Center"
+                          Justify="Justify.SpaceBetween">
+                    <Breadcrumb Items="@_breadcrumbItems" />
 
-        <!-- Chart Placeholder -->
-        <MudPaper Class="pa-4 mb-4" Elevation="1" Style="min-height: 200px;">
-            <MudStack AlignItems="AlignItems.Center"
-                      Justify="Justify.Center"
-                      Style="height: 200px;">
-                <MudIcon Icon="@Icons.Material.Filled.ShowChart"
-                         Size="Size.Large"
-                         Style="opacity: 0.3; font-size: 3rem;" />
-                <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                    Balance chart coming soon
+                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                             AnchorOrigin="Origin.BottomRight"
+                             TransformOrigin="Origin.TopRight"
+                             Dense="true">
+                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                     OnClick="OpenEditDialog">
+                            Edit Account
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.SyncAlt"
+                                     OnClick="OpenAdjustBalanceDialog">
+                            Adjust Balance
+                        </MudMenuItem>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                     IconColor="Color.Error"
+                                     OnClick="DeleteAccount">
+                            <MudText Color="Color.Error">Delete Account</MudText>
+                        </MudMenuItem>
+                    </MudMenu>
+                </MudStack>
+
+                <!-- Row 2: Page title -->
+                <MudText Typo="Typo.h6" Class="font-weight-bold" NoWrap="true">
+                    @_account.Name
                 </MudText>
+
             </MudStack>
+        </MudHidden>
+
+        <!-- Header: Tablet/Desktop -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Class="mb-4">
+                <Breadcrumb Items="@_breadcrumbItems" />
+
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight">
+                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                 OnClick="OpenEditDialog">
+                        Edit Account
+                    </MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.SyncAlt"
+                                 OnClick="OpenAdjustBalanceDialog">
+                        Adjust Balance
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                 IconColor="Color.Error"
+                                 OnClick="DeleteAccount">
+                        <MudText Color="Color.Error">Delete Account</MudText>
+                    </MudMenuItem>
+                </MudMenu>
+            </MudStack>
+        </MudHidden>
+
+        <!-- Chart Placeholder (responsive, no fixed height) -->
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart"
+                             Size="Size.Large"
+                             Style="opacity: 0.3; font-size: 2.5rem;" />
+                    <MudText Typo="Typo.body2" Style="opacity: 0.5;">
+                        Balance chart coming soon
+                    </MudText>
+                </MudStack>
+            </MudHidden>
+
+            <MudHidden Breakpoint="Breakpoint.Xs">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart"
+                             Size="Size.Large"
+                             Style="opacity: 0.3; font-size: 3rem;" />
+                    <MudText Typo="Typo.body2" Style="opacity: 0.5;">
+                        Balance chart coming soon
+                    </MudText>
+                </MudStack>
+            </MudHidden>
         </MudPaper>
 
         <!-- Account Info Card -->
         <MudPaper Class="pa-4 mb-4" Elevation="1">
-            <MudStack Row="true"
-                      Justify="Justify.SpaceBetween"
-                      AlignItems="AlignItems.Center">
-                <!-- Left: Icon + Name + Type -->
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+
+            <!-- Mobile -->
+            <!-- Account Info Card - Mobile Centered -->
+            <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                <MudStack AlignItems="AlignItems.Center" Spacing="3">
+
                     <MudAvatar Size="Size.Large"
-                               Style="@($"background-color: {_account.Color}; width: 64px; height: 64px;")">
+                               Style="@($"background-color: {_account.Color};")">
                         <MudIcon Icon="@_account.Icon.ToIcon()"
                                  Color="Color.Surface"
                                  Size="Size.Large" />
                     </MudAvatar>
-                    <MudStack Spacing="0">
-                        <MudText Typo="Typo.h5" Class="font-weight-bold">
+
+                    <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                        <MudText Typo="Typo.h6"
+                                 Class="font-weight-bold"
+                                 Align="Align.Center"
+                                 NoWrap="true">
                             @_account.Name
                         </MudText>
-                        <MudText Typo="Typo.body2" Style="opacity: 0.7;">
+
+                        <MudText Typo="Typo.body2"
+                                 Style="opacity: 0.7;"
+                                 Align="Align.Center"
+                                 NoWrap="true">
                             @_account.Type.ToLabel()
                         </MudText>
                     </MudStack>
-                </MudStack>
 
-                <!-- Right: Balance Info -->
-                <MudStack Spacing="1" AlignItems="AlignItems.End">
-                    <MudText Typo="Typo.h4" Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")">
+                    <MudText Typo="Typo.h3"
+                             Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
+                             Align="Align.Center"
+                             NoWrap="true">
                         @_account.FormattedBalance
                     </MudText>
+
                     @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
                     {
-                        <MudStack Spacing="0" AlignItems="AlignItems.End">
-                            <MudText Typo="Typo.body2" Style="opacity: 0.7;">
+                        var utilization = _account.CreditLimit > 0
+                        ? (Math.Abs(_account.CurrentBalance) / _account.CreditLimit) * 100
+                        : 0;
+                        
+                        <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                            <MudText Typo="Typo.body2" Style="opacity: 0.7;" Align="Align.Center">
                                 Available: @FormatBalance(_account.AvailableCredit)
                             </MudText>
-                            <MudText Typo="Typo.caption" Style="opacity: 0.6;">
+
+                            <MudText Typo="Typo.caption" Style="opacity: 0.6;" Align="Align.Center">
+                                Utilization: @($"{utilization:F1}%")
+                            </MudText>
+                        </MudStack>
+                    }
+
+                </MudStack>
+            </MudHidden>
+
+
+            <!-- Tablet/Desktop -->
+            <MudHidden Breakpoint="Breakpoint.Xs">
+                <MudStack Row="true"
+                          Justify="Justify.SpaceBetween"
+                          AlignItems="AlignItems.Center">
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                        <MudAvatar Size="Size.Large"
+                                   Style="@($"background-color: {_account.Color};")">
+                            <MudIcon Icon="@_account.Icon.ToIcon()"
+                                     Color="Color.Surface"
+                                     Size="Size.Large" />
+                        </MudAvatar>
+
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h5" Class="font-weight-bold" NoWrap="true">
+                                @_account.Name
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="opacity: 0.7;" NoWrap="true">
+                                @_account.Type.ToLabel()
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+
+                    <MudStack Spacing="1" AlignItems="AlignItems.End">
+                        <MudText Typo="Typo.h4" Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")" NoWrap="true">
+                            @_account.FormattedBalance
+                        </MudText>
+
+                        @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
+                        {
+                            <MudStack Spacing="0" AlignItems="AlignItems.End">
+                                <MudText Typo="Typo.body2" Style="opacity: 0.7;" NoWrap="true">
+                                    Available: @FormatBalance(_account.AvailableCredit)
+                                </MudText>
+
                                 @{
                                     var utilization = _account.CreditLimit > 0
                                     ? (Math.Abs(_account.CurrentBalance) / _account.CreditLimit) * 100
                                     : 0;
                                 }
-                                Utilization: @($"{utilization:F1}%")
-                            </MudText>
-                        </MudStack>
-                    }
+
+                                <MudText Typo="Typo.caption" Style="opacity: 0.6;" NoWrap="true">
+                                    Utilization: @($"{utilization:F1}%")
+                                </MudText>
+                            </MudStack>
+                        }
+                    </MudStack>
                 </MudStack>
-            </MudStack>
+            </MudHidden>
         </MudPaper>
 
         <!-- Filters & Actions Bar -->
         <MudPaper Class="pa-3 mb-4" Elevation="1">
-            <MudStack Row="true"
-                      Justify="Justify.SpaceBetween"
-                      AlignItems="AlignItems.Center">
-                <MudTextField @bind-Value="_filterDto.SearchText"
-                              @bind-Value:after="OnSearchChanged"
-                              Placeholder="Search transactions"
-                              Variant="Variant.Outlined"
-                              Margin="Margin.Dense"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Search"
-                              Clearable="true"
-                              Immediate="true"
-                              Style="max-width: 300px;" />
 
-                <MudStack Row="true" Spacing="2">
-                    <MudButton Variant="Variant.Text"
-                               Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.FilterList"
-                               OnClick="ToggleFiltersDrawer">
-                        Filters
-                        @if (HasActiveFilters())
-                        {
-                            <MudChip T="string"
-                                     Size="Size.Small"
-                                     Color="Color.Primary"
-                                     Class="ml-2">
-                                @GetActiveFiltersCount()
-                            </MudChip>
-                        }
-                    </MudButton>
+            <!-- Mobile: stack -->
+            <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                <MudStack Spacing="2">
 
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="OpenAddTransactionDialog">
-                        New Transaction
-                    </MudButton>
+                    <MudTextField @bind-Value="_filterDto.SearchText"
+                                  @bind-Value:after="OnSearchChanged"
+                                  Placeholder="Search transactions"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Clearable="true"
+                                  Immediate="true"
+                                  FullWidth="true" />
+
+                    <MudStack Spacing="2">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.FilterList"
+                                   OnClick="ToggleFiltersDrawer"
+                                   FullWidth="true">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudText>Filters</MudText>
+                                @if (HasActiveFilters())
+                                {
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="Color.Primary">
+                                        @GetActiveFiltersCount()
+                                    </MudChip>
+                                }
+                            </MudStack>
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="OpenAddTransactionDialog"
+                                   FullWidth="true">
+                            New Transaction
+                        </MudButton>
+                    </MudStack>
+
                 </MudStack>
-            </MudStack>
+            </MudHidden>
+
+            <!-- Tablet/Desktop: row -->
+            <MudHidden Breakpoint="Breakpoint.Xs">
+                <MudStack Row="true"
+                          Justify="Justify.SpaceBetween"
+                          AlignItems="AlignItems.Center"
+                          Spacing="2">
+
+                    <MudTextField @bind-Value="_filterDto.SearchText"
+                                  @bind-Value:after="OnSearchChanged"
+                                  Placeholder="Search transactions"
+                                  Variant="Variant.Outlined"
+                                  Margin="Margin.Dense"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Clearable="true"
+                                  Immediate="true" />
+
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.FilterList"
+                                   OnClick="ToggleFiltersDrawer">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudText>Filters</MudText>
+                                @if (HasActiveFilters())
+                                {
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="Color.Primary">
+                                        @GetActiveFiltersCount()
+                                    </MudChip>
+                                }
+                            </MudStack>
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="OpenAddTransactionDialog">
+                            New Transaction
+                        </MudButton>
+                    </MudStack>
+
+                </MudStack>
+            </MudHidden>
+
         </MudPaper>
 
         <!-- Transactions List Component -->
         <AccountTransactionsList AccountId="@Id"
                                  Filter="_filterDto"
                                  OnTransactionChanged="OnTransactionChanged"
-                                 OnClearFilters="ClearAllFilters" 
+                                 OnClearFilters="ClearAllFilters"
                                  @key="_transactionsKey" />
-
     }
 
-    <!-- AccountFilters Component -->
     <AccountFilters @bind-IsOpen="_filtersDrawerOpen"
                     AccountId="@Id"
                     Filter="_filterDto"
                     OnFiltersApplied="OnFiltersApplied" />
 
-    <!-- QuickActionsFab -->
     <QuickActionsFab OnTransactionAdded="OnTransactionChanged" />
-
 </MudContainer>
 
 @code {
@@ -274,7 +438,7 @@
                 _account = null;
             }
         }
-        catch (Exception)
+        catch
         {
             Snackbar.Add("Error loading account", Severity.Error);
             _account = null;
@@ -289,15 +453,10 @@
     private void UpdateBreadcrumb()
     {
         if (_account != null)
-        {
             _breadcrumbItems[2] = new BreadcrumbItem(_account.Name, href: null, disabled: true);
-        }
     }
 
-    private void GoToAccounts()
-    {
-        NavigationManager.NavigateTo("/accounts");
-    }
+    private void GoToAccounts() => NavigationManager.NavigateTo("/accounts");
 
     private async Task OpenEditDialog()
     {
@@ -307,10 +466,7 @@
             ["OnAccountUpdated"] = EventCallback.Factory.Create(this, LoadAccount)
         };
 
-        await DialogService.ShowAsync<UpdateAccountModal>(
-            "Edit Account",
-            parameters,
-            _dialogOptions);
+        await DialogService.ShowAsync<UpdateAccountModal>("Edit Account", parameters, _dialogOptions);
     }
 
     private async Task OpenAdjustBalanceDialog()
@@ -344,25 +500,24 @@
             cancelText: "Cancel",
             options: new DialogOptions { CloseButton = true }) ?? false;
 
-        if (confirmed)
+        if (!confirmed) return;
+
+        try
         {
-            try
+            var result = await AccountService.DeleteAsync(Id);
+            if (result.Success)
             {
-                var result = await AccountService.DeleteAsync(Id);
-                if (result.Success)
-                {
-                    Snackbar.Add($"Account '{_account.Name}' deleted successfully", Severity.Success);
-                    NavigationManager.NavigateTo("/accounts");
-                }
-                else
-                {
-                    Snackbar.Add(result.Message ?? "Failed to delete account", Severity.Error);
-                }
+                Snackbar.Add($"Account '{_account.Name}' deleted successfully", Severity.Success);
+                NavigationManager.NavigateTo("/accounts");
             }
-            catch (Exception)
+            else
             {
-                Snackbar.Add("Error deleting account", Severity.Error);
+                Snackbar.Add(result.Message ?? "Failed to delete account", Severity.Error);
             }
+        }
+        catch
+        {
+            Snackbar.Add("Error deleting account", Severity.Error);
         }
     }
 
@@ -389,10 +544,7 @@
             });
     }
 
-    private void ToggleFiltersDrawer()
-    {
-        _filtersDrawerOpen = !_filtersDrawerOpen;
-    }
+    private void ToggleFiltersDrawer() => _filtersDrawerOpen = !_filtersDrawerOpen;
 
     private async Task OnFiltersApplied(TransactionFilterDto filter)
     {
@@ -407,7 +559,6 @@
 
     private async Task OnSearchChanged()
     {
-        // Search is reactive through @bind-Value
         _transactionsKey++;
         StateHasChanged();
     }
@@ -422,49 +573,39 @@
 
         await FilterStorage.ClearAsync(Id);
 
-        _transactionsKey++; 
+        _transactionsKey++;
         StateHasChanged();
     }
 
-
     private async Task OnTransactionChanged()
     {
-        await LoadAccount(); // Refresh account balance
+        await LoadAccount();
         StateHasChanged();
     }
 
     private bool HasActiveFilters()
-    {
-        return _filterDto.TimePeriod != TimePeriodFilter.Last30Days ||
-               !string.IsNullOrWhiteSpace(_filterDto.SearchText) ||
-               _filterDto.Type.HasValue ||
-               _filterDto.CategoryId.HasValue;
-    }
+        => _filterDto.TimePeriod != TimePeriodFilter.Last30Days ||
+           !string.IsNullOrWhiteSpace(_filterDto.SearchText) ||
+           _filterDto.Type.HasValue ||
+           _filterDto.CategoryId.HasValue;
 
     private int GetActiveFiltersCount()
     {
         int count = 0;
-
         if (_filterDto.TimePeriod != TimePeriodFilter.Last30Days) count++;
         if (!string.IsNullOrWhiteSpace(_filterDto.SearchText)) count++;
         if (_filterDto.Type.HasValue) count++;
         if (_filterDto.CategoryId.HasValue) count++;
-
         return count;
     }
 
     private string FormatBalance(decimal balance)
-    {
-        return balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
-    }
+        => balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
 
-    private string GetBalanceClass(decimal balance)
+    private string GetBalanceClass(decimal balance) => balance switch
     {
-        return balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => ""
-        };
-    }
+        > 0 => "text-success",
+        < 0 => "text-error",
+        _ => ""
+    };
 }

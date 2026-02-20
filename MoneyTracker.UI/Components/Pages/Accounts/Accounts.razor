@@ -12,41 +12,65 @@
 
 <PageTitle>Accounts - Money Tracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4 pa-sm-6">
 
-    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-        <Breadcrumb Items="@_breadcrumbItems" />
+    <!-- Header (Mobile) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudStack Spacing="3" Class="mb-4">
+            <Breadcrumb Items="@_breadcrumbItems" />
 
-        <MudButton Color="Color.Primary"
-                   Variant="Variant.Filled"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="OpenAddDialog">
-            Add Account
-        </MudButton>
-    </MudStack>
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog"
+                       FullWidth="true"
+                       Size="Size.Large">
+                Add Account
+            </MudButton>
+        </MudStack>
+    </MudHidden>
+
+    <!-- Header (Tablet/Desktop) -->
+    <MudHidden Breakpoint="Breakpoint.Xs">
+        <MudStack Row="true"
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-4">
+            <Breadcrumb Items="@_breadcrumbItems" />
+
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
+                Add Account
+            </MudButton>
+        </MudStack>
+    </MudHidden>
 
     @if (_loading)
     {
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
             <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
             <MudText Class="mt-4">Loading your accounts...</MudText>
         </MudStack>
     }
     else if (!_accounts.Any())
     {
-        <MudPaper Class="pa-8" Elevation="1">
+        <MudPaper Class="pa-6 pa-sm-8" Elevation="1">
             <MudStack AlignItems="AlignItems.Center" Spacing="3">
                 <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet"
                          Size="Size.Large"
                          Style="font-size: 4rem; opacity: 0.3;" />
                 <MudText Typo="Typo.h6">No accounts yet</MudText>
-                <MudText Typo="Typo.body2" Style="opacity: 0.7;">
+                <MudText Typo="Typo.body2" Align="Align.Center">
                     Get started by adding your first financial account
                 </MudText>
+
                 <MudButton Color="Color.Primary"
                            Variant="Variant.Filled"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="OpenAddDialog"
+                           FullWidth="true"
                            Size="Size.Large">
                     Add Your First Account
                 </MudButton>
@@ -57,58 +81,107 @@
     {
         @foreach (var group in _accountGroups)
         {
-            <MudPaper Class="pa-4 mb-4" Elevation="1">
-                <!-- Group Header -->
-                <MudStack Row="true"
-                          Justify="Justify.SpaceBetween"
-                          AlignItems="AlignItems.Center"
-                          Class="mb-3">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@group.Key.ToIcon()" />
-                        <MudText Typo="Typo.h6">@group.Key.ToLabel()</MudText>
-                        <MudChip Size="Size.Small" T="string">@group.Count()</MudChip>
+            var groupTotal = group.Sum(a => a.CurrentBalance);
+            var groupTotalColor = groupTotal switch
+            {
+                > 0 => Color.Success,
+                < 0 => Color.Error,
+                _ => Color.Default
+            };
+
+            <MudPaper Class="pa-4 pa-sm-5 mb-4" Elevation="1">
+
+                <!-- Group Header (Mobile) -->
+                <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                    <MudStack Spacing="2" Class="mb-3">
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@group.Key.ToIcon()" />
+                                <MudText Typo="Typo.h6">@group.Key.ToLabel()</MudText>
+                                <MudChip Size="Size.Small" T="string">@group.Count()</MudChip>
+                            </MudStack>
+
+                            <MudChip T="string"
+                                     Variant="Variant.Filled"
+                                     Color="@groupTotalColor"
+                                     Class="@($"font-weight-bold {GetBalanceClass(groupTotal)}")">
+                                @FormatBalance(groupTotal)
+                            </MudChip>
+                        </MudStack>
+
                     </MudStack>
-                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
-                        Total: @FormatBalance(group.Sum(a => a.CurrentBalance))
-                    </MudText>
-                </MudStack>
+                </MudHidden>
+
+                <!-- Group Header (Tablet/Desktop) -->
+                <MudHidden Breakpoint="Breakpoint.Xs">
+                    <MudStack Row="true"
+                              Justify="Justify.SpaceBetween"
+                              AlignItems="AlignItems.Center"
+                              Class="mb-3">
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@group.Key.ToIcon()" />
+                            <MudText Typo="Typo.h6">@group.Key.ToLabel()</MudText>
+                            <MudChip Size="Size.Small" T="string">@group.Count()</MudChip>
+                        </MudStack>
+
+                        <!-- Reuse the same total UI -->
+                        <MudChip T="string"
+                                 Variant="Variant.Filled"
+                                 Color="@groupTotalColor"
+                                 Class="@($"font-weight-bold {GetBalanceClass(groupTotal)}")">
+                            @FormatBalance(groupTotal)
+                        </MudChip>
+
+                    </MudStack>
+                </MudHidden>
 
                 <!-- Accounts List -->
                 <MudStack Spacing="2">
                     @foreach (var account in group.OrderBy(a => a.Name))
                     {
-                        <MudPaper Class="pa-3"
-                                  Elevation="0"
-                                  Style="border: 1px solid var(--mud-palette-divider);">
-                            <MudStack Row="true"
-                                      Justify="Justify.SpaceBetween"
-                                      AlignItems="AlignItems.Center">
-                                <!-- Account Info -->
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudPaper Class="pa-3" Elevation="0" Outlined="true">
+
+                            <!-- Item (Mobile) - Uniform -->
+                            <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                                <MudStack Row="true"
+                                          AlignItems="AlignItems.Center"
+                                          Justify="Justify.SpaceBetween"
+                                          Spacing="2">
+
+                                    <!-- Left -->
                                     <MudAvatar Size="Size.Medium"
                                                Style="@($"background-color: {account.Color};")">
                                         <MudIcon Icon="@account.Icon.ToIcon()"
                                                  Color="Color.Surface"
                                                  Size="Size.Small" />
                                     </MudAvatar>
+
+                                    <!-- Middle (dominant) -->
                                     <MudStack Spacing="0">
-                                        <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                        <MudText Typo="Typo.body1"
+                                                 Class="font-weight-medium"
+                                                 NoWrap="true">
                                             @account.Name
                                         </MudText>
-                                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+
+                                        <MudText Typo="Typo.caption"
+                                                 Style="opacity: 0.7;"
+                                                 NoWrap="true">
                                             @account.Type.ToString()
                                         </MudText>
+
+                                        <MudText Typo="Typo.h6"
+                                                 Class="@GetBalanceClass(account.CurrentBalance)"
+                                                 NoWrap="true">
+                                            @account.FormattedBalance
+                                        </MudText>
                                     </MudStack>
-                                </MudStack>
 
-                                <!-- Balance & Actions -->
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                    <MudText Typo="Typo.h6" Class="@GetBalanceClass(account.CurrentBalance)">
-                                        @account.FormattedBalance
-                                    </MudText>
-
+                                    <!-- Right -->
                                     <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                             Size="Size.Small"
+                                             Size="Size.Medium"
                                              AnchorOrigin="Origin.BottomRight"
                                              TransformOrigin="Origin.TopRight">
                                         <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
@@ -130,8 +203,65 @@
                                             Delete
                                         </MudMenuItem>
                                     </MudMenu>
+
                                 </MudStack>
-                            </MudStack>
+                            </MudHidden>
+
+                            <!-- Item (Tablet/Desktop) -->
+                            <MudHidden Breakpoint="Breakpoint.Xs">
+                                <MudStack Row="true"
+                                          Justify="Justify.SpaceBetween"
+                                          AlignItems="AlignItems.Center">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudAvatar Size="Size.Medium"
+                                                   Style="@($"background-color: {account.Color};")">
+                                            <MudIcon Icon="@account.Icon.ToIcon()"
+                                                     Color="Color.Surface"
+                                                     Size="Size.Small" />
+                                        </MudAvatar>
+
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                                @account.Name
+                                            </MudText>
+                                            <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                                                @account.Type.ToString()
+                                            </MudText>
+                                        </MudStack>
+                                    </MudStack>
+
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                        <MudText Typo="Typo.h6" Class="@GetBalanceClass(account.CurrentBalance)">
+                                            @account.FormattedBalance
+                                        </MudText>
+
+                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                 Size="Size.Small"
+                                                 AnchorOrigin="Origin.BottomRight"
+                                                 TransformOrigin="Origin.TopRight">
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Visibility"
+                                                         OnClick="@(() => ViewAccount(account.Id))">
+                                                View
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.SyncAlt"
+                                                         OnClick="@(() => OpenAdjustBalanceDialog(account))">
+                                                Adjust Balance
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                         OnClick="@(() => OpenEditDialog(account.Id))">
+                                                Edit
+                                            </MudMenuItem>
+                                            <MudDivider />
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                         IconColor="Color.Error"
+                                                         OnClick="@(() => DeleteAccount(account.Id))">
+                                                Delete
+                                            </MudMenuItem>
+                                        </MudMenu>
+                                    </MudStack>
+                                </MudStack>
+                            </MudHidden>
+
                         </MudPaper>
                     }
                 </MudStack>
@@ -161,9 +291,7 @@
     };
 
     protected override async Task OnInitializedAsync()
-    {
-        await LoadAccounts();
-    }
+        => await LoadAccounts();
 
     private async Task LoadAccounts()
     {
@@ -185,7 +313,7 @@
                 _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
             }
         }
-        catch (Exception)
+        catch
         {
             Snackbar.Add("Error loading accounts", Severity.Error);
             _accounts.Clear();
@@ -198,10 +326,7 @@
         }
     }
 
-    private void ViewAccount(int id)
-    {
-        NavigationManager.NavigateTo($"/accounts/{id}");
-    }
+    private void ViewAccount(int id) => NavigationManager.NavigateTo($"/accounts/{id}");
 
     private async Task OpenEditDialog(int id)
     {
@@ -234,42 +359,36 @@
             cancelText: "Cancel",
             options: new DialogOptions { CloseButton = true }) ?? false;
 
-        if (confirmed)
+        if (!confirmed) return;
+
+        try
         {
-            try
+            var result = await AccountService.DeleteAsync(id);
+            if (result.Success)
             {
-                var result = await AccountService.DeleteAsync(id);
-                if (result.Success)
-                {
-                    Snackbar.Add($"Account '{accountName}' deleted successfully", Severity.Success);
-                    await LoadAccounts();
-                }
-                else
-                {
-                    Snackbar.Add(result.Message ?? "Failed to delete account", Severity.Error);
-                }
+                Snackbar.Add($"Account '{accountName}' deleted successfully", Severity.Success);
+                await LoadAccounts();
             }
-            catch (Exception)
+            else
             {
-                Snackbar.Add("Error deleting account", Severity.Error);
+                Snackbar.Add(result.Message ?? "Failed to delete account", Severity.Error);
             }
+        }
+        catch
+        {
+            Snackbar.Add("Error deleting account", Severity.Error);
         }
     }
 
     private string FormatBalance(decimal balance)
-    {
-        return balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
-    }
+        => balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
 
-    private string GetBalanceClass(decimal balance)
+    private string GetBalanceClass(decimal balance) => balance switch
     {
-        return balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => ""
-        };
-    }
+        > 0 => "text-success",
+        < 0 => "text-error",
+        _ => ""
+    };
 
     private async Task OpenAdjustBalanceDialog(AccountDto account)
     {
