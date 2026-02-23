@@ -3,76 +3,140 @@
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
 
-@* Active Filters Chips Component *@
 @if (HasActiveFilters())
 {
-    <div class="d-flex align-center flex-wrap ga-2 mb-3">
-        <MudText Typo="Typo.caption" Class="text-muted mr-2">Active:</MudText>
+    <!-- MOBILE (<600px): two-row layout (chips + action) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudStack Spacing="2" Class="mb-3">
+            <!-- Row 1: label + chips -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap ga-2">
+                <MudText Typo="Typo.caption" Class="text-muted">Active:</MudText>
 
-        <!-- Time Period Chip -->
-        @if (Filter.TimePeriod != TimePeriodFilter.ThisMonth)
-        {
-            <MudChip T="string"
-                     Size="Size.Small"
-                     Color="Color.Info"
-                     OnClose="RemoveTimePeriodFilter">
-                📅 @GetTimePeriodText()
-            </MudChip>
-        }
+                @if (Filter.TimePeriod != TimePeriodFilter.ThisMonth)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" OnClose="RemoveTimePeriodFilter">
+                        📅 @GetTimePeriodText()
+                    </MudChip>
+                }
 
-        <!-- Accounts Chips -->
-        @if (Filter.AccountIds?.Any() == true)
-        {
-            <MudChip T="string"
-                     Size="Size.Small"
-                     Color="Color.Success"
-                     OnClose="RemoveAccountsFilter">
-                🏦 @GetAccountsText()
-            </MudChip>
-        }
+                @if (Filter.AccountIds?.Any() == true)
+                {
+                    var accountsText = GetAccountsText();
+                    <MudTooltip Text="@accountsText">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" OnClose="RemoveAccountsFilter">
+                            🏦 @Truncate(accountsText, 18)
+                        </MudChip>
+                    </MudTooltip>
+                }
 
-        <!-- Search Chip -->
-        @if (!string.IsNullOrWhiteSpace(Filter.SearchText))
-        {
-            <MudChip T="string"
-                     Size="Size.Small"
-                     Color="Color.Primary"
-                     OnClose="RemoveSearchFilter">
-                🔍 "@Filter.SearchText"
-            </MudChip>
-        }
+                @if (!string.IsNullOrWhiteSpace(Filter.SearchText))
+                {
+                    var searchText = $"\"{Filter.SearchText}\"";
+                    <MudTooltip Text="@searchText">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" OnClose="RemoveSearchFilter">
+                            🔍 @Truncate(searchText, 18)
+                        </MudChip>
+                    </MudTooltip>
+                }
 
-        <!-- Category Chip -->
-        @if (Filter.CategoryId.HasValue)
-        {
-            <MudChip T="string"
-                     Size="Size.Small"
-                     Color="Color.Warning"
-                     OnClose="RemoveCategoryFilter">
-                📁 @GetCategoryName()
-            </MudChip>
-        }
+                @if (Filter.CategoryId.HasValue)
+                {
+                    var categoryName = GetCategoryName();
+                    <MudTooltip Text="@categoryName">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" OnClose="RemoveCategoryFilter">
+                            📁 @Truncate(categoryName, 18)
+                        </MudChip>
+                    </MudTooltip>
+                }
 
-        <!-- Type Chip -->
-        @if (Filter.Type.HasValue)
-        {
-            <MudChip T="string"
-                     Size="Size.Small"
-                     Color="@(Filter.Type.Value == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
-                     OnClose="RemoveTypeFilter">
-                @(Filter.Type.Value == CategoryTypeEnum.Income ? "💰" : "💸") @Filter.Type.Value
-            </MudChip>
-        }
+                @if (Filter.Type.HasValue)
+                {
+                    var typeText = Filter.Type.Value.ToString();
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@(Filter.Type.Value == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
+                             OnClose="RemoveTypeFilter">
+                        @(Filter.Type.Value == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
+                    </MudChip>
+                }
+            </MudStack>
 
-        <!-- Clear All Button -->
-        <MudButton Size="Size.Small"
-                   Variant="Variant.Text"
-                   Color="Color.Secondary"
-                   StartIcon="@Icons.Material.Filled.Clear"
-                   OnClick="ClearAllFilters">
-            Clear All
-        </MudButton>
-    </div>
+            <!-- Row 2: Clear all full-width -->
+            <MudButton FullWidth="true"
+                       Size="Size.Small"
+                       Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearAllFilters">
+                Clear All
+            </MudButton>
+        </MudStack>
+    </MudHidden>
+
+    <!-- TABLET/DESKTOP (>=600px): inline layout -->
+    <MudHidden Breakpoint="Breakpoint.Xs">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap ga-2" Style="min-width:0;">
+                <MudText Typo="Typo.caption" Class="text-muted mr-1">Active:</MudText>
+
+                @if (Filter.TimePeriod != TimePeriodFilter.ThisMonth)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" OnClose="RemoveTimePeriodFilter">
+                        📅 @GetTimePeriodText()
+                    </MudChip>
+                }
+
+                @if (Filter.AccountIds?.Any() == true)
+                {
+                    var accountsText = GetAccountsText();
+                    <MudTooltip Text="@accountsText">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" OnClose="RemoveAccountsFilter">
+                            🏦 @Truncate(accountsText, 28)
+                        </MudChip>
+                    </MudTooltip>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Filter.SearchText))
+                {
+                    var searchText = $"\"{Filter.SearchText}\"";
+                    <MudTooltip Text="@searchText">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" OnClose="RemoveSearchFilter">
+                            🔍 @Truncate(searchText, 28)
+                        </MudChip>
+                    </MudTooltip>
+                }
+
+                @if (Filter.CategoryId.HasValue)
+                {
+                    var categoryName = GetCategoryName();
+                    <MudTooltip Text="@categoryName">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" OnClose="RemoveCategoryFilter">
+                            📁 @Truncate(categoryName, 28)
+                        </MudChip>
+                    </MudTooltip>
+                }
+
+                @if (Filter.Type.HasValue)
+                {
+                    var typeText = Filter.Type.Value.ToString();
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@(Filter.Type.Value == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
+                             OnClose="RemoveTypeFilter">
+                        @(Filter.Type.Value == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
+                    </MudChip>
+                }
+            </MudStack>
+
+            <MudButton Size="Size.Small"
+                       Variant="Variant.Text"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Clear"
+                       OnClick="ClearAllFilters">
+                Clear All
+            </MudButton>
+        </MudStack>
+    </MudHidden>
 }
 
 @code {
@@ -83,31 +147,26 @@
     [Parameter] public EventCallback<string> OnFilterRemoved { get; set; }
 
     private bool HasActiveFilters()
-    {
-        return Filter.TimePeriod != TimePeriodFilter.ThisMonth ||
-               Filter.AccountIds?.Any() == true ||
-               !string.IsNullOrWhiteSpace(Filter.SearchText) ||
-               Filter.CategoryId.HasValue ||
-               Filter.Type.HasValue;
-    }
+        => Filter.TimePeriod != TimePeriodFilter.ThisMonth
+           || Filter.AccountIds?.Any() == true
+           || !string.IsNullOrWhiteSpace(Filter.SearchText)
+           || Filter.CategoryId.HasValue
+           || Filter.Type.HasValue;
 
     private string GetTimePeriodText()
-    {
-        return Filter.TimePeriod switch
+        => Filter.TimePeriod switch
         {
             TimePeriodFilter.LastMonth => "Last Month",
             TimePeriodFilter.ThisYear => "This Year",
             TimePeriodFilter.Custom => GetCustomRangeText(),
             _ => Filter.TimePeriod.ToString()
         };
-    }
 
     private string GetCustomRangeText()
     {
         if (Filter.FromDate.HasValue && Filter.ToDate.HasValue)
-        {
             return $"{Filter.FromDate.Value:MMM d} - {Filter.ToDate.Value:MMM d, yyyy}";
-        }
+
         return "Custom Range";
     }
 
@@ -116,15 +175,15 @@
         if (Filter.AccountIds?.Any() != true || Accounts?.Any() != true)
             return "Accounts";
 
-        var selectedAccounts = Accounts.Where(a => Filter.AccountIds.Contains(a.Id)).ToList();
+        var selected = Accounts.Where(a => Filter.AccountIds!.Contains(a.Id)).ToList();
 
-        if (!selectedAccounts.Any())
+        if (!selected.Any())
             return "Accounts";
 
-        if (selectedAccounts.Count == 1)
-            return selectedAccounts.First().Name;
+        if (selected.Count == 1)
+            return selected[0].Name;
 
-        return $"{selectedAccounts.Count} Account{(selectedAccounts.Count > 1 ? "s" : "")}";
+        return $"{selected.Count} Accounts";
     }
 
     private string GetCategoryName()
@@ -132,8 +191,14 @@
         if (!Filter.CategoryId.HasValue || Categories?.Any() != true)
             return "Category";
 
-        var category = Categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value);
-        return category?.Name ?? "Category";
+        return Categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)?.Name ?? "Category";
+    }
+
+    private static string Truncate(string? text, int max)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        if (text.Length <= max) return text;
+        return text.Substring(0, max - 1) + "…";
     }
 
     private async Task RemoveTimePeriodFilter()
@@ -169,7 +234,5 @@
     }
 
     private async Task ClearAllFilters()
-    {
-        await OnClearAll.InvokeAsync();
-    }
+        => await OnClearAll.InvokeAsync();
 }

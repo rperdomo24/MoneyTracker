@@ -1,96 +1,137 @@
-﻿@* Stats Inline Component - Compact statistics display *@
+﻿@* Components/Shared/StatsInline.razor *@
 @using MoneyTracker.Application.DTOs.Transactions
 
-<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; gap: 24px; flex-wrap: nowrap; overflow-x: auto;">
+@if (Summary is null)
+{
+    <MudStack Class="pa-4" AlignItems="AlignItems.Center" Justify="Justify.Center">
+        <MudText Typo="Typo.caption" Class="text-muted">No summary available</MudText>
+    </MudStack>
+}
+else
+{
+    <!-- ================= MOBILE (<600px): 2x2 grid ================= -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudGrid Spacing="2" Class="pa-2">
+            @* Optional: Total Transactions *@
+            @* <MudItem xs="12">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Info" Size="Size.Medium" />
+                            <MudText Typo="Typo.body2" Class="font-weight-medium">Transactions</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold">@Summary.TotalCount</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem> *@
 
-@*     <!-- Total Transactions -->
-    <div style="display: flex; align-items: center; gap: 12px; min-width: 140px;">
-        <MudIcon Icon="@Icons.Material.Filled.Receipt"
-                 Color="Color.Info"
-                 Size="Size.Medium" />
-        <div>
-            <MudText Typo="Typo.caption" Color="Color.Default" Style="line-height: 1;">Transactions</MudText>
-            <MudText Typo="Typo.h6" Style="white-space: nowrap; line-height: 1.2; margin-top: 2px;">
-                <b>@(Summary?.TotalCount ?? 0)</b>
-            </MudText>
-        </div>
-    </div>
+            <MudItem xs="6">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Size="Size.Medium" />
+                            <MudText Typo="Typo.caption" Class="text-muted">Income</MudText>
+                        </MudStack>
 
-    <!-- Divider -->
-    <div style="width: 1px; height: 32px; background-color: var(--mud-palette-divider);"></div>
- *@
-    <!-- Income -->
-    <div style="display: flex; align-items: center; gap: 12px; min-width: 140px;">
-        <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
-                 Color="Color.Success"
-                 Size="Size.Medium" />
-        <div>
-            <MudText Typo="Typo.caption" Color="Color.Default" Style="line-height: 1;">Income</MudText>
-            <MudText Typo="Typo.h6"
-                     Color="Color.Success"
-                     Style="white-space: nowrap; line-height: 1.2; margin-top: 2px;">
-                <b>@FormatCurrency(Summary?.TotalIncome ?? 0)</b>
-            </MudText>
-        </div>
-    </div>
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold text-success">
+                            @FormatCurrency(Summary.TotalIncome)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
 
-    <!-- Divider -->
-    <div style="width: 1px; height: 32px; background-color: var(--mud-palette-divider);"></div>
+            <MudItem xs="6">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Color="Color.Error" Size="Size.Medium" />
+                            <MudText Typo="Typo.caption" Class="text-muted">Expenses</MudText>
+                        </MudStack>
 
-    <!-- Expenses -->
-    <div style="display: flex; align-items: center; gap: 12px; min-width: 140px;">
-        <MudIcon Icon="@Icons.Material.Filled.TrendingDown"
-                 Color="Color.Error"
-                 Size="Size.Medium" />
-        <div>
-            <MudText Typo="Typo.caption" Color="Color.Default" Style="line-height: 1;">Expenses</MudText>
-            <MudText Typo="Typo.h6"
-                     Color="Color.Error"
-                     Style="white-space: nowrap; line-height: 1.2; margin-top: 2px;">
-                <b>@FormatCurrency(Summary?.TotalExpense ?? 0)</b>
-            </MudText>
-        </div>
-    </div>
+                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold text-error">
+                            @FormatCurrency(Summary.TotalExpense)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
 
-    <!-- Divider -->
-    <div style="width: 1px; height: 32px; background-color: var(--mud-palette-divider);"></div>
+            <MudItem xs="12">
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetBalanceIcon(Summary.Balance)" Color="@GetBalanceColor(Summary.Balance)" Size="Size.Medium" />
+                            <MudText Typo="Typo.body2" Class="font-weight-medium">Balance</MudText>
+                        </MudStack>
 
-    <!-- Balance -->
-    <div style="display: flex; align-items: center; gap: 12px; min-width: 140px;">
-        <MudIcon Icon="@GetBalanceIcon()"
-                 Color="@GetBalanceColor()"
-                 Size="Size.Medium" />
-        <div>
-            <MudText Typo="Typo.caption" Color="Color.Default" Style="line-height: 1;">Balance</MudText>
-            <MudText Typo="Typo.h6"
-                     Color="@GetBalanceColor()"
-                     Style="white-space: nowrap; line-height: 1.2; margin-top: 2px;">
-                <b>@FormatCurrency(Summary?.Balance ?? 0)</b>
-            </MudText>
-        </div>
-    </div>
-</div>
+                        <MudText Typo="Typo.h6" Class="@($"font-weight-bold {GetBalanceClass(Summary.Balance)}")">
+                            @FormatCurrency(Summary.Balance)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudHidden>
+
+    <!-- ================= TABLET/DESKTOP (>=600px): single row, no scroll ================= -->
+    <MudHidden Breakpoint="Breakpoint.Xs">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pa-4">
+            <!-- Income -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Size="Size.Medium" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="text-muted">Income</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold text-success">
+                        @FormatCurrency(Summary.TotalIncome)
+                    </MudText>
+                </MudStack>
+            </MudStack>
+
+            <MudDivider Vertical="true" FlexItem="true" />
+
+            <!-- Expenses -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Color="Color.Error" Size="Size.Medium" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="text-muted">Expenses</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold text-error">
+                        @FormatCurrency(Summary.TotalExpense)
+                    </MudText>
+                </MudStack>
+            </MudStack>
+
+            <MudDivider Vertical="true" FlexItem="true" />
+
+            <!-- Balance -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@GetBalanceIcon(Summary.Balance)" Color="@GetBalanceColor(Summary.Balance)" Size="Size.Medium" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
+                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold {GetBalanceClass(Summary.Balance)}")">
+                        @FormatCurrency(Summary.Balance)
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        </MudStack>
+    </MudHidden>
+}
 
 @code {
-    [Parameter]
-    public TransactionSummaryDto? Summary { get; set; }
+    [Parameter] public TransactionSummaryDto? Summary { get; set; }
 
     private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
 
-    private string GetBalanceIcon()
-    {
-        var balance = Summary?.Balance ?? 0;
-        return balance >= 0
-            ? Icons.Material.Filled.AccountBalance
-            : Icons.Material.Filled.Warning;
-    }
+    private string GetBalanceClass(decimal balance)
+        => balance switch
+        {
+            > 0 => "text-success",
+            < 0 => "text-error",
+            _ => ""
+        };
 
-    private Color GetBalanceColor()
-    {
-        var balance = Summary?.Balance ?? 0;
-        return balance >= 0 ? Color.Success : Color.Error;
-    }
+    private string GetBalanceIcon(decimal balance)
+        => balance >= 0 ? Icons.Material.Filled.AccountBalance : Icons.Material.Filled.Warning;
+
+    private Color GetBalanceColor(decimal balance)
+        => balance >= 0 ? Color.Success : Color.Error;
 }

@@ -1,98 +1,110 @@
-﻿@using MoneyTracker.Application.DTOs
-@using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Domain.Enums
+﻿@using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Pages.Accounts
 @using MoneyTracker.UI.Components.Pages.Transactions
+@using MoneyTracker.UI.Components.Shared.TextImport
 @using MoneyTracker.UI.Helpers
-@using MoneyTracker.UI.Components.Shared.TextImport 
 @inject IAccountService AccountService
+@inject IDialogService DialogService
 
 <div class="quick-actions-fab-container">
-    <!-- 🚀 Main FAB Button -->
+    <!-- Main FAB -->
     <MudFab Color="Color.Primary"
             StartIcon="@(_isExpanded ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
             Size="Size.Large"
             Class="@($"fab-main-button {(_isExpanded ? "expanded" : "")}")"
             OnClick="@ToggleExpanded" />
 
-    <!-- 📋 Action Buttons (Solo aparecen cuando está expandido) -->
     @if (_isExpanded)
     {
         <div class="fab-actions" @onclick:stopPropagation="true">
 
-            <!-- 🔄 Transfer  && 💳 Pay Credit Card -->
-            <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
-                    StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
-                    Size="Size.Medium"
-                    Class="fab-action fab-action-3"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Transfer))" />
+            <!-- MOBILE (<600px): tooltips (no labels) -->
+            <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                <MudTooltip Text="Transfer" Placement="Placement.Left">
+                    <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
+                            StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
+                            Size="Size.Medium"
+                            Class="fab-action fab-action-3"
+                            OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Transfer))" />
+                </MudTooltip>
 
-            <!-- 💰 Add Income -->
-            <MudFab Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
-                    StartIcon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
-                    Size="Size.Medium"
-                    Class="fab-action fab-action-2"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Income))" />
+                <MudTooltip Text="Add Income" Placement="Placement.Left">
+                    <MudFab Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
+                            StartIcon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
+                            Size="Size.Medium"
+                            Class="fab-action fab-action-2"
+                            OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Income))" />
+                </MudTooltip>
 
-            <!-- 💸 Add Expense -->
-            <MudFab Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
-                    StartIcon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
-                    Size="Size.Medium"
-                    Class="fab-action fab-action-1"
-                    OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />
+                <MudTooltip Text="Add Expense" Placement="Placement.Left">
+                    <MudFab Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
+                            StartIcon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
+                            Size="Size.Medium"
+                            Class="fab-action fab-action-1"
+                            OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />
+                </MudTooltip>
 
-            <MudFab Color="Color.Info"
-                    StartIcon="@Icons.Material.Filled.ContentPaste"
-                    Size="Size.Medium"
-                    Class="fab-action fab-action-4"
-                    OnClick="@((MouseEventArgs e) => HandleImportFromTextClick(e))" />
+                <MudTooltip Text="Import from text" Placement="Placement.Left">
+                    <MudFab Color="Color.Info"
+                            StartIcon="@Icons.Material.Filled.ContentPaste"
+                            Size="Size.Medium"
+                            Class="fab-action fab-action-4"
+                            OnClick="@((MouseEventArgs e) => HandleImportFromTextClick(e))" />
+                </MudTooltip>
+            </MudHidden>
 
+            <!-- TABLET/DESKTOP (>=600px): same buttons, optional labels below -->
+            <MudHidden Breakpoint="Breakpoint.Xs">
+                <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
+                        StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
+                        Size="Size.Medium"
+                        Class="fab-action fab-action-3"
+                        OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Transfer))" />
+
+                <MudFab Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
+                        StartIcon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
+                        Size="Size.Medium"
+                        Class="fab-action fab-action-2"
+                        OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Income))" />
+
+                <MudFab Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
+                        StartIcon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
+                        Size="Size.Medium"
+                        Class="fab-action fab-action-1"
+                        OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />
+
+                <MudFab Color="Color.Info"
+                        StartIcon="@Icons.Material.Filled.ContentPaste"
+                        Size="Size.Medium"
+                        Class="fab-action fab-action-4"
+                        OnClick="@((MouseEventArgs e) => HandleImportFromTextClick(e))" />
+            </MudHidden>
         </div>
     }
 
-    <!-- 🏷️ Action Labels (Solo con labels opcionales) -->
+    <!-- Labels only on Tablet/Desktop -->
     @if (_isExpanded && ShowLabels)
     {
-        <div class="fab-labels">
-            <div class="fab-label fab-label-4">Import</div>
-            <div class="fab-label fab-label-3">Transfer</div>
-            <div class="fab-label fab-label-2">Add Income</div>
-            <div class="fab-label fab-label-1">Add Expense</div>
-        </div>
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <div class="fab-labels">
+                <div class="fab-label fab-label-4">Import</div>
+                <div class="fab-label fab-label-3">Transfer</div>
+                <div class="fab-label fab-label-2">Add Income</div>
+                <div class="fab-label fab-label-1">Add Expense</div>
+            </div>
+        </MudHidden>
     }
-
-
-    <!-- 🌑 Backdrop (para cerrar al hacer clic fuera) -->
-    @*  @if (_isExpanded)
-    {
-        <div class="fab-backdrop" @onclick="@CloseExpanded" @onclick:stopPropagation="false"></div>
-    } *@
 </div>
 
 @code {
     private bool _isExpanded = false;
     private bool _isProcessingAction = false;
 
-    /// <summary>
-    /// Show text labels next to action buttons
-    /// </summary>
     [Parameter] public bool ShowLabels { get; set; } = false;
-
-    /// <summary>
-    /// Callback when a transaction action is triggered
-    /// </summary>
     [Parameter] public EventCallback<TransactionTypeEnum> OnTransactionAction { get; set; }
-
-    /// <summary>
-    /// Callback when a transaction is successfully added (for refreshing parent)
-    /// </summary>
     [Parameter] public EventCallback OnTransactionAdded { get; set; }
-
-    /// <summary>
-    /// Custom dialog options (optional)
-    /// </summary>
     [Parameter] public DialogOptions? DialogOptions { get; set; }
 
     private DialogOptions _defaultDialogOptions => new()
@@ -118,22 +130,15 @@
 
     private async Task HandleAddTransactionClick(MouseEventArgs e, TransactionTypeEnum transactionType)
     {
-        // Prevenir que otros eventos interfieran
         if (_isProcessingAction) return;
         _isProcessingAction = true;
 
         try
         {
-            // Primero notificar al componente padre
             if (OnTransactionAction.HasDelegate)
-            {
                 await OnTransactionAction.InvokeAsync(transactionType);
-            }
 
-            // Cerrar el FAB inmediatamente
             CloseExpanded();
-
-            // Pequeño delay para asegurar que la UI se actualice
             await Task.Delay(50);
 
             if (!await CheckAccountType(transactionType))
@@ -146,7 +151,6 @@
             }
             else
             {
-                // Abrir el modal
                 await OpenTransactionModal(transactionType);
             }
         }
@@ -154,21 +158,6 @@
         {
             _isProcessingAction = false;
         }
-    }
-
-    private async Task HandleAddTransaction(TransactionTypeEnum transactionType)
-    {
-        // Close the FAB first
-        CloseExpanded();
-
-        // Notify parent component about the action
-        if (OnTransactionAction.HasDelegate)
-        {
-            await OnTransactionAction.InvokeAsync(transactionType);
-        }
-
-        // Then open the transaction modal
-        await OpenTransactionModal(transactionType);
     }
 
     private async Task OpenTransactionModal(TransactionTypeEnum transactionType)
@@ -189,24 +178,15 @@
         };
 
         var options = DialogOptions ?? _defaultDialogOptions;
-
         await DialogService.ShowAsync<AddTransactionModal>(title, parameters, options);
     }
 
     private async Task<bool> CheckAccountType(TransactionTypeEnum transactionType)
     {
+        var accountType = transactionType == TransactionTypeEnum.CreditPayment ? AccountType.Credit : AccountType.None;
 
-        // Check if the transaction type requires a specific account type
-        AccountType accountType = transactionType == TransactionTypeEnum.CreditPayment ? AccountType.Credit : AccountType.None;
-
-        // Check if there are accounts of the required type
         var accountsResult = await AccountService.HasAccountByType(accountType);
-        if (accountsResult.Success)
-        {
-            return accountsResult.Data;
-        }
-
-        return false;
+        return accountsResult.Success && accountsResult.Data;
     }
 
     private async Task OpenAddAccountModal()
@@ -217,30 +197,23 @@
         };
 
         var options = DialogOptions ?? _defaultDialogOptions;
-
         await DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, options);
     }
 
     private async Task OnTransactionAddedInternal()
     {
-        // Notify parent component to refresh data
         if (OnTransactionAdded.HasDelegate)
-        {
             await OnTransactionAdded.InvokeAsync();
-        }
     }
 
-    public async Task<bool> ShowNoCreditCardsAlertAsync(TransactionTypeEnum transactionType,
-       bool showCreateOption = true)
+    public async Task<bool> ShowNoCreditCardsAlertAsync(TransactionTypeEnum transactionType, bool showCreateOption = true)
     {
-        AccountType accountType = transactionType == TransactionTypeEnum.CreditPayment ? AccountType.Credit : AccountType.None;
-
-        string accountTypeName = transactionType == TransactionTypeEnum.CreditPayment ? "credit card accounts" : "accounts";
-        string title = transactionType == TransactionTypeEnum.CreditPayment ? "No Credit Cards Found" : "No Accounts Found";
+        var accountTypeName = transactionType == TransactionTypeEnum.CreditPayment ? "credit card accounts" : "accounts";
+        var title = transactionType == TransactionTypeEnum.CreditPayment ? "No Credit Cards Found" : "No Accounts Found";
 
         var message = showCreateOption
             ? $"You don't have any {accountTypeName} set up yet. Would you like to go to Accounts to create one?"
-            : $"You don't have any {accountTypeName} set up yet. Please create a {(transactionType == TransactionTypeEnum.CreditPayment ? "credit card " : "")}account first in the Accounts section.";
+            : $"You don't have any {accountTypeName} set up yet. Please create an account first in the Accounts section.";
 
         var confirmText = showCreateOption ? "Go to Accounts" : "OK";
         var cancelText = showCreateOption ? "Cancel" : "";
@@ -265,8 +238,6 @@
             await Task.Delay(50);
 
             var options = DialogOptions ?? _defaultDialogOptions;
-
-            // Use a slightly bigger width for textarea
             options = options with { MaxWidth = MaxWidth.Medium, FullWidth = true };
 
             await DialogService.ShowAsync<ImportFromTextDialog>("Import from text", new DialogParameters(), options);
@@ -276,5 +247,4 @@
             _isProcessingAction = false;
         }
     }
-
 }
