@@ -23,30 +23,55 @@
 
 <PageTitle>Transactions - MoneyTracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+<MudContainer MaxWidth="MaxWidth.False" Class="px-2 px-sm-6">
     <!-- Header Section -->
-    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-        <Breadcrumb Items="@_breadcrumbItems" />
+    <!-- Header Section -->
+    <MudStack Class="mb-4">
 
-        <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Secondary"
-                       StartIcon="@Icons.Material.Filled.FilterList"
-                       OnClick="ToggleFiltersDrawer">
-                Filters
-                @if (_activeFilterCount > 0)
-                {
-                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="ml-2">@_activeFilterCount</MudChip>
-                }
-            </MudButton>
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Secondary"
-                       StartIcon="@Icons.Material.Filled.FileDownload"
-                       OnClick="ExportTransactions"
-                       Disabled="@(_loading || _totalTransactions == 0)">
-                Export
-            </MudButton>
-        </MudStack>
+        <!-- MOBILE -->
+        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center">
+
+                <MudText Typo="Typo.h6">
+                    Transactions
+                </MudText>
+
+                <MudIconButton Icon="@Icons.Material.Filled.FilterList"
+                               Color="Color.Default"
+                               OnClick="ToggleFiltersDrawer" />
+
+            </MudStack>
+        </MudHidden>
+
+        <!-- TABLET / DESKTOP -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <MudStack Row="true"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center">
+
+                <Breadcrumb Items="@_breadcrumbItems" />
+
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.FilterList"
+                           OnClick="ToggleFiltersDrawer">
+                    Filters
+                    @if (_activeFilterCount > 0)
+                    {
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="Color.Primary"
+                                 Class="ml-2">
+                            @_activeFilterCount
+                        </MudChip>
+                    }
+                </MudButton>
+
+            </MudStack>
+        </MudHidden>
+
     </MudStack>
 
     <ActiveFiltersChips Filter="@_filterDto"
@@ -85,18 +110,19 @@
                          OnPageChanged="HandlePageChanged"
                          OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
-    <TransactionFilters @bind-IsOpen="_filtersDrawerOpen"
+    <TransactionFilters
+                        @bind-IsOpen="_filtersDrawerOpen"
                         Filter="_filterDto"
+                        Categories="@_categories"
+                        Accounts="@_accounts"
                         OnFilterChanged="OnFilterChanged"
-                        OnFiltersApplied="LoadTransactionsAsync"
-                        OnFiltersInitialized="OnFiltersInitialized" />
+                        OnFiltersApplied="LoadTransactionsAsync" />
 
     <QuickActionsFab OnTransactionAdded="@OnTransactionChanged" />
 
     <UpdateTransactionDrawer @bind-IsOpen="_drawerOpen"
                              TransactionId="@_selectedTransactionId"
                              OnTransactionUpdated="OnTransactionChanged" />
-
 </MudContainer>
 
 @code {
@@ -105,12 +131,11 @@
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
     private TransactionSummaryDto? _transactionSummary;
-    private List<TransactionDto>? _allTransactionsUnfiltered; // ✅ NUEVO - Para encontrar parejas
+    private List<TransactionDto>? _allTransactionsUnfiltered; // For pairing transfers
     private TransactionFilterDto _filterDto = new() { TimePeriod = TimePeriodFilter.ThisMonth };
     private bool _loading = true;
     private bool _hasActiveFilters = false;
     private int _activeFilterCount = 0;
-    private bool _filtersLoaded = false;
 
     private List<TransactionGroupDto> _groupedTransactions = new();
     private int _currentPage = 1;
@@ -129,37 +154,72 @@
     private int _contextMenuTransactionId = 0;
     private bool _isDuplicating = false;
 
-    private List<BreadcrumbItem> _breadcrumbItems = new()
+    private readonly List<BreadcrumbItem> _breadcrumbItems = new()
     {
         new BreadcrumbItem("Home", href: "/", disabled: false, icon: Icons.Material.Filled.Home),
         new BreadcrumbItem("Transactions", href: null, disabled: true, icon: Icons.Material.Filled.Receipt)
     };
 
-    // ========== LIFECYCLE ==========
-    protected override async Task OnInitializedAsync()
-    {
-        _loading = false;
-    }
-
+    // Bootstrapping guard
     private bool _bootstrapped;
+
+    protected override Task OnInitializedAsync()
+    {
+        // Keep loading until bootstrap finishes
+        _loading = true;
+        return Task.CompletedTask;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || _bootstrapped) return;
         _bootstrapped = true;
 
-        // 1) Leer filtro guardado (ya es seguro)
+        await BootstrapAsync();
+        StateHasChanged();
+    }
+
+    private async Task BootstrapAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
         var saved = await TransactionFilterState.GetAsync();
         if (saved != null)
             _filterDto = saved;
 
-        // 2) Cargar data y UI
-        await LoadFilterData();
-        await LoadTransactionsAsync();
+        UpdateFilterStates();
 
-        StateHasChanged();
+        await LoadFilterDataParallel();
+
+        await LoadTransactionsAsync();
     }
 
+    private async Task LoadFilterDataParallel()
+    {
+        try
+        {
+            var categoriesResult = await CategoryService.GetAllAsync();
+            if (categoriesResult.Success)
+                _categories = categoriesResult.Data?.ToList();
+            else
+                _categories = new();
+
+            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
+            if (accountsResult.Success)
+                _accounts = accountsResult.Data?.ToList();
+            else
+                _accounts = new();
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading filter data: {ex.Message}", Severity.Warning);
+            _categories = new();
+            _accounts = new();
+        }
+    }
 
     // ========== DATA LOADING ==========
     private async Task LoadTransactionsAsync()
@@ -175,10 +235,10 @@
             {
                 _transactionSummary = result.Data;
 
-                // ✅ GUARDAR TODAS LAS TRANSACCIONES ANTES DE FILTRAR
+                // Save full list before display filtering
                 _allTransactionsUnfiltered = _transactionSummary.Transactions?.ToList() ?? new();
 
-                // ✅ APLICAR FILTRO DE DISPLAY PARA TRANSFERS (modifica la lista)
+                // Display filtering (transfers pairing, etc.)
                 if (_transactionSummary.Transactions != null)
                 {
                     _transactionSummary.Transactions = TransactionGroupingHelper
@@ -193,6 +253,9 @@
                 Snackbar.Add(result.Message ?? "Error loading transactions", Severity.Error);
                 _transactionSummary = new TransactionSummaryDto();
                 _allTransactionsUnfiltered = new();
+                _groupedTransactions = new();
+                _totalPages = 1;
+                _totalTransactions = 0;
             }
         }
         catch (Exception ex)
@@ -200,6 +263,9 @@
             Snackbar.Add("Error loading data: " + ex.Message, Severity.Error);
             _transactionSummary = new TransactionSummaryDto();
             _allTransactionsUnfiltered = new();
+            _groupedTransactions = new();
+            _totalPages = 1;
+            _totalTransactions = 0;
         }
         finally
         {
@@ -226,27 +292,6 @@
         _totalTransactions = totalCount;
     }
 
-    private async Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
-    {
-        _selectedTransactionIds = selectedIds;
-        StateHasChanged();
-    }
-
-    private async Task HandlePageChanged(int page)
-    {
-        _currentPage = page;
-        GroupTransactions();
-        StateHasChanged();
-    }
-
-    private async Task HandleRowsPerPageChanged(int newSize)
-    {
-        _rowsPerPage = newSize;
-        _currentPage = 1;
-        GroupTransactions();
-        StateHasChanged();
-    }
-
     private void UpdateFilterStates()
     {
         _hasActiveFilters = TransactionFilterHelper.HasActiveFilters(_filterDto);
@@ -254,117 +299,28 @@
     }
 
     // ========== PAGINATION ==========
-    private void OnPageChanged(int page)
+    private Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
+    {
+        _selectedTransactionIds = selectedIds;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task HandlePageChanged(int page)
     {
         _currentPage = page;
         GroupTransactions();
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
-    private void OnRowsPerPageChanged()
+    private Task HandleRowsPerPageChanged(int newSize)
     {
+        _rowsPerPage = newSize;
         _currentPage = 1;
         GroupTransactions();
-    }
-
-    // ========== SELECTION ==========
-    private bool IsGroupSelected(TransactionGroupDto group)
-    {
-        return group.TransactionIds.All(id => _selectedTransactionIds.Contains(id));
-    }
-
-    private void ToggleGroupSelection(TransactionGroupDto group, bool selected)
-    {
-        if (selected)
-        {
-            group.TransactionIds.ForEach(id => _selectedTransactionIds.Add(id));
-        }
-        else
-        {
-            group.TransactionIds.ForEach(id => _selectedTransactionIds.Remove(id));
-        }
         StateHasChanged();
-    }
-
-    private void ToggleTransactionSelection(int transactionId, bool selected)
-    {
-        if (selected)
-        {
-            _selectedTransactionIds.Add(transactionId);
-        }
-        else
-        {
-            _selectedTransactionIds.Remove(transactionId);
-        }
-        StateHasChanged();
-    }
-
-    private void ClearSelection()
-    {
-        _selectedTransactionIds.Clear();
-        StateHasChanged();
-    }
-
-    private async Task DeleteSelectedTransactions()
-    {
-        if (_selectedTransactionIds.Count == 0) return;
-
-        bool confirmed = await DialogService.ShowMessageBox(
-            "Delete Transactions",
-            $"Are you sure you want to delete {_selectedTransactionIds.Count} transaction(s)? This action cannot be undone.",
-            yesText: "Delete",
-            cancelText: "Cancel",
-            options: DialogHelper.DefaultOptions) ?? false;
-
-        if (confirmed)
-        {
-            try
-            {
-                int successCount = 0;
-                int failCount = 0;
-
-                foreach (var transactionId in _selectedTransactionIds.ToList())
-                {
-                    var transaction = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == transactionId);
-                    if (transaction == null) continue;
-
-                    OperationResult<bool> result;
-
-                    if (transaction.IsTransfer())
-                    {
-                        result = await TransactionService.DeleteTransferAsync(transactionId);
-                    }
-                    else
-                    {
-                        result = await TransactionService.DeleteAsync(transactionId);
-                    }
-
-                    if (result.Success)
-                    {
-                        successCount++;
-                    }
-                    else
-                    {
-                        failCount++;
-                    }
-                }
-
-                if (successCount > 0)
-                {
-                    Snackbar.Add($"{successCount} transaction(s) deleted successfully", Severity.Success);
-                    _selectedTransactionIds.Clear();
-                    await LoadTransactionsAsync();
-                }
-
-                if (failCount > 0)
-                {
-                    Snackbar.Add($"Failed to delete {failCount} transaction(s)", Severity.Warning);
-                }
-            }
-            catch (Exception)
-            {
-                Snackbar.Add("Error deleting transactions", Severity.Error);
-            }
-        }
+        return Task.CompletedTask;
     }
 
     // ========== TRANSACTION ACTIONS ==========
@@ -385,7 +341,6 @@
         try
         {
             var result = await TransactionService.DuplicateTransactionAsync(transaction.Id);
-
             if (result.Success)
             {
                 Snackbar.Add(result.Message ?? "Transaction duplicated successfully", Severity.Success);
@@ -423,35 +378,27 @@
             cancelText: "Cancel",
             options: DialogHelper.DefaultOptions) ?? false;
 
-        if (confirmed)
+        if (!confirmed) return;
+
+        try
         {
-            try
-            {
-                OperationResult<bool> result;
+            OperationResult<bool> result = isTransfer
+                ? await TransactionService.DeleteTransferAsync(transaction.Id)
+                : await TransactionService.DeleteAsync(transaction.Id);
 
-                if (isTransfer)
-                {
-                    result = await TransactionService.DeleteTransferAsync(transaction.Id);
-                }
-                else
-                {
-                    result = await TransactionService.DeleteAsync(transaction.Id);
-                }
-
-                if (result.Success)
-                {
-                    Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
-                    await LoadTransactionsAsync();
-                }
-                else
-                {
-                    Snackbar.Add(result.Message ?? "Error deleting", Severity.Error);
-                }
-            }
-            catch (Exception ex)
+            if (result.Success)
             {
-                Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+                Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
+                await LoadTransactionsAsync();
             }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error deleting", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
     }
 
@@ -477,43 +424,6 @@
         await LoadTransactionsAsync();
     }
 
-    private async Task OnFiltersInitialized()
-    {
-        if (_filtersLoaded) return;
-
-        _filtersLoaded = true;
-
-        await LoadFilterData();
-
-        var saved = await TransactionFilterState.GetAsync();
-        if (saved != null)
-            _filterDto = saved;
-
-        await LoadTransactionsAsync();
-    }
-
-    private async Task LoadFilterData()
-    {
-        try
-        {
-            var categoriesResult = await CategoryService.GetAllAsync();
-            if (categoriesResult.Success)
-            {
-                _categories = categoriesResult.Data?.ToList();
-            }
-
-            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
-            if (accountsResult.Success)
-            {
-                _accounts = accountsResult.Data?.ToList();
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error loading filter data: {ex.Message}", Severity.Warning);
-        }
-    }
-
     private async Task OnFilterRemoved(string filterType)
     {
         await TransactionFilterState.SaveAsync(_filterDto);
@@ -521,24 +431,72 @@
         await LoadTransactionsAsync();
     }
 
+    // ========== SELECTION ==========
+    private async Task DeleteSelectedTransactions()
+    {
+        if (_selectedTransactionIds.Count == 0) return;
+
+        bool confirmed = await DialogService.ShowMessageBox(
+            "Delete Transactions",
+            $"Are you sure you want to delete {_selectedTransactionIds.Count} transaction(s)? This action cannot be undone.",
+            yesText: "Delete",
+            cancelText: "Cancel",
+            options: DialogHelper.DefaultOptions) ?? false;
+
+        if (!confirmed) return;
+
+        try
+        {
+            int successCount = 0;
+            int failCount = 0;
+
+            foreach (var transactionId in _selectedTransactionIds.ToList())
+            {
+                var transaction = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == transactionId);
+                if (transaction == null) continue;
+
+                OperationResult<bool> result = transaction.IsTransfer()
+                    ? await TransactionService.DeleteTransferAsync(transactionId)
+                    : await TransactionService.DeleteAsync(transactionId);
+
+                if (result.Success) successCount++;
+                else failCount++;
+            }
+
+            if (successCount > 0)
+            {
+                Snackbar.Add($"{successCount} transaction(s) deleted successfully", Severity.Success);
+                _selectedTransactionIds.Clear();
+                await LoadTransactionsAsync();
+            }
+
+            if (failCount > 0)
+            {
+                Snackbar.Add($"Failed to delete {failCount} transaction(s)", Severity.Warning);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error deleting transactions", Severity.Error);
+        }
+    }
+
     // ========== EXPORT ==========
-    private async Task ExportTransactions()
+    private Task ExportTransactions()
     {
         try
         {
             if (_transactionSummary?.Transactions?.Any() == true)
-            {
                 Snackbar.Add($"Exported {_transactionSummary.TotalCount} transactions", Severity.Success);
-            }
             else
-            {
                 Snackbar.Add("No transactions to export", Severity.Warning);
-            }
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Export error: {ex.Message}", Severity.Error);
         }
+
+        return Task.CompletedTask;
     }
 
     // ========== EVENTS ==========

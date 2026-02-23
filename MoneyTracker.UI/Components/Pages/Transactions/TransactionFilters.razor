@@ -1,15 +1,11 @@
 ﻿@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
-@using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Domain.Enums
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
-@inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
-@inject IAccountService AccountService
 
 <MudDrawer @bind-Open="@IsOpen"
            Anchor="Anchor.End"
@@ -36,6 +32,7 @@
 
     <MudDrawerContainer Class="pa-4">
         <MudGrid>
+
             <!-- Time Period Filter -->
             <MudItem xs="12" md="12">
                 <MudSelect T="TimePeriodFilter"
@@ -75,7 +72,7 @@
 
             <!-- Type Filter -->
             <MudItem xs="12" md="12">
-                <MudSelect T="CategoryTypeEnum ?"
+                <MudSelect T="CategoryTypeEnum?"
                            Label="Type"
                            @bind-Value="_tempFilter.Type"
                            @bind-Value:after="OnTypeChanged"
@@ -101,7 +98,7 @@
                 </MudSelect>
             </MudItem>
 
-            <!-- Category Filter (con CategorySelector) -->
+            <!-- Category Filter -->
             <MudItem xs="12" md="12">
                 <CategorySelector SelectedCategory="_selectedCategory"
                                   SelectedCategoryChanged="OnCategorySelected"
@@ -114,7 +111,7 @@
                                   ShowAddButton="false" />
             </MudItem>
 
-            <!-- ✅ Accounts Filter (REUTILIZA AccountsMultiSelector por IDs) -->
+            <!-- Accounts Filter -->
             @if (_orderedAccounts?.Any() == true)
             {
                 <MudItem xs="12" md="12">
@@ -133,7 +130,7 @@
 
                         @foreach (var account in _orderedAccounts)
                         {
-                            @if (currentType != account.Type)
+                            if (currentType != account.Type)
                             {
                                 currentType = account.Type;
 
@@ -149,7 +146,7 @@
                                 </MudSelectItem>
                             }
 
-                            <MudSelectItem Value="account.Id">
+                            <MudSelectItem Value="@account.Id">
                                 <div class="d-flex align-center py-2 px-1">
                                     <MudAvatar Size="Size.Small"
                                                Style="@($"background-color: {(string.IsNullOrEmpty(account.Color) ? "#757575" : account.Color)}; margin-right: 12px; flex-shrink: 0;")">
@@ -192,21 +189,6 @@
                               DebounceInterval="500" />
             </MudItem>
         </MudGrid>
-
-        <!-- Debug Info -->
-        @if (_showDebugInfo && System.Diagnostics.Debugger.IsAttached)
-        {
-            <MudAlert Severity="Severity.Info" Class="mt-4">
-                <div>
-                    <strong>Debug Info:</strong><br />
-                    Categories loaded: @(_categories?.Count ?? 0)<br />
-                    Accounts loaded: @(_activeAccounts?.Count ?? 0)<br />
-                    Ordered accounts: @(_orderedAccounts?.Count ?? 0)<br />
-                    Loading: @_loadingCategories<br />
-                    Error: @_loadError
-                </div>
-            </MudAlert>
-        }
     </MudDrawerContainer>
 
     <!-- Apply Filters Button -->
@@ -233,43 +215,43 @@
 @code {
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
     [Parameter] public TransactionFilterDto Filter { get; set; } = new();
     [Parameter] public EventCallback<TransactionFilterDto> OnFilterChanged { get; set; }
     [Parameter] public EventCallback OnFiltersApplied { get; set; }
-    [Parameter] public EventCallback OnFiltersInitialized { get; set; }
+
+    // ✅ Ahora vienen del padre (Transactions.razor)
+    [Parameter] public List<CategoryDto>? Categories { get; set; }
+    [Parameter] public List<AccountDto>? Accounts { get; set; }
 
     private TransactionFilterDto _tempFilter = new();
 
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _activeAccounts;
     private List<AccountDto>? _orderedAccounts;
-    private int _activeFilterCount = 0;
-    private bool _loadingCategories = true;
-    private string _loadError = string.Empty;
-    private bool _showDebugInfo = false;
 
+    private int _activeFilterCount = 0;
     private CategoryDto? _selectedCategory;
 
     private IEnumerable<int> SelectedAccountIds
     {
         get => _tempFilter.AccountIds ?? Enumerable.Empty<int>();
-        set
-        {
-            _tempFilter.AccountIds = value?.ToList();
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadFilterOptions();
-        CalculateActiveFilterCount();
-        await OnFiltersInitialized.InvokeAsync();
+        set => _tempFilter.AccountIds = value?.ToList();
     }
 
     protected override void OnParametersSet()
     {
+        // Sync filter options from parent
+        _categories = Categories ?? new();
+        _activeAccounts = Accounts ?? new();
+        _orderedAccounts = _activeAccounts
+            .OrderBy(a => (int)a.Type)
+            .ThenBy(a => a.Name)
+            .ToList();
+
         if (!IsOpen) return;
 
+        // Clone filter into temp model
         _tempFilter = new TransactionFilterDto
         {
             TimePeriod = Filter.TimePeriod,
@@ -282,72 +264,10 @@
         };
 
         _selectedCategory = Filter.CategoryId.HasValue
-            ? _categories?.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)
+            ? _categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)
             : null;
 
         CalculateActiveFilterCount();
-    }
-
-    private async Task LoadFilterOptions()
-    {
-        _loadingCategories = true;
-        _loadError = string.Empty;
-
-        try
-        {
-            _loadError = "Loading categories...";
-            var categoriesResult = await CategoryService.GetAllAsync();
-
-            if (categoriesResult.Success)
-            {
-                _categories = categoriesResult.Data?.ToList() ?? new List<CategoryDto>();
-                _loadError = _categories.Count == 0 ? "No categories found in database" : string.Empty;
-            }
-            else
-            {
-                _categories = new List<CategoryDto>();
-                _loadError = $"Service error: {categoriesResult.Message ?? "Unknown error"}";
-                Snackbar.Add($"Error loading categories: {categoriesResult.Message}", Severity.Warning);
-            }
-
-            _loadError = "Loading accounts...";
-            StateHasChanged();
-
-            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
-            if (accountsResult.Success)
-            {
-                _activeAccounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
-                _orderedAccounts = _activeAccounts
-                    .OrderBy(a => (int)a.Type)
-                    .ThenBy(a => a.Name)
-                    .ToList();
-                _loadError = string.Empty;
-            }
-            else
-            {
-                _activeAccounts = new List<AccountDto>();
-                _orderedAccounts = new List<AccountDto>();
-                _loadError = $"Error loading accounts: {accountsResult.Message}";
-                Snackbar.Add($"Error loading accounts: {accountsResult.Message}", Severity.Warning);
-            }
-        }
-        catch (Exception ex)
-        {
-            _categories = new List<CategoryDto>();
-            _activeAccounts = new List<AccountDto>();
-            _orderedAccounts = new List<AccountDto>();
-            _loadError = $"Exception: {ex.Message}";
-            Snackbar.Add($"Error loading filter options: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _loadingCategories = false;
-
-            if (_selectedCategory == null && _tempFilter.CategoryId.HasValue)
-                _selectedCategory = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
-
-            StateHasChanged();
-        }
     }
 
     private string GetSelectedAccountsText(List<string> selectedValues)
@@ -355,9 +275,10 @@
         if (!selectedValues?.Any() == true || _activeAccounts?.Any() != true)
             return "Select accounts...";
 
-        var selectedIds = selectedValues.Where(x => int.TryParse(x, out _))
-                                       .Select(x => int.Parse(x))
-                                       .ToList();
+        var selectedIds = selectedValues
+            .Where(x => int.TryParse(x, out _))
+            .Select(int.Parse)
+            .ToList();
 
         if (!selectedIds.Any())
             return "Select accounts...";
@@ -374,9 +295,7 @@
         }
 
         if (selectedAccounts.Count <= 2)
-        {
             return string.Join(", ", selectedAccounts.Select(a => a.Name));
-        }
 
         var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
         return $"{selectedAccounts.Count} accounts ({FormatCurrency(totalBalance)})";
@@ -389,6 +308,7 @@
             _tempFilter.FromDate = null;
             _tempFilter.ToDate = null;
         }
+
         CalculateActiveFilterCount();
         return Task.CompletedTask;
     }
@@ -396,9 +316,7 @@
     private Task OnTypeChanged()
     {
         if (_selectedCategory != null && _tempFilter.Type.HasValue && _selectedCategory.Type != _tempFilter.Type.Value)
-        {
             _selectedCategory = null;
-        }
 
         _tempFilter.CategoryId = _selectedCategory?.Id;
 
@@ -410,6 +328,7 @@
     {
         _selectedCategory = value;
         _tempFilter.CategoryId = value?.Id;
+
         CalculateActiveFilterCount();
         return Task.CompletedTask;
     }
@@ -427,7 +346,7 @@
 
     private Task ClearAllFilters()
     {
-        _tempFilter = new TransactionFilterDto();
+        _tempFilter = new TransactionFilterDto { TimePeriod = TimePeriodFilter.ThisMonth };
         _selectedCategory = null;
         CalculateActiveFilterCount();
         return Task.CompletedTask;
@@ -456,12 +375,10 @@
         await IsOpenChanged.InvokeAsync(IsOpen);
     }
 
-    private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
+    private static string FormatCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
 
-    private string GetBalanceColorClass(decimal balance)
+    private static string GetBalanceColorClass(decimal balance)
     {
         return balance switch
         {
