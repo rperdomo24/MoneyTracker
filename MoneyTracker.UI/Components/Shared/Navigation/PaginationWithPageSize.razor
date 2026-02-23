@@ -26,12 +26,26 @@
     <!-- Pagination -->
     @if (TotalPages > 1)
     {
-        <MudPagination Count="@TotalPages"
-                       Selected="@CurrentPage"
-                       SelectedChanged="OnPageChanged"
-                       Color="Color.Primary"
-                       ShowFirstButton="@ShowFirstLastButtons"
-                       ShowLastButton="@ShowFirstLastButtons" />
+        <!-- Mobile: few numbers -->
+        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+            <MudPagination Count="@TotalPages"
+                           Selected="@CurrentPage"
+                           SelectedChanged="OnPageChanged"
+                           Color="Color.Primary"
+                           ShowFirstButton="@ShowFirstLastButtons"
+                           ShowLastButton="@ShowFirstLastButtons"
+                           BoundaryCount="1" />
+        </MudHidden>
+
+        <!-- Tablet/Desktop: normal -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <MudPagination Count="@TotalPages"
+                           Selected="@CurrentPage"
+                           SelectedChanged="OnPageChanged"
+                           Color="Color.Primary"
+                           ShowFirstButton="@ShowFirstLastButtons"
+                           ShowLastButton="@ShowFirstLastButtons" />
+        </MudHidden>
 
         @if (ShowInfo)
         {
