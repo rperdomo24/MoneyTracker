@@ -2,6 +2,7 @@
 @using MoneyTracker.Application.DTOs.Budgets
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
 @using MoneyTracker.UI.Services.Filters.Interface
@@ -165,7 +166,7 @@
         </MudItem>
 
     </MudGrid>
-
+    <QuickActionsFab OnTransactionAdded="@LoadBudgets" />
 </MudContainer>
 
 @code {

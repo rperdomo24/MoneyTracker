@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Components.Shared.Navigation
+@using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Components.Shared
 @inject IAccountService AccountService
@@ -268,6 +269,8 @@
             </MudPaper>
         }
     }
+
+    <QuickActionsFab OnTransactionAdded="@LoadAccounts" />
 
 </MudContainer>
 

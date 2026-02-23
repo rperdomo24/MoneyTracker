@@ -11,119 +11,146 @@
 <MudLayout>
     <!-- Enhanced Top AppBar -->
     <MudAppBar Elevation="2" Color="Color.Default" Fixed="true">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" 
-                       Color="Color.Inherit" 
-                       Edge="Edge.Start" 
-                       OnClick="@DrawerToggle"
-                       Title="Toggle Menu" />
-        
-        <div class="d-flex align-center">
-            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" 
-                     Size="Size.Medium" 
-                     Class="mr-2" />
+
+        <!-- Drawer toggle (Desktop/Tablet only) -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                           Color="Color.Inherit"
+                           Edge="Edge.Start"
+                           OnClick="@DrawerToggle"
+                           Title="Toggle Menu" />
+        </MudHidden>
+
+        <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                 Size="Size.Medium"
+                 Class="mr-2" />
+
+        <!-- App name (Desktop/Tablet only) -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
             <MudText Typo="Typo.h6" Class="font-weight-bold">
                 Money Tracker
             </MudText>
-        </div>
-        
+        </MudHidden>
+
         <MudSpacer />
-        
-        <!-- Header Actions -->
-        <div class="d-flex align-center">
-            <!-- Quick Balance Display (Optional) -->
+
+        <!-- Desktop/Tablet only: Quick Balance mock -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
             @if (_showQuickBalance)
             {
-                <MudChip T="string" Size="Size.Small" 
-                         Color="Color.Success" 
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="Color.Success"
                          Icon="@Icons.Material.Filled.AccountBalance"
                          Class="mr-3">
                     $12,345.67
                 </MudChip>
             }
-            
-            <!-- Notifications -->
-            <MudIconButton Icon="@Icons.Material.Filled.Notifications" 
-                           Color="Color.Inherit"
-                           Class="mr-1"
-                           Title="Notifications">
-                <MudBadge Content="3" 
-                          Color="Color.Error" 
-                          Overlap="true" 
-                          Bordered="true">
-                </MudBadge>
-            </MudIconButton>
-            
-            <!-- Theme Toggle -->
-            <MudTooltip Text="@(_isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")">
-                <MudIconButton Icon="@DarkLightModeButtonIcon" 
-                               Color="Color.Inherit" 
-                               OnClick="@DarkModeToggle" />
-            </MudTooltip>
-            
-            <!-- User Menu -->
-            <MudMenu Icon="@Icons.Material.Filled.AccountCircle" 
-                     Color="Color.Inherit"
-                     Direction="Origin.BottomRight"
-                     OffsetY="true"
-                     Dense="true">
-                <MudMenuItem Icon="@Icons.Material.Filled.Person">Profile</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.Settings">Settings</MudMenuItem>
+        </MudHidden>
+
+        <!-- Notifications -->
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications"
+                       Color="Color.Inherit"
+                       Class="mr-1"
+                       Title="Notifications">
+            <MudBadge Content="3"
+                      Color="Color.Error"
+                      Overlap="true"
+                      Bordered="true">
+            </MudBadge>
+        </MudIconButton>
+
+        <!-- User Menu (Theme toggle inside + Settings expands) -->
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
+                 Color="Color.Inherit"
+                 Dense="true"
+                 AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight">
+            <ChildContent>
+
+                <MudMenuItem Icon="@DarkLightModeButtonIcon" OnClick="@DarkModeToggle">
+                    @(_isDarkMode ? "Light mode" : "Dark mode")
+                </MudMenuItem>
+
                 <MudDivider />
-                <MudMenuItem Icon="@Icons.Material.Filled.Help">Help & Support</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.Logout">Sign Out</MudMenuItem>
-            </MudMenu>
-        </div>
+
+                <MudMenu Dense="true"
+                         AnchorOrigin="Origin.CenterRight"
+                         TransformOrigin="Origin.CenterLeft">
+                    <ActivatorContent>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Settings">
+                            Settings
+                        </MudMenuItem>
+                    </ActivatorContent>
+
+                    <ChildContent>
+                        <MudMenuItem Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">
+                            Accounts
+                        </MudMenuItem>
+
+                        <MudMenuItem Href="/categories" Icon="@Icons.Material.Filled.Category">
+                            Categories
+                        </MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+
+                <MudDivider />
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Help">
+                    Help & Support
+                </MudMenuItem>
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout">
+                    Sign Out
+                </MudMenuItem>
+
+            </ChildContent>
+        </MudMenu>
+
     </MudAppBar>
 
-    <!-- Enhanced Side Drawer -->
-    <MudDrawer @bind-Open="_drawerOpen" 
-               ClipMode="DrawerClipMode.Always" 
-               Variant="DrawerVariant.Responsive" 
-               Elevation="2" 
-               Class="drawer-custom">
-        
-        <!-- Drawer Header -->
-        <div class="pa-4 d-flex align-center" style="min-height: 64px; border-bottom: 1px solid var(--mud-palette-divider);">
-            <MudAvatar Size="Size.Medium" 
-                       Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));"
-                       Class="mr-3">
-                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
-            </MudAvatar>
-            <div class="flex-grow-1" style="min-width: 0;">
-                <MudText Typo="Typo.subtitle2" Class="font-weight-medium">
-                    John Doe
-                </MudText>
-                <MudText Typo="Typo.caption" Class="text-truncate">
-                    john.doe@example.com
-                </MudText>
+    <!-- LEFT DRAWER (Hidden on mobile for now) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudDrawer @bind-Open="_drawerOpen"
+                   ClipMode="DrawerClipMode.Always"
+                   Variant="DrawerVariant.Responsive"
+                   Elevation="2"
+                   Class="drawer-custom">
+
+            <!-- Drawer Header -->
+            <div class="pa-4 d-flex align-center" style="min-height: 64px; border-bottom: 1px solid var(--mud-palette-divider);">
+                <MudAvatar Size="Size.Medium"
+                           Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));"
+                           Class="mr-3">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+                </MudAvatar>
+                <div class="flex-grow-1" style="min-width: 0;">
+                    <MudText Typo="Typo.subtitle2" Class="font-weight-medium">
+                        John Doe
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="text-truncate">
+                        john.doe@example.com
+                    </MudText>
+                </div>
             </div>
-        </div>
-        
-        <!-- Navigation Menu -->
-        <NavMenu />
-        
-        <!-- Drawer Footer -->
-        <div class="mt-auto pa-3" style="border-top: 1px solid var(--mud-palette-divider);">
-            <MudStack Spacing="2">
-                <!-- Quick Stats -->
-                <MudPaper Class="pa-2" Elevation="0" Style="background: var(--mud-palette-action-disabled-background);">
-                    <MudText Typo="Typo.caption" Class="text-muted">Total Balance</MudText>
-                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">$12,345.67</MudText>
-                </MudPaper>
-                
-                <!-- App Info -->
+
+            <!-- Navigation Menu -->
+            <NavMenu />
+
+            <!-- Drawer Footer -->
+            <div class="mt-auto pa-3" style="border-top: 1px solid var(--mud-palette-divider);">
                 <MudText Typo="Typo.caption" Align="Align.Center" Class="text-muted">
                     v@(GetAppVersion())
                 </MudText>
-            </MudStack>
-        </div>
-    </MudDrawer>
+            </div>
 
-    <!-- Main Content Area -->
+        </MudDrawer>
+    </MudHidden>
+
+    <!-- MAIN CONTENT -->
     <MudMainContent Class="main-content-custom">
-        <!-- Content Container -->
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
-            <!-- Breadcrumb Navigation (Optional) -->
+
             @if (_showBreadcrumbs)
             {
                 <MudBreadcrumbs Items="_breadcrumbItems" Class="mb-4">
@@ -138,30 +165,31 @@
                     </ItemTemplate>
                 </MudBreadcrumbs>
             }
-            
-            <!-- Page Content -->
+
             <div class="page-content">
                 @Body
             </div>
         </MudContainer>
 
-        <!-- Enhanced Footer -->
+        <!-- Footer -->
         <footer class="footer-custom mt-auto">
             <MudDivider />
             <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
-                <MudGrid AlignItems="Center">
+                <MudGrid Justify="Justify.Center">
                     <MudItem xs="12" md="6">
                         <MudText Typo="Typo.caption" Class="text-muted">
                             <MudIcon Icon="@Icons.Material.Filled.Copyright" Size="Size.Small" Class="mr-1" />
                             Money Tracker © @DateTime.Now.Year - All rights reserved
                         </MudText>
                     </MudItem>
+
                     <MudItem xs="12" md="6" Class="text-right">
                         <MudStack Row Spacing="3" Justify="Justify.FlexEnd" Class="d-none d-md-flex">
                             <MudLink Href="/privacy" Typo="Typo.caption" Class="text-muted">Privacy</MudLink>
                             <MudLink Href="/terms" Typo="Typo.caption" Class="text-muted">Terms</MudLink>
                             <MudLink Href="/support" Typo="Typo.caption" Class="text-muted">Support</MudLink>
                         </MudStack>
+
                         <MudText Typo="Typo.caption" Class="text-muted d-block d-md-none">
                             v@(GetAppVersion())
                         </MudText>
@@ -170,6 +198,40 @@
             </MudContainer>
         </footer>
     </MudMainContent>
+
+    <!-- MOBILE BOTTOM NAV (only mobile) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudAppBar Bottom="true" Fixed="true" Elevation="8" Color="Color.Surface">
+
+            <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                           Color="Color.Inherit"
+                           Href="/accounts"
+                           Title="accounts" />
+
+            <MudSpacer />
+
+            <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                           Color="Color.Inherit"
+                           Href="/"
+                           Title="Home" />
+
+            <MudSpacer />
+
+
+            <MudIconButton Icon="@Icons.Material.Filled.ListAlt"
+                           Color="Color.Inherit"
+                           Href="/transactions"
+                           Title="Transactions" />
+
+            <MudSpacer />
+
+            <MudIconButton Icon="@Icons.Material.Filled.PieChart"
+                           Color="Color.Inherit"
+                           Href="/budgets"
+                           Title="Budgets" />
+        </MudAppBar>
+    </MudHidden>
+
 </MudLayout>
 
 <!-- Enhanced Blazor Error UI -->
@@ -184,15 +246,15 @@
                 </div>
             </div>
             <div class="mt-3">
-                <MudButton Variant="Variant.Outlined" 
-                           Color="Color.Surface" 
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Surface"
                            StartIcon="@Icons.Material.Filled.Refresh"
-                           OnClick="() => { }" 
+                           OnClick="() => { }"
                            Class="reload mr-2">
                     Reload Page
                 </MudButton>
-                <MudButton Variant="Variant.Text" 
-                           Color="Color.Surface" 
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Surface"
                            StartIcon="@Icons.Material.Filled.Close"
                            Class="dismiss">
                     Dismiss
@@ -207,23 +269,23 @@
         display: flex;
         flex-direction: column;
     }
-    
+
     .main-content-custom {
         display: flex;
         flex-direction: column;
         min-height: 100vh;
     }
-    
+
     .page-content {
         flex: 1;
         min-height: calc(100vh - 200px);
     }
-    
+
     .footer-custom {
         margin-top: auto;
         background: var(--mud-palette-surface);
     }
-    
+
     .blazor-error-ui {
         position: fixed;
         top: 0;
@@ -237,12 +299,11 @@
         justify-content: center;
         padding: 2rem;
     }
-    
-    .blazor-error-ui .error-content {
-        max-width: 500px;
-        width: 100%;
-    }
-  
+
+        .blazor-error-ui .error-content {
+            max-width: 500px;
+            width: 100%;
+        }
 </style>
 
 @code {
@@ -267,7 +328,7 @@
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties
             {
-                AppbarHeight = "64px",
+                AppbarHeight = "80px",
                 DrawerWidthLeft = "280px"
             },
         };
