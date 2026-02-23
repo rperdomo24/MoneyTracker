@@ -23,56 +23,97 @@
 
 <PageTitle>Transactions - MoneyTracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.False" Class="px-2 px-sm-6">
-    <!-- Header Section -->
-    <!-- Header Section -->
-    <MudStack Class="mb-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-2 pa-sm-6">
+
+    <!-- Header -->
+    <MudStack Class="mb-3">
 
         <!-- MOBILE -->
         <MudHidden Breakpoint="Breakpoint.SmAndUp">
-            <MudStack Row="true"
-                      Justify="Justify.SpaceBetween"
-                      AlignItems="AlignItems.Center">
-
-                <MudText Typo="Typo.h6">
-                    Transactions
-                </MudText>
-
-                <MudIconButton Icon="@Icons.Material.Filled.FilterList"
-                               Color="Color.Default"
-                               OnClick="ToggleFiltersDrawer" />
-
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">Transactions</MudText>
             </MudStack>
         </MudHidden>
 
-        <!-- TABLET / DESKTOP -->
+        <!-- TABLET/DESKTOP -->
         <MudHidden Breakpoint="Breakpoint.Xs">
-            <MudStack Row="true"
-                      Justify="Justify.SpaceBetween"
-                      AlignItems="AlignItems.Center">
-
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                 <Breadcrumb Items="@_breadcrumbItems" />
+            </MudStack>
+        </MudHidden>
 
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.FilterList"
-                           OnClick="ToggleFiltersDrawer">
-                    Filters
-                    @if (_activeFilterCount > 0)
-                    {
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Color="Color.Primary"
-                                 Class="ml-2">
-                            @_activeFilterCount
-                        </MudChip>
-                    }
+    </MudStack>
+
+    <!-- Toolbar (homologado con AccountDetails) -->
+    <MudPaper Class="pa-3 mb-4" Elevation="1">
+
+        <!-- MOBILE: icon-only filter + New Transaction -->
+        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+
+                <MudIconButton Icon="@Icons.Material.Filled.FilterList"
+                               Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               OnClick="ToggleFiltersDrawer" />
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           FullWidth="true"
+                           OnClick="OpenAddTransactionDialog">
+                    New Transaction
                 </MudButton>
 
             </MudStack>
         </MudHidden>
 
-    </MudStack>
+        <!-- TABLET/DESKTOP: single row like AccountDetails -->
+        <MudHidden Breakpoint="Breakpoint.Xs">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="width:100%;">
+
+                <!-- Search expands -->
+                <MudTextField T="string"
+                              Value="@_filterDto.SearchText"
+                              ValueChanged="OnSearchChanged"
+                              Placeholder="Search transactions"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Clearable="true"
+                              Immediate="true"
+                              Class="flex-grow-1"
+                              Style="min-width: 240px;" />
+
+                <!-- Right actions -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-shrink:0;">
+
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.FilterList"
+                               OnClick="ToggleFiltersDrawer">
+                        Filters
+                        @if (_activeFilterCount > 0)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="ml-2">
+                                @_activeFilterCount
+                            </MudChip>
+                        }
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenAddTransactionDialog">
+                        New Transaction
+                    </MudButton>
+
+                </MudStack>
+
+            </MudStack>
+        </MudHidden>
+
+    </MudPaper>
 
     <ActiveFiltersChips Filter="@_filterDto"
                         Categories="@_categories"
@@ -80,7 +121,6 @@
                         OnFilterRemoved="OnFilterRemoved"
                         OnClearAll="ClearAllFilters" />
 
-    <!-- Stats Inline -->
     @if (!_loading && _transactionSummary != null)
     {
         <MudPaper Class="pa-4 mb-4" Elevation="1">
@@ -88,7 +128,6 @@
         </MudPaper>
     }
 
-    <!-- Transactions List Component -->
     <TransactionListBase GroupedTransactions="@_groupedTransactions"
                          Loading="@_loading"
                          ShowAccounts="true"
@@ -110,8 +149,7 @@
                          OnPageChanged="HandlePageChanged"
                          OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
-    <TransactionFilters
-                        @bind-IsOpen="_filtersDrawerOpen"
+    <TransactionFilters @bind-IsOpen="_filtersDrawerOpen"
                         Filter="_filterDto"
                         Categories="@_categories"
                         Accounts="@_accounts"
@@ -126,13 +164,15 @@
 </MudContainer>
 
 @code {
-    // ========== STATE ==========
     private bool _filtersDrawerOpen = false;
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
+
     private TransactionSummaryDto? _transactionSummary;
-    private List<TransactionDto>? _allTransactionsUnfiltered; // For pairing transfers
+    private List<TransactionDto>? _allTransactionsUnfiltered;
+
     private TransactionFilterDto _filterDto = new() { TimePeriod = TimePeriodFilter.ThisMonth };
+
     private bool _loading = true;
     private bool _hasActiveFilters = false;
     private int _activeFilterCount = 0;
@@ -143,14 +183,11 @@
     private int _rowsPerPage = 10;
     private int _totalTransactions = 0;
 
-    // Selection state
     private HashSet<int> _selectedTransactionIds = new();
 
-    // Drawer state
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
 
-    // Duplicate state
     private int _contextMenuTransactionId = 0;
     private bool _isDuplicating = false;
 
@@ -160,12 +197,10 @@
         new BreadcrumbItem("Transactions", href: null, disabled: true, icon: Icons.Material.Filled.Receipt)
     };
 
-    // Bootstrapping guard
     private bool _bootstrapped;
 
     protected override Task OnInitializedAsync()
     {
-        // Keep loading until bootstrap finishes
         _loading = true;
         return Task.CompletedTask;
     }
@@ -190,26 +225,19 @@
 
         UpdateFilterStates();
 
-        await LoadFilterDataParallel();
-
+        await LoadFilterData();
         await LoadTransactionsAsync();
     }
 
-    private async Task LoadFilterDataParallel()
+    private async Task LoadFilterData()
     {
         try
         {
             var categoriesResult = await CategoryService.GetAllAsync();
-            if (categoriesResult.Success)
-                _categories = categoriesResult.Data?.ToList();
-            else
-                _categories = new();
+            _categories = categoriesResult.Success ? categoriesResult.Data?.ToList() ?? new() : new();
 
             var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
-            if (accountsResult.Success)
-                _accounts = accountsResult.Data?.ToList();
-            else
-                _accounts = new();
+            _accounts = accountsResult.Success ? accountsResult.Data?.ToList() ?? new() : new();
 
             StateHasChanged();
         }
@@ -221,7 +249,36 @@
         }
     }
 
-    // ========== DATA LOADING ==========
+    private async Task OnSearchChanged(string value)
+    {
+        _filterDto.SearchText = value;
+        await TransactionFilterState.SaveAsync(_filterDto);
+
+        _currentPage = 1;
+        await LoadTransactionsAsync();
+    }
+
+    private async Task OpenAddTransactionDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["OnTransactionAdded"] = EventCallback.Factory.Create(this, OnTransactionChanged),
+            ["ShowTransactionTypeSwitcher"] = true
+        };
+
+        await DialogService.ShowAsync<AddTransactionModal>(
+            null,
+            parameters,
+            new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseButton = true,
+                CloseOnEscapeKey = true,
+                BackdropClick = true
+            });
+    }
+
     private async Task LoadTransactionsAsync()
     {
         _loading = true;
@@ -234,11 +291,8 @@
             if (result.Success && result.Data != null)
             {
                 _transactionSummary = result.Data;
-
-                // Save full list before display filtering
                 _allTransactionsUnfiltered = _transactionSummary.Transactions?.ToList() ?? new();
 
-                // Display filtering (transfers pairing, etc.)
                 if (_transactionSummary.Transactions != null)
                 {
                     _transactionSummary.Transactions = TransactionGroupingHelper
@@ -298,7 +352,6 @@
         _activeFilterCount = TransactionFilterHelper.GetActiveFilterCount(_filterDto);
     }
 
-    // ========== PAGINATION ==========
     private Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
     {
         _selectedTransactionIds = selectedIds;
@@ -323,7 +376,6 @@
         return Task.CompletedTask;
     }
 
-    // ========== TRANSACTION ACTIONS ==========
     private void EditTransaction(TransactionDto transaction)
     {
         _selectedTransactionId = transaction.Id;
@@ -402,11 +454,7 @@
         }
     }
 
-    // ========== FILTERS ==========
-    private void ToggleFiltersDrawer()
-    {
-        _filtersDrawerOpen = !_filtersDrawerOpen;
-    }
+    private void ToggleFiltersDrawer() => _filtersDrawerOpen = !_filtersDrawerOpen;
 
     private async Task OnFilterChanged(TransactionFilterDto filter)
     {
@@ -431,7 +479,6 @@
         await LoadTransactionsAsync();
     }
 
-    // ========== SELECTION ==========
     private async Task DeleteSelectedTransactions()
     {
         if (_selectedTransactionIds.Count == 0) return;
@@ -471,9 +518,7 @@
             }
 
             if (failCount > 0)
-            {
                 Snackbar.Add($"Failed to delete {failCount} transaction(s)", Severity.Warning);
-            }
         }
         catch
         {
@@ -481,27 +526,5 @@
         }
     }
 
-    // ========== EXPORT ==========
-    private Task ExportTransactions()
-    {
-        try
-        {
-            if (_transactionSummary?.Transactions?.Any() == true)
-                Snackbar.Add($"Exported {_transactionSummary.TotalCount} transactions", Severity.Success);
-            else
-                Snackbar.Add("No transactions to export", Severity.Warning);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Export error: {ex.Message}", Severity.Error);
-        }
-
-        return Task.CompletedTask;
-    }
-
-    // ========== EVENTS ==========
-    private async Task OnTransactionChanged()
-    {
-        await LoadTransactionsAsync();
-    }
+    private async Task OnTransactionChanged() => await LoadTransactionsAsync();
 }

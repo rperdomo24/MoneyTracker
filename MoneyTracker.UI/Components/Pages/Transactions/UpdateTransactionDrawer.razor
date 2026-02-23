@@ -14,212 +14,224 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
+<MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
 <MudDrawer @bind-Open="@IsOpen"
-           Anchor="Anchor.End"
+           Anchor="Anchor.Right"
            Elevation="2"
-           Variant="DrawerVariant.Temporary"
-           OverlayAutoClose="false"
-           Width="500px">
+           Variant="@DrawerVariant.Temporary"
+           Width="400px">
 
-    @if (_loading)
-    {
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-6" Style="height: 100vh;">
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-            <MudText Class="mt-3">Loading...</MudText>
-        </MudStack>
-    }
-    else if (_transactionWithPair == null || _transactionWithPair.Transaction == null)
-    {
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-6" Style="height: 100vh;">
-            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" Class="mb-3" />
-            <MudText Typo="Typo.h6">Transaction Not Found</MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close" Class="mt-3">
-                Close
-            </MudButton>
-        </MudStack>
-    }
-    else
-    {
-        <MudStack Style="height: 100vh;" Justify="Justify.SpaceBetween">
-            @* ========== HEADER ========== *@
-            <div>
-                <MudPaper Elevation="0" Class="pa-4" Style="border-bottom: 1px solid var(--mud-palette-divider);">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                        <div>
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
-                                <div>
-                                    <MudText Typo="Typo.h6" Class="font-weight-bold">@GetTitle()</MudText>
-                                    <MudText Typo="Typo.caption" Style="opacity: 0.7;">@GetSubtitle()</MudText>
-                                </div>
-                            </MudStack>
-                        </div>
-                        <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                       Color="Color.Default"
-                                       OnClick="Close"
-                                       Size="Size.Medium" />
-                    </MudStack>
-                </MudPaper>
+    @* HEADER *@
+    <MudDrawerHeader>
+        <MudStack Row="true"
+                  AlignItems="AlignItems.Center"
+                  Justify="Justify.SpaceBetween">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
 
-                @* ========== CHANGE ALERT ========== *@
-                @if (HasChanges())
+                @if (_transactionWithPair?.Transaction == null)
                 {
-                    <MudAlert Severity="Severity.Info" Dense="true" Class="ma-4 mb-0">
-                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudText Typo="Typo.body2">@GetChanges().Count() unsaved change(s)</MudText>
-                            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ResetToOriginal">
-                                Reset
-                            </MudButton>
-                        </MudStack>
-                    </MudAlert>
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">Edit Transaction</MudText>
                 }
-            </div>
-
-            @* ========== CONTENT ========== *@
-            <div style="flex: 1; overflow-y: auto;" Class="pa-4">
-                <MudForm @ref="_form">
-                    <MudStack Spacing="3">
-
-                        @if (_isTransfer)
-                        {
-                            @* ========== TRANSFER FORM ========== *@
-                            <MudTextField T="string"
-                                          Label="From Account"
-                                          Value="@GetFromAccountName()"
-                                          Variant="Variant.Outlined"
-                                          ReadOnly="true"
-                                          Adornment="Adornment.Start"
-                                          AdornmentIcon="@Icons.Material.Filled.Lock" />
-
-                            <MudNumericField T="decimal"
-                                             Label="Amount"
-                                             @bind-Value="_transaction.Amount"
-                                             Variant="Variant.Outlined"
-                                             Required="true"
-                                             Min="0.01m"
-                                             Format="F2"
-                                             Adornment="Adornment.Start"
-                                             AdornmentText="$"
-                                             HideSpinButtons="false" />
-
-                            <MudTextField T="string"
-                                          Label="To Account"
-                                          Value="@GetToAccountName()"
-                                          Variant="Variant.Outlined"
-                                          ReadOnly="true"
-                                          Adornment="Adornment.Start"
-                                          AdornmentIcon="@Icons.Material.Filled.Lock" />
-
-                            <MudDatePicker Label="Date"
-                                           @bind-Date="_transactionDate"
-                                           Variant="Variant.Outlined"
-                                           Required="true"
-                                           MaxDate="DateTime.Today"
-                                           Editable="true"
-                                           DateFormat="MM/dd/yyyy"
-                                           AutoClose="true" />
-
-                            <MudTextField T="string"
-                                          Label="Description (Optional)"
-                                          @bind-Value="_transaction.Description"
-                                          Variant="Variant.Outlined"
-                                          Lines="2"
-                                          Counter="500"
-                                          MaxLength="500" />
-
-                            @* ========== TRANSFER INFO ========== *@
-                            <MudAlert Severity="Severity.Info" Dense="true">
-                                <strong>Note:</strong> Editing this transfer will update both the outgoing and incoming transactions.
-                            </MudAlert>
-                        }
-                        else
-                        {
-                            @* ========== INCOME/EXPENSE FORM ========== *@
-                            <MudTextField T="string"
-                                          Label="Name"
-                                          @bind-Value="_transaction.Name"
-                                          Variant="Variant.Outlined"
-                                          Required="true"
-                                          Counter="100"
-                                          MaxLength="100"
-                                          Immediate="true" />
-
-                            <AccountSelector @bind-SelectedAccount="_selectedAccount"
-                                             Accounts="@(_accounts ?? new())"
-                                             Label="Account"
-                                             Required="true"
-                                             ShowBalance="false" />
-
-                            <MudNumericField T="decimal"
-                                             Label="Amount"
-                                             @bind-Value="_transaction.Amount"
-                                             Variant="Variant.Outlined"
-                                             Required="true"
-                                             Min="0.01m"
-                                             Format="F2"
-                                             Adornment="Adornment.Start"
-                                             AdornmentText="$"
-                                             HideSpinButtons="false" />
-
-                            <CategorySelector @bind-SelectedCategory="_selectedCategory"
-                                              Categories="@(_categories ?? new())"
-                                              FilterByType="@(_originalTransaction!.Category!.Type)"
-                                              OnAddCategory="CreateCategory"
-                                              ShowAddButton="true" />
-
-                            <MudDatePicker Label="Date"
-                                           @bind-Date="_transactionDate"
-                                           Variant="Variant.Outlined"
-                                           Required="true"
-                                           MaxDate="DateTime.Today"
-                                           Editable="true"
-                                           DateFormat="MM/dd/yyyy"
-                                           AutoClose="true" />
-
-                            <MudTextField T="string"
-                                          Label="Description (Optional)"
-                                          @bind-Value="_transaction.Description"
-                                          Variant="Variant.Outlined"
-                                          Lines="2"
-                                          Counter="500"
-                                          MaxLength="500" />
-                        }
-
+                else
+                {
+                    <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.h6" Class="font-weight-bold">@GetTitle()</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">@GetSubtitle()</MudText>
                     </MudStack>
-                </MudForm>
-            </div>
+                }
 
-            @* ========== FOOTER ACTIONS ========== *@
-            <MudPaper Elevation="0" Class="pa-4" Style="border-top: 1px solid var(--mud-palette-divider);">
-                <MudStack Spacing="2">
-                    <MudButton Color="Color.Primary"
-                               Variant="Variant.Filled"
-                               FullWidth="true"
-                               StartIcon="@Icons.Material.Filled.Save"
-                               OnClick="UpdateTransaction"
-                               Disabled="@(!IsFormValid() || !HasChanges() || _saving)">
-                        @if (_saving)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <span>Saving...</span>
-                        }
-                        else
-                        {
-                            <span>Save Changes</span>
-                        }
-                    </MudButton>
+            </MudStack>
 
-                    <MudButton Color="Color.Error"
-                               Variant="Variant.Outlined"
-                               FullWidth="true"
-                               StartIcon="@Icons.Material.Filled.Delete"
-                               OnClick="ConfirmDelete">
-                        Delete @(_isTransfer ? "Transfer" : "Transaction")
-                    </MudButton>
-                </MudStack>
-            </MudPaper>
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Color="Color.Default"
+                           OnClick="Close"
+                           Size="Size.Medium" />
         </MudStack>
+    </MudDrawerHeader>
+
+    @* BODY *@
+    <MudDrawerContainer Class="pa-4">
+
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <MudText Class="mt-3">Loading...</MudText>
+            </MudStack>
+        }
+        else if (_transactionWithPair == null || _transactionWithPair.Transaction == null)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" Class="mb-3" />
+                <MudText Typo="Typo.h6">Transaction Not Found</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close" Class="mt-3">
+                    Close
+                </MudButton>
+            </MudStack>
+        }
+        else
+        {
+            @* CHANGE ALERT *@
+            @if (HasChanges())
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.body2">@GetChanges().Count() unsaved change(s)</MudText>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ResetToOriginal">
+                            Reset
+                        </MudButton>
+                    </MudStack>
+                </MudAlert>
+            }
+
+            @* FORM *@
+            <MudForm @ref="_form">
+                <MudStack Spacing="3">
+
+                    @if (_isTransfer)
+                    {
+                        <MudTextField T="string"
+                                      Label="From Account"
+                                      Value="@GetFromAccountName()"
+                                      Variant="Variant.Outlined"
+                                      ReadOnly="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+                        <MudNumericField T="decimal"
+                                         Label="Amount"
+                                         @bind-Value="_transaction.Amount"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Min="0.01m"
+                                         Format="F2"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$"
+                                         HideSpinButtons="false" />
+
+                        <MudTextField T="string"
+                                      Label="To Account"
+                                      Value="@GetToAccountName()"
+                                      Variant="Variant.Outlined"
+                                      ReadOnly="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+                        <MudDatePicker Label="Date"
+                                       @bind-Date="_transactionDate"
+                                       Variant="Variant.Outlined"
+                                       Required="true"
+                                       MaxDate="DateTime.Today"
+                                       Editable="true"
+                                       DateFormat="MM/dd/yyyy"
+                                       AutoClose="true" />
+
+                        <MudTextField T="string"
+                                      Label="Description (Optional)"
+                                      @bind-Value="_transaction.Description"
+                                      Variant="Variant.Outlined"
+                                      Lines="2"
+                                      Counter="500"
+                                      MaxLength="500" />
+
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            <strong>Note:</strong> Editing this transfer will update both the outgoing and incoming transactions.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTextField T="string"
+                                      Label="Name"
+                                      @bind-Value="_transaction.Name"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      Counter="100"
+                                      MaxLength="100"
+                                      Immediate="true" />
+
+                        <AccountSelector @bind-SelectedAccount="_selectedAccount"
+                                         Accounts="@(_accounts ?? new())"
+                                         Label="Account"
+                                         Required="true"
+                                         ShowBalance="false" />
+
+                        <MudNumericField T="decimal"
+                                         Label="Amount"
+                                         @bind-Value="_transaction.Amount"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Min="0.01m"
+                                         Format="F2"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$"
+                                         HideSpinButtons="false" />
+
+                        <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                          Categories="@(_categories ?? new())"
+                                          FilterByType="@(_originalTransaction!.Category!.Type)"
+                                          OnAddCategory="CreateCategory"
+                                          ShowAddButton="true" />
+
+                        <MudDatePicker Label="Date"
+                                       @bind-Date="_transactionDate"
+                                       Variant="Variant.Outlined"
+                                       Required="true"
+                                       MaxDate="DateTime.Today"
+                                       Editable="true"
+                                       DateFormat="MM/dd/yyyy"
+                                       AutoClose="true" />
+
+                        <MudTextField T="string"
+                                      Label="Description (Optional)"
+                                      @bind-Value="_transaction.Description"
+                                      Variant="Variant.Outlined"
+                                      Lines="2"
+                                      Counter="500"
+                                      MaxLength="500" />
+                    }
+
+                </MudStack>
+            </MudForm>
+        }
+
+    </MudDrawerContainer>
+
+    @* FOOTER (no Cancel, only actions) *@
+    @if (!_loading && _transactionWithPair?.Transaction != null)
+    {
+        <MudPaper Elevation="0" Class="pa-4">
+            <MudStack Spacing="2">
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="UpdateTransaction"
+                           Disabled="@(!IsFormValid() || !HasChanges() || _saving)">
+
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Changes</span>
+                    }
+                </MudButton>
+
+                <MudButton Color="Color.Error"
+                           Variant="Variant.Outlined"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           OnClick="ConfirmDelete">
+                    Delete @(_isTransfer ? "Transfer" : "Transaction")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
     }
+
 </MudDrawer>
 
 @code {

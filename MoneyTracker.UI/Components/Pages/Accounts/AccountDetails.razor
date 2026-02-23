@@ -10,7 +10,6 @@
 @using MoneyTracker.UI.Components.Shared
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
-@using MoneyTracker.UI.Services.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
 @inject IAccountService AccountService
 @inject IDialogService DialogService
@@ -20,7 +19,7 @@
 
 <PageTitle>@(_account?.Name ?? "Account") - Money Tracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-2 pa-sm-6">
 
     @if (_loading)
     {
@@ -49,39 +48,37 @@
     {
         <!-- Header: Mobile -->
         <MudHidden Breakpoint="Breakpoint.SmAndUp">
-            <MudStack Spacing="1" Class="mb-3">
+            <MudStack Row="true"
+                      AlignItems="AlignItems.Center"
+                      Justify="Justify.SpaceBetween"
+                      Class="mb-3">
 
-                <!-- Row 1: Breadcrumb + Menu (same row) -->
-                <MudStack Row="true"
-                          AlignItems="AlignItems.Center"
-                          Justify="Justify.SpaceBetween">
-                    <Breadcrumb Items="@_breadcrumbItems" />
-
-                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                             AnchorOrigin="Origin.BottomRight"
-                             TransformOrigin="Origin.TopRight"
-                             Dense="true">
-                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                     OnClick="OpenEditDialog">
-                            Edit Account
-                        </MudMenuItem>
-                        <MudMenuItem Icon="@Icons.Material.Filled.SyncAlt"
-                                     OnClick="OpenAdjustBalanceDialog">
-                            Adjust Balance
-                        </MudMenuItem>
-                        <MudDivider />
-                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                     IconColor="Color.Error"
-                                     OnClick="DeleteAccount">
-                            <MudText Color="Color.Error">Delete Account</MudText>
-                        </MudMenuItem>
-                    </MudMenu>
-                </MudStack>
-
-                <!-- Row 2: Page title -->
-                <MudText Typo="Typo.h6" Class="font-weight-bold" NoWrap="true">
+                <MudText Typo="Typo.h6" Class="text-truncate" Style="min-width:0;">
                     @_account.Name
                 </MudText>
+
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight"
+                         Dense="true">
+                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                 OnClick="OpenEditDialog">
+                        Edit Account
+                    </MudMenuItem>
+
+                    <MudMenuItem Icon="@Icons.Material.Filled.SyncAlt"
+                                 OnClick="OpenAdjustBalanceDialog">
+                        Adjust Balance
+                    </MudMenuItem>
+
+                    <MudDivider />
+
+                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                 IconColor="Color.Error"
+                                 OnClick="DeleteAccount">
+                        <MudText Color="Color.Error">Delete Account</MudText>
+                    </MudMenuItem>
+                </MudMenu>
 
             </MudStack>
         </MudHidden>
@@ -115,7 +112,7 @@
             </MudStack>
         </MudHidden>
 
-        <!-- Chart Placeholder (responsive, no fixed height) -->
+        <!-- Chart Placeholder -->
         <MudPaper Class="pa-4 mb-4" Elevation="1">
             <MudHidden Breakpoint="Breakpoint.SmAndUp">
                 <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
@@ -144,7 +141,6 @@
         <MudPaper Class="pa-4 mb-4" Elevation="1">
 
             <!-- Mobile -->
-            <!-- Account Info Card - Mobile Centered -->
             <MudHidden Breakpoint="Breakpoint.SmAndUp">
                 <MudStack AlignItems="AlignItems.Center" Spacing="3">
 
@@ -183,7 +179,7 @@
                         var utilization = _account.CreditLimit > 0
                         ? (Math.Abs(_account.CurrentBalance) / _account.CreditLimit) * 100
                         : 0;
-                        
+
                         <MudStack AlignItems="AlignItems.Center" Spacing="0">
                             <MudText Typo="Typo.body2" Style="opacity: 0.7;" Align="Align.Center">
                                 Available: @FormatBalance(_account.AvailableCredit)
@@ -197,7 +193,6 @@
 
                 </MudStack>
             </MudHidden>
-
 
             <!-- Tablet/Desktop -->
             <MudHidden Breakpoint="Breakpoint.Xs">
@@ -224,7 +219,9 @@
                     </MudStack>
 
                     <MudStack Spacing="1" AlignItems="AlignItems.End">
-                        <MudText Typo="Typo.h4" Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")" NoWrap="true">
+                        <MudText Typo="Typo.h4"
+                                 Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
+                                 NoWrap="true">
                             @_account.FormattedBalance
                         </MudText>
 
@@ -254,7 +251,7 @@
         <!-- Filters & Actions Bar -->
         <MudPaper Class="pa-3 mb-4" Elevation="1">
 
-            <!-- Mobile: stack -->
+            <!-- Mobile: homologado con Transactions (Filter icon-only + New Transaction) -->
             <MudHidden Breakpoint="Breakpoint.SmAndUp">
                 <MudStack Spacing="2">
 
@@ -269,24 +266,11 @@
                                   Immediate="true"
                                   FullWidth="true" />
 
-                    <MudStack Spacing="2">
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Secondary"
-                                   StartIcon="@Icons.Material.Filled.FilterList"
-                                   OnClick="ToggleFiltersDrawer"
-                                   FullWidth="true">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudText>Filters</MudText>
-                                @if (HasActiveFilters())
-                                {
-                                    <MudChip T="string"
-                                             Size="Size.Small"
-                                             Color="Color.Primary">
-                                        @GetActiveFiltersCount()
-                                    </MudChip>
-                                }
-                            </MudStack>
-                        </MudButton>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudIconButton Icon="@Icons.Material.Filled.FilterList"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       OnClick="ToggleFiltersDrawer" />
 
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
@@ -300,7 +284,7 @@
                 </MudStack>
             </MudHidden>
 
-            <!-- Tablet/Desktop: row -->
+            <!-- Tablet/Desktop -->
             <MudHidden Breakpoint="Breakpoint.Xs">
                 <MudStack Row="true"
                           Justify="Justify.SpaceBetween"

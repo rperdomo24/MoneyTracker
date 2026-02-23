@@ -7,27 +7,24 @@
 @using MoneyTracker.UI.Helpers
 @inject ISnackbar Snackbar
 
+<MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
 <MudDrawer @bind-Open="@IsOpen"
-           Anchor="Anchor.End"
+           Anchor="Anchor.Right"
            Elevation="2"
            Variant="@DrawerVariant.Temporary"
-           Width="500px"
-           OverlayAutoClose="false">
+           Width="400px">
 
     <MudDrawerHeader>
-        <div class="d-flex justify-space-between align-center" style="width: 100%;">
-            <MudText Typo="Typo.h6">
-                <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-2" />
-                Filters
-            </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.FilterList" Size="Size.Medium" />
+                <MudText Typo="Typo.h6">Filters</MudText>
+            </MudStack>
 
-            <MudIconButton Icon="@Icons.Material.Filled.Clear"
-                           Color="Color.Secondary"
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
                            Size="Size.Small"
-                           OnClick="ClearAllFilters"
-                           Disabled="@(_activeFilterCount == 0)"
-                           Title="Clear All Filters" />
-        </div>
+                           OnClick="CancelAndClose" />
+        </MudStack>
     </MudDrawerHeader>
 
     <MudDrawerContainer Class="pa-4">
@@ -192,23 +189,28 @@
     </MudDrawerContainer>
 
     <!-- Apply Filters Button -->
-    <div class="pa-4 d-flex ga-2" style="border-top: 1px solid var(--mud-palette-divider); background-color: var(--mud-palette-background);">
-        <MudButton Variant="Variant.Outlined"
-                   Color="Color.Secondary"
-                   FullWidth="true"
-                   StartIcon="@Icons.Material.Filled.Close"
-                   OnClick="CancelAndClose">
-            Cancel
-        </MudButton>
+    <MudDivider />
 
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   FullWidth="true"
-                   StartIcon="@Icons.Material.Filled.Check"
-                   OnClick="ApplyAndClose">
-            Apply Filters
-        </MudButton>
-    </div>
+    <MudPaper Class="pa-4" Square="true" Elevation="0">
+        <MudStack Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Check"
+                       OnClick="ApplyAndClose">
+                Apply Filters
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.RestartAlt"
+                       OnClick="ClearAllFilters"
+                       Disabled="@(_activeFilterCount == 0)">
+                Reset Filters
+            </MudButton>
+        </MudStack>
+    </MudPaper>
 
 </MudDrawer>
 

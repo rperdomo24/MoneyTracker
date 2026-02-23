@@ -7,6 +7,8 @@
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 
+<MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
+
 <MudDrawer @bind-Open="@IsOpen"
            Anchor="Anchor.Right"
            Elevation="2"
@@ -14,12 +16,15 @@
            Width="400px">
 
     <MudDrawerHeader>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.FilterList" Size="Size.Medium" />
+                <MudText Typo="Typo.h6">Filters</MudText>
+            </MudStack>
+
             <MudIconButton Icon="@Icons.Material.Filled.Close"
                            OnClick="Close"
                            Size="Size.Small" />
-            <MudIcon Icon="@Icons.Material.Filled.FilterList" Size="Size.Medium" />
-            <MudText Typo="Typo.h6">Filters</MudText>
         </MudStack>
     </MudDrawerHeader>
 
@@ -96,7 +101,7 @@
                 </MudSelect>
 
                 <!-- Transaction Type -->
-                <MudSelect T="CategoryTypeEnum ?"
+                <MudSelect T="CategoryTypeEnum?"
                            Label="Transaction Type"
                            @bind-Value="_tempFilter.Type"
                            @bind-Value:after="OnTypeChanged"
@@ -149,7 +154,9 @@
         }
     </MudDrawerContainer>
 
-    <div Class="pa-4" Style="border-top: 1px solid var(--mud-palette-divider);">
+    <MudDivider />
+
+    <MudPaper Class="pa-4" Square="true" Elevation="0">
         <MudStack Spacing="2">
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -159,17 +166,20 @@
                 Apply Filters
             </MudButton>
 
-            <MudButton Variant="Variant.Text"
+            <MudButton Variant="Variant.Outlined"
                        Color="Color.Default"
                        FullWidth="true"
-                       StartIcon="@Icons.Material.Filled.Clear"
+                       StartIcon="@Icons.Material.Filled.RestartAlt"
                        OnClick="ClearFilters"
                        Disabled="@(!HasActiveFilters())">
-                Clear All
+                Reset Filters
             </MudButton>
         </MudStack>
-    </div>
+    </MudPaper>
+
 </MudDrawer>
+
+
 
 @code {
     [Parameter] public bool IsOpen { get; set; }
