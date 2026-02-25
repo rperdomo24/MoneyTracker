@@ -13,5 +13,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task<List<Transaction>> GetFilteredAsync(DateTime? FromDate, DateTime? ToDate, List<int> AccountIds, List<int> TransactionTypeIds);
         Task<int> AddAndReturnIdAsync(Transaction transaction);
         Task<List<Transaction>> GetByCategoryTreeAsync(int categoryId, DateTime fromUtc, DateTime toUtc);
+        Task<decimal> GetAccountBalanceAsync(int accountId);
     }
 }

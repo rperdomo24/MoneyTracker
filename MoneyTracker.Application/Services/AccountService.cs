@@ -36,9 +36,10 @@ namespace MoneyTracker.Application.Services
         public async Task<OperationResult<List<AccountDto>>> GetAccountsWithBalancesAsync()
         {
             var accounts = await _repository.GetAllAsync();
-            var result = accounts.Select(x => x.MapToDto()).ToList();
 
-            await CalculateCurrentBalancesAsync(result);
+            var result = accounts
+                .Select(a => a.MapToDto())
+                .ToList();
 
             return OperationResult<List<AccountDto>>.Ok(result, OperationMessages.DataRetrieved);
         }
@@ -49,14 +50,7 @@ namespace MoneyTracker.Application.Services
             if (account is null)
                 return OperationResult<AccountDto>.Fail(OperationMessages.NotFound);
 
-            var dto = account.MapToDto();
-
-            // ✅ Calculate current balance using mapper
-            var currentBalanceResult = await GetCurrentBalanceAsync(id);
-            if (currentBalanceResult.Success)
-                dto.CurrentBalance = currentBalanceResult.Data;
-
-            return OperationResult<AccountDto>.Ok(dto, OperationMessages.DataRetrieved);
+            return OperationResult<AccountDto>.Ok(account.MapToDto(), OperationMessages.DataRetrieved);
         }
 
         public async Task<OperationResult> UpdateAsync(AccountDto dto)
@@ -126,23 +120,16 @@ namespace MoneyTracker.Application.Services
         {
             try
             {
-                // 1. Get current balance
-                var currentBalanceResult = await GetCurrentBalanceAsync(accountId);
-                if (!currentBalanceResult.Success)
-                    return OperationResult.Fail(currentBalanceResult.Message);
+                var account = await _repository.GetByIdAsync(accountId);
+                if (account is null)
+                    return OperationResult.Fail(OperationMessages.NotFound);
 
-                var currentBalance = currentBalanceResult.Data;
+                var currentBalance = account.Balance;
                 var adjustment = newBalance - currentBalance;
 
                 if (adjustment == 0)
                     return OperationResult.Ok("No changes in balance");
 
-                // 2. Get account name using mapper
-                var account = await _repository.GetByIdAsync(accountId);
-                if (account is null)
-                    return OperationResult.Fail(OperationMessages.NotFound);
-
-                // 3. Create adjustment transaction
                 await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
 
                 var sign = adjustment > 0 ? "+" : "";
@@ -154,20 +141,11 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<decimal>> GetCurrentBalanceAsync(int accountId)
+        private async Task<OperationResult<decimal>> GetCurrentBalanceAsync(int accountId)
         {
             try
             {
-                var transactionsResult = await _transactionService.GetAllAsync();
-                if (!transactionsResult.Success)
-                    return OperationResult<decimal>.Fail("Error retrieving transactions");
-
-                var accountTransactions = transactionsResult.Data
-                    .Where(t => t.AccountId == accountId);
-
-                var balance = accountTransactions.Sum(t => t.Amount);
-
-                return OperationResult<decimal>.Ok(balance, "Balance calculated");
+                return await _transactionService.GetAccountBalanceAsync(accountId);
             }
             catch (Exception ex)
             {
@@ -206,7 +184,7 @@ namespace MoneyTracker.Application.Services
             {
                 Name = transactionType.ToString(),
                 AccountId = accountId,
-                Amount = Math.Abs(adjustment),
+                Amount = isIncome ? Math.Abs(adjustment) : -Math.Abs(adjustment),
                 CategoryId = categoryId,
                 Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
                 Description = $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - {accountName}",
@@ -222,30 +200,6 @@ namespace MoneyTracker.Application.Services
             await _transactionService.CreateAsync(transactionDto);
         }
 
-        private async Task CalculateCurrentBalancesAsync(List<AccountDto> accounts)
-        {
-            try
-            {
-                var transactionsResult = await _transactionService.GetAllAsync();
-                if (!transactionsResult.Success) return;
-
-                var transactions = transactionsResult.Data;
-
-                foreach (var account in accounts)
-                {
-                    var accountTransactions =
-                        transactions.Where(t => t.AccountId == account.Id);
-                    account.CurrentBalance =
-                        accountTransactions.Sum(t => t.Amount);
-                }
-            }
-            catch
-            {
-                // If calculation fails, balances remain at 0
-                // Could log error here if needed
-            }
-        }
-
         public async Task<OperationResult<bool>> HasAccountByType(AccountType accountType)
         {
             bool hasAccounts = await _repository.HasAccountsByTypeAsync(accountType);
@@ -253,5 +207,25 @@ namespace MoneyTracker.Application.Services
             return OperationResult<bool>.Ok(hasAccounts,
                 hasAccounts ? "Accounts found" : "No accounts found of this type");
         }
+
+        public async Task<OperationResult> SyncBalanceAsync(int accountId)
+        {
+            var account = await _repository.GetByIdAsync(accountId);
+            if (account is null)
+                return OperationResult.Fail(OperationMessages.NotFound);
+
+            var balanceResult = await GetCurrentBalanceAsync(accountId);
+            if (!balanceResult.Success)
+                return OperationResult.Fail(balanceResult.Message ?? "Error calculating balance");
+
+            account.Balance = balanceResult.Data;
+
+            var updated = await _repository.UpdateAsync(account);
+            if (!updated)
+                return OperationResult.Fail("Error syncing account balance");
+
+            return OperationResult.Ok("Account balance synced successfully");
+        }
+
     }
 }

@@ -197,6 +197,10 @@
                                                      OnClick="@(() => OpenEditDialog(account.Id))">
                                             Edit
                                         </MudMenuItem>
+                                        <MudMenuItem Icon="@Icons.Material.Filled.Sync"
+                                                     OnClick="@(() => ConfirmSyncBalance(account))">
+                                            Sync Balance
+                                        </MudMenuItem>
                                         <MudDivider />
                                         <MudMenuItem Icon="@Icons.Material.Filled.Delete"
                                                      IconColor="Color.Error"
@@ -251,6 +255,10 @@
                                             <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                          OnClick="@(() => OpenEditDialog(account.Id))">
                                                 Edit
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Sync"
+                                                         OnClick="@(() => ConfirmSyncBalance(account))">
+                                                Sync Balance
                                             </MudMenuItem>
                                             <MudDivider />
                                             <MudMenuItem Icon="@Icons.Material.Filled.Delete"
@@ -409,5 +417,37 @@
             "Adjust Balance",
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Small });
+    }
+
+    private async Task ConfirmSyncBalance(AccountDto account)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Sync Balance",
+            $"This will recalculate the balance for '{account.Name}' by summing all its transactions and overwrite the stored balance. Continue?",
+            yesText: "Sync",
+            cancelText: "Cancel",
+            options: new DialogOptions { CloseButton = true }) ?? false;
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var result = await AccountService.SyncBalanceAsync(account.Id);
+
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Balance synced", Severity.Success);
+                await LoadAccounts();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to sync balance", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error syncing balance", Severity.Error);
+        }
     }
 }

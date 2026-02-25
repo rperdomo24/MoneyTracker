@@ -189,5 +189,19 @@ public class TransactionRepository : ITransactionRepository
             .ToListAsync();
     }
 
-}
+    public async Task<decimal> GetAccountBalanceAsync(int accountId)
+    {
+        try
+        {
+            return await _context.Transaction
+                .Where(t => t.AccountId == accountId && !t.IsDeleted)
+                .SumAsync(t => (decimal?)t.Amount) ?? 0m;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error calculating balance for account {AccountId}", accountId);
+            return 0m;
+        }
+    }
 
+}

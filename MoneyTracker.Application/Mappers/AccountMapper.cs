@@ -27,7 +27,7 @@ namespace MoneyTracker.Application.Mappers
             {
                 Id = dto.Id,
                 Name = dto.Name,
-                Balance = 0,
+                Balance = dto.CurrentBalance,
                 CreditLimit = dto.CreditLimit,
                 Notes = dto.Notes,
                 Icon = dto.Icon.ToString(),
