@@ -29,24 +29,32 @@
             <MudStack AlignItems="AlignItems.Center" Spacing="1">
 
                 <MudChart ChartType="ChartType.Donut"
-                          InputData="@_inputData"
-                          InputLabels="@_inputLabels"
                           Width="280px"
-                          Height="280px" />
+                          Height="280px"
+                          ChartSeries="@_chartData.AsChartDataSet()"
+                          ChartLabels="@_chartLabels">
 
-                <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                    @(IsExpenseTab ? "Spent" : "Earned")
-                </MudText>
+                    <CustomGraphics>
+                        <text x="50%" y="38%" dominant-baseline="middle" text-anchor="middle"
+                              fill="var(--mud-palette-text-primary)"
+                              font-family="Helvetica" font-size="14" style="opacity:0.75;">
+                            @(IsExpenseTab ? "Spent" : "Earned")
+                        </text>
 
-                <MudText Typo="Typo.h4"
-                         Class="font-weight-bold"
-                         Style="@(IsExpenseTab ? "color: var(--mud-palette-error);" : "color: var(--mud-palette-success);")">
-                    @FormatCurrency(Summary.TotalUsed)
-                </MudText>
+                        <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
+                              fill="var(--mud-palette-text-primary)"
+                              font-family="Helvetica" font-size="26" font-weight="700">
+                            @FormatCurrency(Summary.TotalUsed)
+                        </text>
 
-                <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                    of @FormatCurrency(Summary.TotalBudgeted)
-                </MudText>
+                        <text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle"
+                              fill="var(--mud-palette-text-secondary)"
+                              font-family="Helvetica" font-size="12" style="opacity:0.8;">
+                            of @FormatCurrency(Summary.TotalBudgeted)
+                        </text>
+                    </CustomGraphics>
+
+                </MudChart>
 
             </MudStack>
 
@@ -115,28 +123,39 @@
     [Parameter] public List<BudgetCategorySliceVm>? Slices { get; set; }
     [Parameter] public EventCallback OnAddBudget { get; set; }
 
-    private double[] _inputData = Array.Empty<double>();
-    private string[] _inputLabels = Array.Empty<string>();
-    private List<BudgetCategorySliceVm> _legendSlices = new();
     private bool _hasChartData;
+
+    // MudBlazor 9: Donut/Pie => double[] + labels + AsChartDataSet()
+    private double[] _chartData = Array.Empty<double>();
+    private string[] _chartLabels = Array.Empty<string>();
+
+    // Legend
+    private List<BudgetCategorySliceVm> _legendSlices = new();
 
     protected override void OnParametersSet()
     {
         _hasChartData = false;
-        _inputData = Array.Empty<double>();
-        _inputLabels = Array.Empty<string>();
+        _chartData = Array.Empty<double>();
+        _chartLabels = Array.Empty<string>();
         _legendSlices = new();
 
         if (Slices?.Any() != true)
             return;
 
-        var cleaned = Slices.Where(x => x.Used > 0).ToList();
+        var cleaned = Slices
+            .Where(x => x.Used > 0)
+            .ToList();
+
         if (!cleaned.Any())
             return;
 
+        // Si querés, podés ordenar aquí para que el donut siempre sea consistente:
+        // cleaned = cleaned.OrderByDescending(x => x.Used).ToList();
+
         _legendSlices = cleaned;
-        _inputData = cleaned.Select(x => (double)x.Used).ToArray();
-        _inputLabels = cleaned.Select(x => x.Name).ToArray();
+        _chartData = cleaned.Select(x => (double)x.Used).ToArray();
+        _chartLabels = cleaned.Select(x => x.Name).ToArray();
+
         _hasChartData = true;
     }
 

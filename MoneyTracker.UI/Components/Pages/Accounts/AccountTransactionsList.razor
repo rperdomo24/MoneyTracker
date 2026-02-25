@@ -231,7 +231,7 @@
             ? "Delete this transfer? This will delete both transactions."
             : $"Delete '{tx.Name}'?";
 
-        bool confirmed = await DialogService.ShowMessageBox(
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
             $"Delete {(isTransfer ? "Transfer" : "Transaction")}",
             message, yesText: "Delete", cancelText: "Cancel") ?? false;
 
@@ -254,7 +254,7 @@
     {
         if (_selectedTransactionIds.Count == 0) return;
 
-        bool confirmed = await DialogService.ShowMessageBox(
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete Transactions",
             $"Delete {_selectedTransactionIds.Count} transaction(s)?",
             yesText: "Delete", cancelText: "Cancel") ?? false;

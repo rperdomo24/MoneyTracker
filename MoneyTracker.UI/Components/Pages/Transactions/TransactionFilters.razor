@@ -115,10 +115,11 @@
                     <MudSelect T="int"
                                Label="Accounts"
                                MultiSelection="true"
-                               @bind-SelectedValues="SelectedAccountIds"
+                               @bind-SelectedValues="_selectedAccountIds"
+                               @bind-SelectedValues:after="OnSelectedAccountsChanged"
                                Variant="Variant.Outlined"
                                Clearable="true"
-                               MultiSelectionTextFunc="@GetSelectedAccountsText"
+                               MultiSelectionTextFunc="GetSelectedAccountsText"
                                MaxHeight="400">
 
                         @{
@@ -131,9 +132,11 @@
                             {
                                 currentType = account.Type;
 
-                                <MudSelectItem Value="-1" Disabled="true">
-                                    <div class="py-2 px-1" style="background-color: var(--mud-palette-action-hover); border-left: 3px solid var(--mud-palette-primary); margin: 4px -12px;">
-                                        <MudText Typo="Typo.subtitle2" Class="text-primary font-weight-bold d-flex align-center">
+                                <MudSelectItem T="int" Value="-1" Disabled="true">
+                                    <div class="py-2 px-1"
+                                         style="background-color: var(--mud-palette-action-hover); border-left: 3px solid var(--mud-palette-primary); margin: 4px -12px;">
+                                        <MudText Typo="Typo.subtitle2"
+                                                 Class="text-primary font-weight-bold d-flex align-center">
                                             <MudIcon Icon="@account.Type.ToIcon()"
                                                      Size="Size.Small"
                                                      Class="mr-2" />
@@ -143,7 +146,7 @@
                                 </MudSelectItem>
                             }
 
-                            <MudSelectItem Value="@account.Id">
+                            <MudSelectItem T="int" Value="@account.Id">
                                 <div class="d-flex align-center py-2 px-1">
                                     <MudAvatar Size="Size.Small"
                                                Style="@($"background-color: {(string.IsNullOrEmpty(account.Color) ? "#757575" : account.Color)}; margin-right: 12px; flex-shrink: 0;")">
@@ -222,7 +225,6 @@
     [Parameter] public EventCallback<TransactionFilterDto> OnFilterChanged { get; set; }
     [Parameter] public EventCallback OnFiltersApplied { get; set; }
 
-    // ✅ Ahora vienen del padre (Transactions.razor)
     [Parameter] public List<CategoryDto>? Categories { get; set; }
     [Parameter] public List<AccountDto>? Accounts { get; set; }
 
@@ -235,25 +237,22 @@
     private int _activeFilterCount = 0;
     private CategoryDto? _selectedCategory;
 
-    private IEnumerable<int> SelectedAccountIds
-    {
-        get => _tempFilter.AccountIds ?? Enumerable.Empty<int>();
-        set => _tempFilter.AccountIds = value?.ToList();
-    }
+    // ✅ MudBlazor 9 requiere IReadOnlyCollection<T> aquí
+    private IReadOnlyCollection<int> _selectedAccountIds = Array.Empty<int>();
 
     protected override void OnParametersSet()
     {
-        // Sync filter options from parent
         _categories = Categories ?? new();
         _activeAccounts = Accounts ?? new();
+
         _orderedAccounts = _activeAccounts
             .OrderBy(a => (int)a.Type)
             .ThenBy(a => a.Name)
             .ToList();
 
-        if (!IsOpen) return;
+        if (!IsOpen)
+            return;
 
-        // Clone filter into temp model
         _tempFilter = new TransactionFilterDto
         {
             TimePeriod = Filter.TimePeriod,
@@ -265,42 +264,13 @@
             Type = Filter.Type
         };
 
+        _selectedAccountIds = (_tempFilter.AccountIds ?? new List<int>()).ToArray();
+
         _selectedCategory = Filter.CategoryId.HasValue
             ? _categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)
             : null;
 
         CalculateActiveFilterCount();
-    }
-
-    private string GetSelectedAccountsText(List<string> selectedValues)
-    {
-        if (!selectedValues?.Any() == true || _activeAccounts?.Any() != true)
-            return "Select accounts...";
-
-        var selectedIds = selectedValues
-            .Where(x => int.TryParse(x, out _))
-            .Select(int.Parse)
-            .ToList();
-
-        if (!selectedIds.Any())
-            return "Select accounts...";
-
-        var selectedAccounts = _activeAccounts.Where(a => selectedIds.Contains(a.Id)).ToList();
-
-        if (!selectedAccounts.Any())
-            return "Select accounts...";
-
-        if (selectedAccounts.Count == 1)
-        {
-            var account = selectedAccounts.First();
-            return $"{account.Name} ({FormatCurrency(account.CurrentBalance)})";
-        }
-
-        if (selectedAccounts.Count <= 2)
-            return string.Join(", ", selectedAccounts.Select(a => a.Name));
-
-        var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
-        return $"{selectedAccounts.Count} accounts ({FormatCurrency(totalBalance)})";
     }
 
     private Task OnTimePeriodChanged()
@@ -335,6 +305,13 @@
         return Task.CompletedTask;
     }
 
+    private Task OnSelectedAccountsChanged()
+    {
+        _tempFilter.AccountIds = _selectedAccountIds?.ToList();
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
     private void CalculateActiveFilterCount()
     {
         _activeFilterCount = 0;
@@ -350,6 +327,7 @@
     {
         _tempFilter = new TransactionFilterDto { TimePeriod = TimePeriodFilter.ThisMonth };
         _selectedCategory = null;
+        _selectedAccountIds = Array.Empty<int>();
         CalculateActiveFilterCount();
         return Task.CompletedTask;
     }
@@ -388,5 +366,39 @@
             < 0 => "text-error",
             _ => "text-muted"
         };
+    }
+
+    // ✅ MudBlazor 9: MultiSelectionTextFunc recibe lista de strings (los values llegan como texto)
+    private string? GetSelectedAccountsText(IReadOnlyList<string?>? selectedValues)
+    {
+        if (selectedValues == null || selectedValues.Count == 0 || _activeAccounts?.Any() != true)
+            return "Select accounts...";
+
+        var selectedIds = selectedValues
+            .Where(x => int.TryParse(x, out _))
+            .Select(int.Parse)
+            .ToList();
+
+        if (selectedIds.Count == 0)
+            return "Select accounts...";
+
+        var selectedAccounts = _activeAccounts
+            .Where(a => selectedIds.Contains(a.Id))
+            .ToList();
+
+        if (selectedAccounts.Count == 0)
+            return "Select accounts...";
+
+        if (selectedAccounts.Count == 1)
+        {
+            var account = selectedAccounts[0];
+            return $"{account.Name} ({FormatCurrency(account.CurrentBalance)})";
+        }
+
+        if (selectedAccounts.Count <= 2)
+            return string.Join(", ", selectedAccounts.Select(a => a.Name));
+
+        var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
+        return $"{selectedAccounts.Count} accounts ({FormatCurrency(totalBalance)})";
     }
 }

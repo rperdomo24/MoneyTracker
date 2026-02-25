@@ -18,183 +18,85 @@
             </MudButtonGroup>
         </CardHeaderActions>
     </MudCardHeader>
+
     <MudCardContent>
         @if (Data?.Any() == true)
         {
             <MudStack Spacing="3">
-                @* MudChart Bar Chart *@
+
                 <MudPaper Class="pa-2" Elevation="0">
-                    <MudChart ChartType="ChartType.Bar"
+                    <MudChart T="double"
+                              ChartType="ChartType.Bar"
                               ChartSeries="@_chartSeries"
+                              ChartLabels="@_chartLabels"
                               @bind-SelectedIndex="_selectedIndex"
-                              XAxisLabels="@_xAxisLabels"
                               Width="100%"
-                              Height="@(_chartHeight + "px")"
-                              ChartOptions="@_chartOptions"
-                              AxisChartOptions="@_axisChartOptions" />
+                              Height="@($"{_chartHeight}px")"
+                              ChartOptions="@_chartOptions" />
                 </MudPaper>
 
-                @if (_selectedIndex >= 0 && _selectedIndex < _chartSeries.Count)
+                @if (_selectedIndex >= 0 && _selectedIndex < _chartLabels.Length)
                 {
                     <MudAlert Severity="Severity.Info" Variant="Variant.Text">
-                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                            <div style="@($"width: 16px; height: 16px; border-radius: 50%; background-color: {GetSeriesColor(_selectedIndex)}")"></div>
+                        <MudStack Spacing="1">
                             <MudText Typo="Typo.body2">
-                                <strong>Serie seleccionada:</strong> @_chartSeries[_selectedIndex].Name
+                                <strong>Mes seleccionado:</strong> @_chartLabels[_selectedIndex]
                             </MudText>
+
+                            <MudGrid Spacing="1">
+                                <MudItem xs="12" sm="6">
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[0]};")"></div>
+                                        <MudText Typo="Typo.caption">Corriente:</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Checking", _selectedIndex))</MudText>
+                                    </MudStack>
+                                </MudItem>
+
+                                <MudItem xs="12" sm="6">
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[1]};")"></div>
+                                        <MudText Typo="Typo.caption">Ahorros:</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Savings", _selectedIndex))</MudText>
+                                    </MudStack>
+                                </MudItem>
+
+                                <MudItem xs="12" sm="6">
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[2]};")"></div>
+                                        <MudText Typo="Typo.caption">Crédito:</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Credit", _selectedIndex))</MudText>
+                                    </MudStack>
+                                </MudItem>
+
+                                <MudItem xs="12" sm="6">
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[3]};")"></div>
+                                        <MudText Typo="Typo.caption">Inversión:</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Investment", _selectedIndex))</MudText>
+                                    </MudStack>
+                                </MudItem>
+                            </MudGrid>
                         </MudStack>
                     </MudAlert>
                 }
 
                 <MudDivider />
 
-                @* Legend/Summary *@
-                <MudGrid>
-                    <MudItem xs="6" sm="3">
-                        <MudPaper Class="pa-3" Elevation="0" Style="border-left: 4px solid #4caf50;">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                    <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #4caf50;"></div>
-                                    <MudText Typo="Typo.caption">Corriente</MudText>
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    @FormatCurrency(GetLatestBalance("Checking"))
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @GetBalanceGrowth("Checking")
-                                </MudText>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudPaper Class="pa-3" Elevation="0" Style="border-left: 4px solid #2196f3;">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                    <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #2196f3;"></div>
-                                    <MudText Typo="Typo.caption">Ahorros</MudText>
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    @FormatCurrency(GetLatestBalance("Savings"))
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @GetBalanceGrowth("Savings")
-                                </MudText>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudPaper Class="pa-3" Elevation="0" Style="border-left: 4px solid #f44336;">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                    <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #f44336;"></div>
-                                    <MudText Typo="Typo.caption">Crédito</MudText>
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    @FormatCurrency(GetLatestBalance("Credit"))
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @GetBalanceGrowth("Credit")
-                                </MudText>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudPaper Class="pa-3" Elevation="0" Style="border-left: 4px solid #ff9800;">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                    <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #ff9800;"></div>
-                                    <MudText Typo="Typo.caption">Inversión</MudText>
-                                </MudStack>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    @FormatCurrency(GetLatestBalance("Investment"))
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @GetBalanceGrowth("Investment")
-                                </MudText>
-                            </MudStack>
-                        </MudPaper>
-                    </MudItem>
-                </MudGrid>
-
-                <MudDivider />
-
-                @* Summary Statistics *@
-                <MudGrid>
-                    <MudItem xs="12" sm="4">
-                        <MudAlert Severity="Severity.Success" Variant="Variant.Text" Class="pa-3">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Patrimonio Neto</MudText>
-                                <MudText Typo="Typo.h6" Style="font-weight: 600;">
-                                    @FormatCurrency(GetNetWorth())
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @GetNetWorthGrowth()
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                    <MudItem xs="12" sm="4">
-                        <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="pa-3">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Período Analizado</MudText>
-                                <MudText Typo="Typo.h6" Style="font-weight: 600;">
-                                    @_selectedPeriod meses
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @Data.Count puntos de datos
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                    <MudItem xs="12" sm="4">
-                        <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Class="pa-3">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Variación Promedio</MudText>
-                                <MudText Typo="Typo.h6" Style="font-weight: 600;">
-                                    @GetAverageVariation()
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    Por mes
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                </MudGrid>
-
-                @* Chart Controls *@
                 <MudExpansionPanels>
                     <MudExpansionPanel Text="Opciones del Gráfico" Icon="@Icons.Material.Filled.Settings">
                         <MudGrid>
                             <MudItem xs="12" sm="6">
-                                <MudCheckBox @bind-Value="_axisChartOptions.MatchBoundsToSize"
-                                             Color="Color.Primary"
-                                             Label="Ajustar límites al tamaño" />
-                            </MudItem>
-                            <MudItem xs="12" sm="6">
                                 <MudText Typo="Typo.body2">Altura del gráfico: @_chartHeight px</MudText>
                             </MudItem>
                             <MudItem xs="12" sm="6">
-                                <MudStack>
-                                    <MudText Typo="Typo.body2">Rotación etiquetas X</MudText>
-                                    <MudSlider @bind-Value="_axisChartOptions.XAxisLabelRotation"
-                                               Min="0" Max="90" Step="15"
-                                               ValueLabel="true" />
-                                </MudStack>
-                            </MudItem>
-                            <MudItem xs="12" sm="6">
-                                <MudStack>
-                                    <MudText Typo="Typo.body2">Altura del gráfico</MudText>
-                                    <MudSlider @bind-Value="_chartHeight"
-                                               Min="250" Max="500" Step="25"
-                                               ValueLabel="true" />
-                                </MudStack>
+                                <MudSlider @bind-Value="_chartHeight"
+                                           Min="250" Max="500" Step="25"
+                                           ValueLabel="true" />
                             </MudItem>
                         </MudGrid>
                     </MudExpansionPanel>
                 </MudExpansionPanels>
+
             </MudStack>
         }
         else
@@ -221,20 +123,18 @@
     private int _selectedPeriod = 6;
     private int _selectedIndex = -1;
     private int _chartHeight = 350;
-    private List<ChartSeries> _chartSeries = new();
-    private string[] _xAxisLabels = Array.Empty<string>();
+
+    private string[] _chartLabels = Array.Empty<string>();
+
     private readonly string[] _seriesColors = { "#4caf50", "#2196f3", "#f44336", "#ff9800" };
 
     private ChartOptions _chartOptions = new()
-        {
-            ChartPalette = new[] { "#4caf50", "#2196f3", "#f44336", "#ff9800" }
-        };
+    {
+        // ✅ En MudBlazor 9 esto fija el orden de colores según el orden de las series
+        ChartPalette = new[] { "#4caf50", "#2196f3", "#f44336", "#ff9800" }
+    };
 
-    private AxisChartOptions _axisChartOptions = new()
-        {
-            MatchBoundsToSize = true,
-            XAxisLabelRotation = 45
-        };
+    private List<ChartSeries<double>> _chartSeries = new();
 
     protected override void OnParametersSet()
     {
@@ -251,146 +151,46 @@
     {
         if (Data?.Any() != true)
         {
-            _chartSeries = new List<ChartSeries>();
-            _xAxisLabels = Array.Empty<string>();
+            _chartSeries = new();
+            _chartLabels = Array.Empty<string>();
+            _selectedIndex = -1;
             return;
         }
 
-        var sortedData = Data.OrderBy(x => x.Date).ToList();
+        var sorted = Data.OrderBy(x => x.Date).ToList();
+        _chartLabels = sorted.Select(x => x.Date.ToString("MMM yyyy")).ToArray();
 
-        // Crear etiquetas del eje X (fechas)
-        _xAxisLabels = sortedData.Select(x => x.Date.ToString("MMM yyyy")).ToArray();
-
-        // Crear series para cada tipo de cuenta
-        _chartSeries = new List<ChartSeries>
+        // ✅ IMPORTANTE: el orden de estas series define el color (palette[0..3])
+        _chartSeries = new List<ChartSeries<double>>
         {
-            new ChartSeries
-            {
-                Name = "Corriente",
-                Data = sortedData.Select(x => (double)x.CheckingBalance).ToArray()
-            },
-            new ChartSeries
-            {
-                Name = "Ahorros",
-                Data = sortedData.Select(x => (double)x.SavingsBalance).ToArray()
-            },
-            new ChartSeries
-            {
-                Name = "Crédito",
-                Data = sortedData.Select(x => (double)x.CreditBalance).ToArray()
-            },
-            new ChartSeries
-            {
-                Name = "Inversión",
-                Data = sortedData.Select(x => (double)x.InvestmentBalance).ToArray()
-            }
+            new() { Name = "Corriente", Data = sorted.Select(x => (double)x.CheckingBalance).ToArray() },
+            new() { Name = "Ahorros",   Data = sorted.Select(x => (double)x.SavingsBalance).ToArray() },
+            new() { Name = "Crédito",   Data = sorted.Select(x => (double)x.CreditBalance).ToArray() },
+            new() { Name = "Inversión", Data = sorted.Select(x => (double)x.InvestmentBalance).ToArray() },
         };
+
+        if (_selectedIndex >= _chartLabels.Length)
+            _selectedIndex = -1;
     }
 
-    private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
-
-    private decimal GetLatestBalance(string type)
+    private decimal GetValueAt(string type, int index)
     {
         if (Data?.Any() != true) return 0;
 
-        var latest = Data.OrderByDescending(x => x.Date).First();
+        var sorted = Data.OrderBy(x => x.Date).ToList();
+        if (index < 0 || index >= sorted.Count) return 0;
+
+        var item = sorted[index];
         return type switch
         {
-            "Checking" => latest.CheckingBalance,
-            "Savings" => latest.SavingsBalance,
-            "Credit" => latest.CreditBalance,
-            "Investment" => latest.InvestmentBalance,
+            "Checking" => item.CheckingBalance,
+            "Savings" => item.SavingsBalance,
+            "Credit" => item.CreditBalance,
+            "Investment" => item.InvestmentBalance,
             _ => 0
         };
     }
 
-    private string GetBalanceGrowth(string type)
-    {
-        if (Data?.Count < 2) return "Sin datos";
-
-        var sortedData = Data.OrderBy(x => x.Date).ToList();
-        var first = sortedData.First();
-        var last = sortedData.Last();
-
-        var firstBalance = type switch
-        {
-            "Checking" => first.CheckingBalance,
-            "Savings" => first.SavingsBalance,
-            "Credit" => first.CreditBalance,
-            "Investment" => first.InvestmentBalance,
-            _ => 0
-        };
-
-        var lastBalance = type switch
-        {
-            "Checking" => last.CheckingBalance,
-            "Savings" => last.SavingsBalance,
-            "Credit" => last.CreditBalance,
-            "Investment" => last.InvestmentBalance,
-            _ => 0
-        };
-
-        var change = lastBalance - firstBalance;
-        var changePercent = firstBalance != 0 ? (change / Math.Abs(firstBalance)) * 100 : 0;
-
-        var icon = change >= 0 ? "↗" : "↘";
-        var color = change >= 0 ? "success" : "error";
-
-        return $"{icon} {FormatCurrency(change)} ({changePercent:F1}%)";
-    }
-
-    private decimal GetNetWorth()
-    {
-        if (Data?.Any() != true) return 0;
-        var latest = Data.OrderByDescending(x => x.Date).First();
-        return latest.CheckingBalance + latest.SavingsBalance + latest.CreditBalance + latest.InvestmentBalance;
-    }
-
-    private string GetNetWorthGrowth()
-    {
-        if (Data?.Count < 2) return "Sin datos";
-
-        var sortedData = Data.OrderBy(x => x.Date).ToList();
-        var first = sortedData.First();
-        var last = sortedData.Last();
-
-        var firstTotal = first.CheckingBalance + first.SavingsBalance + first.CreditBalance + first.InvestmentBalance;
-        var lastTotal = last.CheckingBalance + last.SavingsBalance + last.CreditBalance + last.InvestmentBalance;
-
-        var change = lastTotal - firstTotal;
-        var changePercent = firstTotal != 0 ? (change / Math.Abs(firstTotal)) * 100 : 0;
-
-        var icon = change >= 0 ? "↗" : "↘";
-        return $"{icon} {FormatCurrency(change)} ({changePercent:F1}%)";
-    }
-
-    private string GetAverageVariation()
-    {
-        if (Data?.Count < 2) return "N/A";
-
-        var sortedData = Data.OrderBy(x => x.Date).ToList();
-        var totalVariations = new List<decimal>();
-
-        for (int i = 1; i < sortedData.Count; i++)
-        {
-            var prev = sortedData[i - 1];
-            var curr = sortedData[i];
-
-            var prevTotal = prev.CheckingBalance + prev.SavingsBalance + prev.CreditBalance + prev.InvestmentBalance;
-            var currTotal = curr.CheckingBalance + curr.SavingsBalance + curr.CreditBalance + curr.InvestmentBalance;
-
-            totalVariations.Add(Math.Abs(currTotal - prevTotal));
-        }
-
-        var avgVariation = totalVariations.Any() ? totalVariations.Average() : 0;
-        return FormatCurrency(avgVariation);
-    }
-
-    private string GetSeriesColor(int index)
-    {
-        return index >= 0 && index < _seriesColors.Length ? _seriesColors[index] : "#666";
-    }
+    private static string FormatCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
 }

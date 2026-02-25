@@ -477,7 +477,7 @@
     {
         if (_account == null) return;
 
-        bool confirmed = await DialogService.ShowMessageBox(
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete Account",
             $"Are you sure you want to delete '{_account.Name}'? This will also delete all associated transactions.",
             yesText: "Delete",

@@ -355,7 +355,7 @@
         var account = _accounts.FirstOrDefault(a => a.Id == id);
         var accountName = account?.Name ?? "this account";
 
-        bool confirmed = await DialogService.ShowMessageBox(
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete Account",
             $"Are you sure you want to delete '{accountName}'? This action cannot be undone and will also delete all associated transactions.",
             yesText: "Delete",
