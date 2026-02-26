@@ -6,23 +6,18 @@
 @inject ProtectedSessionStorage SessionStorage
 @inject AccountsDrawerState AccountsDrawer
 
-
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
 
 <MudLayout>
-    <!-- Enhanced Top AppBar -->
+    <!-- Top AppBar -->
     <MudAppBar Elevation="2" Color="Color.Default" Fixed="true">
 
-        <!-- Drawer toggle (Desktop/Tablet only) -->
+        <!-- Solo icono (SIN toggle) -->
         <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu"
-                           Color="Color.Inherit"
-                           Edge="Edge.Start"
-                           OnClick="@DrawerToggle"
-                           Title="Toggle Menu" />
+            <MudIcon Icon="@Icons.Material.Filled.Menu" Class="mr-2" />
         </MudHidden>
 
         <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet"
@@ -52,6 +47,13 @@
             }
         </MudHidden>
 
+        <!-- Accounts Drawer toggle (ALL pages, from layout) -->
+        <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                       Color="Color.Inherit"
+                       Class="mr-1"
+                       Title="Accounts"
+                       OnClick="ToggleAccountsDrawer" />
+
         <!-- Notifications -->
         <MudIconButton Icon="@Icons.Material.Filled.Notifications"
                        Color="Color.Inherit"
@@ -64,7 +66,7 @@
             </MudBadge>
         </MudIconButton>
 
-        <!-- User Menu (Theme toggle inside + Settings expands) -->
+        <!-- User Menu -->
         <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
                  Color="Color.Inherit"
                  Dense="true"
@@ -113,37 +115,33 @@
 
     </MudAppBar>
 
-    <!-- LEFT DRAWER (Hidden on mobile for now) -->
+    <!-- LEFT DRAWER (Desktop/Tablet): SOLO ICONOS SIEMPRE -->
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
-        <MudDrawer @bind-Open="_drawerOpen"
+        <MudDrawer Open="true"
+                   Variant="DrawerVariant.Mini"
+                   MiniWidth="72px"
+                   Width="72px"
                    ClipMode="DrawerClipMode.Always"
-                   Variant="DrawerVariant.Responsive"
                    Elevation="2"
+                   DisableOverlay="true"
                    Class="drawer-custom">
 
-            <!-- Drawer Header -->
-            <div class="pa-4 d-flex align-center" style="min-height: 64px; border-bottom: 1px solid var(--mud-palette-divider);">
+            <!-- Header mini -->
+            <div class="pa-3 d-flex align-center justify-center"
+                 style="min-height: 80px; border-bottom: 1px solid var(--mud-palette-divider);">
                 <MudAvatar Size="Size.Medium"
-                           Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));"
-                           Class="mr-3">
+                           Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
                     <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
                 </MudAvatar>
-                <div class="flex-grow-1" style="min-width: 0;">
-                    <MudText Typo="Typo.subtitle2" Class="font-weight-medium">
-                        John Doe
-                    </MudText>
-                    <MudText Typo="Typo.caption" Class="text-truncate">
-                        john.doe@example.com
-                    </MudText>
-                </div>
             </div>
 
             <!-- Navigation Menu -->
             <NavMenu />
 
-            <!-- Drawer Footer -->
-            <div class="mt-auto pa-3" style="border-top: 1px solid var(--mud-palette-divider);">
-                <MudText Typo="Typo.caption" Align="Align.Center" Class="text-muted">
+            <!-- Footer mini -->
+            <div class="mt-auto pa-2 d-flex justify-center"
+                 style="border-top: 1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.caption" Class="text-muted">
                     v@(GetAppVersion())
                 </MudText>
             </div>
@@ -153,7 +151,7 @@
 
     <!-- MAIN CONTENT -->
     <MudMainContent Class="main-content-custom">
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
 
             @if (_showBreadcrumbs)
             {
@@ -221,7 +219,6 @@
 
             <MudSpacer />
 
-
             <MudIconButton Icon="@Icons.Material.Filled.ListAlt"
                            Color="Color.Inherit"
                            Href="/transactions"
@@ -236,21 +233,40 @@
         </MudAppBar>
     </MudHidden>
 
-    <MudDrawer Anchor="Anchor.End"
-               Variant="DrawerVariant.Temporary"
-               Elevation="6"
-               OverlayAutoClose="true"
-               Width="420px"
-               @bind-Open="AccountsDrawerOpen">
+    <!-- ✅ ACCOUNTS DRAWER (Mobile: modal con overlay) -->
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudDrawer Anchor="Anchor.End"
+                   Variant="DrawerVariant.Temporary"
+                   Elevation="6"
+                   OverlayAutoClose="true"
+                   Width="400px"
+                   @bind-Open="AccountsDrawerOpen">
 
-        <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
-                             OnClose="CloseAccountsDrawer"
-                             @key="AccountsDrawerOpen" />
-    </MudDrawer>
+            <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
+                                 OnClose="CloseAccountsDrawer"
+                                 @key="AccountsDrawerOpen" />
+        </MudDrawer>
+    </MudHidden>
+
+    <!-- ✅ ACCOUNTS DRAWER (Desktop/Tablet: persistent SIN overlay) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudDrawer Anchor="Anchor.End"
+                   Variant="DrawerVariant.Persistent"
+                   OverlayAutoClose="true"
+                   ClipMode="DrawerClipMode.Always"
+                   Elevation="2"
+                   Width="420px"
+                   @bind-Open="AccountsDrawerOpen">
+
+            <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
+                                 OnClose="CloseAccountsDrawer"
+                                 @key="AccountsDrawerOpen" />
+        </MudDrawer>
+    </MudHidden>
 
 </MudLayout>
 
-<!-- Enhanced Blazor Error UI -->
+<!-- Blazor Error UI -->
 <div id="blazor-error-ui" class="blazor-error-ui">
     <div class="error-content">
         <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
@@ -281,12 +297,8 @@
 </div>
 
 <style>
-    .drawer-custom {
-        display: flex;
-        flex-direction: column;
-    }
-
     .main-content-custom {
+        background: var(--mud-palette-background);
         display: flex;
         flex-direction: column;
         min-height: 100vh;
@@ -300,6 +312,19 @@
     .footer-custom {
         margin-top: auto;
         background: var(--mud-palette-surface);
+    }
+
+    /* ✅ IMPORTANTE: ocultar texto del NavMenu para que quede SOLO ICONOS */
+    .mud-drawer .mud-nav-link-text,
+    .mud-drawer .mud-navmenu .mud-nav-link-text {
+        display: none !important;
+    }
+
+    /* Centrar items (se ve más “rail”) */
+    .mud-drawer .mud-nav-link {
+        justify-content: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 
     .blazor-error-ui {
@@ -323,7 +348,9 @@
 </style>
 
 @code {
-    private bool _drawerOpen = true;
+    private const string SessionKey_IsDarkMode = "isDarkMode";
+    private const string SessionKey_AccountsDrawerOpen = "accountsDrawerOpen";
+
     private bool _isDarkMode = true;
     private bool _showQuickBalance = true;
     private bool _showBreadcrumbs = false;
@@ -341,13 +368,22 @@
     }
 
     protected override void OnInitialized()
-        => AccountsDrawer.OnChange += StateHasChanged;
+        => AccountsDrawer.OnChange += AccountsDrawerChanged;
+
+    private async void AccountsDrawerChanged()
+    {
+        await SaveAccountsDrawerStateAsync();
+        InvokeAsync(StateHasChanged);
+    }
 
     private void CloseAccountsDrawer()
         => AccountsDrawer.Close();
 
+    private void ToggleAccountsDrawer()
+        => AccountsDrawer.Toggle();
+
     public void Dispose()
-        => AccountsDrawer.OnChange -= StateHasChanged;
+        => AccountsDrawer.OnChange -= AccountsDrawerChanged;
 
     private List<BreadcrumbItem> _breadcrumbItems = new()
     {
@@ -363,8 +399,7 @@
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties
             {
-                AppbarHeight = "80px",
-                DrawerWidthLeft = "280px"
+                AppbarHeight = "80px"
             },
         };
     }
@@ -377,12 +412,18 @@
 
             try
             {
-                var result = await SessionStorage.GetAsync<bool>("isDarkMode");
-                if (result.Success)
+                var themeResult = await SessionStorage.GetAsync<bool>(SessionKey_IsDarkMode);
+                if (themeResult.Success)
+                    _isDarkMode = themeResult.Value;
+
+                var drawerResult = await SessionStorage.GetAsync<bool>(SessionKey_AccountsDrawerOpen);
+                if (drawerResult.Success)
                 {
-                    _isDarkMode = result.Value;
-                    StateHasChanged();
+                    if (drawerResult.Value) AccountsDrawer.Open();
+                    else AccountsDrawer.Close();
                 }
+
+                StateHasChanged();
             }
             catch (Exception ex)
             {
@@ -391,21 +432,33 @@
         }
     }
 
+    private async Task SaveAccountsDrawerStateAsync()
+    {
+        try
+        {
+            await SessionStorage.SetAsync(SessionKey_AccountsDrawerOpen, AccountsDrawer.IsOpen);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving accounts drawer state: {ex.Message}");
+        }
+    }
+
     private async void DarkModeToggle()
     {
         _isDarkMode = !_isDarkMode;
+
         try
         {
-            await SessionStorage.SetAsync("isDarkMode", _isDarkMode);
+            await SessionStorage.SetAsync(SessionKey_IsDarkMode, _isDarkMode);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving theme preference: {ex.Message}");
         }
+
         StateHasChanged();
     }
-
-    private void DrawerToggle() => _drawerOpen = !_drawerOpen;
 
     private string GetAppVersion()
     {

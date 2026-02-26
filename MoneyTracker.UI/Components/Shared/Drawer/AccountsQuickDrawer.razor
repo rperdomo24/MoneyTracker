@@ -3,101 +3,129 @@
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Components.Pages.Accounts
+
 @inject IAccountService AccountService
 @inject IDialogService DialogService
 @inject NavigationManager NavigationManager
 
-<div class="pa-4"
-     style="height:100%;"
-     @onpointerdown="OnPointerDown"
-     @onpointerup="OnPointerUp">
+<div class="pa-2" style="height:100%;">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h6" Style="cursor:pointer;" OnClick="GoToAccounts">
-            Accounts
-        </MudText>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
 
-        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-            <MudIconButton Icon="@Icons.Material.Filled.Add"
-                           Color="Color.Primary"
-                           OnClick="OpenAddAccount" />
-            <MudIconButton Icon="@Icons.Material.Filled.Close"
-                           OnClick="Close" />
-        </MudStack>
+        @if (IsCompact)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                           Color="Color.Default"
+                           OnClick="Toggle"/>
+
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Default"
+                           OnClick="Toggle" />
+        }
+        else
+        {
+            <MudText Typo="Typo.h6" Style="cursor:pointer;" OnClick="GoToAccounts">
+                Accounts
+            </MudText>
+
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <MudIconButton Icon="@Icons.Material.Filled.Add"
+                               Color="Color.Primary"
+                               OnClick="OpenAddAccount" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                               OnClick="Toggle"
+                               Title="Collapse" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               OnClick="Close" />
+            </MudStack>
+        }
+
     </MudStack>
 
-    <MudText Typo="Typo.subtitle2" Class="mb-2" Style="opacity:.75; cursor:pointer;" OnClick="GoToAccounts">
-        Net Worth: @FormatMoney(_netWorth)
-    </MudText>
-
-    <MudTabs @bind-ActivePanelIndex="_tabIndex" Rounded="true" Class="mb-3">
-        <MudTabPanel Text="Assets" />
-        <MudTabPanel Text="Debts" />
-        <MudTabPanel Text="All" />
-    </MudTabs>
-
-    @if (_loading)
+    @if (!IsCompact)
     {
-        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:200px;">
-            <MudProgressCircular Indeterminate="true" />
-        </MudStack>
-    }
-    else
-    {
-        @foreach (var section in GetSectionsForTab())
+        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="opacity:.75; cursor:pointer;" OnClick="GoToAccounts">
+            Net Worth: @FormatMoney(_netWorth)
+        </MudText>
+
+        <MudTabs @bind-ActivePanelIndex="_tabIndex"
+                 Rounded="true"
+                 Class="mb-3">
+
+            <ChildContent>
+                <MudTabPanel Text="Assets" />
+                <MudTabPanel Text="Debts" />
+                <MudTabPanel Text="All" />
+            </ChildContent>
+
+        </MudTabs>
+
+        @if (_loading)
         {
-            var total = section.Sum(x => x.CurrentBalance);
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:160px;">
+                <MudProgressCircular Indeterminate="true" />
+            </MudStack>
+        }
+        else
+        {
+            @foreach (var section in GetSectionsForTab())
+            {
+                var total = section.Sum(x => x.CurrentBalance);
 
-            <MudPaper Class="pa-3 mb-2" Outlined="true">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIcon Icon="@(section.Key.ToIcon())" />
-                        <MudText Typo="Typo.subtitle1">@(section.Key.ToString())</MudText>
+                <MudPaper Class="pa-3 mb-2" Outlined="true">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@(section.Key.ToIcon())" />
+                            <MudText Typo="Typo.subtitle1">@(section.Key.ToString())</MudText>
+                        </MudStack>
+
+                        <MudText Typo="Typo.subtitle1" Class="@GetBalanceClass(total)">
+                            @FormatMoney(total)
+                        </MudText>
                     </MudStack>
 
-                    <MudText Typo="Typo.subtitle1" Class="@GetBalanceClass(total)">
-                        @FormatMoney(total)
-                    </MudText>
-                </MudStack>
+                    <MudDivider Class="my-2" />
 
-                <MudDivider Class="my-2" />
+                    <MudStack Spacing="1">
+                        @foreach (var acc in section.OrderBy(a => a.Name))
+                        {
+                            <MudButton Variant="Variant.Text"
+                                       Style="justify-content: space-between; width:100%; text-transform:none;"
+                                       OnClick="@(() => OpenViewAccount(acc.Id))">
 
-                <MudStack Spacing="1">
-                    @foreach (var acc in section.OrderBy(a => a.Name))
-                    {
-                        <MudButton Variant="Variant.Text"
-                                   Style="justify-content: space-between; width:100%; text-transform:none;"
-                                   OnClick="@(() => OpenViewAccount(acc.Id))">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Small" Style="@($"background:{acc.Color};")">
+                                        <MudIcon Icon="@acc.Icon.ToIcon()" Color="Color.Surface" />
+                                    </MudAvatar>
 
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudAvatar Size="Size.Small" Style="@($"background:{acc.Color};")">
-                                    <MudIcon Icon="@acc.Icon.ToIcon()" Color="Color.Surface" />
-                                </MudAvatar>
+                                    <MudText Typo="Typo.body2" NoWrap="true">@acc.Name</MudText>
+                                </MudStack>
 
-                                <MudText Typo="Typo.body2" NoWrap="true">@acc.Name</MudText>
-                            </MudStack>
-
-                            <MudText Typo="Typo.body2" Class="@GetBalanceClass(acc.CurrentBalance)">
-                                @FormatMoney(acc.CurrentBalance)
-                            </MudText>
-                        </MudButton>
-                    }
-                </MudStack>
-            </MudPaper>
+                                <MudText Typo="Typo.body2" Class="@GetBalanceClass(acc.CurrentBalance)">
+                                    @FormatMoney(acc.CurrentBalance)
+                                </MudText>
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
         }
     }
 </div>
 
 @code {
     [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public bool IsCompact { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnToggle { get; set; }
 
     private List<AccountDto> _accounts = new();
-    private bool _loading = false;
-    private bool _loaded = false;
-    private int _tabIndex = 2; // All
+    private bool _loading;
+    private bool _loaded;
+    private int _tabIndex = 2;
     private decimal _netWorth;
-    private double _startX;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -119,12 +147,7 @@
         try
         {
             var result = await AccountService.GetAccountsWithBalancesAsync();
-
-            if (result.Success && result.Data is not null)
-                _accounts = result.Data;
-            else
-                _accounts.Clear();
-
+            _accounts = (result.Success && result.Data is not null) ? result.Data : new List<AccountDto>();
             _netWorth = _accounts.Sum(a => a.CurrentBalance);
         }
         catch
@@ -149,9 +172,7 @@
         if (_tabIndex == 1)
             filtered = filtered.Where(IsDebt);
 
-        return filtered
-            .GroupBy(a => a.Type)
-            .OrderBy(g => g.Key);
+        return filtered.GroupBy(a => a.Type).OrderBy(g => g.Key);
     }
 
     private static bool IsAsset(AccountDto a)
@@ -164,23 +185,31 @@
     private static bool IsDebt(AccountDto a)
         => a.Type is AccountType.Credit;
 
-    private void OpenViewAccount(int id) => NavigationManager.NavigateTo($"/accounts/{id}");
+    private async Task OpenViewAccount(int accountId)
+    {
+        NavigationManager.NavigateTo($"/accounts/{accountId}");
+    }
 
     private async Task OpenAddAccount()
     {
         var parameters = new DialogParameters
         {
-            ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAsync)
+            ["OnAccountAdded"] = EventCallback.Factory.Create(this, ReloadAfterAdd)
         };
 
         await DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, new DialogOptions
         {
             CloseButton = true,
             FullWidth = true,
-            MaxWidth = MaxWidth.Large
+            MaxWidth = MaxWidth.Large,
+            CloseOnEscapeKey = true
         });
+    }
 
+    private async Task ReloadAfterAdd()
+    {
         _loaded = false;
+        await LoadAsync();
     }
 
     private void GoToAccounts()
@@ -195,13 +224,10 @@
             await OnClose.InvokeAsync();
     }
 
-    private void OnPointerDown(PointerEventArgs e) => _startX = e.ClientX;
-
-    private async void OnPointerUp(PointerEventArgs e)
+    private async Task Toggle()
     {
-        var delta = e.ClientX - _startX;
-        if (delta < -80)
-            await Close();
+        if (OnToggle.HasDelegate)
+            await OnToggle.InvokeAsync();
     }
 
     private static string FormatMoney(decimal value)
