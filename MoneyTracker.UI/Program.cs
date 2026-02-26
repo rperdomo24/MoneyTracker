@@ -15,6 +15,7 @@ using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Persistence.Repositories;
 using MoneyTracker.Infrastructure.Services;
 using MoneyTracker.UI.Components;
+using MoneyTracker.UI.Services.Components.Drawer;
 using MoneyTracker.UI.Services.Filters;
 using MoneyTracker.UI.Services.Filters.Interface;
 using MoneyTracker.UI.Services.User;
@@ -82,6 +83,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<UpdateBudgetDto>, UpdateBudgetValidator>();
 
             builder.Services.AddScoped<ITextImportService, TextImportService>();
+            builder.Services.AddScoped<AccountsDrawerState>();
 
 
             builder.Services.AddScoped<ProtectedSessionStorage>();

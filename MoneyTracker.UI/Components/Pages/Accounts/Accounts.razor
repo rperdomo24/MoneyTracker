@@ -6,6 +6,7 @@
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Components.Shared
+@using MoneyTracker.UI.Services.Components.Drawer
 @inject IAccountService AccountService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -14,7 +15,8 @@
 <PageTitle>Accounts - Money Tracker</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4 pa-sm-6">
-
+    <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                   OnClick="AccountsDrawerState.Toggle" />
     <!-- Header (Mobile) -->
     <MudHidden Breakpoint="Breakpoint.SmAndUp">
         <MudStack Spacing="3" Class="mb-4">
@@ -279,7 +281,7 @@
     }
 
     <QuickActionsFab OnTransactionAdded="@LoadAccounts" />
-
+      
 </MudContainer>
 
 @code {

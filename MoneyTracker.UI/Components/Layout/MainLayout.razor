@@ -1,7 +1,11 @@
 ﻿@using System.Reflection
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using MoneyTracker.UI.Components.Shared.Drawer
+@using MoneyTracker.UI.Services.Components.Drawer
 @inject ProtectedSessionStorage SessionStorage
+@inject AccountsDrawerState AccountsDrawer
+
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
@@ -232,6 +236,18 @@
         </MudAppBar>
     </MudHidden>
 
+    <MudDrawer Anchor="Anchor.End"
+               Variant="DrawerVariant.Temporary"
+               Elevation="6"
+               OverlayAutoClose="true"
+               Width="420px"
+               @bind-Open="AccountsDrawerOpen">
+
+        <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
+                             OnClose="CloseAccountsDrawer"
+                             @key="AccountsDrawerOpen" />
+    </MudDrawer>
+
 </MudLayout>
 
 <!-- Enhanced Blazor Error UI -->
@@ -313,6 +329,25 @@
     private bool _showBreadcrumbs = false;
     private MudTheme? _theme;
     private bool _initialized = false;
+
+    private bool AccountsDrawerOpen
+    {
+        get => AccountsDrawer.IsOpen;
+        set
+        {
+            if (value) AccountsDrawer.Open();
+            else AccountsDrawer.Close();
+        }
+    }
+
+    protected override void OnInitialized()
+        => AccountsDrawer.OnChange += StateHasChanged;
+
+    private void CloseAccountsDrawer()
+        => AccountsDrawer.Close();
+
+    public void Dispose()
+        => AccountsDrawer.OnChange -= StateHasChanged;
 
     private List<BreadcrumbItem> _breadcrumbItems = new()
     {

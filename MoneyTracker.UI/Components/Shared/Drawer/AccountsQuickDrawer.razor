@@ -1,0 +1,216 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Components.Pages.Accounts
+@inject IAccountService AccountService
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+
+<div class="pa-4"
+     style="height:100%;"
+     @onpointerdown="OnPointerDown"
+     @onpointerup="OnPointerUp">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudText Typo="Typo.h6" Style="cursor:pointer;" OnClick="GoToAccounts">
+            Accounts
+        </MudText>
+
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudIconButton Icon="@Icons.Material.Filled.Add"
+                           Color="Color.Primary"
+                           OnClick="OpenAddAccount" />
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           OnClick="Close" />
+        </MudStack>
+    </MudStack>
+
+    <MudText Typo="Typo.subtitle2" Class="mb-2" Style="opacity:.75; cursor:pointer;" OnClick="GoToAccounts">
+        Net Worth: @FormatMoney(_netWorth)
+    </MudText>
+
+    <MudTabs @bind-ActivePanelIndex="_tabIndex" Rounded="true" Class="mb-3">
+        <MudTabPanel Text="Assets" />
+        <MudTabPanel Text="Debts" />
+        <MudTabPanel Text="All" />
+    </MudTabs>
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height:200px;">
+            <MudProgressCircular Indeterminate="true" />
+        </MudStack>
+    }
+    else
+    {
+        @foreach (var section in GetSectionsForTab())
+        {
+            var total = section.Sum(x => x.CurrentBalance);
+
+            <MudPaper Class="pa-3 mb-2" Outlined="true">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@(section.Key.ToIcon())" />
+                        <MudText Typo="Typo.subtitle1">@(section.Key.ToString())</MudText>
+                    </MudStack>
+
+                    <MudText Typo="Typo.subtitle1" Class="@GetBalanceClass(total)">
+                        @FormatMoney(total)
+                    </MudText>
+                </MudStack>
+
+                <MudDivider Class="my-2" />
+
+                <MudStack Spacing="1">
+                    @foreach (var acc in section.OrderBy(a => a.Name))
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   Style="justify-content: space-between; width:100%; text-transform:none;"
+                                   OnClick="@(() => OpenViewAccount(acc.Id))">
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Small" Style="@($"background:{acc.Color};")">
+                                    <MudIcon Icon="@acc.Icon.ToIcon()" Color="Color.Surface" />
+                                </MudAvatar>
+
+                                <MudText Typo="Typo.body2" NoWrap="true">@acc.Name</MudText>
+                            </MudStack>
+
+                            <MudText Typo="Typo.body2" Class="@GetBalanceClass(acc.CurrentBalance)">
+                                @FormatMoney(acc.CurrentBalance)
+                            </MudText>
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private List<AccountDto> _accounts = new();
+    private bool _loading = false;
+    private bool _loaded = false;
+    private int _tabIndex = 2; // All
+    private decimal _netWorth;
+    private double _startX;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!IsOpen)
+            return;
+
+        if (_loaded)
+            return;
+
+        _loaded = true;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AccountService.GetAccountsWithBalancesAsync();
+
+            if (result.Success && result.Data is not null)
+                _accounts = result.Data;
+            else
+                _accounts.Clear();
+
+            _netWorth = _accounts.Sum(a => a.CurrentBalance);
+        }
+        catch
+        {
+            _accounts.Clear();
+            _netWorth = 0;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private IEnumerable<IGrouping<AccountType, AccountDto>> GetSectionsForTab()
+    {
+        IEnumerable<AccountDto> filtered = _accounts;
+
+        if (_tabIndex == 0)
+            filtered = filtered.Where(IsAsset);
+
+        if (_tabIndex == 1)
+            filtered = filtered.Where(IsDebt);
+
+        return filtered
+            .GroupBy(a => a.Type)
+            .OrderBy(g => g.Key);
+    }
+
+    private static bool IsAsset(AccountDto a)
+        => a.Type is AccountType.Cash
+            or AccountType.Bank
+            or AccountType.Savings
+            or AccountType.Checking
+            or AccountType.Investment;
+
+    private static bool IsDebt(AccountDto a)
+        => a.Type is AccountType.Credit;
+
+    private void OpenViewAccount(int id) => NavigationManager.NavigateTo($"/accounts/{id}");
+
+    private async Task OpenAddAccount()
+    {
+        var parameters = new DialogParameters
+        {
+            ["OnAccountAdded"] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+
+        await DialogService.ShowAsync<AddAccountModal>("Add Account", parameters, new DialogOptions
+        {
+            CloseButton = true,
+            FullWidth = true,
+            MaxWidth = MaxWidth.Large
+        });
+
+        _loaded = false;
+    }
+
+    private void GoToAccounts()
+    {
+        NavigationManager.NavigateTo("/accounts");
+        _ = Close();
+    }
+
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+
+    private void OnPointerDown(PointerEventArgs e) => _startX = e.ClientX;
+
+    private async void OnPointerUp(PointerEventArgs e)
+    {
+        var delta = e.ClientX - _startX;
+        if (delta < -80)
+            await Close();
+    }
+
+    private static string FormatMoney(decimal value)
+        => value < 0 ? $"-${Math.Abs(value):N2}" : $"${value:N2}";
+
+    private static string GetBalanceClass(decimal value) => value switch
+    {
+        > 0 => "text-success",
+        < 0 => "text-error",
+        _ => ""
+    };
+}

@@ -3,8 +3,10 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Shared
+@using MoneyTracker.UI.Components.Shared.Drawer
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
+@using MoneyTracker.UI.Services.Components.Drawer
 @using MoneyTracker.UI.Services.Filters.Interface
 @inject IBudgetService BudgetService
 @inject IBudgetFilterStateService BudgetFilterState
@@ -12,10 +14,13 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
+
 <PageTitle>Budgets - MoneyTracker</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-2 pa-sm-6">
 
+    <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                   OnClick="AccountsDrawerState.Toggle" />
     <!-- Header -->
     <MudGrid Spacing="2" Justify="Justify.Center" Class="mb-4">
 

@@ -13,6 +13,8 @@
 <PageTitle>Categories - MoneyTracker</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
+    <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                   OnClick="AccountsDrawerState.Toggle" />
     <!-- Header Section -->
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
         <Breadcrumb Items="@_breadcrumbItems" />
