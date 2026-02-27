@@ -207,6 +207,7 @@
             var result = await AccountService.UpdateAsync(_account);
             if (result.Success)
             {
+                AccountsDrawer.RequestRefresh();
                 Snackbar.Add($"Account '{_account.Name}' updated successfully", Severity.Success);
                 await OnAccountUpdated.InvokeAsync();
                 MudDialog.Close(DialogResult.Ok(true));

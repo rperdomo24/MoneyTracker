@@ -85,6 +85,7 @@ namespace MoneyTracker.UI
 
             builder.Services.AddScoped<ITextImportService, TextImportService>();
             builder.Services.AddScoped<AccountsDrawerState>();
+            builder.Services.AddScoped<AccountsRefreshBus>();
 
 
             builder.Services.AddScoped<ProtectedSessionStorage>();

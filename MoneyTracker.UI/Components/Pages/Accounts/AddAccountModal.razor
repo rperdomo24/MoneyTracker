@@ -193,6 +193,7 @@
         }
         finally
         {
+            AccountsDrawer.RequestRefresh();
             _isSubmitting = false;
             StateHasChanged();
         }

@@ -306,6 +306,7 @@
         {
             await SaveRegularTransaction();
         }
+
     }
 
     private async Task SaveTransfer()
@@ -361,6 +362,7 @@
         }
         finally
         {
+            AccountsDrawer.RequestRefresh();
             _saving = false;
             StateHasChanged();
         }
@@ -418,6 +420,7 @@
         }
         finally
         {
+            AccountsDrawer.RequestRefresh();
             _saving = false;
             StateHasChanged();
         }

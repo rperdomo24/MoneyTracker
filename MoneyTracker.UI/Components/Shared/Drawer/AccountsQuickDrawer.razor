@@ -3,10 +3,12 @@
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Components.Pages.Accounts
+@using MoneyTracker.UI.Services.Components.Drawer
 
 @inject IAccountService AccountService
 @inject IDialogService DialogService
 @inject NavigationManager NavigationManager
+@inject AccountsDrawerState AccountsDrawer
 
 <div class="pa-2" style="height:100%;">
 
@@ -16,7 +18,7 @@
         {
             <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
                            Color="Color.Default"
-                           OnClick="Toggle"/>
+                           OnClick="Toggle" />
 
             <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
                            Color="Color.Default"
@@ -46,7 +48,7 @@
 
     @if (!IsCompact)
     {
-        <MudText Typo="Typo.subtitle2" Class="mb-2" Style="opacity:.75; cursor:pointer;" OnClick="GoToAccounts">
+        <MudText Typo="Typo.h6" Class="mb-2" Style="opacity:.75; cursor:pointer;" OnClick="@GoToAccounts">
             Net Worth: @FormatMoney(_netWorth)
         </MudText>
 
@@ -123,20 +125,41 @@
 
     private List<AccountDto> _accounts = new();
     private bool _loading;
-    private bool _loaded;
     private int _tabIndex = 2;
     private decimal _netWorth;
 
+    private bool _wasOpen;
+
+    protected override void OnInitialized()
+    {
+        AccountsDrawer.OnRefreshRequested += RefreshRequested;
+    }
+
+    public void Dispose()
+    {
+        AccountsDrawer.OnRefreshRequested -= RefreshRequested;
+    }
+
     protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && !_wasOpen)
+        {
+            _wasOpen = true;
+            await LoadAsync();
+            return;
+        }
+
+        if (!IsOpen)
+            _wasOpen = false;
+    }
+
+    private async void RefreshRequested()
     {
         if (!IsOpen)
             return;
 
-        if (_loaded)
-            return;
-
-        _loaded = true;
         await LoadAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task LoadAsync()
@@ -185,7 +208,7 @@
     private static bool IsDebt(AccountDto a)
         => a.Type is AccountType.Credit;
 
-    private async Task OpenViewAccount(int accountId)
+    private void OpenViewAccount(int accountId)
     {
         NavigationManager.NavigateTo($"/accounts/{accountId}");
     }
@@ -208,7 +231,6 @@
 
     private async Task ReloadAfterAdd()
     {
-        _loaded = false;
         await LoadAsync();
     }
 

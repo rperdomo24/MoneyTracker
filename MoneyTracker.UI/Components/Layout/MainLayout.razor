@@ -5,6 +5,7 @@
 @using MoneyTracker.UI.Services.Components.Drawer
 @inject ProtectedSessionStorage SessionStorage
 @inject AccountsDrawerState AccountsDrawer
+@inject AccountsDrawerState AccountsDrawerState
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
@@ -20,7 +21,7 @@
             <MudIcon Icon="@Icons.Material.Filled.Menu" Class="mr-2" />
         </MudHidden>
 
-        <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet"
+        <MudIcon Icon="@Icons.Material.Filled.AttachMoney"
                  Size="Size.Medium"
                  Class="mr-2" />
 
@@ -40,7 +41,7 @@
                 <MudChip T="string"
                          Size="Size.Small"
                          Color="Color.Success"
-                         Icon="@Icons.Material.Filled.AccountBalance"
+                         Icon="@Icons.Material.Filled.AttachMoney"
                          Class="mr-3">
                     $12,345.67
                 </MudChip>
@@ -51,7 +52,6 @@
         <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
                        Color="Color.Inherit"
                        Class="mr-1"
-                       Title="Accounts"
                        OnClick="ToggleAccountsDrawer" />
 
         <!-- Notifications -->
@@ -123,7 +123,7 @@
                    Width="72px"
                    ClipMode="DrawerClipMode.Always"
                    Elevation="2"
-                   DisableOverlay="true"
+                   Overlay="true"
                    Class="drawer-custom">
 
             <!-- Header mini -->
@@ -239,6 +239,7 @@
                    Variant="DrawerVariant.Temporary"
                    Elevation="6"
                    OverlayAutoClose="true"
+                   Overlay="false"
                    Width="400px"
                    @bind-Open="AccountsDrawerOpen">
 
@@ -252,10 +253,11 @@
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
         <MudDrawer Anchor="Anchor.End"
                    Variant="DrawerVariant.Persistent"
-                   OverlayAutoClose="true"
                    ClipMode="DrawerClipMode.Always"
                    Elevation="2"
                    Width="420px"
+                   Overlay="true"
+                   OverlayAutoClose="false"
                    @bind-Open="AccountsDrawerOpen">
 
             <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
@@ -360,11 +362,7 @@
     private bool AccountsDrawerOpen
     {
         get => AccountsDrawer.IsOpen;
-        set
-        {
-            if (value) AccountsDrawer.Open();
-            else AccountsDrawer.Close();
-        }
+        set => _ = SetAccountsDrawerOpenAsync(value);
     }
 
     protected override void OnInitialized()
@@ -373,14 +371,22 @@
     private async void AccountsDrawerChanged()
     {
         await SaveAccountsDrawerStateAsync();
-        InvokeAsync(StateHasChanged);
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void CloseAccountsDrawer()
-        => AccountsDrawer.Close();
+    private Task CloseAccountsDrawer()
+        => AccountsDrawer.CloseAsync();
 
-    private void ToggleAccountsDrawer()
-        => AccountsDrawer.Toggle();
+    private Task ToggleAccountsDrawer()
+        => AccountsDrawer.ToggleAsync();
+
+    private async Task SetAccountsDrawerOpenAsync(bool open)
+    {
+        if (open)
+            await AccountsDrawer.OpenAsync();
+        else
+            await AccountsDrawer.CloseAsync();
+    }
 
     public void Dispose()
         => AccountsDrawer.OnChange -= AccountsDrawerChanged;
@@ -418,10 +424,7 @@
 
                 var drawerResult = await SessionStorage.GetAsync<bool>(SessionKey_AccountsDrawerOpen);
                 if (drawerResult.Success)
-                {
-                    if (drawerResult.Value) AccountsDrawer.Open();
-                    else AccountsDrawer.Close();
-                }
+                    await SetAccountsDrawerOpenAsync(drawerResult.Value);
 
                 StateHasChanged();
             }

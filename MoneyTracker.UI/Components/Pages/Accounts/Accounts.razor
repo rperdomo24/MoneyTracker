@@ -379,6 +379,7 @@
             {
                 Snackbar.Add($"Account '{accountName}' deleted successfully", Severity.Success);
                 await LoadAccounts();
+                AccountsDrawer.RequestRefresh();
             }
             else
             {
@@ -439,6 +440,7 @@
             {
                 Snackbar.Add(result.Message ?? "Balance synced", Severity.Success);
                 await LoadAccounts();
+                AccountsDrawer.RequestRefresh();
             }
             else
             {

@@ -394,6 +394,7 @@
             var result = await TransactionService.DuplicateTransactionAsync(transaction.Id);
             if (result.Success)
             {
+                AccountsDrawer.RequestRefresh();
                 Snackbar.Add(result.Message ?? "Transaction duplicated successfully", Severity.Success);
                 await LoadTransactionsAsync();
             }
@@ -439,6 +440,7 @@
 
             if (result.Success)
             {
+                AccountsDrawer.RequestRefresh();
                 Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
                 await LoadTransactionsAsync();
             }
@@ -514,6 +516,7 @@
                 Snackbar.Add($"{successCount} transaction(s) deleted successfully", Severity.Success);
                 _selectedTransactionIds.Clear();
                 await LoadTransactionsAsync();
+                AccountsDrawer.RequestRefresh();
             }
 
             if (failCount > 0)
