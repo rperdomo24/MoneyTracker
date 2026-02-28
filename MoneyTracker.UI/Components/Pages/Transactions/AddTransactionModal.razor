@@ -15,12 +15,12 @@
 
 <MudDialog MaxWidth="MaxWidth.Small">
     <TitleContent>
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
-                <div>
-                    <MudText Typo="Typo.h6" Class="font-weight-bold">@GetModalTitle()</MudText>
-                </div>
-            </MudStack>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
+            <div>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">@GetModalTitle()</MudText>
+            </div>
+        </MudStack>
     </TitleContent>
 
     <DialogContent>
@@ -39,10 +39,10 @@
                     @if (ShowTransactionTypeSwitcher)
                     {
                         <MudToggleGroup T="TransactionTypeEnum"
-                        Value="_transactionType"
-                        ValueChanged="OnTransactionTypeChanged"
-                        Exclusive="true"
-                        Class="mb-2">
+                                        Value="_transactionType"
+                                        ValueChanged="OnTransactionTypeChanged"
+                                        Exclusive="true"
+                                        Class="mb-2">
                             <MudToggleItem Value="TransactionTypeEnum.Expense" Text="Expense" />
                             <MudToggleItem Value="TransactionTypeEnum.Income" Text="Income" />
                             <MudToggleItem Value="TransactionTypeEnum.Transfer" Text="Transfer" />
@@ -52,15 +52,15 @@
                     @if (_transactionType == TransactionTypeEnum.Transfer)
                     {
                         @* ========== TRANSFER FORM ========== *@
-                        <AccountSelector @bind-SelectedAccount="_fromAccount"
+                        <AccountSelector @bind-SelectedAccountId="_fromAccountId"
                                          Accounts="@(_accounts ?? new())"
                                          Label="From Account"
                                          Required="true"
                                          ShowBalance="true" />
 
-                        <AccountSelector @bind-SelectedAccount="_toAccount"
+                        <AccountSelector @bind-SelectedAccountId="_toAccountId"
                                          Accounts="@(_accounts ?? new())"
-                                         ExcludeAccountId="@_fromAccount?.Id"
+                                         ExcludeAccountId="@_fromAccountId"
                                          Label="To Account"
                                          Required="true"
                                          ShowBalance="true" />
@@ -105,7 +105,7 @@
                                       Placeholder="e.g., Grocery shopping, Salary, Dinner..."
                                       Immediate="true" />
 
-                        <AccountSelector @bind-SelectedAccount="_selectedAccount"
+                        <AccountSelector @bind-SelectedAccountId="_selectedAccountId"
                                          Accounts="@(_accounts ?? new())"
                                          Label="Account"
                                          Required="true"
@@ -166,6 +166,7 @@
                    Variant="Variant.Text">
             Cancel
         </MudButton>
+
         <MudButton Color="Color.Primary"
                    Variant="Variant.Filled"
                    OnClick="SaveTransaction"
@@ -181,6 +182,7 @@
                 <span>Save</span>
             }
         </MudButton>
+
         @if (_quickAddMode && !_saving)
         {
             <MudButton Color="Color.Primary"
@@ -198,8 +200,9 @@
     [Parameter] public TransactionTypeEnum TransactionType { get; set; } = TransactionTypeEnum.Expense;
     [Parameter] public int? PreselectedAccountId { get; set; }
     [Parameter] public EventCallback OnTransactionAdded { get; set; }
-    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public bool ShowTransactionTypeSwitcher { get; set; } = false;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
     private MudForm _form = default!;
     private bool _loading = true;
@@ -215,11 +218,11 @@
     // Income/Expense fields
     private string _transactionName = string.Empty;
     private CategoryDto? _selectedCategory;
-    private AccountDto? _selectedAccount;
+    private int? _selectedAccountId;
 
-    // Transfer fields
-    private AccountDto? _fromAccount;
-    private AccountDto? _toAccount;
+    // Transfer fields (IDs to avoid MudSelect object mismatch)
+    private int? _fromAccountId;
+    private int? _toAccountId;
 
     // Data
     private List<CategoryDto>? _categories;
@@ -245,23 +248,19 @@
 
         try
         {
-            // Load categories
             await ReloadCategories();
-            // Load accounts
+
             var accountsResult = await AccountService.GetAllAsync();
             if (accountsResult.Success)
             {
                 _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
 
-                // Auto-select account if preselected
-                if (PreselectedAccountId.HasValue && _accounts.Any())
+                // Regular: auto-select account
+                if (_accounts.Any() && _transactionType != TransactionTypeEnum.Transfer)
                 {
-                    _selectedAccount = _accounts.FirstOrDefault(a => a.Id == PreselectedAccountId.Value);
-                }
-                // Auto-select first account if no preselection
-                else if (_accounts.Any() && _transactionType != TransactionTypeEnum.Transfer)
-                {
-                    _selectedAccount = _accounts.First();
+                    _selectedAccountId = PreselectedAccountId.HasValue
+                        ? _accounts.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)?.Id
+                        : _accounts.First().Id;
                 }
             }
         }
@@ -276,21 +275,20 @@
         }
     }
 
-
     private bool IsFormValid()
     {
         if (_transactionType == TransactionTypeEnum.Transfer)
         {
-            return _fromAccount != null &&
-                   _toAccount != null &&
-                   _fromAccount.Id != _toAccount.Id &&
+            return _fromAccountId.HasValue &&
+                   _toAccountId.HasValue &&
+                   _fromAccountId.Value != _toAccountId.Value &&
                    _amount > 0 &&
                    _transactionDate.HasValue;
         }
 
         return !string.IsNullOrWhiteSpace(_transactionName) &&
                _transactionName.Length <= 100 &&
-               _selectedAccount != null &&
+               _selectedAccountId.HasValue &&
                _amount > 0 &&
                _transactionDate.HasValue &&
                _selectedCategory != null;
@@ -299,14 +297,9 @@
     private async Task SaveTransaction()
     {
         if (_transactionType == TransactionTypeEnum.Transfer)
-        {
             await SaveTransfer();
-        }
         else
-        {
             await SaveRegularTransaction();
-        }
-
     }
 
     private async Task SaveTransfer()
@@ -316,8 +309,13 @@
         await _form.Validate();
         if (!_form.IsValid) return;
 
-        if (_fromAccount == null || _toAccount == null) return;
-        if (_fromAccount.Id == _toAccount.Id) { Snackbar.Add("You can't transfer to the same account.", Severity.Warning); return; }
+        if (!_fromAccountId.HasValue || !_toAccountId.HasValue) return;
+        if (_fromAccountId.Value == _toAccountId.Value)
+        {
+            Snackbar.Add("You can't transfer to the same account.", Severity.Warning);
+            return;
+        }
+
         if (!_transactionDate.HasValue) return;
 
         _saving = true;
@@ -325,13 +323,12 @@
 
         try
         {
-
             var transferDto = new CreateTransferDto
             {
-                FromAccountId = _fromAccount.Id,
-                ToAccountId = _toAccount.Id,
+                FromAccountId = _fromAccountId.Value,
+                ToAccountId = _toAccountId.Value,
                 Amount = _amount,
-                Date = _transactionDate!.Value,
+                Date = _transactionDate.Value,
                 Description = _description
             };
 
@@ -343,13 +340,9 @@
                 await OnTransactionAdded.InvokeAsync();
 
                 if (!_quickAddMode)
-                {
                     MudDialog.Close(DialogResult.Ok(true));
-                }
                 else
-                {
                     ResetTransferForm();
-                }
             }
             else
             {
@@ -375,7 +368,7 @@
         await _form.Validate();
         if (!_form.IsValid) return;
 
-        if (_selectedAccount == null || _selectedCategory == null) return;
+        if (!_selectedAccountId.HasValue || _selectedCategory == null) return;
         if (!_transactionDate.HasValue) return;
 
         _saving = true;
@@ -387,10 +380,10 @@
             {
                 Name = _transactionName.Trim(),
                 Amount = _amount,
-                Date = _transactionDate!.Value,
+                Date = _transactionDate.Value,
                 Description = _description?.Trim() ?? string.Empty,
-                CategoryId = _selectedCategory!.Id,
-                AccountId = _selectedAccount.Id
+                CategoryId = _selectedCategory.Id,
+                AccountId = _selectedAccountId.Value
             };
 
             var result = await TransactionService.CreateAsync(transactionDto);
@@ -401,13 +394,9 @@
                 await OnTransactionAdded.InvokeAsync();
 
                 if (!_quickAddMode)
-                {
                     MudDialog.Close(DialogResult.Ok(true));
-                }
                 else
-                {
                     ResetForm();
-                }
             }
             else
             {
@@ -436,18 +425,21 @@
         _transactionName = string.Empty;
         _amount = 0;
         _description = null;
-        // _selectedCategory = null;
-        _selectedAccount = PreselectedAccountId.HasValue
-            ? _accounts?.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)
-            : _accounts?.FirstOrDefault();
         _transactionDate = DateTime.Today;
+
+        _selectedCategory = null;
+
+        _selectedAccountId = PreselectedAccountId.HasValue
+            ? _accounts?.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)?.Id
+            : _accounts?.FirstOrDefault()?.Id;
+
         StateHasChanged();
     }
 
     private void ResetTransferForm()
     {
-        _fromAccount = null;
-        _toAccount = null;
+        _fromAccountId = null;
+        _toAccountId = null;
         _amount = 0;
         _description = null;
         _transactionDate = DateTime.Today;
@@ -483,28 +475,31 @@
 
         _transactionType = newType;
 
-        // Reset del form para evitar data cruzada
+        // Reset common
         _amount = 0;
         _description = string.Empty;
         _transactionDate = DateTime.Today;
 
+        // Reset regular fields
         _transactionName = string.Empty;
         _selectedCategory = null;
 
-        _fromAccount = null;
-        _toAccount = null;
+        // Reset transfer ids
+        _fromAccountId = null;
+        _toAccountId = null;
+
+        // Set default account for non-transfer
+        if (_accounts?.Any() == true && _transactionType != TransactionTypeEnum.Transfer)
+        {
+            _selectedAccountId = PreselectedAccountId.HasValue
+                ? _accounts.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)?.Id
+                : _accounts.First().Id;
+        }
 
         await MudDialog.SetTitleAsync(GetModalTitle());
-
-        // Si no es transfer y hay cuentas, selecciona una por defecto (si aplica)
-        if (_accounts?.Any() == true && _transactionType != TransactionTypeEnum.Transfer)
-            _selectedAccount = _accounts.FirstOrDefault(a => a.Id == PreselectedAccountId) ?? _accounts.First();
-
         StateHasChanged();
     }
 
-
-    // Helper methods
     private string GetModalTitle()
     {
         return _transactionType switch
