@@ -2,28 +2,24 @@
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Helpers
 
-<MudSelect T="int?"
+<MudSelect T="AccountDto"
            Label="@Label"
-           Value="@SelectedAccountId"
-           ValueChanged="OnSelectedAccountIdChanged"
+           Value="@SelectedAccount"
+           ValueChanged="@((AccountDto value) => OnSelectedAccountChanged(value))"
            Variant="Variant.Outlined"
            Required="@Required"
            Disabled="@Disabled"
            Clearable="@Clearable"
-           ToStringFunc="@(id => GetAccountName(id))"
-           Filter="new Func<int?, string, bool>(FilterAccountsById)">
-
+           ToStringFunc="@(a => a?.Name ?? "")"
+           Filter="new Func<AccountDto, string, bool>(FilterAccounts)">
     @foreach (var account in FilteredAccounts)
     {
-        <MudSelectItem T="int?"
-                       Value="@((int?)account.Id)"
-                       @key="account.Id">
+        <MudSelectItem Value="@account" @key="account.Id">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@account.Icon.ToIcon()"
                          Style="@($"color: {account.Color};")"
                          Size="Size.Small" />
                 <MudText Typo="Typo.body2">@account.Name</MudText>
-
                 @if (ShowBalance)
                 {
                     <MudText Typo="Typo.caption" Style="opacity: 0.6; margin-left: auto;">
@@ -36,9 +32,8 @@
 </MudSelect>
 
 @code {
-    [Parameter] public int? SelectedAccountId { get; set; }
-    [Parameter] public EventCallback<int?> SelectedAccountIdChanged { get; set; }
-
+    [Parameter] public AccountDto? SelectedAccount { get; set; }
+    [Parameter] public EventCallback<AccountDto?> SelectedAccountChanged { get; set; }
     [Parameter] public List<AccountDto> Accounts { get; set; } = new();
     [Parameter] public int? ExcludeAccountId { get; set; }
     [Parameter] public string Label { get; set; } = "Account";
@@ -55,34 +50,29 @@
             var filtered = Accounts.AsEnumerable();
 
             if (ExcludeAccountId.HasValue)
+            {
                 filtered = filtered.Where(a => a.Id != ExcludeAccountId.Value);
+            }
 
             if (FilterByType.HasValue)
+            {
                 filtered = filtered.Where(a => a.Type == FilterByType.Value);
+            }
 
             return filtered.OrderBy(a => a.Name).ToList();
         }
     }
 
-    private string GetAccountName(int? accountId)
-        => accountId.HasValue
-            ? Accounts.FirstOrDefault(a => a.Id == accountId.Value)?.Name ?? string.Empty
-            : string.Empty;
-
-    private bool FilterAccountsById(int? accountId, string searchString)
+    private bool FilterAccounts(AccountDto account, string searchString)
     {
         if (string.IsNullOrWhiteSpace(searchString)) return true;
 
-        var acc = accountId.HasValue
-            ? Accounts.FirstOrDefault(a => a.Id == accountId.Value)
-            : null;
-
-        return acc?.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true;
+        return account.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task OnSelectedAccountIdChanged(int? value)
+    private async Task OnSelectedAccountChanged(AccountDto? value)
     {
-        SelectedAccountId = value;
-        await SelectedAccountIdChanged.InvokeAsync(value);
+        SelectedAccount = value;
+        await SelectedAccountChanged.InvokeAsync(value);
     }
 }
