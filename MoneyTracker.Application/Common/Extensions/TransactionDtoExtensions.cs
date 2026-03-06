@@ -8,10 +8,12 @@ namespace MoneyTracker.Application.Common.Extensions
     public static class TransactionDtoExtensions
     {
         public static bool IsIncome(this TransactionDto transaction)
-            => transaction.Category?.Type == CategoryTypeEnum.Income;
+            => !transaction.IsTransfer()
+               && transaction.Category?.Type == CategoryTypeEnum.Income;
 
         public static bool IsExpense(this TransactionDto transaction)
-            => transaction.Category?.Type == CategoryTypeEnum.Expense;
+            => !transaction.IsTransfer()
+               && transaction.Category?.Type == CategoryTypeEnum.Expense;
 
         public static bool IsCreditPayment(this TransactionDto transaction)
             => SystemCategoryCodes.IsCreditRelated(transaction.Category?.SystemCategoryCode);

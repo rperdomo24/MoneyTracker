@@ -1,196 +1,216 @@
-﻿@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.Application.DTOs.Dashboard
 
 <MudCard Class="dashboard-card">
     <MudCardHeader>
         <CardHeaderContent>
-            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudAvatar Color="Color.Primary" Size="Size.Medium">
-                    <MudIcon Icon="@Icons.Material.Filled.BarChart" />
+                    <MudIcon Icon="@Icons.Material.Filled.ShowChart" />
                 </MudAvatar>
-                <MudText Typo="Typo.h6">Tendencia de Balances</MudText>
+                <MudText Typo="Typo.h6">Net Worth Trend</MudText>
             </MudStack>
         </CardHeaderContent>
-        <CardHeaderActions>
-            <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
-                <MudButton OnClick="() => SetPeriod(3)" Variant="@(_selectedPeriod == 3 ? Variant.Filled : Variant.Outlined)">3M</MudButton>
-                <MudButton OnClick="() => SetPeriod(6)" Variant="@(_selectedPeriod == 6 ? Variant.Filled : Variant.Outlined)">6M</MudButton>
-                <MudButton OnClick="() => SetPeriod(12)" Variant="@(_selectedPeriod == 12 ? Variant.Filled : Variant.Outlined)">1A</MudButton>
-            </MudButtonGroup>
-        </CardHeaderActions>
     </MudCardHeader>
 
     <MudCardContent>
         @if (Data?.Any() == true)
         {
-            <MudStack Spacing="3">
-
-                <MudPaper Class="pa-2" Elevation="0">
-                    <MudChart T="double"
-                              ChartType="ChartType.Bar"
-                              ChartSeries="@_chartSeries"
-                              ChartLabels="@_chartLabels"
-                              @bind-SelectedIndex="_selectedIndex"
-                              Width="100%"
-                              Height="@($"{_chartHeight}px")"
-                              ChartOptions="@_chartOptions" />
-                </MudPaper>
-
-                @if (_selectedIndex >= 0 && _selectedIndex < _chartLabels.Length)
-                {
-                    <MudAlert Severity="Severity.Info" Variant="Variant.Text">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" lg="3">
+                    <MudPaper Class="summary-panel" Elevation="0">
                         <MudStack Spacing="1">
-                            <MudText Typo="Typo.body2">
-                                <strong>Mes seleccionado:</strong> @_chartLabels[_selectedIndex]
+                            <MudText Typo="Typo.h4" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
+                                @FormatCurrency(_endValue)
                             </MudText>
 
-                            <MudGrid Spacing="1">
-                                <MudItem xs="12" sm="6">
-                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[0]};")"></div>
-                                        <MudText Typo="Typo.caption">Corriente:</MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Checking", _selectedIndex))</MudText>
-                                    </MudStack>
-                                </MudItem>
+                            <MudText Typo="Typo.body2" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
+                                @FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs inicio del periodo
+                            </MudText>
 
-                                <MudItem xs="12" sm="6">
-                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[1]};")"></div>
-                                        <MudText Typo="Typo.caption">Ahorros:</MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Savings", _selectedIndex))</MudText>
-                                    </MudStack>
-                                </MudItem>
+                            <MudDivider Class="my-2" />
 
-                                <MudItem xs="12" sm="6">
-                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[2]};")"></div>
-                                        <MudText Typo="Typo.caption">Crédito:</MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Credit", _selectedIndex))</MudText>
-                                    </MudStack>
-                                </MudItem>
-
-                                <MudItem xs="12" sm="6">
-                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{_seriesColors[3]};")"></div>
-                                        <MudText Typo="Typo.caption">Inversión:</MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@FormatCurrency(GetValueAt("Investment", _selectedIndex))</MudText>
-                                    </MudStack>
-                                </MudItem>
-                            </MudGrid>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Desde: @_startDateLabel
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Hasta: @_endDateLabel
+                            </MudText>
                         </MudStack>
-                    </MudAlert>
-                }
+                    </MudPaper>
+                </MudItem>
 
-                <MudDivider />
+                <MudItem xs="12" lg="9">
+                    <MudPaper Class="chart-panel" Elevation="0">
+                        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                            <MudChart T="double"
+                                      Class="net-worth-minimal-chart"
+                                      ChartType="ChartType.Line"
+                                      ChartSeries="@_chartSeries"
+                                      ChartLabels="@_chartLabels"
+                                      Width="100%"
+                                      Height="300px"
+                                      ChartOptions="@_chartOptions" />
+                        </MudHidden>
 
-                <MudExpansionPanels>
-                    <MudExpansionPanel Text="Opciones del Gráfico" Icon="@Icons.Material.Filled.Settings">
-                        <MudGrid>
-                            <MudItem xs="12" sm="6">
-                                <MudText Typo="Typo.body2">Altura del gráfico: @_chartHeight px</MudText>
-                            </MudItem>
-                            <MudItem xs="12" sm="6">
-                                <MudSlider @bind-Value="_chartHeight"
-                                           Min="250" Max="500" Step="25"
-                                           ValueLabel="true" />
-                            </MudItem>
-                        </MudGrid>
-                    </MudExpansionPanel>
-                </MudExpansionPanels>
-
-            </MudStack>
+                        <MudHidden Breakpoint="Breakpoint.Xs">
+                            <MudChart T="double"
+                                      Class="net-worth-minimal-chart"
+                                      ChartType="ChartType.Line"
+                                      ChartSeries="@_chartSeries"
+                                      ChartLabels="@_chartLabels"
+                                      Width="100%"
+                                      Height="420px"
+                                      ChartOptions="@_chartOptions" />
+                        </MudHidden>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
         }
         else
         {
             <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
-                <MudIcon Icon="@Icons.Material.Filled.BarChart"
+                <MudIcon Icon="@Icons.Material.Filled.ShowChart"
                          Color="Color.Default"
                          Size="Size.Large" />
                 <MudText Typo="Typo.body1" Align="Align.Center">
-                    No hay datos de tendencia
-                </MudText>
-                <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
-                    Los datos de tendencia aparecerán con más transacciones
+                    No trend data available
                 </MudText>
             </MudStack>
         }
     </MudCardContent>
 </MudCard>
 
+<style>
+    .chart-host {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .chart-panel {
+        width: 100%;
+        border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
+        border-radius: 12px;
+        padding: 8px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    }
+
+    .summary-panel {
+        height: 100%;
+        border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
+        border-radius: 12px;
+        padding: 16px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    }
+
+    .net-worth-minimal-chart {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0;
+    }
+
+    .net-worth-minimal-chart > div {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .net-worth-minimal-chart .mud-charts {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .net-worth-minimal-chart .mud-chart-line {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .net-worth-minimal-chart svg {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .net-worth-minimal-chart .mud-chart-legend {
+        display: none;
+    }
+
+    .net-worth-minimal-chart .mud-charts-xaxis text {
+        display: none;
+    }
+
+    .net-worth-minimal-chart .mud-charts-yaxis text {
+        display: none;
+    }
+</style>
+
 @code {
     [Parameter] public List<BalanceTrendDto>? Data { get; set; }
-    [Parameter] public EventCallback<int> OnPeriodChanged { get; set; }
-
-    private int _selectedPeriod = 6;
-    private int _selectedIndex = -1;
-    private int _chartHeight = 350;
 
     private string[] _chartLabels = Array.Empty<string>();
-
-    private readonly string[] _seriesColors = { "#4caf50", "#2196f3", "#f44336", "#ff9800" };
-
-    private ChartOptions _chartOptions = new()
-    {
-        // ✅ En MudBlazor 9 esto fija el orden de colores según el orden de las series
-        ChartPalette = new[] { "#4caf50", "#2196f3", "#f44336", "#ff9800" }
-    };
-
     private List<ChartSeries<double>> _chartSeries = new();
+    private decimal _endValue;
+    private decimal _delta;
+    private decimal _deltaPercent;
+    private string _startDateLabel = "-";
+    private string _endDateLabel = "-";
+
+    private readonly LineChartOptions _chartOptions = new()
+    {
+        ChartPalette = new[] { "#00d1a0" },
+        ShowLegend = false,
+        ShowDataMarkers = false,
+        YAxisRequireZeroPoint = false,
+        MaxNumYAxisTicks = 5,
+        YAxisToStringFunc = _ => string.Empty,
+        TooltipTitleFormat = "{{X_VALUE}}",
+        TooltipSubtitleFormat = "{{Y_VALUE}}"
+    };
 
     protected override void OnParametersSet()
     {
-        UpdateChartData();
-    }
-
-    private async Task SetPeriod(int months)
-    {
-        _selectedPeriod = months;
-        await OnPeriodChanged.InvokeAsync(months);
-    }
-
-    private void UpdateChartData()
-    {
         if (Data?.Any() != true)
         {
-            _chartSeries = new();
             _chartLabels = Array.Empty<string>();
-            _selectedIndex = -1;
+            _chartSeries = new();
+            _endValue = 0;
+            _delta = 0;
+            _deltaPercent = 0;
+            _startDateLabel = "-";
+            _endDateLabel = "-";
             return;
         }
 
-        var sorted = Data.OrderBy(x => x.Date).ToList();
-        _chartLabels = sorted.Select(x => x.Date.ToString("MMM yyyy")).ToArray();
+        var sorted = Data
+            .OrderBy(x => x.Date)
+            .ToList();
 
-        // ✅ IMPORTANTE: el orden de estas series define el color (palette[0..3])
+        _chartLabels = sorted
+            .Select(x => x.Date.ToString("MMMM dd, yyyy"))
+            .ToArray();
+
         _chartSeries = new List<ChartSeries<double>>
         {
-            new() { Name = "Corriente", Data = sorted.Select(x => (double)x.CheckingBalance).ToArray() },
-            new() { Name = "Ahorros",   Data = sorted.Select(x => (double)x.SavingsBalance).ToArray() },
-            new() { Name = "Crédito",   Data = sorted.Select(x => (double)x.CreditBalance).ToArray() },
-            new() { Name = "Inversión", Data = sorted.Select(x => (double)x.InvestmentBalance).ToArray() },
+            new()
+            {
+                Name = "Net Worth",
+                TooltipYValueFormat = "$#,0.00;-$#,0.00",
+                Data = sorted.Select(x => (double)x.TotalBalance).ToArray()
+            }
         };
 
-        if (_selectedIndex >= _chartLabels.Length)
-            _selectedIndex = -1;
-    }
+        var start = sorted.First().TotalBalance;
+        _endValue = sorted.Last().TotalBalance;
+        _delta = _endValue - start;
+        _deltaPercent = start == 0 ? 0 : (_delta / Math.Abs(start)) * 100m;
 
-    private decimal GetValueAt(string type, int index)
-    {
-        if (Data?.Any() != true) return 0;
-
-        var sorted = Data.OrderBy(x => x.Date).ToList();
-        if (index < 0 || index >= sorted.Count) return 0;
-
-        var item = sorted[index];
-        return type switch
-        {
-            "Checking" => item.CheckingBalance,
-            "Savings" => item.SavingsBalance,
-            "Credit" => item.CreditBalance,
-            "Investment" => item.InvestmentBalance,
-            _ => 0
-        };
+        _startDateLabel = sorted.First().Date.ToString("dd MMM yyyy");
+        _endDateLabel = sorted.Last().Date.ToString("dd MMM yyyy");
     }
 
     private static string FormatCurrency(decimal amount)
         => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+
+    private static string FormatSignedCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"+${amount:N2}";
+
+    private static string FormatSignedPercent(decimal percent)
+        => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";
 }

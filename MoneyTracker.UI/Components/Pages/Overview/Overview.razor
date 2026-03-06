@@ -4,16 +4,21 @@
 @using MoneyTracker.UI.Components.Shared
 @using System.Security.Claims
 @using MudBlazor
+@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Filters.Interface
 @inject IDashboardService DashboardService
+@inject IAccountService AccountService
+@inject IDashboardFilterStateService DashboardFilterState
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Dashboard - MoneyTracker</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4 overview-shell">
     <MudGrid Spacing="3">
         @* Header *@
         <MudItem xs="12">
@@ -25,7 +30,7 @@
                             Bienvenido, @UserDisplayName
                         </MudText>
                         <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
-                            Aquí tienes tu resumen financiero de hoy. Última actualización: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
+                            Here's what's happening with your finances. Última actualización: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
                         </MudText>
                     </MudStack>
                     <MudButton Variant="Variant.Outlined"
@@ -35,6 +40,80 @@
                         Actualizar
                     </MudButton>
                 </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Class="pa-4">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="3">
+                        <MudSelect T="TimePeriodFilter"
+                                   Label="Período"
+                                   Variant="Variant.Outlined"
+                                   Value="_selectedPeriod"
+                                   ValueChanged="OnPeriodChanged">
+                            @foreach (var periodOption in _periodOptions)
+                            {
+                                <MudSelectItem Value="@periodOption.Value">@periodOption.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="int"
+                                   Label="Cuentas"
+                                   Variant="Variant.Outlined"
+                                   MultiSelection="true"
+                                   SelectedValues="_selectedAccountIds"
+                                   SelectedValuesChanged="OnSelectedAccountsChanged">
+                            @foreach (var account in _accounts)
+                            {
+                                <MudSelectItem Value="@account.Id">@account.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="3">
+                        <MudSelect T="DashboardTransactionFilter"
+                                   Label="Transacciones"
+                                   Variant="Variant.Outlined"
+                                   @bind-Value="_selectedTransactionFilter">
+                            @foreach (var transactionOption in _transactionFilterOptions)
+                            {
+                                <MudSelectItem Value="@transactionOption.Value">@transactionOption.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12" md="2">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Style="height:56px;"
+                                   StartIcon="@Icons.Material.Filled.FilterAlt"
+                                   OnClick="ApplyFiltersAsync">
+                            Aplicar
+                        </MudButton>
+                    </MudItem>
+
+                    @if (_selectedPeriod == TimePeriodFilter.Custom)
+                    {
+                        <MudItem xs="12" md="3">
+                            <MudDatePicker Label="Desde"
+                                           Variant="Variant.Outlined"
+                                           Editable="false"
+                                           Date="_customFromDate"
+                                           DateChanged="OnFromDateChanged" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudDatePicker Label="Hasta"
+                                           Variant="Variant.Outlined"
+                                           Editable="false"
+                                           Date="_customToDate"
+                                           DateChanged="OnToDateChanged" />
+                        </MudItem>
+                    }
+                </MudGrid>
             </MudPaper>
         </MudItem>
 
@@ -50,44 +129,111 @@
         }
         else
         {
-            @* Row 1: Summary Cards *@
-            <MudItem xs="12" sm="6">
-                <NetWorthCard Data="_summary" />
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <CashFlowCard Data="_cashFlow" />
-            </MudItem>
-
-            @* Row 2: Balance Trend Chart *@
+            @* Row 1: Net Worth Trend *@
             <MudItem xs="12">
                 <BalanceTrendCard Data="_balanceTrend" />
             </MudItem>
 
-            @* Row 3: Spending & Recent Transactions *@
-            <MudItem xs="12" md="5">
+            @* Row 2: Budget & Spending *@
+            <MudItem xs="12" md="6">
+                <BudgetSummaryCard Data="_budgetSummary" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <SpendingTrendCard Data="_spendingTrend" />
+            </MudItem>
+
+            @* Row 3: Category Breakdown + Recent Transactions *@
+            <MudItem xs="12" md="6">
                 <CategoryBreakdownCard Data="_categoryBreakdown" />
             </MudItem>
-            <MudItem xs="12" md="7">
+            <MudItem xs="12" md="6">
                 <RecentTransactionsCard Data="_recentTransactions" />
+            </MudItem>
+
+            @* Row 4: Cash Flow Sankey *@
+            <MudItem xs="12">
+                <CashFlowCard Data="_cashFlow" />
             </MudItem>
         }
     </MudGrid>
 </MudContainer>
 
+<style>
+    .overview-shell {
+        width: calc(100% - 28px);
+        max-width: 2200px;
+    }
+
+    @@media (min-width: 2000px) {
+        .overview-shell {
+            width: calc(100% - 40px);
+            max-width: 2440px;
+        }
+    }
+</style>
+
 @code {
     private bool _isLoading = true;
-    private DashboardSummaryDto? _summary;
     private CashFlowDto? _cashFlow;
+    private DashboardBudgetSummaryDto? _budgetSummary;
     private List<BalanceTrendDto> _balanceTrend = new();
+    private List<DashboardSpendingTrendDto> _spendingTrend = new();
     private List<CategoryBreakdownDto> _categoryBreakdown = new();
     private List<RecentTransactionDto> _recentTransactions = new();
+    private List<AccountDto> _accounts = new();
+    private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
+    private DashboardTransactionFilter _selectedTransactionFilter = DashboardTransactionFilter.All;
+    private IReadOnlyCollection<int> _selectedAccountIds = Array.Empty<int>();
+    private DateTime? _customFromDate;
+    private DateTime? _customToDate;
     private string? _userDisplayName;
 
     private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Usuario" : _userDisplayName;
+    private static readonly List<(TimePeriodFilter Value, string Label)> _periodOptions =
+    [
+        (TimePeriodFilter.Last30Days, "Últimos 30 días"),
+        (TimePeriodFilter.Last90Days, "Últimos 90 días"),
+        (TimePeriodFilter.ThisMonth, "Este mes"),
+        (TimePeriodFilter.LastMonth, "Mes anterior"),
+        (TimePeriodFilter.ThisYear, "Este año"),
+        (TimePeriodFilter.Custom, "Rango personalizado")
+    ];
+
+    private static readonly List<(DashboardTransactionFilter Value, string Label)> _transactionFilterOptions =
+    [
+        (DashboardTransactionFilter.All, "Todas"),
+        (DashboardTransactionFilter.Income, "Ingresos"),
+        (DashboardTransactionFilter.Expense, "Gastos")
+    ];
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadCurrentUserNameAsync();
+        try
+        {
+            await LoadCurrentUserNameAsync();
+            await LoadAccountsAsync();
+        }
+        catch (Exception ex)
+        {
+            _isLoading = false;
+            Snackbar.Add($"Error inicializando dashboard: {ex.Message}", Severity.Error);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await LoadSavedFiltersAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"No se pudieron restaurar filtros guardados: {ex.Message}", Severity.Warning);
+        }
+
         await LoadDashboardData();
     }
 
@@ -102,16 +248,82 @@
 
         var preferredName =
             user.FindFirstValue("display_name") ??
+            user.FindFirstValue("name") ??
             user.FindFirstValue(ClaimTypes.GivenName) ??
             user.FindFirstValue(ClaimTypes.Name);
 
-        if (string.IsNullOrWhiteSpace(preferredName) || preferredName.Contains('@'))
+        if (string.IsNullOrWhiteSpace(preferredName))
         {
             _userDisplayName = "Usuario";
             return;
         }
 
-        _userDisplayName = preferredName;
+        _userDisplayName = NormalizeDisplayName(preferredName);
+    }
+
+    private static string NormalizeDisplayName(string rawName)
+    {
+        var trimmed = rawName.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return "Usuario";
+
+        if (trimmed.Contains('@'))
+        {
+            var alias = trimmed.Split('@')[0]
+                .Replace('.', ' ')
+                .Replace('_', ' ')
+                .Replace('-', ' ')
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(alias) ? "Usuario" : alias;
+        }
+
+        return trimmed;
+    }
+
+    private async Task LoadAccountsAsync()
+    {
+        try
+        {
+            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
+            if (!accountsResult.Success)
+            {
+                Snackbar.Add($"No se pudieron cargar cuentas para filtros: {accountsResult.Message}", Severity.Warning);
+                return;
+            }
+            if (accountsResult.Data is null)
+            {
+                Snackbar.Add("No se recibieron cuentas para filtros.", Severity.Warning);
+                return;
+            }
+
+            _accounts = accountsResult.Data
+                .OrderBy(a => a.Name)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error cargando cuentas para filtros: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadSavedFiltersAsync()
+    {
+        var saved = await DashboardFilterState.GetAsync();
+        if (saved is null)
+            return;
+
+        _selectedPeriod = saved.TimePeriod;
+        _selectedTransactionFilter = saved.TransactionFilter;
+        _selectedAccountIds = saved.AccountIds?.ToArray() ?? Array.Empty<int>();
+        _customFromDate = saved.FromDate;
+        _customToDate = saved.ToDate;
+
+        if (_selectedPeriod != TimePeriodFilter.Custom)
+        {
+            _customFromDate = null;
+            _customToDate = null;
+        }
     }
 
     private async Task LoadDashboardData()
@@ -121,16 +333,39 @@
 
         try
         {
-            var overviewResult = await DashboardService.GetOverviewAsync();
+            var filter = new DashboardFilterDto
+            {
+                TimePeriod = _selectedPeriod,
+                FromDate = _selectedPeriod == TimePeriodFilter.Custom ? _customFromDate : null,
+                ToDate = _selectedPeriod == TimePeriodFilter.Custom ? _customToDate : null,
+                AccountIds = _selectedAccountIds.ToList(),
+                TransactionFilter = _selectedTransactionFilter
+            };
+
+            var overviewTask = DashboardService.GetOverviewAsync(filter);
+            var completed = await Task.WhenAny(overviewTask, Task.Delay(TimeSpan.FromSeconds(20)));
+            if (completed != overviewTask)
+            {
+                Snackbar.Add("La carga del dashboard excedió el tiempo esperado. Intenta actualizar.", Severity.Error);
+                return;
+            }
+
+            var overviewResult = await overviewTask;
             if (!overviewResult.Success)
             {
                 Snackbar.Add($"Error cargando dashboard: {overviewResult.Message}", Severity.Error);
                 return;
             }
+            if (overviewResult.Data is null)
+            {
+                Snackbar.Add("No se recibieron datos del dashboard.", Severity.Error);
+                return;
+            }
 
-            _summary = overviewResult.Data.Summary;
             _cashFlow = overviewResult.Data.CashFlow;
+            _budgetSummary = overviewResult.Data.BudgetSummary;
             _balanceTrend = overviewResult.Data.BalanceTrend;
+            _spendingTrend = overviewResult.Data.SpendingTrend;
             _categoryBreakdown = overviewResult.Data.CategoryBreakdown;
             _recentTransactions = overviewResult.Data.RecentTransactions;
         }
@@ -147,6 +382,63 @@
 
     private async Task RefreshDashboard()
     {
+        await LoadDashboardData();
+    }
+
+    private Task OnPeriodChanged(TimePeriodFilter period)
+    {
+        _selectedPeriod = period;
+        if (_selectedPeriod != TimePeriodFilter.Custom)
+        {
+            _customFromDate = null;
+            _customToDate = null;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnFromDateChanged(DateTime? date)
+    {
+        _customFromDate = date;
+        return Task.CompletedTask;
+    }
+
+    private Task OnToDateChanged(DateTime? date)
+    {
+        _customToDate = date;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectedAccountsChanged(IReadOnlyCollection<int> selectedValues)
+    {
+        _selectedAccountIds = selectedValues;
+        return Task.CompletedTask;
+    }
+
+    private async Task ApplyFiltersAsync()
+    {
+        if (_selectedPeriod == TimePeriodFilter.Custom && (!_customFromDate.HasValue || !_customToDate.HasValue))
+        {
+            Snackbar.Add("Selecciona fechas desde y hasta para el rango personalizado.", Severity.Warning);
+            return;
+        }
+
+        if (_selectedPeriod == TimePeriodFilter.Custom && _customFromDate > _customToDate)
+        {
+            Snackbar.Add("La fecha desde no puede ser mayor que la fecha hasta.", Severity.Warning);
+            return;
+        }
+
+        var filterToSave = new DashboardFilterDto
+        {
+            TimePeriod = _selectedPeriod,
+            FromDate = _selectedPeriod == TimePeriodFilter.Custom ? _customFromDate : null,
+            ToDate = _selectedPeriod == TimePeriodFilter.Custom ? _customToDate : null,
+            AccountIds = _selectedAccountIds.ToList(),
+            TransactionFilter = _selectedTransactionFilter
+        };
+
+        await DashboardFilterState.SaveAsync(filterToSave);
         await LoadDashboardData();
     }
 

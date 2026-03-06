@@ -1,0 +1,80 @@
+@using MoneyTracker.Application.DTOs.Dashboard
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Warning" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Budget This Month</MudText>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (Data != null && Data.TotalBudgeted > 0)
+        {
+            <MudStack Spacing="2">
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Budgeted</MudText>
+                    <MudText Typo="Typo.body2">@FormatCurrency(Data.TotalBudgeted)</MudText>
+                </MudStack>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Used</MudText>
+                    <MudText Typo="Typo.body2">@FormatCurrency(Data.TotalUsed)</MudText>
+                </MudStack>
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Remaining</MudText>
+                    <MudText Typo="Typo.body2" Class="@(Data.TotalRemaining >= 0 ? "mud-success-text" : "mud-error-text")">
+                        @FormatCurrency(Data.TotalRemaining)
+                    </MudText>
+                </MudStack>
+
+                <MudProgressLinear Value="@Data.ProgressPercent"
+                                   Color="@(Data.TotalRemaining >= 0 ? Color.Warning : Color.Error)"
+                                   Size="Size.Medium" />
+
+                @if (Data.OverBudgetCount > 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        @Data.OverBudgetCount categoría(s) sobre presupuesto
+                    </MudAlert>
+                }
+
+                @if (Data.TopCategories.Any())
+                {
+                    <MudDivider />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Top categories</MudText>
+                    @foreach (var item in Data.TopCategories.Take(3))
+                    {
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <div style="@($"width:10px;height:10px;border-radius:50%;background:{item.CategoryColor};")"></div>
+                                <MudText Typo="Typo.caption">@item.CategoryName</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Class="@(item.IsOverBudget ? "mud-error-text" : "mud-text-secondary")">
+                                @item.ProgressPercent%
+                            </MudText>
+                        </MudStack>
+                    }
+                }
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    No budget configured for this month
+                </MudText>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public DashboardBudgetSummaryDto? Data { get; set; }
+
+    private static string FormatCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+}

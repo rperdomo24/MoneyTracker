@@ -98,6 +98,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IAccountFilterStateService, AccountFilterStateService>();
             builder.Services.AddScoped<ITransactionFilterStateService, TransactionFilterStateService>();
             builder.Services.AddScoped<IBudgetFilterStateService, BudgetFilterStateService>();
+            builder.Services.AddScoped<IDashboardFilterStateService, DashboardFilterStateService>();
             builder.Services.AddScoped<IAccountsPanelStateService, AccountsPanelStateService>();
 
             builder.Services.Configure<ApplicationSettings>(

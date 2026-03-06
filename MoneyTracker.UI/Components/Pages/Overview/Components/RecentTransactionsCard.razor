@@ -1,141 +1,139 @@
-﻿@using MoneyTracker.Application.DTOs.Dashboard
-@using MoneyTracker.Domain.Enums
+@using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Domain.Enums.Transaction
-@using MoneyTracker.UI.Helpers
+@inject NavigationManager NavigationManager
 
 <MudCard Class="dashboard-card">
     <MudCardHeader>
         <CardHeaderContent>
-            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudAvatar Color="Color.Info" Size="Size.Medium">
-                    <MudIcon Icon="@Icons.Material.Filled.Receipt" />
+                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" />
                 </MudAvatar>
-                <MudText Typo="Typo.h6">Transacciones Recientes</MudText>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Transacciones Recientes</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Ultimos movimientos registrados
+                    </MudText>
+                </MudStack>
             </MudStack>
         </CardHeaderContent>
         <CardHeaderActions>
-            <MudIconButton Icon="@Icons.Material.Filled.MoreVert"
-                           Color="Color.Default"
-                           OnClick="ShowMoreOptions" />
+            <MudButton Variant="Variant.Text"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.List"
+                       OnClick="GoToTransactions">
+                Ver transacciones
+            </MudButton>
         </CardHeaderActions>
     </MudCardHeader>
+
     <MudCardContent>
-        @if (Data?.Any() == true)
+        @if (_items.Any())
         {
-            <MudList T="string" Dense="true">
-                @foreach (var transaction in Data)
+            <MudStack Spacing="1">
+                @foreach (var transaction in _items)
                 {
-                    <MudListItem>
-                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudPaper Elevation="0" Class="pa-2 tx-row" @onclick="GoToTransactions">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="min-width:0;">
                                 <MudAvatar Size="Size.Small"
-                                           Style="@($"background-color: {transaction.CategoryColor}20; color: {transaction.CategoryColor}")">
+                                           Style="@($"background-color:{transaction.CategoryColor}20;color:{transaction.CategoryColor};")">
                                     <MudIcon Icon="@GetTransactionIcon(transaction.Type)" Size="Size.Small" />
                                 </MudAvatar>
-                                <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2" Style="font-weight: 500;">
-                                        @transaction.Description
-                                    </MudText>
+                                <MudStack Spacing="0" Style="min-width:0;">
+                                    <MudText Typo="Typo.body2" Class="text-truncate">@GetPrimaryText(transaction)</MudText>
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                        @transaction.RelativeTime • @transaction.AccountName
+                                        @transaction.RelativeTime • @transaction.CategoryName
                                     </MudText>
                                 </MudStack>
                             </MudStack>
+
                             <MudStack AlignItems="AlignItems.End" Spacing="0">
                                 <MudText Typo="Typo.body2"
                                          Class="@GetAmountColorClass(transaction)"
-                                         Style="font-weight: 600;">
+                                         Style="font-weight:600;">
                                     @GetFormattedAmount(transaction)
                                 </MudText>
                                 <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @transaction.CategoryName
+                                    @transaction.AccountName
                                 </MudText>
                             </MudStack>
                         </MudStack>
-                    </MudListItem>
-                    @if (transaction != Data.Last())
-                    {
-                        <MudDivider />
-                    }
+                    </MudPaper>
                 }
-            </MudList>
-
-            <MudDivider Class="my-3" />
-            <MudButton Variant="Variant.Text"
-                       FullWidth="true"
-                       StartIcon="@Icons.Material.Filled.ViewList"
-                       OnClick="ViewAllTransactions">
-                Ver todas las transacciones
-            </MudButton>
+            </MudStack>
         }
         else
         {
             <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
-                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong"
-                         Color="Color.Default"
-                         Size="Size.Large" />
-                <MudText Typo="Typo.body1" Align="Align.Center">
-                    No hay transacciones recientes
-                </MudText>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="AddTransaction">
-                    Agregar Transacción
+                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" />
+                <MudText Typo="Typo.body1" Align="Align.Center">No hay transacciones recientes</MudText>
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.List"
+                           OnClick="GoToTransactions">
+                    Ver transacciones
                 </MudButton>
             </MudStack>
         }
     </MudCardContent>
 </MudCard>
 
+<style>
+    .tx-row {
+        cursor: pointer;
+        border: 1px solid var(--mud-palette-divider);
+        border-radius: 10px;
+    }
+</style>
+
 @code {
     [Parameter] public List<RecentTransactionDto>? Data { get; set; }
 
-    private string GetTransactionIcon(TransactionTypeEnum type)
+    private IReadOnlyList<RecentTransactionDto> _items = Array.Empty<RecentTransactionDto>();
+
+    protected override void OnParametersSet()
     {
-        return type switch
-        {
-            TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
-            TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
-            TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
-            _ => Icons.Material.Filled.AttachMoney
-        };
+        _items = Data?
+            .OrderByDescending(x => x.Date)
+            .Take(6)
+            .ToList() ?? new List<RecentTransactionDto>();
     }
 
-    private string GetAmountColorClass(RecentTransactionDto transaction)
-    {
-        return transaction.Type switch
-        {
-            TransactionTypeEnum.Income => "mud-success-text",
-            TransactionTypeEnum.Expense => "mud-error-text",
-            TransactionTypeEnum.Transfer => "mud-info-text",
-            _ => ""
-        };
-    }
+    private void GoToTransactions()
+        => NavigationManager.NavigateTo("/transactions");
 
-    private string GetFormattedAmount(RecentTransactionDto transaction)
+    private static string GetTransactionIcon(TransactionTypeEnum type) => type switch
     {
-        return transaction.Type switch
-        {
-            TransactionTypeEnum.Income => $"+${transaction.Amount:N2}",
-            TransactionTypeEnum.Expense => $"-${transaction.Amount:N2}",
-            TransactionTypeEnum.Transfer => $"${transaction.Amount:N2}",
-            _ => $"${transaction.Amount:N2}"
-        };
-    }
+        TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
+        TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
+        TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
+        _ => Icons.Material.Filled.AttachMoney
+    };
 
-    private void ShowMoreOptions()
+    private static string GetAmountColorClass(RecentTransactionDto transaction) => transaction.Type switch
     {
-        // Implementation for more options
-    }
+        TransactionTypeEnum.Income => "mud-success-text",
+        TransactionTypeEnum.Expense => "mud-error-text",
+        TransactionTypeEnum.Transfer => "mud-info-text",
+        _ => string.Empty
+    };
 
-    private void ViewAllTransactions()
+    private static string GetFormattedAmount(RecentTransactionDto transaction) => transaction.Type switch
     {
-        // Navigate to transactions page
-    }
+        TransactionTypeEnum.Income => $"+${transaction.Amount:N2}",
+        TransactionTypeEnum.Expense => $"-${transaction.Amount:N2}",
+        TransactionTypeEnum.Transfer => $"${transaction.Amount:N2}",
+        _ => $"${transaction.Amount:N2}"
+    };
 
-    private void AddTransaction()
+    private static string GetPrimaryText(RecentTransactionDto transaction)
     {
-        // Open add transaction modal
+        if (!string.IsNullOrWhiteSpace(transaction.Description))
+            return transaction.Description;
+
+        if (!string.IsNullOrWhiteSpace(transaction.Name))
+            return transaction.Name;
+
+        return "Transaccion sin descripcion";
     }
 }

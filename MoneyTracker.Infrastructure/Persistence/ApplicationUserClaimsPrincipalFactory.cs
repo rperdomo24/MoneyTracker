@@ -20,6 +20,12 @@ namespace MoneyTracker.Infrastructure.Persistence
         {
             var identity = await base.GenerateClaimsAsync(user);
             identity.AddClaim(new Claim(CustomClaimTypes.TenantId, user.TenantId.ToString()));
+
+            if (!string.IsNullOrWhiteSpace(user.DisplayName))
+            {
+                identity.AddClaim(new Claim("display_name", user.DisplayName));
+            }
+
             return identity;
         }
     }

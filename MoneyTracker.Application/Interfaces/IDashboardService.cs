@@ -6,7 +6,10 @@ namespace MoneyTracker.Application.Interfaces
 {
     public interface IDashboardService
     {
-        Task<OperationResult<DashboardOverviewDto>> GetOverviewAsync(int recentTransactionsCount = 10, int balanceTrendMonths = 6);
+        Task<OperationResult<DashboardOverviewDto>> GetOverviewAsync(
+            DashboardFilterDto? filter = null,
+            int recentTransactionsCount = 10,
+            int balanceTrendMonths = 6);
         Task<OperationResult<DashboardSummaryDto>> GetSummaryAsync();
         Task<OperationResult<CashFlowDto>> GetCashFlowAsync(TimePeriodFilter period = TimePeriodFilter.ThisMonth);
         Task<OperationResult<List<FinancialAlertDto>>> GetAlertsAsync();

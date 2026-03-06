@@ -1,101 +1,170 @@
-﻿@using MoneyTracker.Application.DTOs.Dashboard
-@using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.DTOs.Dashboard
+@using MudBlazor.Charts
 
 <MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Secondary" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Cashflow Sankey</MudText>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+
     <MudCardContent>
-        <MudStack Spacing="3">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems=" AlignItems.Center">
-                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                    <MudAvatar Color="Color.Secondary" Size="Size.Medium">
-                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
-                    </MudAvatar>
-                    <MudText Typo="Typo.h6">Flujo de Efectivo (Junio)</MudText>
+        @if (Data is not null)
+        {
+            <MudStack Spacing="2">
+                @if (_series.Any() && _series[0].Data.Any())
+                {
+                    <MudChart T="int"
+                              ChartType="ChartType.Sankey"
+                              Width="100%"
+                              Height="420px"
+                              ChartSeries="@_series"
+                              ChartOptions="@_chartOptions" />
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        No hay suficiente data para construir el Sankey en este rango.
+                    </MudAlert>
+                }
+
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Class="mud-success-text">
+                        Income: @FormatCurrency(Data.TotalIncome)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="mud-error-text">
+                        Expenses: @FormatCurrency(Data.TotalExpenses)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="@GetBalanceColorClass(Data.NetCashFlow)">
+                        Net: @FormatCurrency(Data.NetCashFlow)
+                    </MudText>
                 </MudStack>
             </MudStack>
-
-            @if (Data != null)
-            {
-                <MudStack Spacing="2">
-                    <MudGrid>
-                        <MudItem xs="6">
-                            <MudStack Spacing="1">
-                                <MudText Typo="Typo.h5" Class="mud-success-text">
-                                    @FormatCurrency(Data.TotalIncome)
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ingresos</MudText>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudStack Spacing="1">
-                                <MudText Typo="Typo.h5" Class="mud-error-text">
-                                    -@FormatCurrency(Data.TotalExpenses)
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Gastos</MudText>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-
-                    <MudDivider />
-
-                    <MudStack Spacing="1">
-                        <MudText Typo="Typo.h6" Class="@GetBalanceColorClass(Data.NetCashFlow)">
-                            Flujo Neto: @FormatCurrency(Data.NetCashFlow)
-                        </MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            Promedio diario: -@FormatCurrency(Data.DailyBurnRate)
-                        </MudText>
-                    </MudStack>
-
-                    <MudProgressLinear Value="@GetMonthProgress()"
-                                       Color="Color.Primary"
-                                       Size="Size.Medium"
-                                       Class="my-2" />
-
-                    <MudStack Row Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @Data.DaysLeftInMonth días restantes
-                        </MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @Data.DaysElapsed/@Data.DaysInMonth días
-                        </MudText>
-                    </MudStack>
-
-                    @if (Math.Abs(Data.ProjectedMonthEnd - Data.NetCashFlow) > 100)
-                    {
-                        <MudAlert Severity="@(Data.ProjectedMonthEnd < 0 ? Severity.Warning : Severity.Info)" Dense="true">
-                            Al ritmo actual: @FormatCurrency(Data.ProjectedMonthEnd) al fin de mes
-                        </MudAlert>
-                    }
-                </MudStack>
-            }
-            else
-            {
-                <MudStack Spacing="2">
-                    <MudSkeleton Height="40px" />
-                    <MudSkeleton Height="20px" />
-                    <MudSkeleton Height="20px" />
-                </MudStack>
-            }
-        </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                <MudSkeleton Height="280px" />
+            </MudStack>
+        }
     </MudCardContent>
 </MudCard>
 
 @code {
     [Parameter] public CashFlowDto? Data { get; set; }
 
-    private string FormatCurrency(decimal amount)
+    private List<ChartSeries<int>> _series = new();
+    private readonly SankeyChartOptions _chartOptions = new()
     {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+        ShowLabels = true,
+        ShowNodeValues = true,
+        ShowEdgeLabels = false,
+        HighlightOnHover = true,
+        NodeWidth = 16,
+        OrderNodesByValue = true,
+        LabelFontSize = "0.80rem"
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (Data is null)
+        {
+            _series = new();
+            return;
+        }
+
+        var edges = new List<SankeyEdge<int>>();
+        var incomeCategories = GetTopCategories(Data.IncomeByCategory, 5, "Other Income");
+        var expenseCategories = GetTopCategories(Data.ExpenseByCategory, 6, "Other Expenses");
+
+        foreach (var category in incomeCategories)
+        {
+            edges.Add(new SankeyEdge<int>(category.CategoryName, "Income", ToSankeyValue(category.Amount)));
+        }
+
+        foreach (var category in expenseCategories)
+        {
+            edges.Add(new SankeyEdge<int>("Expenses", category.CategoryName, ToSankeyValue(category.Amount)));
+        }
+
+        var expenses = ToSankeyValue(Data.TotalExpenses);
+        if (expenses > 0)
+        {
+            edges.Add(new SankeyEdge<int>("Income", "Expenses", expenses));
+        }
+
+        var net = Data.NetCashFlow;
+        if (net >= 0)
+        {
+            var savings = ToSankeyValue(net);
+            if (savings > 0)
+            {
+                edges.Add(new SankeyEdge<int>("Income", "Savings", savings));
+            }
+        }
+        else
+        {
+            var deficit = ToSankeyValue(Math.Abs(net));
+            if (deficit > 0)
+            {
+                edges.Add(new SankeyEdge<int>("Deficit", "Expenses", deficit));
+            }
+        }
+
+        _series = new List<ChartSeries<int>>
+        {
+            new()
+            {
+                Name = "Cashflow",
+                Data = edges
+            }
+        };
     }
 
-    private string GetBalanceColorClass(decimal balance)
+    private static int ToSankeyValue(decimal amount)
     {
-        return balance >= 0 ? "mud-success-text" : "mud-error-text";
+        var absValue = Math.Abs(amount);
+        if (absValue <= 0)
+            return 0;
+
+        return (int)Math.Max(1, Math.Round(absValue, MidpointRounding.AwayFromZero));
     }
 
-    private double GetMonthProgress()
+    private static List<CashFlowCategoryDto> GetTopCategories(
+        List<CashFlowCategoryDto> categories,
+        int maxItems,
+        string otherName)
     {
-        if (Data == null || Data.DaysInMonth == 0) return 0;
-        return ((double)Data.DaysElapsed / Data.DaysInMonth) * 100;
+        if (categories.Count <= maxItems)
+            return categories;
+
+        var top = categories
+            .Take(maxItems)
+            .ToList();
+        var otherAmount = categories
+            .Skip(maxItems)
+            .Sum(x => x.Amount);
+
+        if (otherAmount > 0)
+        {
+            top.Add(new CashFlowCategoryDto
+            {
+                CategoryName = otherName,
+                Amount = otherAmount
+            });
+        }
+
+        return top;
     }
+
+    private static string FormatCurrency(decimal amount)
+        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+
+    private static string GetBalanceColorClass(decimal balance)
+        => balance >= 0 ? "mud-success-text" : "mud-error-text";
 }

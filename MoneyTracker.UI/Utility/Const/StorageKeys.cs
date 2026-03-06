@@ -19,6 +19,9 @@
             public static string Budgets(string userKey)
                 => $"{Prefix}:{userKey}:budgets";
 
+            public static string Dashboard(string userKey)
+                => $"{Prefix}:{userKey}:dashboard";
+
             public static string AccountsPanel(string userKey)
                 => $"mt:{userKey}:panels:accounts:is_open";
         }
