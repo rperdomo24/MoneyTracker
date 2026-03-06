@@ -1,0 +1,145 @@
+@page "/register"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+@using System.Text
+@using MoneyTracker.Application.DTOs.Auth
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Entities
+@using MoneyTracker.Infrastructure.Persistence
+@inject UserManager<ApplicationUser> UserManager
+@inject MoneyTrackerDbContext DbContext
+@inject ITenantBootstrapService TenantBootstrapService
+@inject NavigationManager Navigation
+@inject ILogger<Register> Logger
+@inject global::FluentValidation.IValidator<RegisterRequestDto> RegisterValidator
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-4">Create account</MudText>
+
+        <MudTextField @bind-Value="_model.DisplayName" Label="Display name" Variant="Variant.Outlined" />
+        <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" Class="mt-3" />
+        <MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mt-3" />
+        <MudTextField @bind-Value="_model.ConfirmPassword" Label="Confirm password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mt-3" />
+
+        @if (_errors.Count > 0)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">
+                @foreach (var error in _errors)
+                {
+                    <div>@error</div>
+                }
+            </MudAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_confirmationUrl))
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                Confirmation link generated (dev mode):
+                <MudLink Href="@_confirmationUrl">@_confirmationUrl</MudLink>
+            </MudAlert>
+        }
+
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" OnClick="OnSubmit" Disabled="_isBusy" Class="mt-4">
+            Create account
+        </MudButton>
+
+        <MudText Typo="Typo.body2" Class="mt-4">
+            Already have an account? <MudLink Href="/login">Sign in</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private readonly RegisterRequestDto _model = new();
+    private bool _isBusy;
+    private readonly List<string> _errors = new();
+    private string? _confirmationUrl;
+
+    private async Task OnSubmit()
+    {
+        _isBusy = true;
+        _errors.Clear();
+        _confirmationUrl = null;
+
+        var validation = await RegisterValidator.ValidateAsync(_model);
+        if (!validation.IsValid)
+        {
+            _errors.AddRange(validation.Errors.Select(x => x.ErrorMessage).Distinct());
+            _isBusy = false;
+            return;
+        }
+
+        var normalizedEmail = _model.Email.Trim().ToLowerInvariant();
+        var tenantId = Guid.NewGuid();
+        var tenantName = BuildTenantName(_model.DisplayName, normalizedEmail);
+        var user = new ApplicationUser
+        {
+            UserName = normalizedEmail,
+            Email = normalizedEmail,
+            TenantId = tenantId,
+            DisplayName = string.IsNullOrWhiteSpace(_model.DisplayName) ? null : _model.DisplayName.Trim(),
+            TwoFactorEnabled = true
+        };
+
+        var createResult = await UserManager.CreateAsync(user, _model.Password);
+        if (!createResult.Succeeded)
+        {
+            _errors.AddRange(createResult.Errors.Select(e => e.Description));
+            _isBusy = false;
+            return;
+        }
+
+        try
+        {
+            DbContext.Tenants.Add(new Tenant
+            {
+                TenantId = tenantId,
+                Name = tenantName,
+                OwnerUserId = user.Id
+            });
+
+            await DbContext.SaveChangesAsync();
+            await TenantBootstrapService.SeedDefaultsAsync(tenantId);
+
+            var token = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+            _confirmationUrl =
+                $"/confirm-email?userId={Uri.EscapeDataString(user.Id.ToString())}&code={Uri.EscapeDataString(encodedToken)}";
+
+            Logger.LogInformation("Email confirmation link for {Email}: {Link}", normalizedEmail, _confirmationUrl);
+        }
+        catch (Exception ex)
+        {
+            await UserManager.DeleteAsync(user);
+            _errors.Add("Registration failed. Please try again.");
+            Logger.LogError(ex, "Registration provisioning failed for {Email}", normalizedEmail);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string BuildTenantName(string? displayName, string normalizedEmail)
+    {
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            return displayName.Trim();
+        }
+
+        var atIndex = normalizedEmail.IndexOf('@');
+        if (atIndex > 0)
+        {
+            var localPart = normalizedEmail[..atIndex].Trim();
+            if (!string.IsNullOrWhiteSpace(localPart))
+            {
+                return localPart;
+            }
+        }
+
+        return "Personal";
+    }
+}

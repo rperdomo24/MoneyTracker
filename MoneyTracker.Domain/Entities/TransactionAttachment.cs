@@ -1,10 +1,12 @@
-﻿using System.ComponentModel.DataAnnotations;
+using MoneyTracker.Domain.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class TransactionAttachment
+    public class TransactionAttachment : ITenantOwned
     {
         public int Id { get; set; }
+        public Guid TenantId { get; set; }
 
         public int TransactionId { get; set; }
 
@@ -16,10 +18,10 @@ namespace MoneyTracker.Domain.Entities
 
         // This field is optional, as not all attachments may have a content type
         [MaxLength(100)]
-        public string ContentType { get; set; } 
+        public string? ContentType { get; set; }
 
         [Required]
-        public byte[] FileContent { get; set; }
+        public byte[] FileContent { get; set; } = Array.Empty<byte>();
 
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }

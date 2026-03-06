@@ -15,15 +15,18 @@ namespace MoneyTracker.Application.Services
         private readonly IAccountRepository _repository;
         private readonly ITransactionService _transactionService;
         private readonly ITimeZoneService _timeZoneService;
+        private readonly ISystemCategoryResolver _systemCategoryResolver;
 
         public AccountService(
             IAccountRepository repository,
             ITransactionService transactionService,
-            ITimeZoneService timeZoneService)
+            ITimeZoneService timeZoneService,
+            ISystemCategoryResolver systemCategoryResolver)
         {
             _repository = repository;
             _transactionService = transactionService;
             _timeZoneService = timeZoneService;
+            _systemCategoryResolver = systemCategoryResolver;
         }
 
         public async Task<OperationResult<List<AccountDto>>> GetAllAsync()
@@ -156,12 +159,13 @@ namespace MoneyTracker.Application.Services
         private async Task CreateInitialBalanceTransactionAsync(int accountId, decimal amount, string accountName)
         {
             var isIncome = amount >= 0;
-            var categoryId = SystemCategories.GetInitialBalanceCategoryId(isIncome);
-            var transactionType = SystemCategories.GetSystemCategoryTypeName(categoryId);
+            var categoryId = await _systemCategoryResolver.GetInitialBalanceCategoryIdAsync(isIncome);
+            var code = SystemCategoryCodes.GetInitialBalanceCode(isIncome);
+            var transactionType = SystemCategoryCodes.GetDisplayName(code);
 
             var transactionDto = new TransactionDto
             {
-                Name = transactionType.ToString(),
+                Name = transactionType,
                 AccountId = accountId,
                 Amount = Math.Abs(amount),
                 CategoryId = categoryId,
@@ -177,12 +181,13 @@ namespace MoneyTracker.Application.Services
         private async Task CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
         {
             var isIncome = adjustment >= 0;
-            var categoryId = SystemCategories.GetBalanceAdjustmentCategoryId(isIncome);
-            var transactionType = SystemCategories.GetSystemCategoryTypeName(categoryId);
+            var categoryId = await _systemCategoryResolver.GetBalanceAdjustmentCategoryIdAsync(isIncome);
+            var code = SystemCategoryCodes.GetBalanceAdjustmentCode(isIncome);
+            var transactionType = SystemCategoryCodes.GetDisplayName(code);
 
             var transactionDto = new TransactionDto
             {
-                Name = transactionType.ToString(),
+                Name = transactionType,
                 AccountId = accountId,
                 Amount = isIncome ? Math.Abs(adjustment) : -Math.Abs(adjustment),
                 CategoryId = categoryId,

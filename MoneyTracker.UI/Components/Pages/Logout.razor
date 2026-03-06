@@ -1,0 +1,22 @@
+@page "/logout"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.body1">Signing you out...</MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo("/auth/logout", true);
+    }
+}

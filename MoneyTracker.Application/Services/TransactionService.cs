@@ -25,6 +25,7 @@ namespace MoneyTracker.Application.Services
         private readonly ITimeZoneService _timeZoneService;
         private readonly ITimeRangeService _timeRangeService;
         private readonly ICategoryService _categoryService;
+        private readonly ISystemCategoryResolver _systemCategoryResolver;
 
         public TransactionService(
             ITransactionRepository repository,
@@ -35,7 +36,8 @@ namespace MoneyTracker.Application.Services
             ITimeZoneService timeZoneService,
             ITimeRangeService timeRangeService,
             ICategoryRepository categoryRepository,
-            ICategoryService categoryService)
+            ICategoryService categoryService,
+            ISystemCategoryResolver systemCategoryResolver)
         {
             _repository = repository;
             _accountRepository = accountRepository;
@@ -45,6 +47,7 @@ namespace MoneyTracker.Application.Services
             _timeZoneService = timeZoneService;
             _timeRangeService = timeRangeService;
             _categoryService = categoryService;
+            _systemCategoryResolver = systemCategoryResolver;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -155,7 +158,7 @@ namespace MoneyTracker.Application.Services
                 if (toAccount is null)
                     return OperationResult<bool>.Fail(OperationMessages.TransferDestinationNotFound);
 
-                var (fromCategoryId, toCategoryId) = SystemCategories.GetTransferCategoriesByAccountType(
+                var (fromCategoryId, toCategoryId, transferTypeName) = await _systemCategoryResolver.GetTransferCategoriesAsync(
                     fromAccount.Type,
                     toAccount.Type);
 
@@ -165,6 +168,7 @@ namespace MoneyTracker.Application.Services
                 var (fromTransaction, toTransaction) = dto.MapToTransferPair(
                     fromCategoryId,
                     toCategoryId,
+                    transferTypeName,
                     fromAccountDto.Name,
                     toAccountDto.Name,
                     _timeZoneService);
@@ -349,7 +353,7 @@ namespace MoneyTracker.Application.Services
                     return OperationResult<int>.Fail(OperationMessages.NotFound);
 
                 // Validate: do NOT duplicate credit payments
-                if (SystemCategories.IsCreditRelatedCategory(original.CategoryId))
+                if (SystemCategoryCodes.IsCreditRelated(original.Category?.SystemCategoryCode))
                 {
                     return OperationResult<int>.Fail(OperationMessages.CreditPaymentCannotDuplicate);
                 }

@@ -1,11 +1,13 @@
-﻿using MoneyTracker.Domain.Enums.Category;
+using MoneyTracker.Domain.Enums.Category;
+using MoneyTracker.Domain.Interfaces;
 using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class Category
+    public class Category : ITenantOwned
     {
         public int Id { get; set; }
+        public Guid TenantId { get; set; }
 
         [Required]
         [MaxLength(250)]
@@ -20,9 +22,11 @@ namespace MoneyTracker.Domain.Entities
         public string? Color { get; set; }
 
         public bool IsSystem { get; set; } = false;
+        [MaxLength(64)]
+        public string? SystemCategoryCode { get; set; }
 
         public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; } 
+        public DateTime UpdatedAt { get; set; }
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
 

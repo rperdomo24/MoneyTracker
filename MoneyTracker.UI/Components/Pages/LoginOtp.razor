@@ -1,0 +1,53 @@
+@page "/login-otp"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-2">Email verification code</MudText>
+        <MudText Typo="Typo.body2" Class="mb-3">Enter the code sent to your email.</MudText>
+
+        @if (!string.IsNullOrWhiteSpace(Info))
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@Info</MudAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@Error</MudAlert>
+        }
+
+        <form method="post" action="/auth/login-otp">
+            <AntiforgeryToken />
+            <MudTextField @bind-Value="_code" Label="OTP code" Variant="Variant.Outlined" Immediate="true" Class="mt-3" />
+            <input type="hidden" name="code" value="@_code" />
+            <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
+
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
+                Verify and sign in
+            </MudButton>
+        </form>
+
+        <form method="post" action="/auth/login-otp/resend">
+            <AntiforgeryToken />
+            <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Default" Variant="Variant.Outlined" FullWidth="true" Class="mt-2">
+                Resend code
+            </MudButton>
+        </form>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public bool RememberMe { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Info { get; set; }
+
+    private string _code = string.Empty;
+
+    private static string SafeReturnUrl(string? returnUrl)
+        => !string.IsNullOrWhiteSpace(returnUrl) && returnUrl.StartsWith('/') ? returnUrl : "/";
+}

@@ -11,6 +11,7 @@ namespace MoneyTracker.Application.DTOs
         public CategoryIcon Icon { get; set; }
         public string? Color { get; set; }
         public bool IsSystem { get; set; }
+        public string? SystemCategoryCode { get; set; }
         public DateTime UpdatedAt { get; set; }
         public CategoryDto? Parent { get; set; }
         public List<CategoryDto> Children { get; set; } = new();

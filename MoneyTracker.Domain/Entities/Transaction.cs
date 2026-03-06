@@ -1,12 +1,14 @@
-﻿using MoneyTracker.Domain.Enums.Transaction;
+using MoneyTracker.Domain.Enums.Transaction;
+using MoneyTracker.Domain.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class Transaction
+    public class Transaction : ITenantOwned
     {
         public int Id { get; set; }
+        public Guid TenantId { get; set; }
 
         [Required]
         [MaxLength(100)]

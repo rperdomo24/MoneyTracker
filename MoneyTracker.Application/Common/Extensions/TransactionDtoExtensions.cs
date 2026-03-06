@@ -1,4 +1,4 @@
-﻿using MoneyTracker.Application.DTOs.Transactions;
+using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Enums.Transaction;
@@ -8,85 +8,52 @@ namespace MoneyTracker.Application.Common.Extensions
     public static class TransactionDtoExtensions
     {
         public static bool IsIncome(this TransactionDto transaction)
-        {
-            if (transaction.Category?.Type == CategoryTypeEnum.Income)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
+            => transaction.Category?.Type == CategoryTypeEnum.Income;
 
         public static bool IsExpense(this TransactionDto transaction)
-        {
-            return transaction.Category?.Type == CategoryTypeEnum.Expense;
-        }
+            => transaction.Category?.Type == CategoryTypeEnum.Expense;
 
         public static bool IsCreditPayment(this TransactionDto transaction)
-        {
-            return SystemCategories.IsCreditRelatedCategory(transaction.CategoryId);
-        }
+            => SystemCategoryCodes.IsCreditRelated(transaction.Category?.SystemCategoryCode);
 
         public static bool IsTransfer(this TransactionDto transaction)
-        {
-            return SystemCategories.IsTransferCategory(transaction.CategoryId);
-        }
+            => SystemCategoryCodes.IsTransfer(transaction.Category?.SystemCategoryCode)
+               || transaction.Category?.Type == CategoryTypeEnum.Transfer;
 
         public static TransactionTypeEnum GetDerivedType(this TransactionDto transaction)
         {
-            // Transfers = categorías del sistema 8-13
-            if (SystemCategories.IsTransferCategory(transaction.CategoryId))
+            if (transaction.IsTransfer())
                 return TransactionTypeEnum.Transfer;
 
-            // Income/Expense se deriva de la categoría
-            return transaction.Category.Type == CategoryTypeEnum.Income
+            return transaction.Category?.Type == CategoryTypeEnum.Income
                 ? TransactionTypeEnum.Income
                 : TransactionTypeEnum.Expense;
         }
 
         public static bool IsOutgoingTransfer(this TransactionDto transaction)
-        {
-            return SystemCategories.IsTransferOutCategory(transaction.CategoryId);
-        }
+            => SystemCategoryCodes.IsTransferOut(transaction.Category?.SystemCategoryCode);
 
         public static bool IsIncomingTransfer(this TransactionDto transaction)
-        {
-            return SystemCategories.IsTransferInCategory(transaction.CategoryId);
-        }
+            => SystemCategoryCodes.IsTransferIn(transaction.Category?.SystemCategoryCode);
 
         public static TransactionDto GetFromTransaction(this TransactionDto transaction, TransactionDto pairedTransaction)
-        {
-            return transaction.IsOutgoingTransfer() ? transaction : pairedTransaction;
-        }
+            => transaction.IsOutgoingTransfer() ? transaction : pairedTransaction;
 
         public static TransactionDto GetToTransaction(this TransactionDto transaction, TransactionDto pairedTransaction)
-        {
-            return transaction.IsOutgoingTransfer() ? pairedTransaction : transaction;
-        }
+            => transaction.IsOutgoingTransfer() ? pairedTransaction : transaction;
 
         public static string GetAmountDisplay(this TransactionDto transaction)
         {
             if (transaction.Amount == 0) return "$0.00";
-
-            if (transaction.TransactionType == TransactionTypeEnum.Transfer ||
-                transaction.TransactionType == TransactionTypeEnum.CreditPayment)
-            {
-                return transaction.Amount.ToString("C");
-            }
-
             return transaction.Amount.ToString("C");
         }
 
         public static string GetAmountDisplayWithSign(this TransactionDto transaction)
         {
             if (transaction.Amount == 0) return "$0.00";
-
-            if (transaction.IsTransfer())
-                return FormatWithSign(transaction.Amount);
-
-            return transaction.Amount.ToString("C");
+            return transaction.IsTransfer()
+                ? FormatWithSign(transaction.Amount)
+                : transaction.Amount.ToString("C");
         }
 
         private static string FormatWithSign(decimal amount)
@@ -97,15 +64,19 @@ namespace MoneyTracker.Application.Common.Extensions
 
         public static decimal GetSignedAmount(this TransactionDto transaction)
         {
-            return (transaction.IsIncomingTransfer()
-                            || transaction.IsIncome())
-                                ? transaction.Amount
-                                : (transaction.Amount * -1);
+            if (transaction.IsTransfer())
+            {
+                return transaction.IsIncomingTransfer()
+                    ? Math.Abs(transaction.Amount)
+                    : Math.Abs(transaction.Amount) * -1;
+            }
+
+            return transaction.IsIncome()
+                ? Math.Abs(transaction.Amount)
+                : Math.Abs(transaction.Amount) * -1;
         }
 
         public static decimal GetAbsoluteAmountss(this TransactionDto transaction)
-        {
-            return Math.Abs(transaction.Amount);
-        }
+            => Math.Abs(transaction.Amount);
     }
 }

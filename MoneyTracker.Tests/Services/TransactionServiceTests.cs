@@ -28,6 +28,7 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ITimeRangeService> _timeRange = new();
         private readonly Mock<ICategoryRepository> _categoryRepo = new();
         private readonly Mock<ICategoryService> _categoryService = new();
+        private readonly Mock<ISystemCategoryResolver> _systemCategoryResolver = new();
 
         private TransactionService CreateService()
             => new(
@@ -39,7 +40,8 @@ namespace MoneyTracker.Tests.Services
                 _tz.Object,
                 _timeRange.Object,
                 _categoryRepo.Object,
-                _categoryService.Object);
+                _categoryService.Object,
+                _systemCategoryResolver.Object);
 
         [Fact]
         public async Task CreateAsync_WhenValidationFails_ReturnsValidationMessage()
@@ -110,7 +112,19 @@ namespace MoneyTracker.Tests.Services
         {
             // Business rule: credit-related transfer/payment categories cannot be duplicated.
             _txRepo.Setup(x => x.GetByIdAsync(4))
-                .ReturnsAsync(new Transaction { Id = 4, CategoryId = SystemCategories.CREDIT_PAYMENT_ID });
+                .ReturnsAsync(new Transaction
+                {
+                    Id = 4,
+                    CategoryId = 10,
+                    Category = new Category
+                    {
+                        Id = 10,
+                        Name = SystemCategoryNames.CREDIT_PAYMENT_NAME,
+                        Type = CategoryTypeEnum.Transfer,
+                        SystemCategoryCode = SystemCategoryCodes.CreditPayment,
+                        Icon = "CreditCard"
+                    }
+                });
             var svc = CreateService();
 
             var result = await svc.DuplicateTransactionAsync(4);

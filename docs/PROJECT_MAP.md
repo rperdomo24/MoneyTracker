@@ -3,13 +3,15 @@
 ## What MoneyTracker is
 - MoneyTracker is a personal finance tracker built as a .NET 9 Blazor Server app.
 - It manages accounts, categories, transactions, transfers, budgets, and dashboard metrics.
+- Authentication uses ASP.NET Core Identity with cookie auth (no JWT).
+- Tenant isolation is column-based (`TenantId`) with EF Core query filters and save-time tenant enforcement.
 - UI is implemented with MudBlazor components and dialog-based CRUD flows.
 - Application services expose business operations and return `OperationResult` / `OperationResult<T>`.
 - Domain contains entities, enums, constants, and repository interfaces.
 - Infrastructure contains EF Core PostgreSQL persistence, repositories, migrations, and timezone service.
 - Tests focus on application services (`Account`, `Category`, `Transaction`, `Budget`, `Dashboard`, `TimeRange`, `TextImport`).
 - DI composition currently happens in the UI entry point (`Program.cs`), not in separate extension modules.
-- Data is persisted through `MoneyTrackerDbContext` and repositories.
+- Data is persisted through `MoneyTrackerDbContext` (`IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>`) and repositories.
 - App-level timezone handling is centralized via `ITimeZoneService`.
 
 ## Architecture
@@ -20,6 +22,14 @@ MoneyTracker.UI (Blazor Server + MudBlazor, DI composition, appsettings)
             <- MoneyTracker.Infrastructure (EF Core DbContext, PostgreSQL repos, migrations, timezone service)
 MoneyTracker.Tests -> tests Application services with mocks
 ```
+
+## Auth and tenancy snapshot
+- Identity user: `ApplicationUser : IdentityUser<Guid>` with `TenantId` and `DisplayName`.
+- Tenant ownership contract: `ITenantOwned` implemented by business entities.
+- Tenant context: `ICurrentUserService` / `ITenantContext` resolves `TenantId` and `UserId` from claims.
+- Claim issuance: `ApplicationUserClaimsPrincipalFactory` adds `tenant_id` claim at sign-in.
+- Auth pages use `AuthLayout` (no app navigation shell behind login/register/OTP).
+- Auth POST flows are handled via server endpoints (`/auth/login`, `/auth/login-otp`, `/auth/logout`) to safely issue cookies in Blazor Server.
 
 ## Folder and project map
 - `MoneyTracker.UI`: `Program.cs`, Razor pages/components, UI state services, filters, dialogs, app settings.

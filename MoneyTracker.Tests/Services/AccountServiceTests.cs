@@ -17,9 +17,14 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<IAccountRepository> _accountRepo = new();
         private readonly Mock<ITransactionService> _transactionService = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
+        private readonly Mock<ISystemCategoryResolver> _systemCategoryResolver = new();
 
         private AccountService CreateService()
-            => new AccountService(_accountRepo.Object, _transactionService.Object, _timeZoneService.Object);
+            => new AccountService(
+                _accountRepo.Object,
+                _transactionService.Object,
+                _timeZoneService.Object,
+                _systemCategoryResolver.Object);
 
         [Fact]
         public async Task GetAllAsync_ReturnsAccountsOrderedByType()
@@ -124,6 +129,8 @@ namespace MoneyTracker.Tests.Services
             _accountRepo.Setup(x => x.AddAsync(It.IsAny<Account>()))
                 .ReturnsAsync(true)
                 .Callback<Account>(a => a.Id = 77);
+            _systemCategoryResolver.Setup(x => x.GetInitialBalanceCategoryIdAsync(true, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(1001);
             _transactionService.Setup(x => x.CreateAsync(It.IsAny<TransactionDto>()))
                 .ReturnsAsync(OperationResult<bool>.Ok(true));
 
@@ -137,7 +144,7 @@ namespace MoneyTracker.Tests.Services
             // Verify that an initial-balance system transaction is generated with the new account Id.
             _transactionService.Verify(x => x.CreateAsync(It.Is<TransactionDto>(t =>
                 t.AccountId == 77 &&
-                t.CategoryId == SystemCategories.INITIAL_BALANCE_INCOME_ID &&
+                t.CategoryId == 1001 &&
                 t.Amount == 250m &&
                 t.Date == now &&
                 t.Description == $"{SystemCategoryNames.INITIAL_BALANCE_NAME} - {dto.Name}")), Times.Once);
@@ -165,6 +172,8 @@ namespace MoneyTracker.Tests.Services
             _timeZoneService.Setup(x => x.GetLocalTimeInConfiguredTimeZone()).Returns(now);
             _accountRepo.Setup(x => x.GetByIdAsync(4))
                 .ReturnsAsync(new Account { Id = 4, Name = "Bank", Balance = 100m, Icon = "Wallet", Type = AccountType.Bank });
+            _systemCategoryResolver.Setup(x => x.GetBalanceAdjustmentCategoryIdAsync(true, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(2001);
             _transactionService.Setup(x => x.CreateAsync(It.IsAny<TransactionDto>()))
                 .ReturnsAsync(OperationResult<bool>.Ok(true));
             var service = CreateService();
@@ -175,7 +184,7 @@ namespace MoneyTracker.Tests.Services
             result.Message.Should().StartWith("Balance adjusted by +");
             _transactionService.Verify(x => x.CreateAsync(It.Is<TransactionDto>(t =>
                 t.AccountId == 4 &&
-                t.CategoryId == SystemCategories.BALANCE_ADJUSTMENT_INCOME_ID &&
+                t.CategoryId == 2001 &&
                 t.Amount == 150m &&
                 t.Date == now &&
                 t.Description == $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - Bank")), Times.Once);

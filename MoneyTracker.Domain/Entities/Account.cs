@@ -1,11 +1,13 @@
-﻿using MoneyTracker.Domain.Enums.Account;
+using MoneyTracker.Domain.Enums.Account;
+using MoneyTracker.Domain.Interfaces;
 using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class Account
+    public class Account : ITenantOwned
     {
         public int Id { get; set; }
+        public Guid TenantId { get; set; }
 
         [Required]
         [MaxLength(100)]
