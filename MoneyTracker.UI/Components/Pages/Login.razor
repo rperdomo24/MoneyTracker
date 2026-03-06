@@ -31,6 +31,10 @@
             </MudButton>
         </form>
 
+        <MudText Typo="Typo.body2" Class="mt-3">
+            <MudLink Href="/forgot-password">Forgot your password?</MudLink>
+        </MudText>
+
         <MudText Typo="Typo.body2" Class="mt-4">
             New here? <MudLink Href="/register">Create account</MudLink>
         </MudText>
@@ -44,7 +48,7 @@
 
     private string _email = string.Empty;
     private string _password = string.Empty;
-    private bool _rememberMe;
+    private bool _rememberMe = true;
 
     private static string SafeReturnUrl(string? returnUrl)
         => !string.IsNullOrWhiteSpace(returnUrl) && returnUrl.StartsWith('/') ? returnUrl : "/";

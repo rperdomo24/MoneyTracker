@@ -56,7 +56,7 @@ namespace MoneyTracker.UI
 
                 options.Lockout.AllowedForNewUsers = true;
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.MaxFailedAccessAttempts = 3;
 
                 options.Password.RequiredLength = 10;
                 options.Password.RequireDigit = true;
@@ -79,6 +79,7 @@ namespace MoneyTracker.UI
                 options.LoginPath = "/login";
                 options.AccessDeniedPath = "/login";
                 options.SlidingExpiration = true;
+                options.ExpireTimeSpan = TimeSpan.FromDays(14);
             });
             builder.Services.AddAuthorization();
             builder.Services.AddCascadingAuthenticationState();
@@ -128,6 +129,7 @@ namespace MoneyTracker.UI
 
             builder.Services.AddScoped<ITextImportService, TextImportService>();
             builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+            builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
             builder.Services.AddScoped<AccountsDrawerState>();
             builder.Services.AddScoped<AccountsRefreshBus>();
 
@@ -167,6 +169,7 @@ namespace MoneyTracker.UI
                 SignInManager<ApplicationUser> signInManager,
                 UserManager<ApplicationUser> userManager,
                 IEmailSenderService emailSenderService,
+                IVerificationCodeService verificationCodeService,
                 IValidator<LoginRequestDto> validator) =>
             {
                 var dto = new LoginRequestDto
@@ -200,11 +203,23 @@ namespace MoneyTracker.UI
                     var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
                     if (user is not null)
                     {
-                        var token = await userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+                        var codeResult = await verificationCodeService.IssueCodeAsync(
+                            user.Id,
+                            user.TenantId,
+                            Application.Constants.AuthVerificationPurposes.LoginOtp,
+                            expiryMinutes: 10,
+                            resendCooldownSeconds: 60,
+                            maxAttempts: 3);
+
+                        if (!codeResult.Success || codeResult.Data is null)
+                        {
+                            return Results.LocalRedirect(BuildLoginUrl(returnUrl, codeResult.Message, null));
+                        }
+
                         await emailSenderService.SendAsync(
                             user.Email!,
                             "Your MoneyTracker login code",
-                            $"<p>Your OTP code is:</p><h2>{token}</h2><p>The code expires soon.</p>");
+                            $"<p>Your OTP code is:</p><h2>{codeResult.Data.Code}</h2><p>The code expires at {codeResult.Data.ExpiresAtUtc:u} UTC.</p>");
                     }
 
                     var otpUrl = $"/login-otp?returnUrl={Uri.EscapeDataString(SafeReturnUrl(returnUrl))}&rememberMe={rememberMe.ToString().ToLowerInvariant()}";
@@ -218,7 +233,7 @@ namespace MoneyTracker.UI
 
                 if (result.IsNotAllowed)
                 {
-                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Email confirmation is required before sign in.", null));
+                    return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString("Email confirmation is required before sign in.")}");
                 }
 
                 return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
@@ -229,6 +244,8 @@ namespace MoneyTracker.UI
                 [FromForm] bool rememberMe,
                 [FromForm] string? returnUrl,
                 SignInManager<ApplicationUser> signInManager,
+                UserManager<ApplicationUser> userManager,
+                IVerificationCodeService verificationCodeService,
                 IValidator<LoginOtpRequestDto> validator) =>
             {
                 var dto = new LoginOtpRequestDto { Code = code };
@@ -239,32 +256,46 @@ namespace MoneyTracker.UI
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, error, null));
                 }
 
-                var cleanedCode = code.Replace(" ", string.Empty).Replace("-", string.Empty);
-                var result = await signInManager.TwoFactorSignInAsync(
-                    TokenOptions.DefaultEmailProvider,
-                    cleanedCode,
-                    rememberMe,
-                    rememberClient: false);
-
-                if (result.Succeeded)
+                var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
+                if (user is null)
                 {
-                    return Results.LocalRedirect(SafeReturnUrl(returnUrl));
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Session expired. Please sign in again.", null));
                 }
 
-                if (result.IsLockedOut)
+                if (await userManager.IsLockedOutAsync(user))
                 {
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null));
                 }
 
-                return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Invalid verification code.", null));
+                var cleanedCode = code.Replace(" ", string.Empty).Replace("-", string.Empty);
+                var verifyResult = await verificationCodeService.VerifyCodeAsync(
+                    user.Id,
+                    user.TenantId,
+                    Application.Constants.AuthVerificationPurposes.LoginOtp,
+                    cleanedCode);
+
+                if (!verifyResult.Success)
+                {
+                    await userManager.AccessFailedAsync(user);
+                    if (await userManager.IsLockedOutAsync(user))
+                    {
+                        return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null));
+                    }
+
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, verifyResult.Message, null));
+                }
+
+                await userManager.ResetAccessFailedCountAsync(user);
+                await signInManager.SignInAsync(user, rememberMe);
+                return Results.LocalRedirect(SafeReturnUrl(returnUrl));
             }).AllowAnonymous();
 
             app.MapPost("/auth/login-otp/resend", async (
                 [FromForm] bool rememberMe,
                 [FromForm] string? returnUrl,
                 SignInManager<ApplicationUser> signInManager,
-                UserManager<ApplicationUser> userManager,
-                IEmailSenderService emailSenderService) =>
+                IEmailSenderService emailSenderService,
+                IVerificationCodeService verificationCodeService) =>
             {
                 var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
                 if (user is null)
@@ -272,13 +303,126 @@ namespace MoneyTracker.UI
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Session expired. Please sign in again.", null));
                 }
 
-                var token = await userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+                var codeResult = await verificationCodeService.IssueCodeAsync(
+                    user.Id,
+                    user.TenantId,
+                    Application.Constants.AuthVerificationPurposes.LoginOtp,
+                    expiryMinutes: 10,
+                    resendCooldownSeconds: 60,
+                    maxAttempts: 3);
+
+                if (!codeResult.Success || codeResult.Data is null)
+                {
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, codeResult.Message, null));
+                }
+
                 await emailSenderService.SendAsync(
                     user.Email!,
                     "Your MoneyTracker login code",
-                    $"<p>Your OTP code is:</p><h2>{token}</h2><p>The code expires soon.</p>");
+                    $"<p>Your OTP code is:</p><h2>{codeResult.Data.Code}</h2><p>The code expires at {codeResult.Data.ExpiresAtUtc:u} UTC.</p>");
 
                 return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, null, "A verification code was sent to your email."));
+            }).AllowAnonymous();
+
+            app.MapPost("/auth/resend-confirmation", async (
+                [FromForm] string email,
+                UserManager<ApplicationUser> userManager,
+                IEmailSenderService emailSenderService) =>
+            {
+                var normalizedEmail = email.Trim().ToLowerInvariant();
+                var user = await userManager.FindByEmailAsync(normalizedEmail);
+                if (user is null)
+                {
+                    return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&info={Uri.EscapeDataString("If the email exists, a confirmation link was sent.")}");
+                }
+
+                if (await userManager.IsEmailConfirmedAsync(user))
+                {
+                    return Results.LocalRedirect(BuildLoginUrl(null, null, "Email already confirmed. You can sign in."));
+                }
+
+                var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+                var encodedToken = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
+                var confirmationUrl = $"/confirm-email?userId={Uri.EscapeDataString(user.Id.ToString())}&code={Uri.EscapeDataString(encodedToken)}";
+                await emailSenderService.SendAsync(user.Email!, "Confirm your MoneyTracker email", $"<p>Confirm your account:</p><p><a href=\"{confirmationUrl}\">{confirmationUrl}</a></p>");
+
+                return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&info={Uri.EscapeDataString("Confirmation link sent. Check your email.")}");
+            }).AllowAnonymous();
+
+            app.MapPost("/auth/forgot-password", async (
+                [FromForm] string email,
+                UserManager<ApplicationUser> userManager,
+                IEmailSenderService emailSenderService,
+                IVerificationCodeService verificationCodeService) =>
+            {
+                var normalizedEmail = email.Trim().ToLowerInvariant();
+                var user = await userManager.FindByEmailAsync(normalizedEmail);
+                if (user is null || !await userManager.IsEmailConfirmedAsync(user))
+                {
+                    return Results.LocalRedirect("/forgot-password?info=If%20the%20account%20exists%2C%20a%20reset%20code%20was%20sent.");
+                }
+
+                var codeResult = await verificationCodeService.IssueCodeAsync(
+                    user.Id,
+                    user.TenantId,
+                    Application.Constants.AuthVerificationPurposes.PasswordReset,
+                    expiryMinutes: 10,
+                    resendCooldownSeconds: 60,
+                    maxAttempts: 3);
+
+                if (!codeResult.Success || codeResult.Data is null)
+                {
+                    return Results.LocalRedirect($"/forgot-password?error={Uri.EscapeDataString(codeResult.Message)}");
+                }
+
+                await emailSenderService.SendAsync(
+                    user.Email!,
+                    "MoneyTracker password reset code",
+                    $"<p>Your reset code is:</p><h2>{codeResult.Data.Code}</h2><p>Expires at {codeResult.Data.ExpiresAtUtc:u} UTC.</p>");
+
+                return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(user.Email!)}&info={Uri.EscapeDataString("A reset code was sent to your email.")}");
+            }).AllowAnonymous();
+
+            app.MapPost("/auth/reset-password", async (
+                [FromForm] string email,
+                [FromForm] string code,
+                [FromForm] string newPassword,
+                [FromForm] string confirmPassword,
+                UserManager<ApplicationUser> userManager,
+                IVerificationCodeService verificationCodeService) =>
+            {
+                if (!string.Equals(newPassword, confirmPassword, StringComparison.Ordinal))
+                {
+                    return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(email)}&error={Uri.EscapeDataString("Password confirmation does not match.")}");
+                }
+
+                var normalizedEmail = email.Trim().ToLowerInvariant();
+                var user = await userManager.FindByEmailAsync(normalizedEmail);
+                if (user is null)
+                {
+                    return Results.LocalRedirect("/login?info=Password%20updated%20if%20the%20account%20exists.");
+                }
+
+                var verifyResult = await verificationCodeService.VerifyCodeAsync(
+                    user.Id,
+                    user.TenantId,
+                    Application.Constants.AuthVerificationPurposes.PasswordReset,
+                    code.Replace(" ", string.Empty).Replace("-", string.Empty));
+
+                if (!verifyResult.Success)
+                {
+                    return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(email)}&error={Uri.EscapeDataString(verifyResult.Message)}");
+                }
+
+                var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                var resetResult = await userManager.ResetPasswordAsync(user, token, newPassword);
+                if (!resetResult.Succeeded)
+                {
+                    var error = string.Join(" ", resetResult.Errors.Select(x => x.Description));
+                    return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(email)}&error={Uri.EscapeDataString(error)}");
+                }
+
+                return Results.LocalRedirect("/login?info=Password%20updated%20successfully.");
             }).AllowAnonymous();
 
             app.MapGet("/auth/logout", async (SignInManager<ApplicationUser> signInManager) =>

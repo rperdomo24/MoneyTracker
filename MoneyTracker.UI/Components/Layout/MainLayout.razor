@@ -70,27 +70,11 @@
         </MudIconButton>
 
         <!-- User Menu -->
-        <MudMenu Color="Color.Inherit"
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
+                 Color="Color.Inherit"
                  Dense="true"
                  AnchorOrigin="Origin.BottomRight"
                  TransformOrigin="Origin.TopRight">
-            <ActivatorContent>
-                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="cursor: pointer;">
-                    <MudAvatar Size="Size.Small" Style="overflow: hidden;">
-                        @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
-                        {
-                            <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
-                        }
-                        else
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
-                        }
-                    </MudAvatar>
-                    <MudHidden Breakpoint="Breakpoint.SmAndDown">
-                        <MudText Typo="Typo.body2">@UserDisplayName</MudText>
-                    </MudHidden>
-                </MudStack>
-            </ActivatorContent>
             <ChildContent>
 
                 <MudMenuItem Icon="@DarkLightModeButtonIcon" OnClick="@DarkModeToggle">
@@ -99,8 +83,8 @@
 
                 <MudDivider />
 
-                <MudMenuItem Href="/settings" Icon="@Icons.Material.Filled.Person">
-                    Profile settings
+                <MudMenuItem Href="/settings" Icon="@Icons.Material.Filled.Settings">
+                    Settings
                 </MudMenuItem>
 
                 <MudMenuItem Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">
@@ -117,12 +101,13 @@
                     Help & Support
                 </MudMenuItem>
 
-                <MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">
+                <MudMenuItem Href="/auth/logout" Icon="@Icons.Material.Filled.Logout">
                     Sign Out
                 </MudMenuItem>
 
             </ChildContent>
         </MudMenu>
+
 
     </MudAppBar>
 

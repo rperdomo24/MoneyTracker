@@ -29,7 +29,10 @@ MoneyTracker.Tests -> tests Application services with mocks
 - Tenant context: `ICurrentUserService` / `ITenantContext` resolves `TenantId` and `UserId` from claims.
 - Claim issuance: `ApplicationUserClaimsPrincipalFactory` adds `tenant_id` claim at sign-in.
 - Auth pages use `AuthLayout` (no app navigation shell behind login/register/OTP).
-- Auth POST flows are handled via server endpoints (`/auth/login`, `/auth/login-otp`, `/auth/logout`) to safely issue cookies in Blazor Server.
+- Auth POST flows are handled via server endpoints (`/auth/login`, `/auth/login-otp`, `/auth/login-otp/resend`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/resend-confirmation`, `/auth/logout`) to safely issue cookies in Blazor Server.
+- Login flow is hard-enabled for OTP and lockout (`MaxFailedAccessAttempts=3`, temporary lockout window configured in Identity options).
+- Verification codes are persisted in `UserVerificationCodes` and validated server-side (hashed code, expiry, resend cooldown, max-attempt invalidation).
+- Unconfirmed users are redirected to `/verify-email-pending` to resend confirmation outside the login form.
 
 ## Folder and project map
 - `MoneyTracker.UI`: `Program.cs`, Razor pages/components, UI state services, filters, dialogs, app settings.

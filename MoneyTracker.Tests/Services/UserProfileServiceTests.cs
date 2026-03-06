@@ -6,6 +6,8 @@ using MoneyTracker.Domain.Entities;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Services;
 using Moq;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Bmp;
 
 namespace MoneyTracker.Tests.Services
 {
@@ -166,6 +168,42 @@ namespace MoneyTracker.Tests.Services
             result.Message.Should().Be("Unauthorized.");
         }
 
+        [Fact]
+        public async Task UpdateAvatarAsync_WhenImageExceedsLimit_StoresCompressedJpeg()
+        {
+            var userId = Guid.NewGuid();
+            var tenantId = Guid.NewGuid();
+            var dbName = Guid.NewGuid().ToString();
+
+            var services = BuildServices(tenantId, dbName);
+            await SeedUserAsync(services, userId, tenantId, "User", "user@test.local", false);
+
+            var currentUser = new Mock<ICurrentUserService>();
+            currentUser.SetupGet(x => x.UserId).Returns(userId);
+
+            var tenantContext = new Mock<ITenantContext>();
+            tenantContext.SetupGet(x => x.TenantId).Returns(tenantId);
+
+            var largePng = CreateLargePngBytes();
+            largePng.Length.Should().BeGreaterThan(200 * 1024);
+
+            var service = new UserProfileService(
+                services.GetRequiredService<IServiceScopeFactory>(),
+                currentUser.Object,
+                tenantContext.Object);
+
+            var result = await service.UpdateAvatarAsync("image/png", largePng);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().StartWith("data:image/jpeg;base64,");
+
+            await using var verificationScope = services.CreateAsyncScope();
+            var db = verificationScope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+            var avatar = await db.UserAvatars.AsNoTracking().SingleAsync(a => a.UserId == userId);
+            avatar.ContentType.Should().Be("image/jpeg");
+            avatar.SizeBytes.Should().BeLessThan(largePng.Length);
+        }
+
         private static ServiceProvider BuildServices(Guid tenantId, string dbName)
         {
             var tenantContext = new Mock<ITenantContext>();
@@ -225,6 +263,15 @@ namespace MoneyTracker.Tests.Services
             });
 
             await db.SaveChangesAsync();
+        }
+
+        private static byte[] CreateLargePngBytes()
+        {
+            using var image = new Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(1200, 1200);
+
+            using var ms = new MemoryStream();
+            image.Save(ms, new BmpEncoder());
+            return ms.ToArray();
         }
     }
 }

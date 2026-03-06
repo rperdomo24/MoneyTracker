@@ -19,8 +19,13 @@
 
         <form method="post" action="/auth/login-otp">
             <AntiforgeryToken />
-            <MudTextField @bind-Value="_code" Label="OTP code" Variant="Variant.Outlined" Immediate="true" Class="mt-3" />
-            <input type="hidden" name="code" value="@_code" />
+            <label class="mud-input-label mud-input-label-inputcontrol mb-1">OTP code</label>
+            <input type="text"
+                   name="code"
+                   value="@_code"
+                   @oninput="OnCodeInput"
+                   class="mud-input-slot mud-input-root mud-input-root-outlined"
+                   style="width:100%; padding: 14px 12px; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;" />
             <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
             <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
 
@@ -47,6 +52,11 @@
     [SupplyParameterFromQuery] public string? Info { get; set; }
 
     private string _code = string.Empty;
+
+    private void OnCodeInput(ChangeEventArgs args)
+    {
+        _code = args.Value?.ToString() ?? string.Empty;
+    }
 
     private static string SafeReturnUrl(string? returnUrl)
         => !string.IsNullOrWhiteSpace(returnUrl) && returnUrl.StartsWith('/') ? returnUrl : "/";

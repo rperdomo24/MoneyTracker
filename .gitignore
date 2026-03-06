@@ -44,6 +44,12 @@ Generated\ Files/
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
+*.trx
+*.trn
+*.aspNetCertificateSentinel
+*.dotnetFirstUseSentinel
+*.toolpath.sentinel
+*.dotnetUserLevelCache
 
 # NUnit
 *.VisualState.xml
@@ -372,3 +378,6 @@ terraform/lambda*.zip
 terraform/lambda/lambda*.zip
 *.tfstate.*
 terraform/terraform.tfstate
+
+# Local .NET CLI first-run/cache artifacts
+.dotnet/

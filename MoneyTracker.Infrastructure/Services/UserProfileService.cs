@@ -6,11 +6,15 @@ using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Infrastructure.Persistence;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 
 namespace MoneyTracker.Infrastructure.Services
 {
     public class UserProfileService : IUserProfileService
     {
+        private const int MaxStoredAvatarBytes = 200 * 1024;
         private readonly SemaphoreSlim _lock = new(1, 1);
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ICurrentUserService _currentUserService;
@@ -135,6 +139,7 @@ namespace MoneyTracker.Infrastructure.Services
 
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+                var normalizedAvatar = await NormalizeAvatarAsync(contentType, content);
 
                 var avatar = await dbContext.UserAvatars.SingleOrDefaultAsync(a => a.UserId == userId.Value);
                 if (avatar is null)
@@ -147,9 +152,9 @@ namespace MoneyTracker.Infrastructure.Services
                     dbContext.UserAvatars.Add(avatar);
                 }
 
-                avatar.ContentType = contentType.ToLowerInvariant();
-                avatar.SizeBytes = content.Length;
-                avatar.Content = content;
+                avatar.ContentType = normalizedAvatar.contentType;
+                avatar.SizeBytes = normalizedAvatar.content.Length;
+                avatar.Content = normalizedAvatar.content;
                 avatar.UpdatedAt = DateTime.UtcNow;
 
                 await dbContext.SaveChangesAsync();
@@ -213,6 +218,26 @@ namespace MoneyTracker.Infrastructure.Services
             }
 
             return await query.SingleOrDefaultAsync(u => u.Id == userId.Value);
+        }
+
+        private static async Task<(string contentType, byte[] content)> NormalizeAvatarAsync(string contentType, byte[] content)
+        {
+            if (content.Length <= MaxStoredAvatarBytes)
+            {
+                return (contentType.ToLowerInvariant(), content);
+            }
+
+            await using var input = new MemoryStream(content);
+            using var image = await Image.LoadAsync(input);
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Mode = ResizeMode.Max,
+                Size = new Size(512, 512)
+            }));
+
+            await using var ms = new MemoryStream();
+            await image.SaveAsync(ms, new JpegEncoder { Quality = 75 });
+            return ("image/jpeg", ms.ToArray());
         }
     }
 }
