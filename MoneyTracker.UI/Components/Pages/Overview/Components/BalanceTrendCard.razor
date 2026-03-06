@@ -1,78 +1,68 @@
 @using MoneyTracker.Application.DTOs.Dashboard
+@using ApexCharts
 
-<MudCard Class="dashboard-card">
-    <MudCardHeader>
-        <CardHeaderContent>
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudAvatar Color="Color.Primary" Size="Size.Medium">
-                    <MudIcon Icon="@Icons.Material.Filled.ShowChart" />
-                </MudAvatar>
-                <MudText Typo="Typo.h6">Net Worth Trend</MudText>
+<MudCard Class="dashboard-card networth-hero-card">
+    <MudCardContent Class="networth-hero-content">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-3">
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.h6">Net Worth</MudText>
+                <MudText Typo="Typo.h3" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
+                    @FormatCurrency(_endValue)
+                </MudText>
+                <MudText Typo="Typo.body1" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
+                    @FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs inicio del periodo
+                </MudText>
             </MudStack>
-        </CardHeaderContent>
-    </MudCardHeader>
 
-    <MudCardContent>
-        @if (Data?.Any() == true)
+            <MudPaper Class="period-chip" Elevation="0">
+                <MudText Typo="Typo.body2">@_periodLabel</MudText>
+            </MudPaper>
+        </MudStack>
+
+        @if (_chartData.Any())
         {
-            <MudGrid Spacing="3">
-                <MudItem xs="12" lg="3">
-                    <MudPaper Class="summary-panel" Elevation="0">
-                        <MudStack Spacing="1">
-                            <MudText Typo="Typo.h4" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
-                                @FormatCurrency(_endValue)
-                            </MudText>
+            <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                <div class="networth-apex-chart">
+                    <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="260">
+                        <ApexPointSeries TItem="BalancePoint"
+                                         Items="_chartData"
+                                         Name="Net Worth"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="point => point.Date"
+                                         YValue="point => point.Value" />
+                    </ApexChart>
+                </div>
+            </MudHidden>
 
-                            <MudText Typo="Typo.body2" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
-                                @FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs inicio del periodo
-                            </MudText>
+            <MudHidden Breakpoint="Breakpoint.Xs">
+                <div class="networth-apex-chart">
+                    <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="340">
+                        <ApexPointSeries TItem="BalancePoint"
+                                         Items="_chartData"
+                                         Name="Net Worth"
+                                         SeriesType="SeriesType.Line"
+                                         XValue="point => point.Date"
+                                         YValue="point => point.Value" />
+                    </ApexChart>
+                </div>
+            </MudHidden>
 
-                            <MudDivider Class="my-2" />
-
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                Desde: @_startDateLabel
-                            </MudText>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                Hasta: @_endDateLabel
-                            </MudText>
-                        </MudStack>
-                    </MudPaper>
-                </MudItem>
-
-                <MudItem xs="12" lg="9">
-                    <MudPaper Class="chart-panel" Elevation="0">
-                        <MudHidden Breakpoint="Breakpoint.SmAndUp">
-                            <MudChart T="double"
-                                      Class="net-worth-minimal-chart"
-                                      ChartType="ChartType.Line"
-                                      ChartSeries="@_chartSeries"
-                                      ChartLabels="@_chartLabels"
-                                      Width="100%"
-                                      Height="300px"
-                                      ChartOptions="@_chartOptions" />
-                        </MudHidden>
-
-                        <MudHidden Breakpoint="Breakpoint.Xs">
-                            <MudChart T="double"
-                                      Class="net-worth-minimal-chart"
-                                      ChartType="ChartType.Line"
-                                      ChartSeries="@_chartSeries"
-                                      ChartLabels="@_chartLabels"
-                                      Width="100%"
-                                      Height="420px"
-                                      ChartOptions="@_chartOptions" />
-                        </MudHidden>
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
+            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-1">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @_startDateLabel
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @_endDateLabel
+                </MudText>
+            </MudStack>
         }
         else
         {
             <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
                 <MudIcon Icon="@Icons.Material.Filled.ShowChart"
-                         Color="Color.Default"
-                         Size="Size.Large" />
-                <MudText Typo="Typo.body1" Align="Align.Center">
+                         Color="MudBlazor.Color.Default"
+                         Size="MudBlazor.Size.Large" />
+                <MudText Typo="Typo.body1" Align="MudBlazor.Align.Center">
                     No trend data available
                 </MudText>
             </MudStack>
@@ -81,100 +71,70 @@
 </MudCard>
 
 <style>
-    .chart-host {
-        width: 100%;
-        min-width: 0;
+    .networth-hero-card {
+        border-radius: 14px;
+        border: 1px solid var(--mud-palette-divider);
+        background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--mud-palette-surface) 96%, white 4%),
+            var(--mud-palette-surface)
+        );
     }
 
-    .chart-panel {
-        width: 100%;
-        border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
-        border-radius: 12px;
-        padding: 8px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    .networth-hero-content {
+        padding: 20px 22px 16px 22px;
     }
 
-    .summary-panel {
-        height: 100%;
-        border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
-        border-radius: 12px;
-        padding: 16px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    .period-chip {
+        border: 1px solid var(--mud-palette-divider);
+        border-radius: 10px;
+        padding: 6px 12px;
+        color: var(--mud-palette-text-primary) !important;
+        background-color: color-mix(in srgb, var(--mud-palette-surface) 95%, white 5%) !important;
     }
 
-    .net-worth-minimal-chart {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0;
+    .mud-theme-dark .networth-hero-card {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, #14171d, #101318);
     }
 
-    .net-worth-minimal-chart > div {
-        width: 100% !important;
-        max-width: 100% !important;
+    .mud-theme-dark .period-chip {
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        background-color: rgba(255, 255, 255, 0.03) !important;
     }
 
-    .net-worth-minimal-chart .mud-charts {
-        width: 100% !important;
-        max-width: none !important;
+    .networth-apex-chart .apexcharts-series path.apexcharts-line {
+        stroke: #00d1a0 !important;
+        stroke-width: 3px !important;
     }
 
-    .net-worth-minimal-chart .mud-chart-line {
-        width: 100% !important;
-        max-width: none !important;
-    }
-
-    .net-worth-minimal-chart svg {
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-
-    .net-worth-minimal-chart .mud-chart-legend {
-        display: none;
-    }
-
-    .net-worth-minimal-chart .mud-charts-xaxis text {
-        display: none;
-    }
-
-    .net-worth-minimal-chart .mud-charts-yaxis text {
-        display: none;
-    }
 </style>
 
 @code {
     [Parameter] public List<BalanceTrendDto>? Data { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
 
-    private string[] _chartLabels = Array.Empty<string>();
-    private List<ChartSeries<double>> _chartSeries = new();
+    private readonly List<BalancePoint> _chartData = new();
+    private ApexChartOptions<BalancePoint> _chartOptions = new();
     private decimal _endValue;
     private decimal _delta;
     private decimal _deltaPercent;
     private string _startDateLabel = "-";
     private string _endDateLabel = "-";
-
-    private readonly LineChartOptions _chartOptions = new()
-    {
-        ChartPalette = new[] { "#00d1a0" },
-        ShowLegend = false,
-        ShowDataMarkers = false,
-        YAxisRequireZeroPoint = false,
-        MaxNumYAxisTicks = 5,
-        YAxisToStringFunc = _ => string.Empty,
-        TooltipTitleFormat = "{{X_VALUE}}",
-        TooltipSubtitleFormat = "{{Y_VALUE}}"
-    };
+    private string _periodLabel = "30D";
 
     protected override void OnParametersSet()
     {
+        _chartData.Clear();
+
         if (Data?.Any() != true)
         {
-            _chartLabels = Array.Empty<string>();
-            _chartSeries = new();
             _endValue = 0;
             _delta = 0;
             _deltaPercent = 0;
             _startDateLabel = "-";
             _endDateLabel = "-";
+            _chartOptions = BuildOptions(IsDarkMode);
             return;
         }
 
@@ -182,19 +142,11 @@
             .OrderBy(x => x.Date)
             .ToList();
 
-        _chartLabels = sorted
-            .Select(x => x.Date.ToString("MMMM dd, yyyy"))
-            .ToArray();
-
-        _chartSeries = new List<ChartSeries<double>>
+        _chartData.AddRange(sorted.Select(x => new BalancePoint
         {
-            new()
-            {
-                Name = "Net Worth",
-                TooltipYValueFormat = "$#,0.00;-$#,0.00",
-                Data = sorted.Select(x => (double)x.TotalBalance).ToArray()
-            }
-        };
+            Date = x.Date,
+            Value = x.TotalBalance
+        }));
 
         var start = sorted.First().TotalBalance;
         _endValue = sorted.Last().TotalBalance;
@@ -203,7 +155,51 @@
 
         _startDateLabel = sorted.First().Date.ToString("dd MMM yyyy");
         _endDateLabel = sorted.Last().Date.ToString("dd MMM yyyy");
+        _periodLabel = $"{Math.Max(1, (sorted.Last().Date - sorted.First().Date).Days + 1)}D";
+
+        _chartOptions = BuildOptions(IsDarkMode);
     }
+
+    private static ApexChartOptions<BalancePoint> BuildOptions(bool isDarkMode)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false }
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            Stroke = new Stroke
+            {
+                Curve = Curve.Straight,
+                Width = 3
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = new List<string> { "#00d1a0" },
+            Legend = new Legend { Show = false },
+            Xaxis = new XAxis
+            {
+                Type = XAxisType.Datetime,
+                Labels = new XAxisLabels
+                {
+                    Show = false
+                }
+            },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    Show = false
+                }
+            ],
+            Tooltip = new Tooltip
+            {
+                X = new TooltipX { Format = "dd MMM yyyy" }
+            }
+        };
 
     private static string FormatCurrency(decimal amount)
         => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
@@ -213,4 +209,10 @@
 
     private static string FormatSignedPercent(decimal percent)
         => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";
+
+    private sealed class BalancePoint
+    {
+        public DateTime Date { get; set; }
+        public decimal Value { get; set; }
+    }
 }

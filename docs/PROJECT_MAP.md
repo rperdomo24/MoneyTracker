@@ -6,6 +6,7 @@
 - Authentication uses ASP.NET Core Identity with cookie auth (no JWT).
 - Tenant isolation is column-based (`TenantId`) with EF Core query filters and save-time tenant enforcement.
 - UI is implemented with MudBlazor components and dialog-based CRUD flows.
+- Dashboard trend visualizations are rendered with ApexCharts in Blazor components.
 - Application services expose business operations and return `OperationResult` / `OperationResult<T>`.
 - Domain contains entities, enums, constants, and repository interfaces.
 - Infrastructure contains EF Core PostgreSQL persistence, repositories, migrations, and timezone service.

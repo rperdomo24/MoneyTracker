@@ -24,6 +24,7 @@ using MoneyTracker.UI.Services.Filters;
 using MoneyTracker.UI.Services.Filters.Interface;
 using MoneyTracker.UI.Services.User;
 using MoneyTracker.UI.Utility.Settings;
+using ApexCharts;
 using MudBlazor;
 using MudBlazor.Services;
 using Serilog;
@@ -43,6 +44,7 @@ namespace MoneyTracker.UI
                 config.SnackbarConfiguration.HideTransitionDuration = 500;
                 config.SnackbarConfiguration.ShowTransitionDuration = 500;
             });
+            builder.Services.AddApexCharts();
 
             builder.Services.AddDbContext<MoneyTrackerDbContext>(options =>
             {

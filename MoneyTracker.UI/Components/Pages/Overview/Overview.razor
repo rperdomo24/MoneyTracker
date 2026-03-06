@@ -173,6 +173,8 @@
 </style>
 
 @code {
+    private readonly CancellationTokenSource _lifecycleCts = new();
+    private bool _isDisposed;
     private bool _isLoading = true;
     private CashFlowDto? _cashFlow;
     private DashboardBudgetSummaryDto? _budgetSummary;
@@ -328,8 +330,11 @@
 
     private async Task LoadDashboardData()
     {
+        if (_isDisposed)
+            return;
+
         _isLoading = true;
-        StateHasChanged();
+        await SafeStateHasChangedAsync();
 
         try
         {
@@ -343,14 +348,20 @@
             };
 
             var overviewTask = DashboardService.GetOverviewAsync(filter);
-            var completed = await Task.WhenAny(overviewTask, Task.Delay(TimeSpan.FromSeconds(20)));
+            var completed = await Task.WhenAny(overviewTask, Task.Delay(TimeSpan.FromSeconds(20), _lifecycleCts.Token));
             if (completed != overviewTask)
             {
+                if (_lifecycleCts.IsCancellationRequested || _isDisposed)
+                    return;
+
                 Snackbar.Add("La carga del dashboard excedió el tiempo esperado. Intenta actualizar.", Severity.Error);
                 return;
             }
 
             var overviewResult = await overviewTask;
+            if (_isDisposed)
+                return;
+
             if (!overviewResult.Success)
             {
                 Snackbar.Add($"Error cargando dashboard: {overviewResult.Message}", Severity.Error);
@@ -369,14 +380,24 @@
             _categoryBreakdown = overviewResult.Data.CategoryBreakdown;
             _recentTransactions = overviewResult.Data.RecentTransactions;
         }
+        catch (TaskCanceledException) when (_lifecycleCts.IsCancellationRequested)
+        {
+            // Ignore expected cancellation during component disposal/navigation.
+        }
         catch (Exception ex)
         {
+            if (_isDisposed)
+                return;
+
             Snackbar.Add($"Error crítico cargando dashboard: {ex.Message}", Severity.Error);
         }
         finally
         {
             _isLoading = false;
-            StateHasChanged();
+            if (!_isDisposed)
+            {
+                await SafeStateHasChangedAsync();
+            }
         }
     }
 
@@ -440,6 +461,35 @@
 
         await DashboardFilterState.SaveAsync(filterToSave);
         await LoadDashboardData();
+    }
+
+    private async Task SafeStateHasChangedAsync()
+    {
+        if (_isDisposed)
+            return;
+
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Renderer/circuit already disposed.
+        }
+        catch (InvalidOperationException)
+        {
+            // Renderer no longer available for this circuit.
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+            return;
+
+        _isDisposed = true;
+        _lifecycleCts.Cancel();
+        _lifecycleCts.Dispose();
     }
 
 }

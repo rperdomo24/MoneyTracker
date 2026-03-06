@@ -173,7 +173,9 @@
             }
 
             <div class="page-content">
-                @Body
+                <CascadingValue Name="IsDarkMode" Value="_isDarkMode">
+                    @Body
+                </CascadingValue>
             </div>
         </MudContainer>
 
