@@ -139,7 +139,7 @@ namespace MoneyTracker.Tests.Services
             // Repository returns a superset; service must apply app-layer text/category/type filters.
             _timeRange.Setup(x => x.GetDateRangeUtc(TimePeriodFilter.ThisMonth, null, null)).Returns((null, null));
             _tz.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
-            _txRepo.Setup(x => x.GetFilteredAsync(null, null, It.IsAny<List<int>>(), It.IsAny<List<int>>()))
+            _txRepo.Setup(x => x.GetFilteredAsync(null, null, It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
                 .ReturnsAsync(new List<Transaction>
                 {
                     new()

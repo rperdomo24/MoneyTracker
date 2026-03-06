@@ -8,7 +8,6 @@
 @using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Filters
-@using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
 @inject IDashboardService DashboardService
 @inject IAccountService AccountService
@@ -119,40 +118,14 @@
 
         @if (_isLoading)
         {
-            @* Loading Skeletons *@
-            @for (int i = 0; i < 6; i++)
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
-                </MudItem>
-            }
+            <MudItem xs="12">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="380px" />
+            </MudItem>
         }
         else
         {
-            @* Row 1: Net Worth Trend *@
             <MudItem xs="12">
                 <BalanceTrendCard Data="_balanceTrend" />
-            </MudItem>
-
-            @* Row 2: Budget & Spending *@
-            <MudItem xs="12" md="6">
-                <BudgetSummaryCard Data="_budgetSummary" />
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <SpendingTrendCard Data="_spendingTrend" />
-            </MudItem>
-
-            @* Row 3: Category Breakdown + Recent Transactions *@
-            <MudItem xs="12" md="6">
-                <CategoryBreakdownCard Data="_categoryBreakdown" />
-            </MudItem>
-            <MudItem xs="12" md="6">
-                <RecentTransactionsCard Data="_recentTransactions" />
-            </MudItem>
-
-            @* Row 4: Cash Flow Sankey *@
-            <MudItem xs="12">
-                <CashFlowCard Data="_cashFlow" />
             </MudItem>
         }
     </MudGrid>
@@ -173,15 +146,8 @@
 </style>
 
 @code {
-    private readonly CancellationTokenSource _lifecycleCts = new();
-    private bool _isDisposed;
     private bool _isLoading = true;
-    private CashFlowDto? _cashFlow;
-    private DashboardBudgetSummaryDto? _budgetSummary;
     private List<BalanceTrendDto> _balanceTrend = new();
-    private List<DashboardSpendingTrendDto> _spendingTrend = new();
-    private List<CategoryBreakdownDto> _categoryBreakdown = new();
-    private List<RecentTransactionDto> _recentTransactions = new();
     private List<AccountDto> _accounts = new();
     private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
     private DashboardTransactionFilter _selectedTransactionFilter = DashboardTransactionFilter.All;
@@ -193,6 +159,7 @@
     private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Usuario" : _userDisplayName;
     private static readonly List<(TimePeriodFilter Value, string Label)> _periodOptions =
     [
+        (TimePeriodFilter.AllTime, "Todo el tiempo"),
         (TimePeriodFilter.Last30Days, "Últimos 30 días"),
         (TimePeriodFilter.Last90Days, "Últimos 90 días"),
         (TimePeriodFilter.ThisMonth, "Este mes"),
@@ -316,6 +283,11 @@
             return;
 
         _selectedPeriod = saved.TimePeriod;
+        if (_periodOptions.All(x => x.Value != _selectedPeriod))
+        {
+            _selectedPeriod = TimePeriodFilter.Last30Days;
+        }
+
         _selectedTransactionFilter = saved.TransactionFilter;
         _selectedAccountIds = saved.AccountIds?.ToArray() ?? Array.Empty<int>();
         _customFromDate = saved.FromDate;
@@ -330,11 +302,8 @@
 
     private async Task LoadDashboardData()
     {
-        if (_isDisposed)
-            return;
-
         _isLoading = true;
-        await SafeStateHasChangedAsync();
+        StateHasChanged();
 
         try
         {
@@ -347,57 +316,29 @@
                 TransactionFilter = _selectedTransactionFilter
             };
 
-            var overviewTask = DashboardService.GetOverviewAsync(filter);
-            var completed = await Task.WhenAny(overviewTask, Task.Delay(TimeSpan.FromSeconds(20), _lifecycleCts.Token));
-            if (completed != overviewTask)
-            {
-                if (_lifecycleCts.IsCancellationRequested || _isDisposed)
-                    return;
+            var balanceTrendResult = await DashboardService.GetBalanceTrendAsync(filter);
 
-                Snackbar.Add("La carga del dashboard excedió el tiempo esperado. Intenta actualizar.", Severity.Error);
+            if (!balanceTrendResult.Success)
+            {
+                Snackbar.Add($"Error cargando Net Worth Trend: {balanceTrendResult.Message}", Severity.Error);
+                return;
+            }
+            if (balanceTrendResult.Data is null)
+            {
+                Snackbar.Add("No se recibieron datos de Net Worth Trend.", Severity.Error);
                 return;
             }
 
-            var overviewResult = await overviewTask;
-            if (_isDisposed)
-                return;
-
-            if (!overviewResult.Success)
-            {
-                Snackbar.Add($"Error cargando dashboard: {overviewResult.Message}", Severity.Error);
-                return;
-            }
-            if (overviewResult.Data is null)
-            {
-                Snackbar.Add("No se recibieron datos del dashboard.", Severity.Error);
-                return;
-            }
-
-            _cashFlow = overviewResult.Data.CashFlow;
-            _budgetSummary = overviewResult.Data.BudgetSummary;
-            _balanceTrend = overviewResult.Data.BalanceTrend;
-            _spendingTrend = overviewResult.Data.SpendingTrend;
-            _categoryBreakdown = overviewResult.Data.CategoryBreakdown;
-            _recentTransactions = overviewResult.Data.RecentTransactions;
-        }
-        catch (TaskCanceledException) when (_lifecycleCts.IsCancellationRequested)
-        {
-            // Ignore expected cancellation during component disposal/navigation.
+            _balanceTrend = balanceTrendResult.Data;
         }
         catch (Exception ex)
         {
-            if (_isDisposed)
-                return;
-
             Snackbar.Add($"Error crítico cargando dashboard: {ex.Message}", Severity.Error);
         }
         finally
         {
             _isLoading = false;
-            if (!_isDisposed)
-            {
-                await SafeStateHasChangedAsync();
-            }
+            StateHasChanged();
         }
     }
 
@@ -461,35 +402,6 @@
 
         await DashboardFilterState.SaveAsync(filterToSave);
         await LoadDashboardData();
-    }
-
-    private async Task SafeStateHasChangedAsync()
-    {
-        if (_isDisposed)
-            return;
-
-        try
-        {
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (ObjectDisposedException)
-        {
-            // Renderer/circuit already disposed.
-        }
-        catch (InvalidOperationException)
-        {
-            // Renderer no longer available for this circuit.
-        }
-    }
-
-    public void Dispose()
-    {
-        if (_isDisposed)
-            return;
-
-        _isDisposed = true;
-        _lifecycleCts.Cancel();
-        _lifecycleCts.Dispose();
     }
 
 }

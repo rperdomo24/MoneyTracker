@@ -457,7 +457,8 @@ namespace MoneyTracker.Application.Services
                     fromDateUtc,
                     toDateUtc,
                     filter.AccountIds,
-                    filter.TransactionTypeIds
+                    filter.TransactionTypeIds,
+                    filter.SkipSorting
                 );
 
                 // Convert entities to DTOs (dates converted from UTC -> local here)
@@ -516,6 +517,11 @@ namespace MoneyTracker.Application.Services
             if (filter.Type.HasValue)
             {
                 filtered = filtered.Where(t => t.Category?.Type == filter.Type.Value);
+            }
+
+            if (filter.SkipSorting)
+            {
+                return filtered.ToList();
             }
 
             return filtered

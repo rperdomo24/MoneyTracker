@@ -1,5 +1,5 @@
-﻿using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums.Filters;
+using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Category;
 
 namespace MoneyTracker.Domain.Interfaces
 {
@@ -10,7 +10,17 @@ namespace MoneyTracker.Domain.Interfaces
         Task AddAsync(Transaction expense);
         Task UpdateAsync(Transaction expense);
         Task DeleteAsync(int id);
-        Task<List<Transaction>> GetFilteredAsync(DateTime? FromDate, DateTime? ToDate, List<int> AccountIds, List<int> TransactionTypeIds);
+        Task<List<Transaction>> GetFilteredAsync(
+            DateTime? fromDate,
+            DateTime? toDate,
+            List<int> accountIds,
+            List<int> transactionTypeIds,
+            bool skipSorting = false);
+        Task<List<TransactionTrendEntry>> GetTrendEntriesAsync(
+            DateTime? fromDateUtc,
+            DateTime? toDateUtc,
+            List<int> accountIds,
+            CategoryTypeEnum? categoryType = null);
         Task<int> AddAndReturnIdAsync(Transaction transaction);
         Task<List<Transaction>> GetByCategoryTreeAsync(int categoryId, DateTime fromUtc, DateTime toUtc);
         Task<decimal> GetAccountBalanceAsync(int accountId);

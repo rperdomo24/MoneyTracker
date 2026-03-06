@@ -6,9 +6,11 @@ using MoneyTracker.Application.DTOs.Dashboard;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
+using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Enums.Filters;
+using MoneyTracker.Domain.Interfaces;
 using Moq;
 
 namespace MoneyTracker.Tests.Services
@@ -17,11 +19,27 @@ namespace MoneyTracker.Tests.Services
     {
         private readonly Mock<IAccountService> _accountService = new();
         private readonly Mock<ITransactionService> _transactionService = new();
+        private readonly Mock<ITransactionRepository> _transactionRepository = new();
         private readonly Mock<IBudgetService> _budgetService = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
 
         private DashboardService CreateService()
-            => new(_accountService.Object, _transactionService.Object, _budgetService.Object, _timeZoneService.Object);
+        {
+            _transactionRepository
+                .Setup(x => x.GetTrendEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum?>()))
+                .ReturnsAsync(new List<TransactionTrendEntry>());
+
+            return new DashboardService(
+                _accountService.Object,
+                _transactionService.Object,
+                _transactionRepository.Object,
+                _budgetService.Object,
+                _timeZoneService.Object);
+        }
 
         [Fact]
         public async Task GetSummaryAsync_WhenAccountsFail_ReturnsFailResult()
@@ -104,18 +122,25 @@ namespace MoneyTracker.Tests.Services
         public async Task GetBalanceTrendAsync_WhenSuccess_ReturnsTrendRange()
         {
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(new DateTime(2026, 3, 5));
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
             _accountService.Setup(x => x.GetAccountsWithBalancesAsync()).ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
             {
                 new() { Type = AccountType.Checking, CurrentBalance = 500m },
                 new() { Type = AccountType.Savings, CurrentBalance = 300m },
                 new() { Type = AccountType.Credit, CurrentBalance = -100m }
             }));
-            _transactionService
-                .Setup(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()))
-                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+            _transactionRepository
+                .Setup(x => x.GetTrendEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum?>()))
+                .ReturnsAsync(new List<TransactionTrendEntry>
                 {
-                    Transactions = new List<TransactionDto>()
-                }));
+                    new() { Date = new DateTime(2026, 1, 15), Amount = 50m, CategoryType = CategoryTypeEnum.Income },
+                    new() { Date = new DateTime(2026, 2, 10), Amount = 10m, CategoryType = CategoryTypeEnum.Expense }
+                });
             var svc = CreateService();
 
             var result = await svc.GetBalanceTrendAsync(4);
@@ -352,6 +377,8 @@ namespace MoneyTracker.Tests.Services
         {
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
                 .Returns(new DateTime(2026, 3, 5, 12, 0, 0));
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
 
             _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
                 .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
@@ -359,47 +386,17 @@ namespace MoneyTracker.Tests.Services
                     new() { Id = 1, Name = "Main", Type = AccountType.Bank, CurrentBalance = 1000m }
                 }));
 
-            _transactionService
-                .Setup(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()))
-                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+            _transactionRepository
+                .Setup(x => x.GetTrendEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum?>()))
+                .ReturnsAsync(new List<TransactionTrendEntry>
                 {
-                    Transactions = new List<TransactionDto>
-                    {
-                        new()
-                        {
-                            Id = 1,
-                            AccountId = 1,
-                            Amount = 100m,
-                            Date = new DateTime(2026, 3, 2),
-                            Description = "Salary",
-                            CategoryId = 1,
-                            Category = new CategoryDto { Id = 1, Name = "Income", Type = CategoryTypeEnum.Income },
-                            Account = new AccountDto { Id = 1, Name = "Main" }
-                        },
-                        new()
-                        {
-                            Id = 2,
-                            AccountId = 1,
-                            Amount = 50m,
-                            Date = new DateTime(2026, 3, 3),
-                            Description = "Food",
-                            CategoryId = 2,
-                            Category = new CategoryDto { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense },
-                            Account = new AccountDto { Id = 1, Name = "Main" }
-                        },
-                        new()
-                        {
-                            Id = 3,
-                            AccountId = 1,
-                            Amount = -500m,
-                            Date = new DateTime(2026, 3, 4),
-                            Description = "Transfer out",
-                            CategoryId = 3,
-                            Category = new CategoryDto { Id = 3, Name = "Transfer", Type = CategoryTypeEnum.Transfer, SystemCategoryCode = "TRANSFER_OUT" },
-                            Account = new AccountDto { Id = 1, Name = "Main" }
-                        }
-                    }
-                }));
+                    new() { Date = new DateTime(2026, 3, 2), Amount = 100m, CategoryType = CategoryTypeEnum.Income },
+                    new() { Date = new DateTime(2026, 3, 3), Amount = 50m, CategoryType = CategoryTypeEnum.Expense }
+                });
 
             var svc = CreateService();
 
@@ -462,6 +459,163 @@ namespace MoneyTracker.Tests.Services
             result.Data.BudgetSummary.TotalRemaining.Should().Be(150m);
             result.Data.BudgetSummary.OverBudgetCount.Should().Be(1);
             result.Data.BudgetSummary.TopCategories.Should().NotBeEmpty();
+        }
+
+        [Fact]
+        public async Task GetOverviewAsync_WhenAllTimeSelected_CapsRangeToLast730Days()
+        {
+            var now = new DateTime(2026, 3, 10, 12, 0, 0);
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(now);
+
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
+                .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
+                {
+                    new() { Id = 1, Name = "Main", Type = AccountType.Bank, CurrentBalance = 1200m }
+                }));
+
+            _transactionService
+                .Setup(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()))
+                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+                {
+                    Transactions = new List<TransactionDto>()
+                }));
+
+            _budgetService
+                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
+                .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
+
+            var svc = CreateService();
+            var result = await svc.GetOverviewAsync(new DashboardFilterDto
+            {
+                TimePeriod = TimePeriodFilter.AllTime
+            });
+
+            result.Success.Should().BeTrue();
+            _transactionService.Verify(x => x.GetFilteredAsync(
+                It.Is<TransactionFilterDto>(f =>
+                    f.TimePeriod == TimePeriodFilter.Custom &&
+                    f.FromDate == now.Date.AddDays(-730) &&
+                    f.ToDate == now.Date)),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task GetOverviewAsync_WhenTransactionsContainOutOfRangeExpenses_SpendingTrendUsesOnlySelectedRange()
+        {
+            var now = new DateTime(2026, 3, 10, 12, 0, 0);
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(now);
+
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
+                .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
+                {
+                    new() { Id = 1, Name = "Main", Type = AccountType.Bank, CurrentBalance = 1000m }
+                }));
+
+            _transactionService
+                .Setup(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()))
+                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+                {
+                    Transactions = new List<TransactionDto>
+                    {
+                        new()
+                        {
+                            Id = 1,
+                            AccountId = 1,
+                            Amount = 150m,
+                            Date = new DateTime(2026, 2, 10),
+                            CategoryId = 2,
+                            Category = new CategoryDto { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense },
+                            Account = new AccountDto { Id = 1, Name = "Main" }
+                        },
+                        new()
+                        {
+                            Id = 2,
+                            AccountId = 1,
+                            Amount = 220m,
+                            Date = new DateTime(2026, 3, 5),
+                            CategoryId = 2,
+                            Category = new CategoryDto { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense },
+                            Account = new AccountDto { Id = 1, Name = "Main" }
+                        }
+                    }
+                }));
+
+            _budgetService
+                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
+                .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
+
+            var svc = CreateService();
+            var result = await svc.GetOverviewAsync(new DashboardFilterDto
+            {
+                TimePeriod = TimePeriodFilter.ThisMonth
+            });
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.SpendingTrend.Sum(x => x.Amount).Should().Be(220m);
+        }
+
+        [Fact]
+        public async Task GetOverviewAsync_User_fb847315_297e_4dee_be25_16b2393df7cb_WithLargeDataset_CompletesAndReturnsBoundedSeries()
+        {
+            // Regression test for reported case: dashboard appears to load forever for a user with very large history.
+            var now = new DateTime(2026, 3, 10, 12, 0, 0);
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(now);
+
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
+                .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
+                {
+                    new() { Id = 1, Name = "Main", Type = AccountType.Bank, CurrentBalance = 5000m }
+                }));
+
+            var start = now.Date.AddYears(-6);
+            var transactions = Enumerable.Range(0, 6000)
+                .Select(i => new TransactionDto
+                {
+                    Id = i + 1,
+                    AccountId = 1,
+                    Amount = (i % 3 == 0) ? 100m : 45m,
+                    Date = start.AddDays(i % 2200),
+                    CategoryId = (i % 3 == 0) ? 1 : 2,
+                    Category = new CategoryDto
+                    {
+                        Id = (i % 3 == 0) ? 1 : 2,
+                        Name = (i % 3 == 0) ? "Income" : "Expense",
+                        Type = (i % 3 == 0) ? CategoryTypeEnum.Income : CategoryTypeEnum.Expense
+                    },
+                    Account = new AccountDto { Id = 1, Name = "Main" }
+                })
+                .ToList();
+
+            _transactionService
+                .Setup(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()))
+                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+                {
+                    Transactions = transactions
+                }));
+
+            _budgetService
+                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
+                .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
+
+            var svc = CreateService();
+
+            var overviewTask = svc.GetOverviewAsync(new DashboardFilterDto
+            {
+                TimePeriod = TimePeriodFilter.AllTime,
+                AccountIds = new List<int> { 1 }
+            });
+
+            var completed = await Task.WhenAny(overviewTask, Task.Delay(TimeSpan.FromSeconds(5)));
+            completed.Should().Be(overviewTask, "overview should complete and not stay in a perpetual loading state");
+
+            var result = await overviewTask;
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+
+            // Service now caps dashboard range; chart payload must remain bounded and UI-friendly.
+            result.Data!.BalanceTrend.Count.Should().BeLessThanOrEqualTo(36);
+            result.Data.SpendingTrend.Count.Should().BeLessThanOrEqualTo(36);
         }
     }
 }

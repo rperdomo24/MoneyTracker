@@ -1,10 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums.Filters;
+using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
-using System.Linq;
 
 public class TransactionRepository : ITransactionRepository
 {
@@ -96,13 +95,16 @@ public class TransactionRepository : ITransactionRepository
     }
 
     public async Task<List<Transaction>> GetFilteredAsync(
-       DateTime? FromDate,
-       DateTime? ToDate,
-       List<int> AccountIds,
-       List<int> TransactionTypeIds)
+        DateTime? fromDate,
+        DateTime? toDate,
+        List<int> accountIds,
+        List<int> transactionTypeIds,
+        bool skipSorting = false)
     {
         try
         {
+            _ = transactionTypeIds;
+
             var query = _context.Transaction
                 .Where(t => !t.IsDeleted)
                 .AsNoTracking()
@@ -110,23 +112,72 @@ public class TransactionRepository : ITransactionRepository
                 .Include(e => e.Account)
                 .AsQueryable();
 
-            query = ApplyDateFilter(query, FromDate, ToDate);
+            query = ApplyDateFilter(query, fromDate, toDate);
 
-            // Filtro por cuentas
-            if (AccountIds.Any())
+            if (accountIds.Any())
             {
-                query = query.Where(t => AccountIds.Contains(t.AccountId));
+                query = query.Where(t => accountIds.Contains(t.AccountId));
             }
 
-            return await query
-                .OrderByDescending(t => t.Date)
-                .ThenByDescending(t => t.CreatedAt)
-                .ToListAsync();
+            if (!skipSorting)
+            {
+                query = query
+                    .OrderByDescending(t => t.Date)
+                    .ThenByDescending(t => t.CreatedAt);
+            }
+
+            return await query.ToListAsync();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting filtered transactions");
             return new List<Transaction>();
+        }
+    }
+
+    public async Task<List<TransactionTrendEntry>> GetTrendEntriesAsync(
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        List<int> accountIds,
+        CategoryTypeEnum? categoryType = null)
+    {
+        try
+        {
+            var query = _context.Transaction
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted);
+
+            query = ApplyDateFilter(query, fromDateUtc, toDateUtc);
+
+            if (accountIds.Any())
+            {
+                query = query.Where(t => accountIds.Contains(t.AccountId));
+            }
+
+            if (categoryType.HasValue)
+            {
+                query = query.Where(t => t.Category != null && t.Category.Type == categoryType.Value);
+            }
+            else
+            {
+                query = query.Where(t =>
+                    t.Category != null &&
+                    (t.Category.Type == CategoryTypeEnum.Income || t.Category.Type == CategoryTypeEnum.Expense));
+            }
+
+            return await query
+                .Select(t => new TransactionTrendEntry
+                {
+                    Date = t.Date,
+                    Amount = t.Amount,
+                    CategoryType = t.Category != null ? t.Category.Type : CategoryTypeEnum.Transfer
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting trend transaction entries");
+            return new List<TransactionTrendEntry>();
         }
     }
 
@@ -157,9 +208,9 @@ public class TransactionRepository : ITransactionRepository
     }
 
     public async Task<List<Transaction>> GetByCategoryTreeAsync(
-    int categoryId,
-    DateTime fromUtc,
-    DateTime toUtc)
+        int categoryId,
+        DateTime fromUtc,
+        DateTime toUtc)
     {
         var sql = @"
         WITH RECURSIVE category_tree AS (
@@ -203,5 +254,4 @@ public class TransactionRepository : ITransactionRepository
             return 0m;
         }
     }
-
 }

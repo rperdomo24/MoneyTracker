@@ -21,31 +21,16 @@
 
         @if (_chartData.Any())
         {
-            <MudHidden Breakpoint="Breakpoint.SmAndUp">
-                <div class="networth-apex-chart">
-                    <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="260">
-                        <ApexPointSeries TItem="BalancePoint"
-                                         Items="_chartData"
-                                         Name="Net Worth"
-                                         SeriesType="SeriesType.Line"
-                                         XValue="point => point.Date"
-                                         YValue="point => point.Value" />
-                    </ApexChart>
-                </div>
-            </MudHidden>
-
-            <MudHidden Breakpoint="Breakpoint.Xs">
-                <div class="networth-apex-chart">
-                    <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="340">
-                        <ApexPointSeries TItem="BalancePoint"
-                                         Items="_chartData"
-                                         Name="Net Worth"
-                                         SeriesType="SeriesType.Line"
-                                         XValue="point => point.Date"
-                                         YValue="point => point.Value" />
-                    </ApexChart>
-                </div>
-            </MudHidden>
+            <div class="networth-apex-chart">
+                <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="310">
+                    <ApexPointSeries TItem="BalancePoint"
+                                     Items="_chartData"
+                                     Name="Net Worth"
+                                     SeriesType="SeriesType.Line"
+                                     XValue="point => point.Date"
+                                     YValue="point => point.Value" />
+                </ApexChart>
+            </div>
 
             <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-1">
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
@@ -122,6 +107,7 @@
     private string _startDateLabel = "-";
     private string _endDateLabel = "-";
     private string _periodLabel = "30D";
+    private const int MaxChartPoints = 320;
 
     protected override void OnParametersSet()
     {
@@ -142,7 +128,8 @@
             .OrderBy(x => x.Date)
             .ToList();
 
-        _chartData.AddRange(sorted.Select(x => new BalancePoint
+        var pointsToRender = DownsampleTrend(sorted, MaxChartPoints);
+        _chartData.AddRange(pointsToRender.Select(x => new BalancePoint
         {
             Date = x.Date,
             Value = x.TotalBalance
@@ -165,8 +152,13 @@
         {
             Chart = new Chart
             {
+                Background = "transparent",
                 Toolbar = new Toolbar { Show = false },
-                Zoom = new Zoom { Enabled = false }
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations
+                {
+                    Enabled = false
+                }
             },
             Theme = new Theme
             {
@@ -177,9 +169,17 @@
                 Curve = Curve.Straight,
                 Width = 3
             },
+            Markers = new Markers
+            {
+                Size = 0
+            },
             DataLabels = new DataLabels { Enabled = false },
             Colors = new List<string> { "#00d1a0" },
             Legend = new Legend { Show = false },
+            Grid = new Grid
+            {
+                Show = false
+            },
             Xaxis = new XAxis
             {
                 Type = XAxisType.Datetime,
@@ -209,6 +209,36 @@
 
     private static string FormatSignedPercent(decimal percent)
         => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";
+
+    private static List<BalanceTrendDto> DownsampleTrend(List<BalanceTrendDto> source, int maxPoints)
+    {
+        if (source.Count <= maxPoints || maxPoints < 3)
+            return source;
+
+        var selected = new List<BalanceTrendDto>(maxPoints);
+        var step = (source.Count - 1d) / (maxPoints - 1d);
+        var seen = new HashSet<int>();
+
+        for (var i = 0; i < maxPoints; i++)
+        {
+            var index = (int)Math.Round(i * step, MidpointRounding.AwayFromZero);
+            index = Math.Clamp(index, 0, source.Count - 1);
+
+            if (seen.Add(index))
+            {
+                selected.Add(source[index]);
+            }
+        }
+
+        if (selected[0].Date != source[0].Date)
+            selected.Insert(0, source[0]);
+        if (selected[^1].Date != source[^1].Date)
+            selected.Add(source[^1]);
+
+        return selected
+            .OrderBy(x => x.Date)
+            .ToList();
+    }
 
     private sealed class BalancePoint
     {

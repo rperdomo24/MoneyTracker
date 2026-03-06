@@ -240,7 +240,7 @@ namespace MoneyTracker.Tests.Services
 
             // Transaction is charged to child category.
             _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
-                                                   It.IsAny<List<int>>(), It.IsAny<List<int>>()))
+                                                   It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
                 .ReturnsAsync(new List<Domain.Entities.Transaction>
                 {
                     new Domain.Entities.Transaction
@@ -273,7 +273,7 @@ namespace MoneyTracker.Tests.Services
             var category = new Domain.Entities.Category { Id = 4, Name = "Health", Type = CategoryTypeEnum.Expense };
             _categoryRepo.Setup(c => c.GetAllAsync(true, true)).ReturnsAsync(new List<Domain.Entities.Category> { category });
             _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>());
-            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>()))
+            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
                 .ReturnsAsync(new List<Domain.Entities.Transaction>());
             _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
 
@@ -295,7 +295,7 @@ namespace MoneyTracker.Tests.Services
 
             _categoryRepo.Setup(c => c.GetAllAsync(true, true)).ReturnsAsync(new List<Domain.Entities.Category> { transfer, expense });
             _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>());
-            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>()))
+            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
                 .ReturnsAsync(new List<Domain.Entities.Transaction>
                 {
                     new() { CategoryId = 30, Amount = -999m, IsDeleted = false }, // ignored (transfer category filtered out)
@@ -319,7 +319,7 @@ namespace MoneyTracker.Tests.Services
             var incomeCategory = new Domain.Entities.Category { Id = 50, Name = "Salary", Type = CategoryTypeEnum.Income };
             _categoryRepo.Setup(c => c.GetAllAsync(true, true)).ReturnsAsync(new List<Domain.Entities.Category> { incomeCategory });
             _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>());
-            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>()))
+            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
                 .ReturnsAsync(new List<Domain.Entities.Transaction> { new() { CategoryId = 50, Amount = 1200m, IsDeleted = false } });
             _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
 
