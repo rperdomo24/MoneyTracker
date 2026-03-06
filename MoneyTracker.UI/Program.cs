@@ -127,6 +127,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<UpdateBudgetDto>, UpdateBudgetValidator>();
 
             builder.Services.AddScoped<ITextImportService, TextImportService>();
+            builder.Services.AddScoped<IUserProfileService, UserProfileService>();
             builder.Services.AddScoped<AccountsDrawerState>();
             builder.Services.AddScoped<AccountsRefreshBus>();
 

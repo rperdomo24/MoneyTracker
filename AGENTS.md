@@ -48,4 +48,7 @@
 - Never change dialog pattern from:
   - `<MudDialog><TitleContent>...<DialogContent>...<DialogActions>...</MudDialog>`
 - Never change architecture boundaries without explicit user approval.
+- Never reference `MoneyTracker.Infrastructure` directly from UI pages/components; use `MoneyTracker.Application` interfaces.
+- Always add/update unit tests for new or changed service behavior.
+- Keep comments minimal and high-signal; avoid obvious comments.
 - Keep docs and comments in English.

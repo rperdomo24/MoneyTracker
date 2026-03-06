@@ -1,11 +1,14 @@
 ﻿@using System.Reflection
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Components.Shared.Drawer
 @using MoneyTracker.UI.Services.Components.Drawer
 @inject ProtectedSessionStorage SessionStorage
 @inject AccountsDrawerState AccountsDrawer
 @inject AccountsDrawerState AccountsDrawerState
+@inject IUserProfileService UserProfileService
+@inject NavigationManager Navigation
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
@@ -67,11 +70,27 @@
         </MudIconButton>
 
         <!-- User Menu -->
-        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
-                 Color="Color.Inherit"
+        <MudMenu Color="Color.Inherit"
                  Dense="true"
                  AnchorOrigin="Origin.BottomRight"
                  TransformOrigin="Origin.TopRight">
+            <ActivatorContent>
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="cursor: pointer;">
+                    <MudAvatar Size="Size.Small" Style="overflow: hidden;">
+                        @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
+                        {
+                            <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.AccountCircle" />
+                        }
+                    </MudAvatar>
+                    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                        <MudText Typo="Typo.body2">@UserDisplayName</MudText>
+                    </MudHidden>
+                </MudStack>
+            </ActivatorContent>
             <ChildContent>
 
                 <MudMenuItem Icon="@DarkLightModeButtonIcon" OnClick="@DarkModeToggle">
@@ -80,25 +99,17 @@
 
                 <MudDivider />
 
-                <MudMenu Dense="true"
-                         AnchorOrigin="Origin.CenterRight"
-                         TransformOrigin="Origin.CenterLeft">
-                    <ActivatorContent>
-                        <MudMenuItem Icon="@Icons.Material.Filled.Settings">
-                            Settings
-                        </MudMenuItem>
-                    </ActivatorContent>
+                <MudMenuItem Href="/settings" Icon="@Icons.Material.Filled.Person">
+                    Profile settings
+                </MudMenuItem>
 
-                    <ChildContent>
-                        <MudMenuItem Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">
-                            Accounts
-                        </MudMenuItem>
+                <MudMenuItem Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">
+                    Accounts
+                </MudMenuItem>
 
-                        <MudMenuItem Href="/categories" Icon="@Icons.Material.Filled.Category">
-                            Categories
-                        </MudMenuItem>
-                    </ChildContent>
-                </MudMenu>
+                <MudMenuItem Href="/categories" Icon="@Icons.Material.Filled.Category">
+                    Categories
+                </MudMenuItem>
 
                 <MudDivider />
 
@@ -106,7 +117,7 @@
                     Help & Support
                 </MudMenuItem>
 
-                <MudMenuItem Icon="@Icons.Material.Filled.Logout">
+                <MudMenuItem Href="/logout" Icon="@Icons.Material.Filled.Logout">
                     Sign Out
                 </MudMenuItem>
 
@@ -130,8 +141,16 @@
             <div class="pa-3 d-flex align-center justify-center"
                  style="min-height: 80px; border-bottom: 1px solid var(--mud-palette-divider);">
                 <MudAvatar Size="Size.Medium"
-                           Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
-                    <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+                           @onclick="@OpenUserSettings"
+                           Style="cursor: pointer; overflow: hidden; background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
+                    @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
+                    {
+                        <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+                    }
                 </MudAvatar>
             </div>
 
@@ -358,6 +377,8 @@
     private bool _showBreadcrumbs = false;
     private MudTheme? _theme;
     private bool _initialized = false;
+    private string? _userDisplayName;
+    private string? _userAvatarDataUrl;
 
     private bool AccountsDrawerOpen
     {
@@ -408,7 +429,11 @@
                 AppbarHeight = "80px"
             },
         };
+
+        await LoadCurrentUserProfileAsync();
     }
+
+    private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Profile" : _userDisplayName;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -461,6 +486,21 @@
         }
 
         StateHasChanged();
+    }
+
+    private void OpenUserSettings()
+        => Navigation.NavigateTo("/settings");
+
+    private async Task LoadCurrentUserProfileAsync()
+    {
+        var result = await UserProfileService.GetCurrentProfileAsync();
+        if (!result.Success || result.Data is null)
+        {
+            return;
+        }
+
+        _userDisplayName = string.IsNullOrWhiteSpace(result.Data.DisplayName) ? result.Data.Email : result.Data.DisplayName;
+        _userAvatarDataUrl = result.Data.AvatarDataUrl;
     }
 
     private string GetAppVersion()

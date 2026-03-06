@@ -24,6 +24,21 @@
   - `MoneyTracker.Application/Mappers/Transactions/*`
 - `AutoMapper` is not used (no `AutoMapper` references found).
 
+## Architecture boundary rules
+- UI (`MoneyTracker.UI`) must depend on `MoneyTracker.Application` contracts only.
+- Do not inject or reference `MoneyTracker.Infrastructure` types directly in Razor components/pages.
+- Persistence and Identity implementation details stay in `MoneyTracker.Infrastructure`.
+
+## Testing rules
+- Every new service behavior must include unit tests for success and failure paths.
+- Add or update tests under `MoneyTracker.Tests/Services` when adding/altering application use-cases.
+- No feature is complete without validating impacted tests.
+
+## Commenting rules
+- Keep comments in English only.
+- Add comments only when they provide non-obvious, high-value context.
+- Avoid redundant comments that restate obvious code.
+
 ## Validator rules
 - Validation library: FluentValidation.
 - Validators are registered explicitly in `MoneyTracker.UI/Program.cs`.

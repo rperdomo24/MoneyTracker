@@ -2,6 +2,7 @@
 @page "/overview"
 @using MoneyTracker.UI.Components.Pages.Overview.Components
 @using MoneyTracker.UI.Components.Shared
+@using System.Security.Claims
 @using MudBlazor
 @using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Application.Interfaces
@@ -9,6 +10,7 @@
 @inject IDashboardService DashboardService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 <PageTitle>Dashboard - MoneyTracker</PageTitle>
 
@@ -21,10 +23,10 @@
                     <MudStack Spacing="1">
                         <MudText Typo="Typo.h4" Style="color: white; font-weight: 600;">
                             <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" />
-                            Dashboard Financiero
+                            Bienvenido, @UserDisplayName
                         </MudText>
                         <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
-                            Última actualización: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
+                            Aquí tienes tu resumen financiero de hoy. Última actualización: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
                         </MudText>
                     </MudStack>
                     <MudButton Variant="Variant.Outlined"
@@ -99,10 +101,30 @@
     private List<AccountActivityDto> _accountActivity = new();
     private List<RecentTransactionDto> _recentTransactions = new();
     private List<MonthlyComparisonDto> _monthlyComparison = new();
+    private string? _userDisplayName;
+
+    private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Usuario" : _userDisplayName;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadCurrentUserNameAsync();
         await LoadDashboardData();
+    }
+
+    private async Task LoadCurrentUserNameAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        _userDisplayName =
+            user.FindFirstValue(ClaimTypes.Name) ??
+            user.FindFirstValue(ClaimTypes.GivenName) ??
+            user.FindFirstValue(ClaimTypes.Email) ??
+            user.Identity?.Name;
     }
 
     private async Task LoadDashboardData()
