@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.Common.Extensions;
+using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Dashboard;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
@@ -12,19 +13,73 @@ namespace MoneyTracker.Application.Services
     {
         private readonly IAccountService _accountService;
         private readonly ITransactionService _transactionService;
-        private readonly ICategoryService _categoryService;
         private readonly ITimeZoneService _timeZoneService;
 
         public DashboardService(
             IAccountService accountService,
             ITransactionService transactionService,
-            ICategoryService categoryService,
             ITimeZoneService timeZoneService)
         {
             _accountService = accountService;
             _transactionService = transactionService;
-            _categoryService = categoryService;
             _timeZoneService = timeZoneService;
+        }
+
+        public async Task<OperationResult<DashboardOverviewDto>> GetOverviewAsync(int recentTransactionsCount = 10, int balanceTrendMonths = 6)
+        {
+            try
+            {
+                var accountsResult = await _accountService.GetAccountsWithBalancesAsync();
+                if (!accountsResult.Success)
+                    return OperationResult<DashboardOverviewDto>.Fail(accountsResult.Message);
+                if (accountsResult.Data is null)
+                    return OperationResult<DashboardOverviewDto>.Fail("Accounts data is empty");
+
+                var thisMonthResult = await _transactionService.GetFilteredAsync(new TransactionFilterDto
+                {
+                    TimePeriod = TimePeriodFilter.ThisMonth
+                });
+
+                if (!thisMonthResult.Success)
+                    return OperationResult<DashboardOverviewDto>.Fail(thisMonthResult.Message);
+                if (thisMonthResult.Data is null)
+                    return OperationResult<DashboardOverviewDto>.Fail("Current month transactions data is empty");
+
+                var lastMonthResult = await _transactionService.GetFilteredAsync(new TransactionFilterDto
+                {
+                    TimePeriod = TimePeriodFilter.LastMonth
+                });
+
+                if (!lastMonthResult.Success)
+                    return OperationResult<DashboardOverviewDto>.Fail(lastMonthResult.Message);
+                if (lastMonthResult.Data is null)
+                    return OperationResult<DashboardOverviewDto>.Fail("Previous month transactions data is empty");
+
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var accounts = accountsResult.Data;
+                var thisMonthTransactions = thisMonthResult.Data.Transactions;
+                var lastMonthTransactions = lastMonthResult.Data.Transactions;
+                var recentSource = thisMonthTransactions
+                    .Concat(lastMonthTransactions)
+                    .GroupBy(t => t.Id)
+                    .Select(g => g.First())
+                    .ToList();
+
+                var overview = new DashboardOverviewDto
+                {
+                    Summary = BuildSummary(accounts),
+                    CashFlow = BuildCashFlow(thisMonthTransactions, now),
+                    CategoryBreakdown = BuildCategoryBreakdown(thisMonthTransactions),
+                    RecentTransactions = BuildRecentTransactions(recentSource, recentTransactionsCount, now),
+                    BalanceTrend = BuildBalanceTrend(accounts, balanceTrendMonths, now)
+                };
+
+                return OperationResult<DashboardOverviewDto>.Ok(overview, "Dashboard overview retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<DashboardOverviewDto>.Fail($"Error retrieving dashboard overview: {ex.Message}");
+            }
         }
 
         public async Task<OperationResult<DashboardSummaryDto>> GetSummaryAsync()
@@ -355,10 +410,10 @@ namespace MoneyTracker.Application.Services
                         Description = t.Description,
                         Amount = t.Amount,
                         Date = t.Date,
-                        AccountName = t.Name ?? "Cuenta desconocida",
-                        CategoryName = t.Category.Name ?? "Sin categoría",
-                        CategoryColor = t.Category.Color ?? "#9e9e9e",
-                        //Type = TransactionType.Income,
+                        AccountName = t.Account?.Name ?? "Cuenta desconocida",
+                        CategoryName = t.Category?.Name ?? "Sin categoría",
+                        CategoryColor = t.Category?.Color ?? "#9e9e9e",
+                        Type = t.TransactionType,
                         RelativeTime = CalculateRelativeTime(t.Date, now)
                     })
                     .ToList();
@@ -473,6 +528,140 @@ namespace MoneyTracker.Application.Services
         }
 
         #region Private Helper Methods
+
+        private DashboardSummaryDto BuildSummary(List<AccountDto> accounts)
+        {
+            var assets = accounts
+                .Where(a => a.Type != AccountType.Credit && a.CurrentBalance >= 0)
+                .Sum(a => a.CurrentBalance);
+
+            var liabilities = Math.Abs(accounts
+                .Where(a => a.Type == AccountType.Credit || a.CurrentBalance < 0)
+                .Sum(a => Math.Min(a.CurrentBalance, 0)));
+
+            var netWorth = assets - liabilities;
+
+            return new DashboardSummaryDto
+            {
+                TotalAssets = assets,
+                TotalLiabilities = liabilities,
+                NetWorth = netWorth,
+                MonthlyChange = 0m,
+                MonthlyChangePercentage = 0m,
+                IsPositiveChange = netWorth >= 0,
+                Last6MonthsNetWorth = new List<decimal>()
+            };
+        }
+
+        private CashFlowDto BuildCashFlow(List<TransactionDto> transactions, DateTime now)
+        {
+            var totalIncome = transactions
+                .Where(t => t.IsIncome())
+                .Sum(t => t.Amount);
+
+            var totalExpenses = transactions
+                .Where(t => t.IsExpense())
+                .Sum(t => t.Amount);
+
+            var netCashFlow = totalIncome - totalExpenses;
+            var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+            var daysElapsed = now.Day;
+            var daysLeft = daysInMonth - daysElapsed;
+            var dailyBurnRate = daysElapsed > 0 ? totalExpenses / daysElapsed : 0;
+            var projectedMonthEnd = totalIncome - (dailyBurnRate * daysInMonth);
+
+            return new CashFlowDto
+            {
+                TotalIncome = totalIncome,
+                TotalExpenses = totalExpenses,
+                NetCashFlow = netCashFlow,
+                DailyBurnRate = dailyBurnRate,
+                DaysLeftInMonth = daysLeft,
+                ProjectedMonthEnd = projectedMonthEnd,
+                DaysInMonth = daysInMonth,
+                DaysElapsed = daysElapsed
+            };
+        }
+
+        private List<CategoryBreakdownDto> BuildCategoryBreakdown(List<TransactionDto> transactions)
+        {
+            var expenses = transactions
+                .Where(t => t.IsExpense() && t.CategoryId > 0)
+                .ToList();
+
+            var totalExpenses = expenses.Sum(t => t.Amount);
+
+            return expenses
+                .GroupBy(t => new
+                {
+                    t.CategoryId,
+                    CategoryName = t.Category?.Name ?? "Sin categoría",
+                    CategoryColor = t.Category?.Color ?? "#9e9e9e"
+                })
+                .Select(g => new CategoryBreakdownDto
+                {
+                    CategoryId = g.Key.CategoryId,
+                    CategoryName = g.Key.CategoryName,
+                    CategoryColor = g.Key.CategoryColor,
+                    Amount = g.Sum(t => t.Amount),
+                    Percentage = totalExpenses > 0 ? (g.Sum(t => t.Amount) / totalExpenses) * 100 : 0,
+                    TransactionCount = g.Count(),
+                    AverageTransaction = g.Count() > 0 ? g.Sum(t => t.Amount) / g.Count() : 0
+                })
+                .OrderByDescending(c => c.Amount)
+                .Take(6)
+                .ToList();
+        }
+
+        private List<RecentTransactionDto> BuildRecentTransactions(List<TransactionDto> transactions, int count, DateTime now)
+        {
+            return transactions
+                .OrderByDescending(t => t.Date)
+                .Take(count)
+                .Select(t => new RecentTransactionDto
+                {
+                    Id = t.Id,
+                    Description = t.Description,
+                    Amount = t.Amount,
+                    Date = t.Date,
+                    AccountName = t.Account?.Name ?? "Cuenta desconocida",
+                    CategoryName = t.Category?.Name ?? "Sin categoría",
+                    CategoryColor = t.Category?.Color ?? "#9e9e9e",
+                    Type = t.TransactionType,
+                    RelativeTime = CalculateRelativeTime(t.Date, now)
+                })
+                .ToList();
+        }
+
+        private List<BalanceTrendDto> BuildBalanceTrend(List<AccountDto> accounts, int months, DateTime now)
+        {
+            var trends = new List<BalanceTrendDto>();
+            var currentChecking = accounts.Where(a => a.Type == AccountType.Checking).Sum(a => a.CurrentBalance);
+            var currentSavings = accounts.Where(a => a.Type == AccountType.Savings).Sum(a => a.CurrentBalance);
+            var currentCredit = accounts.Where(a => a.Type == AccountType.Credit).Sum(a => a.CurrentBalance);
+            var currentInvestment = accounts.Where(a => a.Type == AccountType.Investment).Sum(a => a.CurrentBalance);
+            var currentCash = accounts.Where(a => a.Type == AccountType.Cash).Sum(a => a.CurrentBalance);
+
+            for (int i = months - 1; i >= 0; i--)
+            {
+                var date = now.AddMonths(-i);
+                var firstOfMonth = new DateTime(date.Year, date.Month, 1);
+                var factor = 1 + (i * 0.02m);
+
+                trends.Add(new BalanceTrendDto
+                {
+                    Date = firstOfMonth,
+                    CheckingBalance = currentChecking / factor,
+                    SavingsBalance = currentSavings / factor,
+                    CreditBalance = currentCredit / factor,
+                    InvestmentBalance = currentInvestment / factor,
+                    CashBalance = currentCash / factor,
+                    TotalBalance = (currentChecking + currentSavings + currentInvestment + currentCash + currentCredit) / factor
+                });
+            }
+
+            return trends;
+        }
 
         private string CalculateRelativeTime(DateTime transactionDate, DateTime now)
         {

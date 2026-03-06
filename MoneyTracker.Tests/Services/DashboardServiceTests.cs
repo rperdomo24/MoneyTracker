@@ -16,11 +16,10 @@ namespace MoneyTracker.Tests.Services
     {
         private readonly Mock<IAccountService> _accountService = new();
         private readonly Mock<ITransactionService> _transactionService = new();
-        private readonly Mock<ICategoryService> _categoryService = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
 
         private DashboardService CreateService()
-            => new(_accountService.Object, _transactionService.Object, _categoryService.Object, _timeZoneService.Object);
+            => new(_accountService.Object, _transactionService.Object, _timeZoneService.Object);
 
         [Fact]
         public async Task GetSummaryAsync_WhenAccountsFail_ReturnsFailResult()
@@ -113,6 +112,101 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeTrue();
             result.Data.Should().HaveCount(4);
+        }
+
+        [Fact]
+        public async Task GetOverviewAsync_WhenSuccess_ReturnsAggregatedDataAndMinimizesCalls()
+        {
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(new DateTime(2026, 3, 10, 12, 0, 0));
+
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
+                .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
+                {
+                    new() { Id = 1, Name = "Main", Type = AccountType.Bank, CurrentBalance = 1000m },
+                    new() { Id = 2, Name = "Credit", Type = AccountType.Credit, CurrentBalance = -250m, CreditLimit = 1000m }
+                }));
+
+            _transactionService
+                .Setup(x => x.GetFilteredAsync(It.Is<TransactionFilterDto>(f => f.TimePeriod == TimePeriodFilter.ThisMonth)))
+                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+                {
+                    Transactions = new List<TransactionDto>
+                    {
+                        new()
+                        {
+                            Id = 1,
+                            AccountId = 1,
+                            Amount = 1000m,
+                            Date = new DateTime(2026, 3, 2),
+                            Description = "Salary",
+                            CategoryId = 1,
+                            Category = new CategoryDto { Id = 1, Name = "Income", Type = CategoryTypeEnum.Income, Color = "#4caf50" },
+                            Account = new AccountDto { Id = 1, Name = "Main" }
+                        },
+                        new()
+                        {
+                            Id = 2,
+                            AccountId = 1,
+                            Amount = 200m,
+                            Date = new DateTime(2026, 3, 4),
+                            Description = "Groceries",
+                            CategoryId = 2,
+                            Category = new CategoryDto { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense, Color = "#f44336" },
+                            Account = new AccountDto { Id = 1, Name = "Main" }
+                        }
+                    }
+                }));
+
+            _transactionService
+                .Setup(x => x.GetFilteredAsync(It.Is<TransactionFilterDto>(f => f.TimePeriod == TimePeriodFilter.LastMonth)))
+                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+                {
+                    Transactions = new List<TransactionDto>
+                    {
+                        new()
+                        {
+                            Id = 3,
+                            AccountId = 1,
+                            Amount = 800m,
+                            Date = new DateTime(2026, 2, 10),
+                            Description = "Salary prev",
+                            CategoryId = 1,
+                            Category = new CategoryDto { Id = 1, Name = "Income", Type = CategoryTypeEnum.Income, Color = "#4caf50" },
+                            Account = new AccountDto { Id = 1, Name = "Main" }
+                        }
+                    }
+                }));
+
+            var svc = CreateService();
+
+            var result = await svc.GetOverviewAsync();
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Summary.NetWorth.Should().Be(750m);
+            result.Data.CashFlow.NetCashFlow.Should().Be(800m);
+            result.Data.RecentTransactions.Should().NotBeEmpty();
+
+            _accountService.Verify(x => x.GetAccountsWithBalancesAsync(), Times.Once);
+            _transactionService.Verify(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()), Times.Exactly(2));
+        }
+
+        [Fact]
+        public async Task GetOverviewAsync_WhenThisMonthTransactionsFail_ReturnsFailResult()
+        {
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
+                .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>()));
+
+            _transactionService
+                .Setup(x => x.GetFilteredAsync(It.Is<TransactionFilterDto>(f => f.TimePeriod == TimePeriodFilter.ThisMonth)))
+                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Fail("tx error"));
+
+            var svc = CreateService();
+
+            var result = await svc.GetOverviewAsync();
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be("tx error");
         }
     }
 }

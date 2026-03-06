@@ -8,7 +8,6 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Helpers
 @inject IDashboardService DashboardService
-@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
@@ -52,14 +51,11 @@
         else
         {
             @* Row 1: Summary Cards *@
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6">
                 <NetWorthCard Data="_summary" />
             </MudItem>
-            <MudItem xs="12" sm="6" md="4">
+            <MudItem xs="12" sm="6">
                 <CashFlowCard Data="_cashFlow" />
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <AlertsCard Data="_alerts" />
             </MudItem>
 
             @* Row 2: Balance Trend Chart *@
@@ -67,25 +63,12 @@
                 <BalanceTrendCard Data="_balanceTrend" />
             </MudItem>
 
-            @* Row 3: Analytics *@
-            <MudItem xs="12" md="6">
+            @* Row 3: Spending & Recent Transactions *@
+            <MudItem xs="12" md="5">
                 <CategoryBreakdownCard Data="_categoryBreakdown" />
             </MudItem>
-            <MudItem xs="12" md="6">
-                <AccountActivityCard Data="_accountActivity" />
-            </MudItem>
-
-            @* Row 4: Recent Transactions & Monthly Comparison *@
-            <MudItem xs="12" md="8">
+            <MudItem xs="12" md="7">
                 <RecentTransactionsCard Data="_recentTransactions" />
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <MonthlyComparisonCard Data="_monthlyComparison" />
-            </MudItem>
-
-            @* Row 5: Quick Actions *@
-            <MudItem xs="12">
-                <QuickActionsCard />
             </MudItem>
         }
     </MudGrid>
@@ -95,12 +78,9 @@
     private bool _isLoading = true;
     private DashboardSummaryDto? _summary;
     private CashFlowDto? _cashFlow;
-    private List<FinancialAlertDto> _alerts = new();
     private List<BalanceTrendDto> _balanceTrend = new();
     private List<CategoryBreakdownDto> _categoryBreakdown = new();
-    private List<AccountActivityDto> _accountActivity = new();
     private List<RecentTransactionDto> _recentTransactions = new();
-    private List<MonthlyComparisonDto> _monthlyComparison = new();
     private string? _userDisplayName;
 
     private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Usuario" : _userDisplayName;
@@ -120,11 +100,18 @@
             return;
         }
 
-        _userDisplayName =
-            user.FindFirstValue(ClaimTypes.Name) ??
+        var preferredName =
+            user.FindFirstValue("display_name") ??
             user.FindFirstValue(ClaimTypes.GivenName) ??
-            user.FindFirstValue(ClaimTypes.Email) ??
-            user.Identity?.Name;
+            user.FindFirstValue(ClaimTypes.Name);
+
+        if (string.IsNullOrWhiteSpace(preferredName) || preferredName.Contains('@'))
+        {
+            _userDisplayName = "Usuario";
+            return;
+        }
+
+        _userDisplayName = preferredName;
     }
 
     private async Task LoadDashboardData()
@@ -132,73 +119,20 @@
         _isLoading = true;
         StateHasChanged();
 
-        var errors = new List<string>();
-
         try
         {
-            // Load ALL data sequentially to avoid DbContext concurrency issues
-            // Critical data first
-            try
+            var overviewResult = await DashboardService.GetOverviewAsync();
+            if (!overviewResult.Success)
             {
-                var summaryResult = await DashboardService.GetSummaryAsync();
-                _summary = summaryResult.Success ? summaryResult.Data : null;
-                if (!summaryResult.Success) errors.Add($"Summary: {summaryResult.Message}");
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Summary: {ex.Message}");
+                Snackbar.Add($"Error cargando dashboard: {overviewResult.Message}", Severity.Error);
+                return;
             }
 
-            try
-            {
-                var cashFlowResult = await DashboardService.GetCashFlowAsync();
-                _cashFlow = cashFlowResult.Success ? cashFlowResult.Data : null;
-                if (!cashFlowResult.Success) errors.Add($"Cash Flow: {cashFlowResult.Message}");
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Cash Flow: {ex.Message}");
-            }
-
-            try
-            {
-                var alertsResult = await DashboardService.GetAlertsAsync();
-                _alerts = alertsResult.Success ? alertsResult.Data : new();
-                if (!alertsResult.Success) errors.Add($"Alerts: {alertsResult.Message}");
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Alerts: {ex.Message}");
-            }
-
-            // Load secondary data sequentially (NO parallel execution)
-            await LoadAccountActivity();
-            await LoadRecentTransactions();
-            await LoadCategoryBreakdown();
-            await LoadMonthlyComparison();
-
-            // Load heavy data last
-            try
-            {
-                var balanceTrendResult = await DashboardService.GetBalanceTrendAsync();
-                _balanceTrend = balanceTrendResult.Success ? balanceTrendResult.Data : new();
-                if (!balanceTrendResult.Success) errors.Add($"Balance Trend: {balanceTrendResult.Message}");
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Balance Trend: {ex.Message}");
-            }
-
-            // Show any accumulated errors
-            if (errors.Any())
-            {
-                var errorMessage = string.Join(", ", errors);
-                Snackbar.Add($"Algunos datos no se cargaron: {errorMessage}", Severity.Warning);
-            }
-            else
-            {
-                Snackbar.Add("Dashboard cargado exitosamente", Severity.Success);
-            }
+            _summary = overviewResult.Data.Summary;
+            _cashFlow = overviewResult.Data.CashFlow;
+            _balanceTrend = overviewResult.Data.BalanceTrend;
+            _categoryBreakdown = overviewResult.Data.CategoryBreakdown;
+            _recentTransactions = overviewResult.Data.RecentTransactions;
         }
         catch (Exception ex)
         {
@@ -210,79 +144,6 @@
             StateHasChanged();
         }
     }
-
-    private async Task LoadAccountActivity()
-    {
-        try
-        {
-            var result = await DashboardService.GetAccountActivityAsync();
-            _accountActivity = result.Success ? result.Data : new();
-            if (!result.Success)
-            {
-                // Opcionalmente agregar a lista de errores si es necesario
-            }
-        }
-        catch (Exception ex)
-        {
-            _accountActivity = new();
-            // Log error si es necesario
-        }
-    }
-
-    private async Task LoadRecentTransactions()
-    {
-        try
-        {
-            var result = await DashboardService.GetRecentTransactionsAsync();
-            _recentTransactions = result.Success ? result.Data : new();
-            if (!result.Success)
-            {
-                // Opcionalmente agregar a lista de errores si es necesario
-            }
-        }
-        catch (Exception ex)
-        {
-            _recentTransactions = new();
-            // Log error si es necesario
-        }
-    }
-
-    private async Task LoadCategoryBreakdown()
-    {
-        try
-        {
-            var result = await DashboardService.GetCategoryBreakdownAsync();
-            _categoryBreakdown = result.Success ? result.Data : new();
-            if (!result.Success)
-            {
-                // Opcionalmente agregar a lista de errores si es necesario
-            }
-        }
-        catch (Exception ex)
-        {
-            _categoryBreakdown = new();
-            // Log error si es necesario
-        }
-    }
-
-    private async Task LoadMonthlyComparison()
-    {
-        try
-        {
-            var result = await DashboardService.GetMonthlyComparisonAsync();
-            _monthlyComparison = result.Success ? result.Data : new();
-            if (!result.Success)
-            {
-                // Opcionalmente agregar a lista de errores si es necesario
-            }
-        }
-        catch (Exception ex)
-        {
-            _monthlyComparison = new();
-            // Log error si es necesario
-        }
-    }
-
 
     private async Task RefreshDashboard()
     {
