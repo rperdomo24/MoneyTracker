@@ -1,4 +1,7 @@
-﻿@page "/accounts/{id:int}"
+@page "/accounts/{id:int}"
+@using Color = MudBlazor.Color
+@using Size = MudBlazor.Size
+@using Align = MudBlazor.Align
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
@@ -112,30 +115,10 @@
             </MudStack>
         </MudHidden>
 
-        <!-- Chart Placeholder -->
-        <MudPaper Class="pa-4 mb-4" Elevation="1">
-            <MudHidden Breakpoint="Breakpoint.SmAndUp">
-                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Filled.ShowChart"
-                             Size="Size.Large"
-                             Style="opacity: 0.3; font-size: 2.5rem;" />
-                    <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                        Balance chart coming soon
-                    </MudText>
-                </MudStack>
-            </MudHidden>
-
-            <MudHidden Breakpoint="Breakpoint.Xs">
-                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Filled.ShowChart"
-                             Size="Size.Large"
-                             Style="opacity: 0.3; font-size: 3rem;" />
-                    <MudText Typo="Typo.body2" Style="opacity: 0.5;">
-                        Balance chart coming soon
-                    </MudText>
-                </MudStack>
-            </MudHidden>
-        </MudPaper>
+        <AccountBalanceTrendCard Account="_account"
+                                 AccountId="Id"
+                                 Filter="_filterDto"
+                                 IsDarkMode="IsDarkMode" />
 
         <!-- Account Info Card -->
         <MudPaper Class="pa-4 mb-4" Elevation="1">
@@ -350,11 +333,13 @@
 
 @code {
     [Parameter] public int Id { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
 
     private AccountDto? _account;
     private bool _loading = true;
     private bool _filtersDrawerOpen = false;
     private int _transactionsKey = 0;
+    private int? _lastStorageAccountId;
 
     private TransactionFilterDto _filterDto = new()
     {
@@ -375,17 +360,20 @@
         MaxWidth = MaxWidth.Large
     };
 
-    private int? _lastStorageAccountId;
-
     protected override async Task OnParametersSetAsync()
     {
         if (_account?.Id != Id)
+        {
             await LoadAccount();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_lastStorageAccountId == Id) return;
+        if (_lastStorageAccountId == Id)
+        {
+            return;
+        }
 
         _lastStorageAccountId = Id;
 
@@ -397,7 +385,11 @@
         }
         else
         {
-            _filterDto = new TransactionFilterDto { TimePeriod = TimePeriodFilter.Last30Days, AccountIds = new List<int> { Id } };
+            _filterDto = new TransactionFilterDto
+            {
+                TimePeriod = TimePeriodFilter.Last30Days,
+                AccountIds = new List<int> { Id }
+            };
         }
 
         StateHasChanged();
@@ -536,15 +528,15 @@
         _filterDto.AccountIds = new List<int> { Id };
 
         await FilterStorage.SaveAsync(Id, _filterDto);
-
         _transactionsKey++;
         StateHasChanged();
     }
 
-    private async Task OnSearchChanged()
+    private Task OnSearchChanged()
     {
         _transactionsKey++;
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task ClearAllFilters()
@@ -556,7 +548,6 @@
         };
 
         await FilterStorage.ClearAsync(Id);
-
         _transactionsKey++;
         StateHasChanged();
     }
@@ -564,6 +555,7 @@
     private async Task OnTransactionChanged()
     {
         await LoadAccount();
+        _transactionsKey++;
         StateHasChanged();
     }
 
@@ -586,10 +578,24 @@
     private string FormatBalance(decimal balance)
         => balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
 
-    private string GetBalanceClass(decimal balance) => balance switch
+    private string GetBalanceClass(decimal balance)
     {
-        > 0 => "text-success",
-        < 0 => "text-error",
-        _ => ""
-    };
+        if (IsDebtAccount())
+        {
+            return balance < 0 ? "text-error" : "text-success";
+        }
+
+        return balance switch
+        {
+            > 0 => "text-success",
+            < 0 => "text-error",
+            _ => ""
+        };
+    }
+
+    private bool IsDebtAccount()
+        => _account?.Type == AccountType.Credit;
 }
+
+
+

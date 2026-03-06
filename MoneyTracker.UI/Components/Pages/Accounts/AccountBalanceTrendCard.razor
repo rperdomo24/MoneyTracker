@@ -1,0 +1,339 @@
+@using ApexCharts
+@using MoneyTracker.Application.Common.Extensions
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.Domain.Enums.Filters
+@inject ITransactionService TransactionService
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.h6">@GetTitle()</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                @GetSubtitle()
+            </MudText>
+        </MudStack>
+        <MudPaper Class="px-3 py-1" Elevation="0" Style="border:1px solid var(--mud-palette-divider); border-radius:10px;">
+            <MudText Typo="Typo.body2">@GetTrendPeriodLabel()</MudText>
+        </MudPaper>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8" Spacing="2">
+            <MudProgressCircular Color="MudBlazor.Color.Primary" Indeterminate="true" />
+            <MudText Typo="Typo.body2">Loading trend...</MudText>
+        </MudStack>
+    }
+    else if (!_chartData.Any())
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.ShowChart" Size="MudBlazor.Size.Large" />
+            <MudText Typo="Typo.body2">No trend data available</MudText>
+        </MudStack>
+    }
+    else
+    {
+        <MudStack Spacing="1" Class="mb-2">
+            <MudText Typo="Typo.h3" Class="@GetCurrentValueClass()">
+                @GetCurrentValueLabel()
+            </MudText>
+            <MudText Typo="Typo.body1" Class="@GetDeltaClass()">
+                @GetDeltaLabel()
+            </MudText>
+        </MudStack>
+
+        <ApexChart TItem="BalanceTrendPoint" Options="_chartOptions" Height="300">
+            <ApexPointSeries TItem="BalanceTrendPoint"
+                             Items="_chartData"
+                             Name="@GetSeriesName()"
+                             SeriesType="SeriesType.Line"
+                             XValue="point => point.Date"
+                             YValue="point => point.Value" />
+        </ApexChart>
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-1">
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_fromLabel</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@_toLabel</MudText>
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    [Parameter] public AccountDto? Account { get; set; }
+    [Parameter] public int AccountId { get; set; }
+    [Parameter] public TransactionFilterDto Filter { get; set; } = new();
+    [Parameter] public bool IsDarkMode { get; set; }
+
+    private bool _loading;
+    private string _fromLabel = "-";
+    private string _toLabel = "-";
+    private decimal _delta;
+    private decimal _deltaPercent;
+    private string? _lastSignature;
+    private readonly List<BalanceTrendPoint> _chartData = new();
+    private ApexChartOptions<BalanceTrendPoint> _chartOptions = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var signature = BuildSignature();
+        if (signature == _lastSignature)
+            return;
+
+        _lastSignature = signature;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (Account is null)
+        {
+            Reset();
+            return;
+        }
+
+        _loading = true;
+        _chartOptions = BuildOptions(IsDarkMode, IsDebtAccount());
+
+        try
+        {
+            var result = await TransactionService.GetFilteredAsync(CreateTrendFilter());
+            if (!result.Success || result.Data is null)
+            {
+                Reset();
+                return;
+            }
+
+            var transactions = result.Data.Transactions
+                .Where(t => t.AccountId == AccountId)
+                .OrderBy(t => t.Date)
+                .ThenBy(t => t.Id)
+                .ToList();
+
+            if (transactions.Count == 0)
+            {
+                Reset();
+                return;
+            }
+
+            BuildTrendSeries(transactions);
+            _chartOptions = BuildOptions(IsDarkMode, IsDebtAccount());
+        }
+        catch
+        {
+            Reset();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildTrendSeries(List<TransactionDto> transactions)
+    {
+        _chartData.Clear();
+
+        var range = ResolveDateRange(Filter, transactions);
+        var deltasByDay = transactions
+            .GroupBy(t => t.Date.Date)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.GetSignedAmount()));
+
+        var periodDelta = transactions.Sum(t => t.GetSignedAmount());
+        var runningBalance = Account!.CurrentBalance - periodDelta;
+
+        for (var day = range.From; day <= range.To; day = day.AddDays(1))
+        {
+            if (deltasByDay.TryGetValue(day, out var delta))
+            {
+                runningBalance += delta;
+            }
+
+            _chartData.Add(new BalanceTrendPoint
+            {
+                Date = day,
+                Value = ToDisplayValue(runningBalance)
+            });
+        }
+
+        var startBalance = Account.CurrentBalance - periodDelta;
+
+        if (IsDebtAccount())
+        {
+            var startDebt = ToDebtValue(startBalance);
+            var endDebt = ToDebtValue(Account.CurrentBalance);
+            _delta = startDebt - endDebt;
+            _deltaPercent = startDebt == 0 ? 0 : (_delta / startDebt) * 100m;
+        }
+        else
+        {
+            _delta = Account.CurrentBalance - startBalance;
+            _deltaPercent = startBalance == 0 ? 0 : (_delta / Math.Abs(startBalance)) * 100m;
+        }
+
+        _fromLabel = range.From.ToString("dd MMM yyyy");
+        _toLabel = range.To.ToString("dd MMM yyyy");
+    }
+
+    private TransactionFilterDto CreateTrendFilter()
+        => new()
+        {
+            TimePeriod = Filter.TimePeriod,
+            FromDate = Filter.FromDate,
+            ToDate = Filter.ToDate,
+            AccountIds = new List<int> { AccountId },
+            SearchText = string.Empty,
+            SkipSorting = true
+        };
+
+    private static (DateTime From, DateTime To) ResolveDateRange(TransactionFilterDto filter, List<TransactionDto> transactions)
+    {
+        var today = DateTime.Today;
+        if (filter.TimePeriod == TimePeriodFilter.Custom && filter.FromDate.HasValue && filter.ToDate.HasValue)
+        {
+            return (filter.FromDate.Value.Date, filter.ToDate.Value.Date);
+        }
+
+        return filter.TimePeriod switch
+        {
+            TimePeriodFilter.Last7Days => (today.AddDays(-6), today),
+            TimePeriodFilter.Last30Days => (today.AddDays(-29), today),
+            TimePeriodFilter.Last90Days => (today.AddDays(-89), today),
+            TimePeriodFilter.ThisMonth => (new DateTime(today.Year, today.Month, 1), today),
+            TimePeriodFilter.LastMonth => (
+                new DateTime(today.AddMonths(-1).Year, today.AddMonths(-1).Month, 1),
+                new DateTime(today.Year, today.Month, 1).AddDays(-1)),
+            TimePeriodFilter.ThisYear => (new DateTime(today.Year, 1, 1), today),
+            _ => (transactions.First().Date.Date, transactions.Last().Date.Date)
+        };
+    }
+
+    private static ApexChartOptions<BalanceTrendPoint> BuildOptions(bool isDarkMode, bool isDebt)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations { Enabled = false }
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            Stroke = new Stroke
+            {
+                Curve = Curve.Straight,
+                Width = 2
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Markers = new Markers { Size = 0 },
+            Colors = new List<string> { isDebt ? "#ff5252" : "#00d1a0" },
+            Legend = new Legend { Show = false },
+            Grid = new Grid { Show = false },
+            Xaxis = new XAxis
+            {
+                Type = XAxisType.Datetime,
+                Labels = new XAxisLabels { Show = false }
+            },
+            Yaxis =
+            [
+                new YAxis { Show = false }
+            ],
+            Tooltip = new Tooltip
+            {
+                X = new TooltipX { Format = "dd MMM yyyy" }
+            }
+        };
+
+    private string BuildSignature()
+    {
+        var type = Account?.Type.ToString() ?? "none";
+        var balance = Account?.CurrentBalance ?? 0m;
+        return string.Join("|",
+            AccountId,
+            type,
+            balance,
+            IsDarkMode,
+            Filter.TimePeriod,
+            Filter.FromDate?.Date.ToString("O") ?? "null",
+            Filter.ToDate?.Date.ToString("O") ?? "null");
+    }
+
+    private bool IsDebtAccount() => Account?.Type == AccountType.Credit;
+    private static decimal ToDebtValue(decimal balance) => Math.Max(0m, -balance);
+    private decimal ToDisplayValue(decimal balance) => IsDebtAccount() ? ToDebtValue(balance) : balance;
+
+    private void Reset()
+    {
+        _chartData.Clear();
+        _delta = 0m;
+        _deltaPercent = 0m;
+        _fromLabel = "-";
+        _toLabel = "-";
+        _chartOptions = BuildOptions(IsDarkMode, IsDebtAccount());
+    }
+
+    private string GetTitle() => IsDebtAccount() ? "Debt Trend" : "Balance Trend";
+    private string GetSubtitle() => IsDebtAccount() ? "How your card debt changed over time" : "Account balance movement over selected period";
+    private string GetSeriesName() => IsDebtAccount() ? "Debt" : "Balance";
+
+    private string GetCurrentValueLabel()
+    {
+        if (Account is null)
+            return "$0.00";
+
+        if (IsDebtAccount())
+            return $"${ToDebtValue(Account.CurrentBalance):N2}";
+
+        return Account.CurrentBalance < 0
+            ? $"-${Math.Abs(Account.CurrentBalance):N2}"
+            : $"${Account.CurrentBalance:N2}";
+    }
+
+    private string GetCurrentValueClass()
+    {
+        if (Account is null)
+            return string.Empty;
+
+        if (IsDebtAccount())
+            return ToDebtValue(Account.CurrentBalance) > 0 ? "mud-error-text" : "mud-success-text";
+
+        return Account.CurrentBalance >= 0 ? "mud-success-text" : "mud-error-text";
+    }
+
+    private string GetDeltaLabel()
+    {
+        var signedAmount = _delta < 0 ? $"-${Math.Abs(_delta):N2}" : $"+${_delta:N2}";
+        var signedPercent = _deltaPercent < 0 ? $"{_deltaPercent:N1}%" : $"+{_deltaPercent:N1}%";
+
+        if (IsDebtAccount())
+            return $"{signedAmount} ({signedPercent}) vs period start (debt)";
+
+        return $"{signedAmount} ({signedPercent}) vs period start";
+    }
+
+    private string GetDeltaClass() => _delta >= 0 ? "mud-success-text" : "mud-error-text";
+
+    private string GetTrendPeriodLabel()
+        => Filter.TimePeriod switch
+        {
+            TimePeriodFilter.Last7Days => "7D",
+            TimePeriodFilter.Last30Days => "30D",
+            TimePeriodFilter.Last90Days => "90D",
+            TimePeriodFilter.ThisMonth => "This Month",
+            TimePeriodFilter.LastMonth => "Last Month",
+            TimePeriodFilter.ThisYear => "This Year",
+            TimePeriodFilter.AllTime => "All Time",
+            TimePeriodFilter.Custom => "Custom",
+            _ => "Period"
+        };
+
+    private sealed class BalanceTrendPoint
+    {
+        public DateTime Date { get; set; }
+        public decimal Value { get; set; }
+    }
+}

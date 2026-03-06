@@ -152,6 +152,7 @@
         {
             Chart = new Chart
             {
+                Background = "transparent",
                 Toolbar = new Toolbar { Show = false },
                 Zoom = new Zoom { Enabled = false }
             },
@@ -167,6 +168,10 @@
             DataLabels = new DataLabels { Enabled = false },
             Colors = new List<string> { "#e53935" },
             Legend = new Legend { Show = false },
+            Grid = new Grid
+            {
+                Show = false
+            },
             Xaxis = new XAxis
             {
                 Type = XAxisType.Datetime,
