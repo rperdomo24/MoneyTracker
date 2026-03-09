@@ -1,21 +1,65 @@
 services:
+  moneytracker-db:
+    image: postgres:16-alpine
+    container_name: moneytracker-db
+    profiles: ["internal-db"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - moneytracker-postgres-data:/var/lib/postgresql/data
+    networks:
+      - moneytracker-network
+
   moneytracker-web:
     container_name: moneytracker-web
-    restart: always
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8091:8091"
-    volumes:
-      - C:/MoneyTracker/appsettings.json:/app/appsettings.json
-      - C:/MoneyTracker/Logs/:/app/Logs/
-    networks:
-      - jobordermanager_default 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8091
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8091
+      ConnectionStrings__DefaultConnection: Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
+      ApplicationSettings__DefaultTimeZone: ${APP_TIMEZONE:-Central America Standard Time}
+      ApplicationSettings__DateFormat: yyyy-MM-dd
+      ApplicationSettings__DateTimeFormat: yyyy-MM-dd HH:mm:ss
+      EmailSettings__Host: ${EMAIL_HOST}
+      EmailSettings__Port: ${EMAIL_PORT}
+      EmailSettings__EnableSsl: ${EMAIL_SSL}
+      EmailSettings__SenderEmail: ${EMAIL_SENDER}
+      EmailSettings__SenderName: ${EMAIL_SENDER_NAME}
+      EmailSettings__Username: ${EMAIL_USER}
+      EmailSettings__Password: ${EMAIL_PASSWORD}
+    volumes:
+      - moneytracker-logs:/app/Logs
+    networks:
+      - moneytracker-network
+      - jobordermanager_default
+
+volumes:
+  moneytracker-postgres-data:
+  moneytracker-logs:
 
 networks:
+  moneytracker-network:
+    driver: bridge
   jobordermanager_default:
     external: true

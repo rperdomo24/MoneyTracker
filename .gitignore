@@ -382,3 +382,8 @@ terraform/terraform.tfstate
 
 # Local .NET CLI first-run/cache artifacts
 .dotnet/
+
+# Local environment variables
+.env
+.env.*
+!.env.example
