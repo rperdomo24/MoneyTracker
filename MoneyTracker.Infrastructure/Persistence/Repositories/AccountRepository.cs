@@ -23,6 +23,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 return await _context.Accounts
                     .AsNoTracking()
+                    .Where(a => !a.IsDeleted)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -36,7 +37,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Accounts.FindAsync(id);
+                return await _context.Accounts.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
             }
             catch (Exception ex)
             {
@@ -89,10 +90,11 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
             try
             {
-                var acc = await _context.Accounts.FindAsync(id);
+                var acc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
                 if (acc != null)
                 {
-                    _context.Accounts.Remove(acc);
+                    acc.IsDeleted = true;
+                    acc.DeletedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
                 }
 
@@ -117,7 +119,13 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 {
                     query = query
                         .AsNoTracking()
-                        .Where(a => a.Type == accountType);
+                        .Where(a => !a.IsDeleted && a.Type == accountType);
+                }
+                else
+                {
+                    query = query
+                        .AsNoTracking()
+                        .Where(a => !a.IsDeleted);
                 }
 
                 return await query.AnyAsync();

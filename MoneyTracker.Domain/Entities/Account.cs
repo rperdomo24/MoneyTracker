@@ -26,5 +26,7 @@ namespace MoneyTracker.Domain.Entities
         public string? Color { get; set; }
 
         public AccountType Type { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
     }
 }

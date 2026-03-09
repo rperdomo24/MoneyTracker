@@ -87,7 +87,7 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .HasIndex(e => e.UserId);
 
             modelBuilder.Entity<Account>()
-                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
 
             modelBuilder.Entity<Category>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);

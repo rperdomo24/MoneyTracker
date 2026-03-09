@@ -469,7 +469,7 @@
 
         bool confirmed = await DialogService.ShowConfirmDialogAsync(
             "Delete Account",
-            $"Are you sure you want to delete '{_account.Name}'? This will also delete all associated transactions.",
+            $"WARNING: '{_account.Name}' will be logically deleted. All related transactions and dependent records will also be logically deleted and hidden from reports. Continue?",
             confirmText: "Delete",
             color: Color.Error);
 

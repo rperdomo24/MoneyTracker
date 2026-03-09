@@ -13,17 +13,20 @@ namespace MoneyTracker.Application.Services
     public class AccountService : IAccountService
     {
         private readonly IAccountRepository _repository;
+        private readonly ITransactionRepository _transactionRepository;
         private readonly ITransactionService _transactionService;
         private readonly ITimeZoneService _timeZoneService;
         private readonly ISystemCategoryResolver _systemCategoryResolver;
 
         public AccountService(
             IAccountRepository repository,
+            ITransactionRepository transactionRepository,
             ITransactionService transactionService,
             ITimeZoneService timeZoneService,
             ISystemCategoryResolver systemCategoryResolver)
         {
             _repository = repository;
+            _transactionRepository = transactionRepository;
             _transactionService = transactionService;
             _timeZoneService = timeZoneService;
             _systemCategoryResolver = systemCategoryResolver;
@@ -77,6 +80,24 @@ namespace MoneyTracker.Application.Services
             var existing = await _repository.GetByIdAsync(id);
             if (existing is null)
                 return OperationResult.Fail(OperationMessages.NotFound);
+
+            var affectedAccountIds = await _transactionRepository.SoftDeleteByAccountAsync(id);
+            foreach (var affectedAccountId in affectedAccountIds.Where(accountId => accountId != id))
+            {
+                var account = await _repository.GetByIdAsync(affectedAccountId);
+                if (account is null)
+                    continue;
+
+                var recalculatedBalance = await _transactionService.GetAccountBalanceAsync(affectedAccountId);
+                if (!recalculatedBalance.Success)
+                    return OperationResult.Fail(recalculatedBalance.Message ?? "Error syncing related account balances");
+
+                account.Balance = recalculatedBalance.Data;
+
+                var updated = await _repository.UpdateAsync(account);
+                if (!updated)
+                    return OperationResult.Fail("Error syncing related account balances");
+            }
 
             var success = await _repository.DeleteAsync(id);
             if (!success)

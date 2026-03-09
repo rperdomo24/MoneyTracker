@@ -29,9 +29,11 @@
                                     <MudIcon Icon="@account.Icon.ToIcon()" />
                                 </MudAvatar>
                                 <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                    <MudLink Href="@GetAccountDetailsUrl(account.AccountId)"
+                                             Typo="Typo.body2"
+                                             Underline="Underline.Hover">
                                         @account.AccountName
-                                    </MudText>
+                                    </MudLink>
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
                                         @GetLastActivityText(account.LastActivity)
                                     </MudText>
@@ -65,16 +67,6 @@
                     }
                 }
             </MudList>
-            
-            @if ((Data?.Count ?? 0) > 4)
-            {
-                <MudDivider Class="my-3" />
-                <MudButton Variant="Variant.Text" 
-                          FullWidth="true" 
-                          OnClick="ViewAllAccounts">
-                    Ver todas las cuentas (+@((Data?.Count ?? 0) - 4))
-                </MudButton>
-            }
         }
         else
         {
@@ -124,11 +116,7 @@
         };
     }
 
-  
-    private void ViewAllAccounts()
-    {
-        // Navigate to accounts page
-    }
+    private static string GetAccountDetailsUrl(int accountId) => $"/accounts/{accountId}";
 
     private string GetLastActivityText(DateTime? lastActivity)
     {

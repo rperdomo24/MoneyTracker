@@ -485,10 +485,32 @@
         await OpenUpdateBudgetModal(result.Data);
     }
 
-    private Task HandleDelete(BudgetListItemVm item)
+    private async Task HandleDelete(BudgetListItemVm item)
     {
-        Snackbar.Add("Delete not implemented yet", Severity.Info);
-        return Task.CompletedTask;
+        if (item.Id <= 0)
+        {
+            Snackbar.Add("This category does not have a budget to delete.", Severity.Info);
+            return;
+        }
+
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Delete budget",
+            $"You are about to delete the budget for '{item.CategoryName}' in {_currentMonthLabel}. This action cannot be undone.",
+            confirmText: "Delete",
+            color: Color.Error);
+
+        if (!confirmed)
+            return;
+
+        var result = await BudgetService.DeleteAsync(item.Id);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Could not delete budget.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Budget deleted successfully.", Severity.Success);
+        await LoadBudgets();
     }
 
     private async Task OpenUpdateBudgetModal(BudgetDto budget)

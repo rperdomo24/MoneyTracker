@@ -24,5 +24,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task<int> AddAndReturnIdAsync(Transaction transaction);
         Task<List<Transaction>> GetByCategoryTreeAsync(int categoryId, DateTime fromUtc, DateTime toUtc);
         Task<decimal> GetAccountBalanceAsync(int accountId);
+        Task<List<int>> SoftDeleteByAccountAsync(int accountId, CancellationToken cancellationToken = default);
     }
 }

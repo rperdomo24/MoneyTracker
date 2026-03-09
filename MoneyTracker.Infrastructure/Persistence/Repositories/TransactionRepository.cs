@@ -254,4 +254,78 @@ public class TransactionRepository : ITransactionRepository
             return 0m;
         }
     }
+
+    public async Task<List<int>> SoftDeleteByAccountAsync(int accountId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var nowUtc = DateTime.UtcNow;
+
+            var rootTransactions = await _context.Transaction
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted && t.AccountId == accountId)
+                .Select(t => new { t.Id, t.TransferPairId, t.AccountId })
+                .ToListAsync(cancellationToken);
+
+            if (rootTransactions.Count == 0)
+            {
+                return new List<int>();
+            }
+
+            var transactionIds = rootTransactions
+                .Select(t => t.Id)
+                .ToHashSet();
+
+            var affectedAccountIds = rootTransactions
+                .Select(t => t.AccountId)
+                .ToHashSet();
+
+            var pairedIds = rootTransactions
+                .Where(t => t.TransferPairId.HasValue)
+                .Select(t => t.TransferPairId!.Value)
+                .ToList();
+
+            if (pairedIds.Count > 0)
+            {
+                var pairedTransactions = await _context.Transaction
+                    .AsNoTracking()
+                    .Where(t => !t.IsDeleted && pairedIds.Contains(t.Id))
+                    .Select(t => new { t.Id, t.AccountId })
+                    .ToListAsync(cancellationToken);
+
+                foreach (var paired in pairedTransactions)
+                {
+                    transactionIds.Add(paired.Id);
+                    affectedAccountIds.Add(paired.AccountId);
+                }
+            }
+
+            var transactionsToDelete = await _context.Transaction
+                .Where(t => !t.IsDeleted && transactionIds.Contains(t.Id))
+                .Include(t => t.Attachments)
+                .ToListAsync(cancellationToken);
+
+            foreach (var transaction in transactionsToDelete)
+            {
+                transaction.IsDeleted = true;
+                transaction.DeletedAt = nowUtc;
+                transaction.UpdatedAt = nowUtc;
+
+                foreach (var attachment in transaction.Attachments.Where(a => !a.IsDeleted))
+                {
+                    attachment.IsDeleted = true;
+                    attachment.DeletedAt = nowUtc;
+                }
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return affectedAccountIds.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error soft deleting transactions by account {AccountId}", accountId);
+            throw;
+        }
+    }
 }

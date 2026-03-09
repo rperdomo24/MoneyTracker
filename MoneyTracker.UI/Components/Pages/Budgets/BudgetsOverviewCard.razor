@@ -1,12 +1,11 @@
-﻿@using MudBlazor
+@using MudBlazor
+@using ApexCharts
 @using MoneyTracker.Application.DTOs.Budgets
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
 
 <MudPaper Elevation="1" Class="pa-4" Style="border-radius:16px;">
     <MudStack Spacing="3">
-
-        <!-- Header -->
         <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
             <MudStack Spacing="0">
                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@MonthLabel</MudText>
@@ -16,9 +15,9 @@
             </MudStack>
 
             <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+                       Color="MudBlazor.Color.Primary"
                        StartIcon="@Icons.Material.Filled.Add"
-                       Size="Size.Small"
+                       Size="MudBlazor.Size.Small"
                        OnClick="OnAddBudget">
                 New budget
             </MudButton>
@@ -26,46 +25,33 @@
 
         @if (_hasChartData)
         {
-            <!-- Donut + Center text -->
             <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                <ApexChart TItem="BudgetSlicePoint" Options="_chartOptions" Height="300">
+                    <ApexPointSeries TItem="BudgetSlicePoint"
+                                     Items="_chartPoints"
+                                     Name="Budget"
+                                     SeriesType="SeriesType.Donut"
+                                     XValue="point => point.Name"
+                                     YValue="point => point.Used" />
+                </ApexChart>
 
-                <MudChart ChartType="ChartType.Donut"
-                          Width="280px"
-                          Height="280px"
-                          ChartSeries="@_chartData.AsChartDataSet()"
-                          ChartLabels="@_chartLabels">
-
-                    <CustomGraphics>
-                        <text x="50%" y="38%" dominant-baseline="middle" text-anchor="middle"
-                              fill="var(--mud-palette-text-primary)"
-                              font-family="Helvetica" font-size="14" style="opacity:0.75;">
-                            @(IsExpenseTab ? "Spent" : "Earned")
-                        </text>
-
-                        <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
-                              fill="var(--mud-palette-text-primary)"
-                              font-family="Helvetica" font-size="26" font-weight="700">
-                            @CurrencyHelper.FormatCurrency(Summary.TotalUsed)
-                        </text>
-
-                        <text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle"
-                              fill="var(--mud-palette-text-secondary)"
-                              font-family="Helvetica" font-size="12" style="opacity:0.8;">
-                            of @CurrencyHelper.FormatCurrency(Summary.TotalBudgeted)
-                        </text>
-                    </CustomGraphics>
-
-                </MudChart>
-
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    @(IsExpenseTab ? "Spent" : "Earned")
+                </MudText>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                    @CurrencyHelper.FormatCurrency(Summary.TotalUsed)
+                </MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    of @CurrencyHelper.FormatCurrency(Summary.TotalBudgeted)
+                </MudText>
             </MudStack>
 
-            <!-- Legend -->
             <MudStack Spacing="1">
                 @foreach (var s in _legendSlices)
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                            <MudAvatar Size="Size.Small" Style="@($"background-color:{s.Color};")" />
+                            <MudAvatar Size="MudBlazor.Size.Small" Style="@($"background-color:{s.Color};")" />
                             <MudText Typo="Typo.body2">@s.Name</MudText>
                         </MudStack>
 
@@ -78,14 +64,13 @@
         }
         else
         {
-            <!-- Empty -->
             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="pa-6">
                 <MudText Typo="Typo.h4" Style="opacity:0.5;">
                     @CurrencyHelper.FormatCurrency(0)
                 </MudText>
 
                 <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
+                           Color="MudBlazor.Color.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="OnAddBudget">
                     New budget
@@ -93,7 +78,6 @@
             </MudStack>
         }
 
-        <!-- Totals -->
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
                 <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
@@ -113,7 +97,6 @@
                 </MudPaper>
             </MudItem>
         </MudGrid>
-
     </MudStack>
 </MudPaper>
 
@@ -125,20 +108,16 @@
     [Parameter] public EventCallback OnAddBudget { get; set; }
 
     private bool _hasChartData;
-
-    // MudBlazor 9: Donut/Pie => double[] + labels + AsChartDataSet()
-    private double[] _chartData = Array.Empty<double>();
-    private string[] _chartLabels = Array.Empty<string>();
-
-    // Legend
+    private ApexChartOptions<BudgetSlicePoint> _chartOptions = BuildChartOptions(new List<string>());
+    private List<BudgetSlicePoint> _chartPoints = new();
     private List<BudgetCategorySliceVm> _legendSlices = new();
 
     protected override void OnParametersSet()
     {
         _hasChartData = false;
-        _chartData = Array.Empty<double>();
-        _chartLabels = Array.Empty<string>();
+        _chartPoints = new();
         _legendSlices = new();
+        _chartOptions = BuildChartOptions(new List<string>());
 
         if (Slices?.Any() != true)
             return;
@@ -150,14 +129,40 @@
         if (!cleaned.Any())
             return;
 
-        // Si querés, podés ordenar aquí para que el donut siempre sea consistente:
-        // cleaned = cleaned.OrderByDescending(x => x.Used).ToList();
-
         _legendSlices = cleaned;
-        _chartData = cleaned.Select(x => (double)x.Used).ToArray();
-        _chartLabels = cleaned.Select(x => x.Name).ToArray();
+        _chartPoints = cleaned
+            .Select(x => new BudgetSlicePoint
+            {
+                Name = x.Name,
+                Used = x.Used
+            })
+            .ToList();
 
+        _chartOptions = BuildChartOptions(cleaned.Select(x => x.Color).ToList());
         _hasChartData = true;
     }
 
+    private static ApexChartOptions<BudgetSlicePoint> BuildChartOptions(List<string> colors)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations
+                {
+                    Enabled = false
+                }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = colors,
+            Legend = new Legend { Show = false }
+        };
+
+    private sealed class BudgetSlicePoint
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal Used { get; set; }
+    }
 }

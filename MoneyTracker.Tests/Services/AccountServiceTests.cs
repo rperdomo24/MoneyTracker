@@ -15,6 +15,7 @@ namespace MoneyTracker.Tests.Services
     public class AccountServiceTests
     {
         private readonly Mock<IAccountRepository> _accountRepo = new();
+        private readonly Mock<ITransactionRepository> _transactionRepo = new();
         private readonly Mock<ITransactionService> _transactionService = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
         private readonly Mock<ISystemCategoryResolver> _systemCategoryResolver = new();
@@ -22,6 +23,7 @@ namespace MoneyTracker.Tests.Services
         private AccountService CreateService()
             => new AccountService(
                 _accountRepo.Object,
+                _transactionRepo.Object,
                 _transactionService.Object,
                 _timeZoneService.Object,
                 _systemCategoryResolver.Object);
@@ -95,6 +97,8 @@ namespace MoneyTracker.Tests.Services
         {
             _accountRepo.Setup(x => x.GetByIdAsync(1))
                 .ReturnsAsync(new Account { Id = 1, Name = "Main", Icon = "Wallet", Type = AccountType.Cash });
+            _transactionRepo.Setup(x => x.SoftDeleteByAccountAsync(1, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<int>());
             _accountRepo.Setup(x => x.DeleteAsync(1)).ReturnsAsync(true);
             var service = CreateService();
 
@@ -102,6 +106,32 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeTrue();
             result.Message.Should().Be(OperationMessages.Deleted);
+            _transactionRepo.Verify(x => x.SoftDeleteByAccountAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WhenRelatedAccountNeedsSync_UpdatesBalanceBeforeDeleting()
+        {
+            _accountRepo.Setup(x => x.GetByIdAsync(1))
+                .ReturnsAsync(new Account { Id = 1, Name = "Main", Icon = "Wallet", Type = AccountType.Cash });
+            _transactionRepo.Setup(x => x.SoftDeleteByAccountAsync(1, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<int> { 1, 2 });
+
+            var related = new Account { Id = 2, Name = "Savings", Icon = "Savings", Type = AccountType.Savings, Balance = 999m };
+            _accountRepo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(related);
+            _transactionService.Setup(x => x.GetAccountBalanceAsync(2))
+                .ReturnsAsync(OperationResult<decimal>.Ok(120m));
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            _accountRepo.Setup(x => x.DeleteAsync(1)).ReturnsAsync(true);
+
+            var service = CreateService();
+
+            var result = await service.DeleteAsync(1);
+
+            result.Success.Should().BeTrue();
+            related.Balance.Should().Be(120m);
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 2 && a.Balance == 120m)), Times.Once);
+            _accountRepo.Verify(x => x.DeleteAsync(1), Times.Once);
         }
 
         [Fact]
