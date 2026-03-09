@@ -11,6 +11,13 @@ namespace MoneyTracker.UI.Helpers
                 : $"${amount:N2}";
         }
 
+        public static string FormatSignedCurrency(decimal amount)
+        {
+            return amount < 0
+                ? $"-${Math.Abs(amount):N2}"
+                : $"+${amount:N2}";
+        }
+
         /// <summary>
         /// Gets MudBlazor color based on amount value
         /// </summary>
@@ -21,6 +28,16 @@ namespace MoneyTracker.UI.Helpers
                 > 0 => Color.Success,
                 < 0 => Color.Error,
                 _ => Color.Default
+            };
+        }
+
+        public static string GetAmountClass(decimal amount, string zeroClass = "")
+        {
+            return amount switch
+            {
+                > 0 => "text-success",
+                < 0 => "text-error",
+                _ => zeroClass
             };
         }
     }

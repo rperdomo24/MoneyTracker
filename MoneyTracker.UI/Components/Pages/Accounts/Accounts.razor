@@ -83,12 +83,7 @@
         @foreach (var group in _accountGroups)
         {
             var groupTotal = group.Sum(a => a.CurrentBalance);
-            var groupTotalColor = groupTotal switch
-            {
-                > 0 => Color.Success,
-                < 0 => Color.Error,
-                _ => Color.Default
-            };
+            var groupTotalColor = CurrencyHelper.GetAmountColor(groupTotal);
 
             <MudPaper Class="pa-4 pa-sm-5 mb-4" Elevation="1">
 
@@ -162,20 +157,18 @@
                                     <!-- Middle (dominant) -->
                                     <MudStack Spacing="0">
                                         <MudText Typo="Typo.body1"
-                                                 Class="font-weight-medium"
-                                                 NoWrap="true">
+                                                 Class="font-weight-medium text-nowrap">
                                             @account.Name
                                         </MudText>
 
                                         <MudText Typo="Typo.caption"
-                                                 Style="opacity: 0.7;"
-                                                 NoWrap="true">
+                                                 Style="opacity: 0.7; white-space: nowrap;">
                                             @account.Type.ToString()
                                         </MudText>
 
                                         <MudText Typo="Typo.h6"
                                                  Class="@GetBalanceClass(account.CurrentBalance)"
-                                                 NoWrap="true">
+                                                 Style="white-space: nowrap;">
                                             @account.FormattedBalance
                                         </MudText>
                                     </MudStack>
@@ -363,12 +356,11 @@
         var account = _accounts.FirstOrDefault(a => a.Id == id);
         var accountName = account?.Name ?? "this account";
 
-        bool confirmed = await DialogService.ShowMessageBoxAsync(
+        bool confirmed = await DialogService.ShowConfirmDialogAsync(
             "Delete Account",
             $"Are you sure you want to delete '{accountName}'? This action cannot be undone and will also delete all associated transactions.",
-            yesText: "Delete",
-            cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true }) ?? false;
+            confirmText: "Delete",
+            color: Color.Error);
 
         if (!confirmed) return;
 
@@ -392,15 +384,11 @@
         }
     }
 
-    private string FormatBalance(decimal balance)
-        => balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
+    private static string FormatBalance(decimal balance)
+        => CurrencyHelper.FormatCurrency(balance);
 
-    private string GetBalanceClass(decimal balance) => balance switch
-    {
-        > 0 => "text-success",
-        < 0 => "text-error",
-        _ => ""
-    };
+    private static string GetBalanceClass(decimal balance)
+        => CurrencyHelper.GetAmountClass(balance);
 
     private async Task OpenAdjustBalanceDialog(AccountDto account)
     {
@@ -422,12 +410,10 @@
 
     private async Task ConfirmSyncBalance(AccountDto account)
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
             "Sync Balance",
             $"This will recalculate the balance for '{account.Name}' by summing all its transactions and overwrite the stored balance. Continue?",
-            yesText: "Sync",
-            cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true }) ?? false;
+            confirmText: "Sync");
 
         if (!confirmed)
             return;

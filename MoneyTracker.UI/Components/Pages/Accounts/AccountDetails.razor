@@ -136,16 +136,14 @@
 
                     <MudStack AlignItems="AlignItems.Center" Spacing="0">
                         <MudText Typo="Typo.h6"
-                                 Class="font-weight-bold"
                                  Align="Align.Center"
-                                 NoWrap="true">
+                                 Class="font-weight-bold text-nowrap">
                             @_account.Name
                         </MudText>
 
                         <MudText Typo="Typo.body2"
-                                 Style="opacity: 0.7;"
-                                 Align="Align.Center"
-                                 NoWrap="true">
+                                 Style="opacity: 0.7; white-space: nowrap;"
+                                 Align="Align.Center">
                             @_account.Type.ToLabel()
                         </MudText>
                     </MudStack>
@@ -153,7 +151,7 @@
                     <MudText Typo="Typo.h3"
                              Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
                              Align="Align.Center"
-                             NoWrap="true">
+                             Style="white-space: nowrap;">
                         @_account.FormattedBalance
                     </MudText>
 
@@ -192,10 +190,10 @@
                         </MudAvatar>
 
                         <MudStack Spacing="0">
-                            <MudText Typo="Typo.h5" Class="font-weight-bold" NoWrap="true">
+                            <MudText Typo="Typo.h5" Class="font-weight-bold text-nowrap">
                                 @_account.Name
                             </MudText>
-                            <MudText Typo="Typo.body2" Style="opacity: 0.7;" NoWrap="true">
+                            <MudText Typo="Typo.body2" Style="opacity: 0.7; white-space: nowrap;">
                                 @_account.Type.ToLabel()
                             </MudText>
                         </MudStack>
@@ -204,14 +202,14 @@
                     <MudStack Spacing="1" AlignItems="AlignItems.End">
                         <MudText Typo="Typo.h4"
                                  Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
-                                 NoWrap="true">
+                                 Style="white-space: nowrap;">
                             @_account.FormattedBalance
                         </MudText>
 
                         @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
                         {
                             <MudStack Spacing="0" AlignItems="AlignItems.End">
-                                <MudText Typo="Typo.body2" Style="opacity: 0.7;" NoWrap="true">
+                                <MudText Typo="Typo.body2" Style="opacity: 0.7; white-space: nowrap;">
                                     Available: @FormatBalance(_account.AvailableCredit)
                                 </MudText>
 
@@ -221,7 +219,7 @@
                                     : 0;
                                 }
 
-                                <MudText Typo="Typo.caption" Style="opacity: 0.6;" NoWrap="true">
+                                <MudText Typo="Typo.caption" Style="opacity: 0.6; white-space: nowrap;">
                                     Utilization: @($"{utilization:F1}%")
                                 </MudText>
                             </MudStack>
@@ -469,12 +467,11 @@
     {
         if (_account == null) return;
 
-        bool confirmed = await DialogService.ShowMessageBoxAsync(
+        bool confirmed = await DialogService.ShowConfirmDialogAsync(
             "Delete Account",
             $"Are you sure you want to delete '{_account.Name}'? This will also delete all associated transactions.",
-            yesText: "Delete",
-            cancelText: "Cancel",
-            options: new DialogOptions { CloseButton = true }) ?? false;
+            confirmText: "Delete",
+            color: Color.Error);
 
         if (!confirmed) return;
 
@@ -560,23 +557,19 @@
     }
 
     private bool HasActiveFilters()
-        => _filterDto.TimePeriod != TimePeriodFilter.Last30Days ||
-           !string.IsNullOrWhiteSpace(_filterDto.SearchText) ||
-           _filterDto.Type.HasValue ||
-           _filterDto.CategoryId.HasValue;
+        => TransactionFilterHelper.HasActiveFilters(
+            _filterDto,
+            defaultTimePeriod: TimePeriodFilter.Last30Days,
+            includeAccountFilter: false);
 
     private int GetActiveFiltersCount()
-    {
-        int count = 0;
-        if (_filterDto.TimePeriod != TimePeriodFilter.Last30Days) count++;
-        if (!string.IsNullOrWhiteSpace(_filterDto.SearchText)) count++;
-        if (_filterDto.Type.HasValue) count++;
-        if (_filterDto.CategoryId.HasValue) count++;
-        return count;
-    }
+        => TransactionFilterHelper.GetActiveFilterCount(
+            _filterDto,
+            defaultTimePeriod: TimePeriodFilter.Last30Days,
+            includeAccountFilter: false);
 
-    private string FormatBalance(decimal balance)
-        => balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
+    private static string FormatBalance(decimal balance)
+        => CurrencyHelper.FormatCurrency(balance);
 
     private string GetBalanceClass(decimal balance)
     {
@@ -585,12 +578,7 @@
             return balance < 0 ? "text-error" : "text-success";
         }
 
-        return balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => ""
-        };
+        return CurrencyHelper.GetAmountClass(balance);
     }
 
     private bool IsDebtAccount()

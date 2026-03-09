@@ -71,10 +71,15 @@
         }
         else
         {
+            var groupedCategories = _categories.GroupByType().ToList();
+
             <!-- Categories List by Type -->
-            @foreach (var group in _categories.GroupByType())
+            @for (var i = 0; i < groupedCategories.Count; i++)
             {
-                <div Class="pa-4" Style="@(group != _categories.GroupByType().Last() ? "border-bottom: 1px solid var(--mud-palette-divider);" : "")">
+                var group = groupedCategories[i];
+                var showDivider = i < groupedCategories.Count - 1;
+
+                <div Class="pa-4" Style="@(showDivider ? "border-bottom: 1px solid var(--mud-palette-divider);" : "")">
                     <!-- Group Header -->
                     <MudStack Row="true"
                               Justify="Justify.SpaceBetween"
@@ -310,7 +315,7 @@
                 Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
         }

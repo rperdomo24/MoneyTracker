@@ -1,4 +1,5 @@
 @using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
 @using ApexCharts
 
 <MudCard Class="dashboard-card networth-hero-card">
@@ -202,10 +203,10 @@
         };
 
     private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+        => CurrencyHelper.FormatCurrency(amount);
 
     private static string FormatSignedCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"+${amount:N2}";
+        => CurrencyHelper.FormatSignedCurrency(amount);
 
     private static string FormatSignedPercent(decimal percent)
         => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";

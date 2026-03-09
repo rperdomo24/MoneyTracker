@@ -159,10 +159,8 @@
 
     private void Cancel() => MudDialog.Cancel();
 
-    private string FormatBalance(decimal balance)
-    {
-        return balance < 0 ? $"-${Math.Abs(balance):N2}" : $"${balance:N2}";
-    }
+    private static string FormatBalance(decimal balance)
+        => CurrencyHelper.FormatCurrency(balance);
 
     private string FormatBalanceWithSign(decimal balance)
     {
@@ -170,13 +168,6 @@
         return $"{sign}{FormatBalance(balance)}";
     }
 
-    private string GetBalanceClass(decimal balance)
-    {
-        return balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => ""
-        };
-    }
+    private static string GetBalanceClass(decimal balance)
+        => CurrencyHelper.GetAmountClass(balance);
 }

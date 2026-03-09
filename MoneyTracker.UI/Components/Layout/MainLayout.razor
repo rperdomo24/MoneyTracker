@@ -6,7 +6,6 @@
 @using MoneyTracker.UI.Services.Components.Drawer
 @inject ProtectedSessionStorage SessionStorage
 @inject AccountsDrawerState AccountsDrawer
-@inject AccountsDrawerState AccountsDrawerState
 @inject IUserProfileService UserProfileService
 @inject NavigationManager Navigation
 
@@ -61,7 +60,7 @@
         <MudIconButton Icon="@Icons.Material.Filled.Notifications"
                        Color="Color.Inherit"
                        Class="mr-1"
-                       Title="Notifications">
+                       title="Notifications">
             <MudBadge Content="3"
                       Color="Color.Error"
                       Overlap="true"
@@ -214,28 +213,28 @@
             <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
                            Color="Color.Inherit"
                            Href="/accounts"
-                           Title="accounts" />
+                           title="accounts" />
 
             <MudSpacer />
 
             <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
                            Color="Color.Inherit"
                            Href="/"
-                           Title="Home" />
+                           title="Home" />
 
             <MudSpacer />
 
             <MudIconButton Icon="@Icons.Material.Filled.ListAlt"
                            Color="Color.Inherit"
                            Href="/transactions"
-                           Title="Transactions" />
+                           title="Transactions" />
 
             <MudSpacer />
 
             <MudIconButton Icon="@Icons.Material.Filled.PieChart"
                            Color="Color.Inherit"
                            Href="/budgets"
-                           Title="Budgets" />
+                           title="Budgets" />
         </MudAppBar>
     </MudHidden>
 
