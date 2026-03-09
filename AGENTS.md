@@ -52,3 +52,11 @@
 - Always add/update unit tests for new or changed service behavior.
 - Keep comments minimal and high-signal; avoid obvious comments.
 - Keep docs and comments in English.
+
+## UI safety checks (required before UI commit)
+- Run `dotnet build MoneyTracker.UI/MoneyTracker.UI.csproj --no-restore` before committing UI changes.
+- Treat MudBlazor analyzer warnings (`MUD*`) as actionable; do not ignore invalid attributes/parameters.
+- Avoid introducing new nullable warnings in UI code (`CS860*`, `CS862*`, `CS8669`) unless explicitly approved.
+- Prefer existing shared helpers for formatting/colors (`CurrencyHelper`, filter helpers, dialog helpers) instead of duplicating view logic.
+- Keep Razor component attributes simple: avoid escaped nested quotes inside inline expressions; move complex logic to helper methods/properties.
+- If a change is formatting-only or accidental (encoding/comment-only diffs), revert it before commit.

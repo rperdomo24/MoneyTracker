@@ -52,6 +52,15 @@
   - `ISnackbar` injected into pages/components.
   - Global provider in `MainLayout.razor` (`<MudSnackbarProvider />`).
 
+## Razor and MudBlazor guardrails
+- Use only documented MudBlazor component parameters for the installed version in this repo.
+- Do not use legacy/invalid params (for example, deprecated aliases) when analyzer reports `MUD0002`.
+- In Razor attributes, avoid mixed markup/escaped-string expressions that can break parsing.
+- For dynamic classes/text with string arguments, prefer small helper properties/methods over complex inline expressions.
+- Keep component nullability explicit (`string.Empty` over `null` for non-nullable strings, null-guard optional references).
+- For transfer/pair components, guard nullable paired objects before dereferencing.
+- Reuse shared helpers (`CurrencyHelper`, transaction type helpers, filter helpers) to keep UI behavior consistent.
+
 ## Do and don't
 - Do return `OperationResult` from services.
 - Do reuse `OperationMessages` when possible.
@@ -66,3 +75,4 @@
 - Don't add secrets to docs/config commits.
 - Don't change architecture boundaries without explicit agreement.
 - Don't replace dialog pattern with `MudDialogTitle/MudDialogContent/MudDialogActions` unless repo standard changes.
+- Don't commit UI changes without a successful `dotnet build MoneyTracker.UI/MoneyTracker.UI.csproj --no-restore`.
