@@ -1,4 +1,4 @@
-﻿@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
 
 @if (Loading)
@@ -22,7 +22,7 @@ else
 {
     var parents = Items!
         .Where(x => x.ParentCategoryId is null)
-        .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ✅ primero con movimiento
+        .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ? primero con movimiento
         .ThenByDescending(x => x.Amount > 0)              // opcional: luego los que tienen budget
         .ThenBy(x => x.CategoryName)
         .ToList();
@@ -33,7 +33,7 @@ else
         .ToDictionary(
             g => g.Key,
             g => g
-                .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ✅ hijos con movimiento primero
+                .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ? hijos con movimiento primero
                 .ThenByDescending(x => x.Amount > 0)             // opcional
                 .ThenBy(x => x.CategoryName)
                 .ToList()
@@ -98,19 +98,19 @@ else
                                     @if (parent.Remaining < 0)
                                     {
                                         <span style="color: var(--mud-palette-error);">
-                                            @FormatCurrency(Math.Abs(parent.Remaining)) over
+                                            @CurrencyHelper.FormatCurrency(Math.Abs(parent.Remaining)) over
                                         </span>
                                     }
                                     else
                                     {
                                         <span style="color: var(--mud-palette-success);">
-                                            @FormatCurrency(parent.Remaining) left
+                                            @CurrencyHelper.FormatCurrency(parent.Remaining) left
                                         </span>
                                     }
 
                                     @if (hasChildren)
                                     {
-                                        <span style="opacity:0.75;"> • @children!.Count subcategories</span>
+                                        <span style="opacity:0.75;"> � @children!.Count subcategories</span>
                                     }
                                 </MudText>
                             </MudStack>
@@ -146,13 +146,13 @@ else
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.End">
                         <div>
                             <MudText Typo="Typo.caption" Style="opacity:0.7;">Budget</MudText>
-                            <MudText Typo="Typo.h6" Class="font-weight-bold">@FormatCurrency(parent.Amount)</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(parent.Amount)</MudText>
                         </div>
 
                         <div style="text-align:right;">
                             <MudText Typo="Typo.caption" Style="opacity:0.7;">Used</MudText>
                             <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
-                                @FormatCurrency(parent.Used)
+                                @CurrencyHelper.FormatCurrency(parent.Used)
                             </MudText>
                         </div>
                     </MudStack>
@@ -209,13 +209,13 @@ else
                                                             @if (child.Remaining < 0)
                                                             {
                                                                 <span style="color: var(--mud-palette-error);">
-                                                                    @FormatCurrency(Math.Abs(child.Remaining)) over
+                                                                    @CurrencyHelper.FormatCurrency(Math.Abs(child.Remaining)) over
                                                                 </span>
                                                             }
                                                             else
                                                             {
                                                                 <span style="color: var(--mud-palette-success);">
-                                                                    @FormatCurrency(child.Remaining) left
+                                                                    @CurrencyHelper.FormatCurrency(child.Remaining) left
                                                                 </span>
                                                             }
                                                         </MudText>
@@ -228,10 +228,10 @@ else
                                             <MudItem xs="10" sm="4">
                                                 <MudStack AlignItems="AlignItems.End" Spacing="0">
                                                     <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
-                                                        @FormatCurrency(child.Used)
+                                                        @CurrencyHelper.FormatCurrency(child.Used)
                                                     </MudText>
                                                     <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                                                        from @FormatCurrency(child.Amount)
+                                                        from @CurrencyHelper.FormatCurrency(child.Amount)
                                                     </MudText>
                                                 </MudStack>
                                             </MudItem>
@@ -285,9 +285,6 @@ else
             _expandedParents.Remove(parentCategoryId);
     }
 
-    private static string FormatCurrency(decimal amount)
-        => CurrencyHelper.FormatCurrency(amount);
-
     private Color GetBudgetColor(BudgetListItemVm item)
     {
         if (item.Remaining < 0)
@@ -302,3 +299,4 @@ else
         return Color.Success;
     }
 }
+

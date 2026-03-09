@@ -8,10 +8,10 @@
             <MudStack Spacing="1">
                 <MudText Typo="Typo.h6">Net Worth</MudText>
                 <MudText Typo="Typo.h3" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
-                    @FormatCurrency(_endValue)
+                    @CurrencyHelper.FormatCurrency(_endValue)
                 </MudText>
                 <MudText Typo="Typo.body1" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
-                    @FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs inicio del periodo
+                    @CurrencyHelper.FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs inicio del periodo
                 </MudText>
             </MudStack>
 
@@ -202,12 +202,6 @@
             }
         };
 
-    private static string FormatCurrency(decimal amount)
-        => CurrencyHelper.FormatCurrency(amount);
-
-    private static string FormatSignedCurrency(decimal amount)
-        => CurrencyHelper.FormatSignedCurrency(amount);
-
     private static string FormatSignedPercent(decimal percent)
         => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";
 
@@ -247,3 +241,4 @@
         public decimal Value { get; set; }
     }
 }
+
