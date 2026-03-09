@@ -14,17 +14,27 @@ namespace MoneyTracker.UI.Services.Filters
 
         public async Task SaveAsync<T>(string key, T value)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+            if (value is null)
+            {
+                await _session.DeleteAsync(key);
+                return;
+            }
+
             await _session.SetAsync(key, value);
         }
 
         public async Task<T?> GetAsync<T>(string key)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
             var result = await _session.GetAsync<T>(key);
             return result.Success ? result.Value : default;
         }
 
         public async Task RemoveAsync(string key)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(key);
             await _session.DeleteAsync(key);
         }
     }

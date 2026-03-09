@@ -3,7 +3,7 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <!-- Fecha seleccionada y controles -->
-    <MudGrid AlignItems="Center" Justify="Justify.SpaceBetween">
+    <MudGrid Justify="Justify.SpaceBetween">
         <MudItem>
             <MudText Typo="Typo.h5">@SelectedDate.ToString("MMMM dd, yyyy")</MudText>
         </MudItem>
@@ -77,7 +77,7 @@
     }
 
     <!-- Botón flotante -->
-    <MudFab Icon="@Icons.Material.Filled.Add"
+    <MudFab StartIcon="@Icons.Material.Filled.Add"
             Color="Color.Primary"
             Class="mud-fab-bottom-right mud-fab-fixed"
             Style="bottom: 24px; right: 24px;" />

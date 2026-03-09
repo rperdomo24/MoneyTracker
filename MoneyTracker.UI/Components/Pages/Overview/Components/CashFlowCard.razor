@@ -1,4 +1,5 @@
 @using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
 @using MudBlazor.Charts
 
 <MudCard Class="dashboard-card">
@@ -35,13 +36,13 @@
 
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.body2" Class="mud-success-text">
-                        Income: @FormatCurrency(Data.TotalIncome)
+                        Income: @CurrencyHelper.FormatCurrency(Data.TotalIncome)
                     </MudText>
                     <MudText Typo="Typo.body2" Class="mud-error-text">
-                        Expenses: @FormatCurrency(Data.TotalExpenses)
+                        Expenses: @CurrencyHelper.FormatCurrency(Data.TotalExpenses)
                     </MudText>
-                    <MudText Typo="Typo.body2" Class="@GetBalanceColorClass(Data.NetCashFlow)">
-                        Net: @FormatCurrency(Data.NetCashFlow)
+                    <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(Data.NetCashFlow)">
+                        Net: @CurrencyHelper.FormatCurrency(Data.NetCashFlow)
                     </MudText>
                 </MudStack>
             </MudStack>
@@ -161,10 +162,4 @@
 
         return top;
     }
-
-    private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-
-    private static string GetBalanceColorClass(decimal balance)
-        => balance >= 0 ? "mud-success-text" : "mud-error-text";
 }

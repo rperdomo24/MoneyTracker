@@ -181,7 +181,7 @@ else
                                               Class="pa-3"
                                               Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
 
-                                        <MudGrid Spacing="1" AlignItems="AlignItems.Center">
+                                        <MudGrid Spacing="1">
 
                                             <!-- Left: icon + name + remaining -->
                                             <MudItem xs="12" sm="7">
@@ -285,8 +285,8 @@ else
             _expandedParents.Remove(parentCategoryId);
     }
 
-    private string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+    private static string FormatCurrency(decimal amount)
+        => CurrencyHelper.FormatCurrency(amount);
 
     private Color GetBudgetColor(BudgetListItemVm item)
     {
