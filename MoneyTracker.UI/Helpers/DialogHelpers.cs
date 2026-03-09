@@ -32,7 +32,12 @@ namespace MoneyTracker.UI.Helpers
             var dialog = await dialogService.ShowAsync<ConfirmDialog>(title, parameters, options);
             var result = await dialog.Result;
 
-            return !result.Canceled && (bool)(result.Data ?? false);
+            if (result is null || result.Canceled)
+            {
+                return false;
+            }
+
+            return result.Data is bool confirmed && confirmed;
         }
 
         public static async Task<bool> ShowDeleteConfirmDialogAsync(
@@ -75,7 +80,12 @@ namespace MoneyTracker.UI.Helpers
             var dialog = await dialogService.ShowAsync<InputDialog>(title, parameters, options);
             var result = await dialog.Result;
 
-            return result.Canceled ? null : result.Data?.ToString();
+            if (result is null || result.Canceled)
+            {
+                return null;
+            }
+
+            return result.Data?.ToString();
         }
     }
 }

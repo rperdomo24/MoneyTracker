@@ -26,7 +26,7 @@
         }
         else
         {
-            <MudText Typo="Typo.h6" Style="cursor:pointer;" OnClick="GoToAccounts">
+            <MudText Typo="Typo.h6" Style="cursor:pointer;" @onclick="GoToAccounts">
                 Accounts
             </MudText>
 
@@ -37,7 +37,7 @@
 
                 <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
                                OnClick="Toggle"
-                               Title="Collapse" />
+                               title="Collapse" />
 
                 <MudIconButton Icon="@Icons.Material.Filled.Close"
                                OnClick="Close" />
@@ -48,7 +48,7 @@
 
     @if (!IsCompact)
     {
-        <MudText Typo="Typo.h6" Class="mb-2" Style="opacity:.75; cursor:pointer;" OnClick="@GoToAccounts">
+        <MudText Typo="Typo.h6" Class="mb-2" Style="opacity:.75; cursor:pointer;" @onclick="GoToAccounts">
             Net Worth: @FormatMoney(_netWorth)
         </MudText>
 
@@ -102,7 +102,7 @@
                                         <MudIcon Icon="@acc.Icon.ToIcon()" Color="Color.Surface" />
                                     </MudAvatar>
 
-                                    <MudText Typo="Typo.body2" NoWrap="true">@acc.Name</MudText>
+                                    <MudText Typo="Typo.body2" Class="text-nowrap">@acc.Name</MudText>
                                 </MudStack>
 
                                 <MudText Typo="Typo.body2" Class="@GetBalanceClass(acc.CurrentBalance)">

@@ -12,8 +12,7 @@
                    Required="@Required"
                    Disabled="@Disabled"
                    Clearable="@Clearable"
-                   ToStringFunc="@(c => c?.Name ?? "")"
-                   Filter="new Func<CategoryDto?, string, bool>(FilterCategories)">
+                   ToStringFunc="@(c => c?.Name ?? "")">
 
             @if (ShowNoneOption)
             {
@@ -72,14 +71,6 @@
         .Where(c => c.Type == FilterByType && !c.IsSystem)
         .OrderBy(c => c.Name)
         .ToList();
-
-    private bool FilterCategories(CategoryDto? category, string searchString)
-    {
-        if (category is null) return true;
-        if (string.IsNullOrWhiteSpace(searchString)) return true;
-
-        return category.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);
-    }
 
     private async Task OnSelectedCategoryChanged(CategoryDto? value)
     {

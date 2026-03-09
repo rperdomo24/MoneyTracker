@@ -10,8 +10,7 @@
            Required="@Required"
            Disabled="@Disabled"
            Clearable="@Clearable"
-           ToStringFunc="@(a => a?.Name ?? "")"
-           Filter="new Func<AccountDto, string, bool>(FilterAccounts)">
+           ToStringFunc="@(a => a?.Name ?? "")">
     @foreach (var account in FilteredAccounts)
     {
         <MudSelectItem Value="@account" @key="account.Id">
@@ -61,13 +60,6 @@
 
             return filtered.OrderBy(a => a.Name).ToList();
         }
-    }
-
-    private bool FilterAccounts(AccountDto account, string searchString)
-    {
-        if (string.IsNullOrWhiteSpace(searchString)) return true;
-
-        return account.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task OnSelectedAccountChanged(AccountDto? value)

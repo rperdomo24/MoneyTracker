@@ -50,8 +50,8 @@
 
                     <MudSwitch T="bool"
                                Color="Color.Secondary"
-                               @bind-Checked="_onlyWithActivity"
-                               ValueChanged="OnOnlyWithActivityChanged"
+                               @bind-Value="_onlyWithActivity"
+                               @bind-Value:after="OnOnlyWithActivityChanged"
                                Label="Only with activity" />
                 </MudStack>
             </MudItem>
@@ -78,8 +78,8 @@
 
                     <MudSwitch T="bool"
                                Color="Color.Secondary"
-                               @bind-Checked="_onlyWithActivity"
-                               ValueChanged="OnOnlyWithActivityChanged" />
+                               @bind-Value="_onlyWithActivity"
+                               @bind-Value:after="OnOnlyWithActivityChanged" />
                 </MudStack>
 
                 <MudText Typo="Typo.caption" Style="opacity:0.75;" Class="mt-1">
@@ -230,9 +230,8 @@
         StateHasChanged();
     }
 
-    private async Task OnOnlyWithActivityChanged(bool value)
+    private async Task OnOnlyWithActivityChanged()
     {
-        _onlyWithActivity = value;
         await PersistStateAsync();
         await LoadBudgets();
     }
@@ -465,7 +464,7 @@
             ["OnBudgetSaved"] = EventCallback.Factory.Create(this, async () => await LoadBudgets())
         };
 
-        await DialogService.ShowAsync<AddBudgetModal>("Add Budget", parameters, DialogHelper.DefaultOptions);
+        await DialogService.ShowAsync<AddBudgetModal>("Add Budget", parameters, DialogHelper.SmallOptions);
     }
 
     private async Task HandleEdit(BudgetListItemVm item)
