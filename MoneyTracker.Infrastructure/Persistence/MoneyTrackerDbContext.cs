@@ -28,6 +28,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<Tenant> Tenants => Set<Tenant>();
         public DbSet<UserAvatar> UserAvatars => Set<UserAvatar>();
         public DbSet<UserVerificationCode> UserVerificationCodes => Set<UserVerificationCode>();
+        public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -75,6 +76,15 @@ namespace MoneyTracker.Infrastructure.Persistence
 
             modelBuilder.Entity<UserVerificationCode>()
                 .HasIndex(e => new { e.TenantId, e.UserId, e.Purpose, e.CreatedAtUtc });
+
+            modelBuilder.Entity<ErrorLog>()
+                .HasIndex(e => e.CreatedAtUtc);
+
+            modelBuilder.Entity<ErrorLog>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<ErrorLog>()
+                .HasIndex(e => e.UserId);
 
             modelBuilder.Entity<Account>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
