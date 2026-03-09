@@ -1,5 +1,6 @@
 ﻿@* Components/Shared/StatsInline.razor *@
 @using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.UI.Helpers
 
 @if (Summary is null)
 {
@@ -34,7 +35,7 @@ else
                         </MudStack>
 
                         <MudText Typo="Typo.subtitle1" Class="font-weight-bold text-success">
-                            @FormatCurrency(Summary.TotalIncome)
+                            @CurrencyHelper.FormatCurrency(Summary.TotalIncome)
                         </MudText>
                     </MudStack>
                 </MudPaper>
@@ -49,7 +50,7 @@ else
                         </MudStack>
 
                         <MudText Typo="Typo.subtitle1" Class="font-weight-bold text-error">
-                            @FormatCurrency(Summary.TotalExpense)
+                            @CurrencyHelper.FormatCurrency(Summary.TotalExpense)
                         </MudText>
                     </MudStack>
                 </MudPaper>
@@ -63,8 +64,8 @@ else
                             <MudText Typo="Typo.body2" Class="font-weight-medium">Balance</MudText>
                         </MudStack>
 
-                        <MudText Typo="Typo.h6" Class="@($"font-weight-bold {GetBalanceClass(Summary.Balance)}")">
-                            @FormatCurrency(Summary.Balance)
+                        <MudText Typo="Typo.h6" Class="@($"font-weight-bold {CurrencyHelper.GetAmountClass(Summary.Balance)}")">
+                            @CurrencyHelper.FormatCurrency(Summary.Balance)
                         </MudText>
                     </MudStack>
                 </MudPaper>
@@ -81,7 +82,7 @@ else
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Class="text-muted">Income</MudText>
                     <MudText Typo="Typo.h6" Class="font-weight-bold text-success">
-                        @FormatCurrency(Summary.TotalIncome)
+                        @CurrencyHelper.FormatCurrency(Summary.TotalIncome)
                     </MudText>
                 </MudStack>
             </MudStack>
@@ -94,7 +95,7 @@ else
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Class="text-muted">Expenses</MudText>
                     <MudText Typo="Typo.h6" Class="font-weight-bold text-error">
-                        @FormatCurrency(Summary.TotalExpense)
+                        @CurrencyHelper.FormatCurrency(Summary.TotalExpense)
                     </MudText>
                 </MudStack>
             </MudStack>
@@ -106,8 +107,8 @@ else
                 <MudIcon Icon="@GetBalanceIcon(Summary.Balance)" Color="@GetBalanceColor(Summary.Balance)" Size="Size.Medium" />
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Class="text-muted">Balance</MudText>
-                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold {GetBalanceClass(Summary.Balance)}")">
-                        @FormatCurrency(Summary.Balance)
+                    <MudText Typo="Typo.h6" Class="@($"font-weight-bold {CurrencyHelper.GetAmountClass(Summary.Balance)}")">
+                        @CurrencyHelper.FormatCurrency(Summary.Balance)
                     </MudText>
                 </MudStack>
             </MudStack>
@@ -117,17 +118,6 @@ else
 
 @code {
     [Parameter] public TransactionSummaryDto? Summary { get; set; }
-
-    private string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-
-    private string GetBalanceClass(decimal balance)
-        => balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => ""
-        };
 
     private string GetBalanceIcon(decimal balance)
         => balance >= 0 ? Icons.Material.Filled.AccountBalance : Icons.Material.Filled.Warning;

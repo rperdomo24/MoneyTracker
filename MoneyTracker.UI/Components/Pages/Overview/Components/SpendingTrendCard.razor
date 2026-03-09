@@ -1,5 +1,6 @@
 @using MoneyTracker.Application.DTOs.Dashboard
 @using ApexCharts
+@using MoneyTracker.UI.Helpers
 
 <MudCard Class="dashboard-card">
     <MudCardHeader>
@@ -23,11 +24,11 @@
         {
             <MudStack Spacing="2" AlignItems="AlignItems.Stretch" Style="width:100%;">
                 <MudText Typo="Typo.h4" Class="mud-error-text">
-                    @FormatCurrency(_total)
+                    @CurrencyHelper.FormatCurrency(_total)
                 </MudText>
 
                 <MudText Typo="Typo.body2" Class="@GetChangeClass()">
-                    @FormatSignedCurrency(_change) (@FormatSignedPercent(_changePercent)) vs inicio del periodo
+                    @CurrencyHelper.FormatSignedCurrency(_change) (@FormatSignedPercent(_changePercent)) vs inicio del periodo
                 </MudText>
 
                 <MudPaper Class="chart-panel" Elevation="0">
@@ -56,10 +57,10 @@
 
                 <MudStack Row="true" Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                        Promedio: @FormatCurrency(_average)
+                        Promedio: @CurrencyHelper.FormatCurrency(_average)
                     </MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                        Pico: @FormatCurrency(_peak) (@_peakLabel)
+                        Pico: @CurrencyHelper.FormatCurrency(_peak) (@_peakLabel)
                     </MudText>
                 </MudStack>
 
@@ -189,12 +190,6 @@
 
     private string GetChangeClass()
         => _change <= 0 ? "mud-success-text" : "mud-error-text";
-
-    private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-
-    private static string FormatSignedCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"+${amount:N2}";
 
     private static string FormatSignedPercent(decimal percent)
         => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";

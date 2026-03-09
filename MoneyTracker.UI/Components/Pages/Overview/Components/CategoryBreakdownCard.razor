@@ -1,5 +1,6 @@
 @using MudBlazor
 @using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
 @inject NavigationManager NavigationManager
 
 <MudPaper Elevation="1" Class="pa-4 dashboard-card" Style="border-radius:16px;">
@@ -38,7 +39,7 @@
                         <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
                               fill="var(--mud-palette-text-primary)"
                               font-family="Helvetica" font-size="26" font-weight="700">
-                            @FormatCurrency(_totalExpenses)
+                            @CurrencyHelper.FormatCurrency(_totalExpenses)
                         </text>
 
                         <text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle"
@@ -61,7 +62,7 @@
                         </MudStack>
 
                         <MudStack AlignItems="AlignItems.End" Spacing="0">
-                            <MudText Typo="Typo.body2" Class="font-weight-medium">@FormatCurrency(item.Amount)</MudText>
+                            <MudText Typo="Typo.body2" Class="font-weight-medium">@CurrencyHelper.FormatCurrency(item.Amount)</MudText>
                             <MudText Typo="Typo.caption" Class="mud-text-secondary">
                                 @($"{item.Percentage:N1}%")
                             </MudText>
@@ -73,7 +74,7 @@
         else
         {
             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="pa-6">
-                <MudText Typo="Typo.h5" Style="opacity:0.6;">@FormatCurrency(0)</MudText>
+                <MudText Typo="Typo.h5" Style="opacity:0.6;">@CurrencyHelper.FormatCurrency(0)</MudText>
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.ReceiptLong"
                            OnClick="NavigateToTransactions">
@@ -93,7 +94,7 @@
             <MudItem xs="12" sm="6">
                 <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
                     <MudText Typo="Typo.caption" Style="opacity:0.75;">Promedio por transaccion</MudText>
-                    <MudText Typo="Typo.h6" Class="font-weight-bold">@FormatCurrency(_averageTransaction)</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(_averageTransaction)</MudText>
                 </MudPaper>
             </MudItem>
         </MudGrid>
@@ -151,6 +152,4 @@
     private void NavigateToTransactions()
         => NavigationManager.NavigateTo("/transactions");
 
-    private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
 }

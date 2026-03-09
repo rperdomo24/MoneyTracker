@@ -165,9 +165,9 @@
                                     </div>
 
                                     <MudText Typo="Typo.body2"
-                                             Class="@($"{GetBalanceColorClass(account.CurrentBalance)} ml-2 font-weight-medium")"
+                                             Class="@($"{CurrencyHelper.GetAmountClass(account.CurrentBalance)} ml-2 font-weight-medium")"
                                              Style="flex-shrink: 0;">
-                                        @FormatCurrency(account.CurrentBalance)
+                                        @CurrencyHelper.FormatCurrency(account.CurrentBalance)
                                     </MudText>
                                 </div>
                             </MudSelectItem>
@@ -349,14 +349,6 @@
         await IsOpenChanged.InvokeAsync(IsOpen);
     }
 
-    private static string FormatCurrency(decimal amount)
-        => CurrencyHelper.FormatCurrency(amount);
-
-    private static string GetBalanceColorClass(decimal balance)
-    {
-        return CurrencyHelper.GetAmountClass(balance, "text-muted");
-    }
-
     // ✅ MudBlazor 9: MultiSelectionTextFunc recibe lista de strings (los values llegan como texto)
     private string? GetSelectedAccountsText(IReadOnlyList<string?>? selectedValues)
     {
@@ -382,13 +374,13 @@
         if (selectedAccounts.Count == 1)
         {
             var account = selectedAccounts[0];
-            return $"{account.Name} ({FormatCurrency(account.CurrentBalance)})";
+            return $"{account.Name} ({CurrencyHelper.FormatCurrency(account.CurrentBalance)})";
         }
 
         if (selectedAccounts.Count <= 2)
             return string.Join(", ", selectedAccounts.Select(a => a.Name));
 
         var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
-        return $"{selectedAccounts.Count} accounts ({FormatCurrency(totalBalance)})";
+        return $"{selectedAccounts.Count} accounts ({CurrencyHelper.FormatCurrency(totalBalance)})";
     }
 }

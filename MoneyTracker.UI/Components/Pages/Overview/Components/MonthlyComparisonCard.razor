@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.DTOs.Dashboard
 
+@using MoneyTracker.UI.Helpers
 <MudCard Class="dashboard-card">
     <MudCardHeader>
         <CardHeaderContent>
@@ -37,7 +38,7 @@
                                 <MudStack Spacing="0">
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Este mes</MudText>
                                     <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                        @FormatCurrency(comparison.CurrentMonth)
+                                        @CurrencyHelper.FormatCurrency(comparison.CurrentMonth)
                                     </MudText>
                                 </MudStack>
                             </MudItem>
@@ -45,7 +46,7 @@
                                 <MudStack Spacing="0">
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Mes anterior</MudText>
                                     <MudText Typo="Typo.body2">
-                                        @FormatCurrency(comparison.PreviousMonth)
+                                        @CurrencyHelper.FormatCurrency(comparison.PreviousMonth)
                                     </MudText>
                                 </MudStack>
                             </MudItem>
@@ -56,7 +57,7 @@
                             <MudText Typo="Typo.body2" 
                                     Class="@(comparison.IsImprovement ? "mud-success-text" : "mud-error-text")"
                                     Style="font-weight: 500;">
-                                @(comparison.Change >= 0 ? "+" : "")@FormatCurrency(comparison.Change)
+                                @(comparison.Change >= 0 ? "+" : "")@CurrencyHelper.FormatCurrency(comparison.Change)
                             </MudText>
                         </MudStack>
 
@@ -104,11 +105,6 @@
 
 @code {
     [Parameter] public List<MonthlyComparisonDto>? Data { get; set; }
-
-    private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
 
     private string GetOverallIcon(double improvementPercentage)
     {

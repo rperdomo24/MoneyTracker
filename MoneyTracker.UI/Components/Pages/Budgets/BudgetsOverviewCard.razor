@@ -1,5 +1,6 @@
 ﻿@using MudBlazor
 @using MoneyTracker.Application.DTOs.Budgets
+@using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
 
 <MudPaper Elevation="1" Class="pa-4" Style="border-radius:16px;">
@@ -44,13 +45,13 @@
                         <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle"
                               fill="var(--mud-palette-text-primary)"
                               font-family="Helvetica" font-size="26" font-weight="700">
-                            @FormatCurrency(Summary.TotalUsed)
+                            @CurrencyHelper.FormatCurrency(Summary.TotalUsed)
                         </text>
 
                         <text x="50%" y="70%" dominant-baseline="middle" text-anchor="middle"
                               fill="var(--mud-palette-text-secondary)"
                               font-family="Helvetica" font-size="12" style="opacity:0.8;">
-                            of @FormatCurrency(Summary.TotalBudgeted)
+                            of @CurrencyHelper.FormatCurrency(Summary.TotalBudgeted)
                         </text>
                     </CustomGraphics>
 
@@ -80,7 +81,7 @@
             <!-- Empty -->
             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="pa-6">
                 <MudText Typo="Typo.h4" Style="opacity:0.5;">
-                    @FormatCurrency(0)
+                    @CurrencyHelper.FormatCurrency(0)
                 </MudText>
 
                 <MudButton Variant="Variant.Filled"
@@ -97,7 +98,7 @@
             <MudItem xs="12" sm="6">
                 <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
                     <MudText Typo="Typo.caption" Style="opacity:0.75;">Budgeted</MudText>
-                    <MudText Typo="Typo.h6" Class="font-weight-bold">@FormatCurrency(Summary.TotalBudgeted)</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(Summary.TotalBudgeted)</MudText>
                 </MudPaper>
             </MudItem>
 
@@ -107,7 +108,7 @@
                     <MudText Typo="Typo.h6"
                              Class="font-weight-bold"
                              Style="@(Summary.TotalRemaining < 0 ? "color: var(--mud-palette-error);" : "color: var(--mud-palette-success);")">
-                        @FormatCurrency(Summary.TotalRemaining)
+                        @CurrencyHelper.FormatCurrency(Summary.TotalRemaining)
                     </MudText>
                 </MudPaper>
             </MudItem>
@@ -159,6 +160,4 @@
         _hasChartData = true;
     }
 
-    private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
 }

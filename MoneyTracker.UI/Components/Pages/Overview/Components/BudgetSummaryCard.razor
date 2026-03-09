@@ -1,4 +1,5 @@
 @using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
 
 <MudCard Class="dashboard-card">
     <MudCardHeader>
@@ -18,16 +19,16 @@
             <MudStack Spacing="2">
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">Budgeted</MudText>
-                    <MudText Typo="Typo.body2">@FormatCurrency(Data.TotalBudgeted)</MudText>
+                    <MudText Typo="Typo.body2">@CurrencyHelper.FormatCurrency(Data.TotalBudgeted)</MudText>
                 </MudStack>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">Used</MudText>
-                    <MudText Typo="Typo.body2">@FormatCurrency(Data.TotalUsed)</MudText>
+                    <MudText Typo="Typo.body2">@CurrencyHelper.FormatCurrency(Data.TotalUsed)</MudText>
                 </MudStack>
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">Remaining</MudText>
                     <MudText Typo="Typo.body2" Class="@(Data.TotalRemaining >= 0 ? "mud-success-text" : "mud-error-text")">
-                        @FormatCurrency(Data.TotalRemaining)
+                        @CurrencyHelper.FormatCurrency(Data.TotalRemaining)
                     </MudText>
                 </MudStack>
 
@@ -75,6 +76,4 @@
 @code {
     [Parameter] public DashboardBudgetSummaryDto? Data { get; set; }
 
-    private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
 }
