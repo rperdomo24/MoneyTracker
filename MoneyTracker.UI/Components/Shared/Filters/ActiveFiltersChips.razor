@@ -2,8 +2,9 @@
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Helpers
 
-@if (HasActiveFilters())
+@if (TransactionFilterHelper.HasActiveFilters(Filter))
 {
     <!-- MOBILE (<600px): two-row layout (chips + action) -->
     <MudHidden Breakpoint="Breakpoint.SmAndUp">
@@ -145,13 +146,6 @@
     [Parameter] public List<AccountDto>? Accounts { get; set; }
     [Parameter] public EventCallback OnClearAll { get; set; }
     [Parameter] public EventCallback<string> OnFilterRemoved { get; set; }
-
-    private bool HasActiveFilters()
-        => Filter.TimePeriod != TimePeriodFilter.ThisMonth
-           || Filter.AccountIds?.Any() == true
-           || !string.IsNullOrWhiteSpace(Filter.SearchText)
-           || Filter.CategoryId.HasValue
-           || Filter.Type.HasValue;
 
     private string GetTimePeriodText()
         => Filter.TimePeriod switch

@@ -13,7 +13,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudDialog MaxWidth="MaxWidth.Small">
+<MudDialog>
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
@@ -41,7 +41,7 @@
                         <MudToggleGroup T="TransactionTypeEnum"
                                         Value="_transactionType"
                                         ValueChanged="OnTransactionTypeChanged"
-                                        Exclusive="true"
+                                        SelectionMode="SelectionMode.SingleSelection"
                                         Class="mb-2">
                             <MudToggleItem Value="TransactionTypeEnum.Expense" Text="Expense" />
                             <MudToggleItem Value="TransactionTypeEnum.Income" Text="Income" />
@@ -529,24 +529,8 @@
     }
 
     private string GetTransactionIcon()
-    {
-        return _transactionType switch
-        {
-            TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
-            TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
-            TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
-            _ => Icons.Material.Filled.Receipt
-        };
-    }
+        => _transactionType.GetTransactionTypeIcon();
 
     private Color GetTransactionColor()
-    {
-        return _transactionType switch
-        {
-            TransactionTypeEnum.Transfer => Color.Info,
-            TransactionTypeEnum.Income => Color.Success,
-            TransactionTypeEnum.Expense => Color.Error,
-            _ => Color.Default
-        };
-    }
+        => _transactionType.GetTransactionTypeColor();
 }

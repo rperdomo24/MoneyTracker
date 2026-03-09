@@ -258,8 +258,8 @@
             TimePeriod = Filter.TimePeriod,
             FromDate = Filter.FromDate,
             ToDate = Filter.ToDate,
-            AccountIds = Filter.AccountIds?.ToList(),
-            SearchText = Filter.SearchText,
+            AccountIds = Filter.AccountIds?.ToList() ?? new List<int>(),
+            SearchText = Filter.SearchText ?? string.Empty,
             CategoryId = Filter.CategoryId,
             Type = Filter.Type
         };
@@ -307,25 +307,19 @@
 
     private Task OnSelectedAccountsChanged()
     {
-        _tempFilter.AccountIds = _selectedAccountIds?.ToList();
+        _tempFilter.AccountIds = _selectedAccountIds.ToList();
         CalculateActiveFilterCount();
         return Task.CompletedTask;
     }
 
     private void CalculateActiveFilterCount()
     {
-        _activeFilterCount = 0;
-
-        if (_tempFilter.TimePeriod != TimePeriodFilter.ThisMonth) _activeFilterCount++;
-        if (_tempFilter.AccountIds?.Any() == true) _activeFilterCount++;
-        if (!string.IsNullOrWhiteSpace(_tempFilter.SearchText)) _activeFilterCount++;
-        if (_tempFilter.CategoryId.HasValue) _activeFilterCount++;
-        if (_tempFilter.Type.HasValue) _activeFilterCount++;
+        _activeFilterCount = TransactionFilterHelper.GetActiveFilterCount(_tempFilter);
     }
 
     private Task ClearAllFilters()
     {
-        _tempFilter = new TransactionFilterDto { TimePeriod = TimePeriodFilter.ThisMonth };
+        _tempFilter = TransactionFilterHelper.ResetToDefaults();
         _selectedCategory = null;
         _selectedAccountIds = Array.Empty<int>();
         CalculateActiveFilterCount();
@@ -337,8 +331,8 @@
         Filter.TimePeriod = _tempFilter.TimePeriod;
         Filter.FromDate = _tempFilter.FromDate;
         Filter.ToDate = _tempFilter.ToDate;
-        Filter.AccountIds = _tempFilter.AccountIds?.ToList();
-        Filter.SearchText = _tempFilter.SearchText;
+        Filter.AccountIds = _tempFilter.AccountIds?.ToList() ?? new List<int>();
+        Filter.SearchText = _tempFilter.SearchText ?? string.Empty;
         Filter.CategoryId = _tempFilter.CategoryId;
         Filter.Type = _tempFilter.Type;
 
@@ -356,16 +350,11 @@
     }
 
     private static string FormatCurrency(decimal amount)
-        => amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+        => CurrencyHelper.FormatCurrency(amount);
 
     private static string GetBalanceColorClass(decimal balance)
     {
-        return balance switch
-        {
-            > 0 => "text-success",
-            < 0 => "text-error",
-            _ => "text-muted"
-        };
+        return CurrencyHelper.GetAmountClass(balance, "text-muted");
     }
 
     // ✅ MudBlazor 9: MultiSelectionTextFunc recibe lista de strings (los values llegan como texto)
@@ -375,8 +364,9 @@
             return "Select accounts...";
 
         var selectedIds = selectedValues
-            .Where(x => int.TryParse(x, out _))
-            .Select(int.Parse)
+            .Select(value => int.TryParse(value, out var id) ? (int?)id : null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
             .ToList();
 
         if (selectedIds.Count == 0)

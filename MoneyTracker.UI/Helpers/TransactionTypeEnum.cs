@@ -6,13 +6,17 @@ namespace MoneyTracker.UI.Helpers
 {
     public static class TransactionTypeExtensions
     {
-        public static string GetTransactionypeIcon(this TransactionTypeEnum type) => type switch
+        public static string GetTransactionTypeIcon(this TransactionTypeEnum type) => type switch
         {
             TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
             TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
             TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
             _ => Icons.Material.Filled.AttachMoney
         };
+
+        [Obsolete("Use GetTransactionTypeIcon instead.")]
+        public static string GetTransactionypeIcon(this TransactionTypeEnum type)
+            => type.GetTransactionTypeIcon();
 
         public static Color GetTransactionTypeColor(this TransactionTypeEnum type) => type switch
         {
@@ -33,6 +37,11 @@ namespace MoneyTracker.UI.Helpers
         public static string GetDescription(this TransactionTypeEnum transactionType)
         {
             var fieldInfo = transactionType.GetType().GetField(transactionType.ToString());
+            if (fieldInfo == null)
+            {
+                return transactionType.ToString();
+            }
+
             var attributes = fieldInfo.GetCustomAttributes(typeof(DescriptionAttribute), false);
 
             return attributes.Length > 0

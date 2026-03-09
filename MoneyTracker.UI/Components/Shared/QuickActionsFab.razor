@@ -24,7 +24,7 @@
             <MudHidden Breakpoint="Breakpoint.SmAndUp">
                 <MudTooltip Text="Transfer" Placement="Placement.Left">
                     <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
-                            StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
+                            StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionTypeIcon())"
                             Size="Size.Medium"
                             Class="fab-action fab-action-3"
                             OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Transfer))" />
@@ -32,7 +32,7 @@
 
                 <MudTooltip Text="Add Income" Placement="Placement.Left">
                     <MudFab Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
-                            StartIcon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
+                            StartIcon="@(TransactionTypeEnum.Income.GetTransactionTypeIcon())"
                             Size="Size.Medium"
                             Class="fab-action fab-action-2"
                             OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Income))" />
@@ -40,7 +40,7 @@
 
                 <MudTooltip Text="Add Expense" Placement="Placement.Left">
                     <MudFab Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
-                            StartIcon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
+                            StartIcon="@(TransactionTypeEnum.Expense.GetTransactionTypeIcon())"
                             Size="Size.Medium"
                             Class="fab-action fab-action-1"
                             OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />
@@ -58,19 +58,19 @@
             <!-- TABLET/DESKTOP (>=600px): same buttons, optional labels below -->
             <MudHidden Breakpoint="Breakpoint.Xs">
                 <MudFab Color="@(TransactionTypeEnum.Transfer.GetTransactionTypeColor())"
-                        StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionypeIcon())"
+                        StartIcon="@(TransactionTypeEnum.Transfer.GetTransactionTypeIcon())"
                         Size="Size.Medium"
                         Class="fab-action fab-action-3"
                         OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Transfer))" />
 
                 <MudFab Color="@(TransactionTypeEnum.Income.GetTransactionTypeColor())"
-                        StartIcon="@(TransactionTypeEnum.Income.GetTransactionypeIcon())"
+                        StartIcon="@(TransactionTypeEnum.Income.GetTransactionTypeIcon())"
                         Size="Size.Medium"
                         Class="fab-action fab-action-2"
                         OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Income))" />
 
                 <MudFab Color="@(TransactionTypeEnum.Expense.GetTransactionTypeColor())"
-                        StartIcon="@(TransactionTypeEnum.Expense.GetTransactionypeIcon())"
+                        StartIcon="@(TransactionTypeEnum.Expense.GetTransactionTypeIcon())"
                         Size="Size.Medium"
                         Class="fab-action fab-action-1"
                         OnClick="@((MouseEventArgs e) => HandleAddTransactionClick(e, TransactionTypeEnum.Expense))" />

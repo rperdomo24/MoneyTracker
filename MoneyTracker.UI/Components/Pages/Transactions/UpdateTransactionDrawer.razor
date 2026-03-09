@@ -4,6 +4,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Application.Validators.Transaction
 @using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Pages.Categories
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
@@ -556,12 +557,25 @@
 
     private string GetTitle() => _isTransfer ? "Edit Transfer" : $"Edit {_originalTransaction?.Category?.Type}";
     private string GetSubtitle() => _isTransfer ? "Update transfer details" : "Update transaction details";
-    private string GetTransactionIcon() => _isTransfer ? Icons.Material.Filled.SwapHoriz : Icons.Material.Filled.Edit;
-    private Color GetTransactionColor() => _isTransfer ? Color.Info : (_originalTransaction?.Category?.Type == CategoryTypeEnum.Income ? Color.Success : Color.Error);
+    private string GetTransactionIcon() => GetTransactionType().GetTransactionTypeIcon();
+    private Color GetTransactionColor() => GetTransactionType().GetTransactionTypeColor();
+
+    private TransactionTypeEnum GetTransactionType()
+    {
+        if (_isTransfer)
+        {
+            return TransactionTypeEnum.Transfer;
+        }
+
+        return _originalTransaction?.Category?.Type == CategoryTypeEnum.Income
+            ? TransactionTypeEnum.Income
+            : TransactionTypeEnum.Expense;
+    }
 
     private string GetFromAccountName()
     {
         if (_transactionWithPair == null || _originalTransaction == null) return "Unknown";
+        if (_transactionWithPair.PairedTransaction == null) return "Unknown";
         var fromTransaction = _originalTransaction.GetFromTransaction(_transactionWithPair.PairedTransaction);
         return fromTransaction?.Account?.Name ?? "Unknown";
     }
@@ -569,6 +583,7 @@
     private string GetToAccountName()
     {
         if (_transactionWithPair == null || _originalTransaction == null) return "Unknown";
+        if (_transactionWithPair.PairedTransaction == null) return "Unknown";
         var toTransaction = _originalTransaction.GetToTransaction(_transactionWithPair.PairedTransaction);
         return toTransaction?.Account?.Name ?? "Unknown";
     }

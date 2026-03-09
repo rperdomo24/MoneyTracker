@@ -5,40 +5,18 @@ namespace MoneyTracker.UI.Helpers
 {
     public static class TransactionFilterHelper
     {
-        /// <summary>
-        /// Checks if any filters are active beyond default values
-        /// </summary>
-        public static bool HasActiveFilters(TransactionFilterDto filter)
+        public static bool HasActiveFilters(
+            TransactionFilterDto filter,
+            TimePeriodFilter defaultTimePeriod = TimePeriodFilter.ThisMonth,
+            bool includeAccountFilter = true)
         {
-            return filter.TimePeriod != TimePeriodFilter.ThisMonth ||
-                   filter.AccountIds?.Any() == true ||
+            return filter.TimePeriod != defaultTimePeriod ||
+                   (includeAccountFilter && filter.AccountIds?.Any() == true) ||
                    !string.IsNullOrWhiteSpace(filter.SearchText) ||
                    filter.CategoryId.HasValue ||
                    filter.Type.HasValue;
         }
 
-        /// <summary>
-        /// Checks if specific account filter is active
-        /// </summary>
-        public static bool HasAccountFilter(TransactionFilterDto filter, int accountId)
-        {
-            return filter.AccountIds?.Contains(accountId) == true;
-        }
-
-        /// <summary>
-        /// Ensures account filter includes specific account ID
-        /// </summary>
-        public static void EnsureAccountFilter(TransactionFilterDto filter, int accountId)
-        {
-            if (filter.AccountIds?.Contains(accountId) != true)
-            {
-                filter.AccountIds = new List<int> { accountId };
-            }
-        }
-
-        /// <summary>
-        /// Resets all filters to default values
-        /// </summary>
         public static TransactionFilterDto ResetToDefaults()
         {
             return new TransactionFilterDto
@@ -47,15 +25,15 @@ namespace MoneyTracker.UI.Helpers
             };
         }
 
-        /// <summary>
-        /// Gets count of active filters
-        /// </summary>
-        public static int GetActiveFilterCount(TransactionFilterDto filter)
+        public static int GetActiveFilterCount(
+            TransactionFilterDto filter,
+            TimePeriodFilter defaultTimePeriod = TimePeriodFilter.ThisMonth,
+            bool includeAccountFilter = true)
         {
             int count = 0;
 
-            if (filter.TimePeriod != TimePeriodFilter.ThisMonth) count++;
-            if (filter.AccountIds?.Any() == true) count++;
+            if (filter.TimePeriod != defaultTimePeriod) count++;
+            if (includeAccountFilter && filter.AccountIds?.Any() == true) count++;
             if (!string.IsNullOrWhiteSpace(filter.SearchText)) count++;
             if (filter.CategoryId.HasValue) count++;
             if (filter.Type.HasValue) count++;

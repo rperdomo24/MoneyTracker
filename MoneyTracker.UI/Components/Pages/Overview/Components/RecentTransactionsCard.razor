@@ -1,5 +1,6 @@
 @using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Helpers
 @inject NavigationManager NavigationManager
 
 <MudCard Class="dashboard-card">
@@ -102,13 +103,8 @@
     private void GoToTransactions()
         => NavigationManager.NavigateTo("/transactions");
 
-    private static string GetTransactionIcon(TransactionTypeEnum type) => type switch
-    {
-        TransactionTypeEnum.Income => Icons.Material.Filled.TrendingUp,
-        TransactionTypeEnum.Expense => Icons.Material.Filled.TrendingDown,
-        TransactionTypeEnum.Transfer => Icons.Material.Filled.SwapHoriz,
-        _ => Icons.Material.Filled.AttachMoney
-    };
+    private static string GetTransactionIcon(TransactionTypeEnum type)
+        => type.GetTransactionTypeIcon();
 
     private static string GetAmountColorClass(RecentTransactionDto transaction) => transaction.Type switch
     {
