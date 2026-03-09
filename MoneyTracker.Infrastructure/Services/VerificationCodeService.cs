@@ -62,6 +62,18 @@ namespace MoneyTracker.Infrastructure.Services
             };
 
             _dbContext.UserVerificationCodes.Add(entry);
+            _dbContext.UserVerificationCodeAudits.Add(new UserVerificationCodeAudit
+            {
+                VerificationCodeId = entry.Id,
+                UserId = userId,
+                TenantId = tenantId,
+                Purpose = purpose,
+                EventType = "issued",
+                Success = true,
+                AttemptCount = 0,
+                EventAtUtc = now,
+                Message = "Verification code issued."
+            });
             await _dbContext.SaveChangesAsync();
 
             return OperationResult<VerificationCodeIssueDto>.Ok(new VerificationCodeIssueDto
@@ -90,12 +102,37 @@ namespace MoneyTracker.Infrastructure.Services
 
             if (record is null)
             {
+                _dbContext.UserVerificationCodeAudits.Add(new UserVerificationCodeAudit
+                {
+                    VerificationCodeId = null,
+                    UserId = userId,
+                    TenantId = tenantId,
+                    Purpose = purpose,
+                    EventType = "verify",
+                    Success = false,
+                    AttemptCount = 0,
+                    EventAtUtc = now,
+                    Message = "No active verification code was found."
+                });
+                await _dbContext.SaveChangesAsync();
                 return OperationResult.Fail("No verification code request was found.");
             }
 
             if (record.ExpiresAtUtc <= now)
             {
                 record.InvalidatedAtUtc = now;
+                _dbContext.UserVerificationCodeAudits.Add(new UserVerificationCodeAudit
+                {
+                    VerificationCodeId = record.Id,
+                    UserId = userId,
+                    TenantId = tenantId,
+                    Purpose = purpose,
+                    EventType = "verify",
+                    Success = false,
+                    AttemptCount = record.AttemptCount,
+                    EventAtUtc = now,
+                    Message = "Verification code expired."
+                });
                 await _dbContext.SaveChangesAsync();
                 return OperationResult.Fail("Verification code expired.");
             }
@@ -108,11 +145,35 @@ namespace MoneyTracker.Infrastructure.Services
                     record.InvalidatedAtUtc = now;
                 }
 
+                _dbContext.UserVerificationCodeAudits.Add(new UserVerificationCodeAudit
+                {
+                    VerificationCodeId = record.Id,
+                    UserId = userId,
+                    TenantId = tenantId,
+                    Purpose = purpose,
+                    EventType = "verify",
+                    Success = false,
+                    AttemptCount = record.AttemptCount,
+                    EventAtUtc = now,
+                    Message = "Invalid verification code."
+                });
                 await _dbContext.SaveChangesAsync();
                 return OperationResult.Fail("Invalid verification code.");
             }
 
             record.ConsumedAtUtc = now;
+            _dbContext.UserVerificationCodeAudits.Add(new UserVerificationCodeAudit
+            {
+                VerificationCodeId = record.Id,
+                UserId = userId,
+                TenantId = tenantId,
+                Purpose = purpose,
+                EventType = "verify",
+                Success = true,
+                AttemptCount = record.AttemptCount,
+                EventAtUtc = now,
+                Message = "Verification code validated."
+            });
             await _dbContext.SaveChangesAsync();
             return OperationResult.Ok("Verification code validated.");
         }

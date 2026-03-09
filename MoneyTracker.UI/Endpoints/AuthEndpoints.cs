@@ -39,67 +39,75 @@ namespace MoneyTracker.UI.Endpoints
                 }
 
                 var normalizedEmail = email.Trim().ToLowerInvariant();
+                var user = await userManager.FindByEmailAsync(normalizedEmail);
+                if (user is null)
+                {
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
+                }
+
+                var preCheck = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
+                if (preCheck.IsLockedOut)
+                {
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Your account is temporarily locked. Try again later.", null));
+                }
+
+                if (preCheck.IsNotAllowed)
+                {
+                    return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString("Email confirmation is required before sign in.")}");
+                }
+
+                if (!preCheck.Succeeded)
+                {
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
+                }
+
                 var result = await signInManager.PasswordSignInAsync(
-                    normalizedEmail,
+                    user,
                     password,
                     rememberMe,
-                    lockoutOnFailure: true);
+                    lockoutOnFailure: false);
 
                 if (result.Succeeded)
                 {
                     return Results.LocalRedirect(SafeReturnUrl(returnUrl));
                 }
 
-                if (result.RequiresTwoFactor)
+                if (!result.RequiresTwoFactor)
                 {
-                    var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
-                    if (user is not null)
-                    {
-                        var codeResult = await verificationCodeService.IssueCodeAsync(
-                            user.Id,
-                            user.TenantId,
-                            Application.Constants.AuthVerificationPurposes.LoginOtp,
-                            expiryMinutes: 10,
-                            resendCooldownSeconds: 60,
-                            maxAttempts: 3);
-
-                        if (!codeResult.Success || codeResult.Data is null)
-                        {
-                            return Results.LocalRedirect(BuildLoginUrl(returnUrl, codeResult.Message, null));
-                        }
-
-                        var sendResult = await emailSenderService.SendAsync(
-                            user.Email!,
-                            "Your MoneyTracker login code",
-                            $"<p>Your OTP code is:</p><h2>{codeResult.Data.Code}</h2><p>The code expires at {codeResult.Data.ExpiresAtUtc:u} UTC.</p>");
-
-                        if (!sendResult.Success)
-                        {
-                            return Results.LocalRedirect(BuildLoginUrl(returnUrl, sendResult.Message, null));
-                        }
-                    }
-
-                    var otpUrl = $"/login-otp?returnUrl={Uri.EscapeDataString(SafeReturnUrl(returnUrl))}&rememberMe={rememberMe.ToString().ToLowerInvariant()}";
-                    return Results.LocalRedirect(otpUrl);
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
-                if (result.IsLockedOut)
+                var codeResult = await verificationCodeService.IssueCodeAsync(
+                    user.Id,
+                    user.TenantId,
+                    Application.Constants.AuthVerificationPurposes.LoginOtp,
+                    expiryMinutes: 10,
+                    resendCooldownSeconds: 60,
+                    maxAttempts: 3);
+
+                if (!codeResult.Success || codeResult.Data is null)
                 {
-                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Your account is temporarily locked. Try again later.", null));
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, codeResult.Message, null));
                 }
 
-                if (result.IsNotAllowed)
+                var sendResult = await emailSenderService.SendAsync(
+                    user.Email!,
+                    "Your MoneyTracker login code",
+                    $"<p>Your OTP code is:</p><h2>{codeResult.Data.Code}</h2><p>The code expires at {codeResult.Data.ExpiresAtUtc:u} UTC.</p>");
+
+                if (!sendResult.Success)
                 {
-                    return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString("Email confirmation is required before sign in.")}");
+                    return Results.LocalRedirect(BuildLoginUrl(returnUrl, sendResult.Message, null));
                 }
 
-                return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
+                return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, null, "A verification code was sent to your email.", codeResult.Data.ExpiresAtUtc));
             }).AllowAnonymous();
 
             authGroup.MapPost("/login-otp", async (
                 [FromForm] string code,
                 [FromForm] bool rememberMe,
                 [FromForm] string? returnUrl,
+                [FromForm] string? expiresAtUtc,
                 SignInManager<ApplicationUser> signInManager,
                 UserManager<ApplicationUser> userManager,
                 IVerificationCodeService verificationCodeService,
@@ -110,7 +118,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (!validation.IsValid)
                 {
                     var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
-                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, error, null));
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, error, null, ParseUtc(expiresAtUtc)));
                 }
 
                 var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
@@ -121,7 +129,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (await userManager.IsLockedOutAsync(user))
                 {
-                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null));
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null, ParseUtc(expiresAtUtc)));
                 }
 
                 var cleanedCode = code.Replace(" ", string.Empty).Replace("-", string.Empty);
@@ -136,10 +144,10 @@ namespace MoneyTracker.UI.Endpoints
                     await userManager.AccessFailedAsync(user);
                     if (await userManager.IsLockedOutAsync(user))
                     {
-                        return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null));
+                        return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null, ParseUtc(expiresAtUtc)));
                     }
 
-                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, verifyResult.Message, null));
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Invalid or expired verification code.", null, ParseUtc(expiresAtUtc)));
                 }
 
                 await userManager.ResetAccessFailedCountAsync(user);
@@ -170,7 +178,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!codeResult.Success || codeResult.Data is null)
                 {
-                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, codeResult.Message, null));
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, codeResult.Message, null, null));
                 }
 
                 var sendResult = await emailSenderService.SendAsync(
@@ -180,10 +188,10 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!sendResult.Success)
                 {
-                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, sendResult.Message, null));
+                    return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, sendResult.Message, null, null));
                 }
 
-                return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, null, "A verification code was sent to your email."));
+                return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, null, "A verification code was sent to your email.", codeResult.Data.ExpiresAtUtc));
             }).AllowAnonymous();
 
             authGroup.MapPost("/resend-confirmation", async (
@@ -330,7 +338,7 @@ namespace MoneyTracker.UI.Endpoints
             return url;
         }
 
-        private static string BuildOtpUrl(string? returnUrl, bool rememberMe, string? error, string? info)
+        private static string BuildOtpUrl(string? returnUrl, bool rememberMe, string? error, string? info, DateTime? expiresAtUtc)
         {
             var safeReturnUrl = Uri.EscapeDataString(SafeReturnUrl(returnUrl));
             var url = $"/login-otp?returnUrl={safeReturnUrl}&rememberMe={rememberMe.ToString().ToLowerInvariant()}";
@@ -345,7 +353,28 @@ namespace MoneyTracker.UI.Endpoints
                 url += $"&info={Uri.EscapeDataString(info)}";
             }
 
+            if (expiresAtUtc.HasValue)
+            {
+                url += $"&expiresAtUtc={Uri.EscapeDataString(expiresAtUtc.Value.ToString("O"))}";
+            }
+
             return url;
+        }
+
+        private static DateTime? ParseUtc(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return DateTime.TryParse(
+                value,
+                null,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                out var parsed)
+                ? parsed
+                : null;
         }
     }
 }

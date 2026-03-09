@@ -82,6 +82,19 @@
     </MudPaper>
 
     <MudPaper Class="pa-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Security</MudText>
+        <MudSwitch T="bool"
+                   Value="_twoFactorEnabled"
+                   ValueChanged="OnTwoFactorChanged"
+                   Label="Require OTP on sign in"
+                   Color="Color.Primary"
+                   Disabled="_isBusy" />
+        <MudText Typo="Typo.caption" Class="d-block mt-2">
+            If enabled, password login requires an OTP code sent to your email.
+        </MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
         <MudText Typo="Typo.subtitle1" Class="mb-3">Account info</MudText>
         <MudText Typo="Typo.body2">Tenant: @_tenantId</MudText>
         <MudText Typo="Typo.body2">2FA enabled: @(_twoFactorEnabled ? "Yes" : "No")</MudText>
@@ -209,6 +222,22 @@
         if (result.Success)
         {
             _avatarDataUrl = null;
+        }
+
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+
+    private async Task OnTwoFactorChanged(bool enabled)
+    {
+        _isBusy = true;
+        var previous = _twoFactorEnabled;
+        _twoFactorEnabled = enabled;
+
+        var result = await UserProfileService.UpdateTwoFactorPreferenceAsync(enabled);
+        if (!result.Success)
+        {
+            _twoFactorEnabled = previous;
         }
 
         Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);

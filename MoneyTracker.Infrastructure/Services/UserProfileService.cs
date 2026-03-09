@@ -91,6 +91,30 @@ namespace MoneyTracker.Infrastructure.Services
             }
         }
 
+        public async Task<OperationResult> UpdateTwoFactorPreferenceAsync(bool enabled)
+        {
+            await _lock.WaitAsync();
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                var user = await GetCurrentUserAsync(dbContext, asNoTracking: false);
+                if (user is null)
+                {
+                    return OperationResult.Fail("User not found.");
+                }
+
+                user.TwoFactorEnabled = enabled;
+                await dbContext.SaveChangesAsync();
+                return OperationResult.Ok("Security preference updated.");
+            }
+            finally
+            {
+                _lock.Release();
+            }
+        }
+
         public async Task<OperationResult> ChangePasswordAsync(string currentPassword, string newPassword)
         {
             await _lock.WaitAsync();
