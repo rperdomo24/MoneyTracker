@@ -95,7 +95,8 @@
 
         <!-- LEFT: Overview -->
         <MudItem xs="12" md="5">
-            <BudgetsOverviewCard MonthLabel="@_currentMonthLabel"
+            <BudgetsOverviewCard @key="@($"{_year}-{_month}-{_activeTabIndex}-{_onlyWithActivity}")"
+                                 MonthLabel="@_currentMonthLabel"
                                  IsExpenseTab="@(_activeTabIndex == 0)"
                                  Summary="@CurrentSummary"
                                  Slices="@CurrentSlices"
@@ -179,8 +180,8 @@
     private int _month;
     private string _currentMonthLabel = string.Empty;
 
-    // Default ON (si no hay saved filter, queda true)
-    private bool _onlyWithActivity = true;
+    // Default OFF so new categories and children are visible without activity.
+    private bool _onlyWithActivity = false;
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();

@@ -139,12 +139,13 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<DashboardBudgetSummaryDto>> GetBudgetSummaryAsync()
+        public async Task<OperationResult<DashboardBudgetSummaryDto>> GetBudgetSummaryAsync(DashboardFilterDto? filter = null)
         {
             try
             {
                 var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
-                var summary = await BuildBudgetSummaryAsync(now);
+                var budgetReferenceDate = ResolveBudgetReferenceDate(filter, now);
+                var summary = await BuildBudgetSummaryAsync(budgetReferenceDate);
                 return OperationResult<DashboardBudgetSummaryDto>.Ok(summary, "Budget summary retrieved successfully");
             }
             catch (Exception ex)
@@ -1293,6 +1294,26 @@ namespace MoneyTracker.Application.Services
                     today),
                 _ => (today.AddDays(-30), today)
             };
+        }
+
+        private static DateTime ResolveBudgetReferenceDate(DashboardFilterDto? filter, DateTime now)
+        {
+            if (filter is null)
+                return now;
+
+            if (filter.TimePeriod == TimePeriodFilter.LastMonth)
+                return now.AddMonths(-1);
+
+            if (filter.TimePeriod == TimePeriodFilter.Custom)
+            {
+                if (filter.ToDate.HasValue)
+                    return filter.ToDate.Value;
+
+                if (filter.FromDate.HasValue)
+                    return filter.FromDate.Value;
+            }
+
+            return now;
         }
 
         private async Task<DashboardBudgetSummaryDto> BuildBudgetSummaryAsync(DateTime now)

@@ -346,7 +346,7 @@
             };
 
             var balanceTrendResult = await DashboardService.GetBalanceTrendAsync(filter);
-            var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync();
+            var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync(filter);
             var spendingTrendResult = await DashboardService.GetSpendingTrendAsync(filter);
             var categoryBreakdownResult = await DashboardService.GetCategoryBreakdownAsync(filter);
             var cashFlowFilter = new DashboardFilterDto

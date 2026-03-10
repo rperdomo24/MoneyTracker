@@ -26,7 +26,7 @@
         @if (_hasChartData)
         {
             <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                <ApexChart TItem="BudgetSlicePoint" Options="_chartOptions" Height="300">
+                <ApexChart TItem="BudgetSlicePoint" @key="_chartRenderKey" Options="_chartOptions" Height="300">
                     <ApexPointSeries TItem="BudgetSlicePoint"
                                      Items="_chartPoints"
                                      Name="Budget"
@@ -111,6 +111,7 @@
     private ApexChartOptions<BudgetSlicePoint> _chartOptions = BuildChartOptions(new List<string>());
     private List<BudgetSlicePoint> _chartPoints = new();
     private List<BudgetCategorySliceVm> _legendSlices = new();
+    private string _chartRenderKey = "budget-chart-empty";
 
     protected override void OnParametersSet()
     {
@@ -118,6 +119,7 @@
         _chartPoints = new();
         _legendSlices = new();
         _chartOptions = BuildChartOptions(new List<string>());
+        _chartRenderKey = BuildChartRenderKey();
 
         if (Slices?.Any() != true)
             return;
@@ -139,7 +141,15 @@
             .ToList();
 
         _chartOptions = BuildChartOptions(cleaned.Select(x => x.Color).ToList());
+        _chartRenderKey = BuildChartRenderKey(cleaned);
         _hasChartData = true;
+    }
+
+    private string BuildChartRenderKey(List<BudgetCategorySliceVm>? slices = null)
+    {
+        var activeSlices = slices ?? Slices ?? new List<BudgetCategorySliceVm>();
+        var fingerprint = string.Join('|', activeSlices.Select(x => $"{x.CategoryId}:{x.Used:0.####}"));
+        return $"{MonthLabel}|{IsExpenseTab}|{Summary.TotalBudgeted:0.##}|{Summary.TotalUsed:0.##}|{fingerprint}";
     }
 
     private static ApexChartOptions<BudgetSlicePoint> BuildChartOptions(List<string> colors)

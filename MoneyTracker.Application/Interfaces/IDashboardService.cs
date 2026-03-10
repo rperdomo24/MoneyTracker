@@ -13,7 +13,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<DashboardWidgetsDto>> GetOverviewWidgetsAsync(
             DashboardFilterDto? filter = null,
             int recentTransactionsCount = 10);
-        Task<OperationResult<DashboardBudgetSummaryDto>> GetBudgetSummaryAsync();
+        Task<OperationResult<DashboardBudgetSummaryDto>> GetBudgetSummaryAsync(DashboardFilterDto? filter = null);
         Task<OperationResult<List<DashboardSpendingTrendDto>>> GetSpendingTrendAsync(DashboardFilterDto filter);
         Task<OperationResult<CashFlowDto>> GetCashFlowAsync(DashboardFilterDto filter);
         Task<OperationResult<List<CategoryBreakdownDto>>> GetCategoryBreakdownAsync(DashboardFilterDto filter);
