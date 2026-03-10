@@ -1,139 +1,120 @@
+@using ApexCharts
 @using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.UI.Helpers
-@using MudBlazor.Charts
 
 <MudCard Class="dashboard-card">
     <MudCardHeader>
         <CardHeaderContent>
             <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                <MudAvatar Color="Color.Secondary" Size="Size.Medium">
+                <MudAvatar Color="MudBlazor.Color.Secondary" Size="MudBlazor.Size.Medium">
                     <MudIcon Icon="@Icons.Material.Filled.AccountTree" />
                 </MudAvatar>
-                <MudText Typo="Typo.h6">Cashflow Sankey</MudText>
+                <MudText Typo="Typo.h6">Cash Flow by Category</MudText>
             </MudStack>
         </CardHeaderContent>
     </MudCardHeader>
 
     <MudCardContent>
-        @if (Data is not null)
+        @if (_points.Any())
         {
             <MudStack Spacing="2">
-                @if (_series.Any() && _series[0].Data.Any())
-                {
-                    <MudChart T="int"
-                              ChartType="ChartType.Sankey"
-                              Width="100%"
-                              Height="420px"
-                              ChartSeries="@_series"
-                              ChartOptions="@_chartOptions" />
-                }
-                else
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true">
-                        No hay suficiente data para construir el Sankey en este rango.
-                    </MudAlert>
-                }
+                <ApexChart TItem="CashFlowPoint" Options="_chartOptions" Height="280">
+                    <ApexPointSeries TItem="CashFlowPoint"
+                                     Items="_points"
+                                     Name="Income"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="p => p.Category"
+                                     YValue="p => p.Income" />
+                    <ApexPointSeries TItem="CashFlowPoint"
+                                     Items="_points"
+                                     Name="Expenses"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="p => p.Category"
+                                     YValue="p => p.Expenses" />
+                </ApexChart>
 
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.body2" Class="mud-success-text">
-                        Income: @CurrencyHelper.FormatCurrency(Data.TotalIncome)
+                        Income: @CurrencyHelper.FormatCurrency(_totalIncome)
                     </MudText>
                     <MudText Typo="Typo.body2" Class="mud-error-text">
-                        Expenses: @CurrencyHelper.FormatCurrency(Data.TotalExpenses)
+                        Expenses: @CurrencyHelper.FormatCurrency(_totalExpenses)
                     </MudText>
-                    <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(Data.NetCashFlow)">
-                        Net: @CurrencyHelper.FormatCurrency(Data.NetCashFlow)
+                    <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(_net)">
+                        Net: @CurrencyHelper.FormatCurrency(_net)
                     </MudText>
                 </MudStack>
             </MudStack>
         }
         else
         {
-            <MudStack Spacing="2">
-                <MudSkeleton Height="280px" />
-            </MudStack>
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Not enough data to build the cash flow chart for this range.
+            </MudAlert>
         }
     </MudCardContent>
 </MudCard>
 
 @code {
     [Parameter] public CashFlowDto? Data { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
 
-    private List<ChartSeries<int>> _series = new();
-    private readonly SankeyChartOptions _chartOptions = new()
-    {
-        ShowLabels = true,
-        ShowNodeValues = true,
-        ShowEdgeLabels = false,
-        HighlightOnHover = true,
-        NodeWidth = 16,
-        OrderNodesByValue = true,
-        LabelFontSize = "0.80rem"
-    };
+    private readonly List<CashFlowPoint> _points = new();
+    private ApexChartOptions<CashFlowPoint> _chartOptions = new();
+    private decimal _totalIncome;
+    private decimal _totalExpenses;
+    private decimal _net;
 
     protected override void OnParametersSet()
     {
+        _points.Clear();
+        _totalIncome = 0;
+        _totalExpenses = 0;
+        _net = 0;
+
         if (Data is null)
         {
-            _series = new();
+            _chartOptions = BuildOptions(IsDarkMode);
             return;
         }
 
-        var edges = new List<SankeyEdge<int>>();
-        var incomeCategories = GetTopCategories(Data.IncomeByCategory, 5, "Other Income");
-        var expenseCategories = GetTopCategories(Data.ExpenseByCategory, 6, "Other Expenses");
+        _totalIncome = Data.TotalIncome;
+        _totalExpenses = Data.TotalExpenses;
+        _net = Data.NetCashFlow;
 
-        foreach (var category in incomeCategories)
-        {
-            edges.Add(new SankeyEdge<int>(category.CategoryName, "Income", ToSankeyValue(category.Amount)));
-        }
+        var income = GetTopCategories(Data.IncomeByCategory, 5, "Other Income");
+        var expenses = GetTopCategories(Data.ExpenseByCategory, 5, "Other Expenses");
 
-        foreach (var category in expenseCategories)
-        {
-            edges.Add(new SankeyEdge<int>("Expenses", category.CategoryName, ToSankeyValue(category.Amount)));
-        }
+        var merged = new Dictionary<string, CashFlowPoint>(StringComparer.OrdinalIgnoreCase);
 
-        var expenses = ToSankeyValue(Data.TotalExpenses);
-        if (expenses > 0)
+        foreach (var item in income)
         {
-            edges.Add(new SankeyEdge<int>("Income", "Expenses", expenses));
-        }
-
-        var net = Data.NetCashFlow;
-        if (net >= 0)
-        {
-            var savings = ToSankeyValue(net);
-            if (savings > 0)
+            if (!merged.TryGetValue(item.CategoryName, out var point))
             {
-                edges.Add(new SankeyEdge<int>("Income", "Savings", savings));
+                point = new CashFlowPoint { Category = item.CategoryName };
+                merged[item.CategoryName] = point;
             }
-        }
-        else
-        {
-            var deficit = ToSankeyValue(Math.Abs(net));
-            if (deficit > 0)
-            {
-                edges.Add(new SankeyEdge<int>("Deficit", "Expenses", deficit));
-            }
+
+            point.Income += Math.Abs(item.Amount);
         }
 
-        _series = new List<ChartSeries<int>>
+        foreach (var item in expenses)
         {
-            new()
+            if (!merged.TryGetValue(item.CategoryName, out var point))
             {
-                Name = "Cashflow",
-                Data = edges
+                point = new CashFlowPoint { Category = item.CategoryName };
+                merged[item.CategoryName] = point;
             }
-        };
-    }
 
-    private static int ToSankeyValue(decimal amount)
-    {
-        var absValue = Math.Abs(amount);
-        if (absValue <= 0)
-            return 0;
+            point.Expenses += Math.Abs(item.Amount);
+        }
 
-        return (int)Math.Max(1, Math.Round(absValue, MidpointRounding.AwayFromZero));
+        _points.AddRange(
+            merged.Values
+                .OrderByDescending(x => x.Income + x.Expenses)
+                .Take(8));
+
+        _chartOptions = BuildOptions(IsDarkMode);
     }
 
     private static List<CashFlowCategoryDto> GetTopCategories(
@@ -144,12 +125,8 @@
         if (categories.Count <= maxItems)
             return categories;
 
-        var top = categories
-            .Take(maxItems)
-            .ToList();
-        var otherAmount = categories
-            .Skip(maxItems)
-            .Sum(x => x.Amount);
+        var top = categories.Take(maxItems).ToList();
+        var otherAmount = categories.Skip(maxItems).Sum(x => x.Amount);
 
         if (otherAmount > 0)
         {
@@ -161,5 +138,42 @@
         }
 
         return top;
+    }
+
+    private static ApexChartOptions<CashFlowPoint> BuildOptions(bool isDarkMode)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Type = ApexCharts.ChartType.Bar,
+                Toolbar = new Toolbar { Show = false },
+                Background = "transparent"
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    Horizontal = true,
+                    BorderRadius = 4
+                }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = new List<string> { "#2ecc71", "#e74c3c" },
+            Legend = new Legend
+            {
+                Show = true,
+                Position = LegendPosition.Top
+            }
+        };
+
+    private sealed class CashFlowPoint
+    {
+        public string Category { get; set; } = string.Empty;
+        public decimal Income { get; set; }
+        public decimal Expenses { get; set; }
     }
 }

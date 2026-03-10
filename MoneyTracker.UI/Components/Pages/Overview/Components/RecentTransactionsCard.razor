@@ -11,9 +11,9 @@
                     <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" />
                 </MudAvatar>
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.h6">Transacciones Recientes</MudText>
+                    <MudText Typo="Typo.h6">Recent Transactions</MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                        Ultimos movimientos registrados
+                        Latest recorded activity
                     </MudText>
                 </MudStack>
             </MudStack>
@@ -23,7 +23,7 @@
                        Size="Size.Small"
                        StartIcon="@Icons.Material.Filled.List"
                        OnClick="GoToTransactions">
-                Ver transacciones
+                View transactions
             </MudButton>
         </CardHeaderActions>
     </MudCardHeader>
@@ -44,7 +44,7 @@
                                 <MudStack Spacing="0" Style="min-width:0;">
                                     <MudText Typo="Typo.body2" Class="text-truncate">@GetPrimaryText(transaction)</MudText>
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                        @transaction.RelativeTime • @transaction.CategoryName
+                                        @transaction.RelativeTime | @transaction.CategoryName
                                     </MudText>
                                 </MudStack>
                             </MudStack>
@@ -68,11 +68,11 @@
         {
             <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
                 <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" />
-                <MudText Typo="Typo.body1" Align="Align.Center">No hay transacciones recientes</MudText>
+                <MudText Typo="Typo.body1" Align="Align.Center">No recent transactions</MudText>
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.List"
                            OnClick="GoToTransactions">
-                    Ver transacciones
+                    View transactions
                 </MudButton>
             </MudStack>
         }
@@ -130,6 +130,6 @@
         if (!string.IsNullOrWhiteSpace(transaction.Name))
             return transaction.Name;
 
-        return "Transaccion sin descripcion";
+        return "Transaction without description";
     }
 }

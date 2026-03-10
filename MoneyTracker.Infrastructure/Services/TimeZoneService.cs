@@ -19,18 +19,18 @@ namespace MoneyTracker.Infrastructure.Services
             try
             {
                 _timeZone = TimeZoneInfo.FindSystemTimeZoneById(_timeZoneId);
-                _logger.LogInformation("✅ TimeZoneService inicializado: {TimeZone} (UTC{Offset})",
+                _logger.LogInformation("TimeZoneService initialized with {TimeZone} (UTC{Offset}).",
                     _timeZone.DisplayName,
                     _timeZone.BaseUtcOffset);
             }
             catch (TimeZoneNotFoundException)
             {
-                _logger.LogWarning("⚠️ TimeZone '{TimeZoneId}' no encontrado, usando UTC como fallback", _timeZoneId);
+                _logger.LogWarning("Timezone '{TimeZoneId}' was not found. Falling back to UTC.", _timeZoneId);
                 _timeZone = TimeZoneInfo.Utc;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error configurando timezone '{TimeZoneId}'", _timeZoneId);
+                _logger.LogError(ex, "Error configuring timezone '{TimeZoneId}'. Falling back to UTC.", _timeZoneId);
                 _timeZone = TimeZoneInfo.Utc;
             }
         }
@@ -39,19 +39,15 @@ namespace MoneyTracker.Infrastructure.Services
         {
             try
             {
-                // Si ya es UTC, no convertir
                 if (localDate.Kind == DateTimeKind.Utc)
                     return localDate;
 
                 var dateWithCorrectKind = DateTime.SpecifyKind(localDate, DateTimeKind.Unspecified);
-                var utcDate = TimeZoneInfo.ConvertTimeToUtc(dateWithCorrectKind, _timeZone);
-
-                _logger.LogDebug("🕐 Convertido a UTC: {Local} -> {Utc}", localDate, utcDate);
-                return utcDate;
+                return TimeZoneInfo.ConvertTimeToUtc(dateWithCorrectKind, _timeZone);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "⚠️ Error convirtiendo hora local a UTC, usando fallback");
+                _logger.LogWarning(ex, "Error converting local time to UTC. Using fallback conversion.");
                 return localDate.Kind == DateTimeKind.Utc ? localDate : localDate.ToUniversalTime();
             }
         }
@@ -67,7 +63,7 @@ namespace MoneyTracker.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "⚠️ Error convirtiendo fecha nullable a UTC");
+                _logger.LogWarning(ex, "Error converting nullable local date to UTC.");
                 return localDate.Value.ToUniversalTime();
             }
         }
@@ -76,21 +72,22 @@ namespace MoneyTracker.Infrastructure.Services
         {
             try
             {
-                // Asegurar que sea UTC
-                if (utcDate.Kind != DateTimeKind.Utc)
+                // Npgsql often returns timestamp values as Unspecified; treat them as UTC.
+                if (utcDate.Kind == DateTimeKind.Unspecified)
                 {
-                    _logger.LogWarning("🔄 Se recibió fecha no-UTC para conversión, forzando UTC: {DateKind}", utcDate.Kind);
                     utcDate = DateTime.SpecifyKind(utcDate, DateTimeKind.Utc);
                 }
+                else if (utcDate.Kind == DateTimeKind.Local)
+                {
+                    _logger.LogWarning("Local DateTime provided for UTC conversion. Normalizing from {DateKind}.", utcDate.Kind);
+                    utcDate = utcDate.ToUniversalTime();
+                }
 
-                var localDate = TimeZoneInfo.ConvertTimeFromUtc(utcDate, _timeZone);
-
-                _logger.LogDebug("🕐 Convertido desde UTC: {Utc} -> {Local}", utcDate, localDate);
-                return localDate;
+                return TimeZoneInfo.ConvertTimeFromUtc(utcDate, _timeZone);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "⚠️ Error convirtiendo UTC a hora local, retornando UTC como fallback");
+                _logger.LogWarning(ex, "Error converting UTC to local time. Returning original value.");
                 return utcDate;
             }
         }
@@ -106,7 +103,7 @@ namespace MoneyTracker.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "⚠️ Error convirtiendo fecha nullable desde UTC");
+                _logger.LogWarning(ex, "Error converting nullable UTC date to local time.");
                 return utcDate.Value;
             }
         }
@@ -116,14 +113,11 @@ namespace MoneyTracker.Infrastructure.Services
             try
             {
                 var localNow = TimeZoneInfo.ConvertTime(DateTime.Now, _timeZone);
-                var utcNow = TimeZoneInfo.ConvertTimeToUtc(localNow, _timeZone);
-
-                _logger.LogDebug("🕐 GetNowInUtc: {UtcNow}", utcNow);
-                return utcNow;
+                return TimeZoneInfo.ConvertTimeToUtc(localNow, _timeZone);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "⚠️ Error obteniendo hora actual en UTC, usando DateTime.UtcNow");
+                _logger.LogWarning(ex, "Error getting current time in UTC. Using DateTime.UtcNow.");
                 return DateTime.UtcNow;
             }
         }
@@ -132,14 +126,11 @@ namespace MoneyTracker.Infrastructure.Services
         {
             try
             {
-                var localTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
-
-                _logger.LogDebug("🕐 GetLocalTimeInConfiguredTimeZone: {LocalTime}", localTime);
-                return localTime;
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _timeZone);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "⚠️ Error obteniendo hora local, usando DateTime.Now");
+                _logger.LogWarning(ex, "Error getting local time in configured timezone. Using DateTime.Now.");
                 return DateTime.Now;
             }
         }

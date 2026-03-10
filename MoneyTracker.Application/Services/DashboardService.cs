@@ -6,10 +6,14 @@ using MoneyTracker.Application.DTOs.Dashboard;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
+using MoneyTracker.Domain.Const;
+using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Enums.Filters;
+using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace MoneyTracker.Application.Services
 {
@@ -21,19 +25,22 @@ namespace MoneyTracker.Application.Services
         private readonly ITransactionRepository _transactionRepository;
         private readonly IBudgetService _budgetService;
         private readonly ITimeZoneService _timeZoneService;
+        private readonly ILogger<DashboardService> _logger;
 
         public DashboardService(
             IAccountService accountService,
             ITransactionService transactionService,
             ITransactionRepository transactionRepository,
             IBudgetService budgetService,
-            ITimeZoneService timeZoneService)
+            ITimeZoneService timeZoneService,
+            ILogger<DashboardService> logger)
         {
             _accountService = accountService;
             _transactionService = transactionService;
             _transactionRepository = transactionRepository;
             _budgetService = budgetService;
             _timeZoneService = timeZoneService;
+            _logger = logger;
         }
 
         public async Task<OperationResult<DashboardOverviewDto>> GetOverviewAsync(
@@ -102,6 +109,219 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<DashboardWidgetsDto>> GetOverviewWidgetsAsync(
+            DashboardFilterDto? filter = null,
+            int recentTransactionsCount = 10)
+        {
+            try
+            {
+                filter ??= new DashboardFilterDto();
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var normalizedFilter = NormalizeOverviewFilter(filter, now);
+                var entries = await LoadDashboardEntriesAsync(normalizedFilter, now);
+                var filteredEntries = ApplyDashboardEntryFilter(entries, normalizedFilter.TransactionFilter);
+                var budgetSummary = await BuildBudgetSummaryAsync(now);
+
+                var widgets = new DashboardWidgetsDto
+                {
+                    CashFlow = BuildCashFlow(filteredEntries, now),
+                    BudgetSummary = budgetSummary,
+                    SpendingTrend = BuildSpendingTrend(filteredEntries, normalizedFilter, now),
+                    CategoryBreakdown = BuildCategoryBreakdown(filteredEntries),
+                    RecentTransactions = BuildRecentTransactions(filteredEntries, recentTransactionsCount, now)
+                };
+
+                return OperationResult<DashboardWidgetsDto>.Ok(widgets, "Dashboard widgets retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                return OperationResult<DashboardWidgetsDto>.Fail($"Error retrieving dashboard widgets: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult<DashboardBudgetSummaryDto>> GetBudgetSummaryAsync()
+        {
+            try
+            {
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var summary = await BuildBudgetSummaryAsync(now);
+                return OperationResult<DashboardBudgetSummaryDto>.Ok(summary, "Budget summary retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving budget summary.");
+                return OperationResult<DashboardBudgetSummaryDto>.Fail($"Error retrieving budget summary: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult<List<DashboardSpendingTrendDto>>> GetSpendingTrendAsync(DashboardFilterDto filter)
+        {
+            try
+            {
+                filter ??= new DashboardFilterDto();
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var normalizedFilter = NormalizeOverviewFilter(filter, now);
+                var (rangeStart, rangeEnd) = ResolveRangeLocal(normalizedFilter, now);
+
+                if (normalizedFilter.TransactionFilter == DashboardTransactionFilter.Income)
+                {
+                    var emptyTrend = BuildSpendingTrend(
+                        new List<DashboardAmountByDateEntry>(),
+                        normalizedFilter,
+                        now);
+                    return OperationResult<List<DashboardSpendingTrendDto>>.Ok(emptyTrend, "Spending trend retrieved successfully");
+                }
+
+                var fromUtc = _timeZoneService.ConvertToUtc(rangeStart.Date);
+                var toUtc = _timeZoneService.ConvertToUtc(rangeEnd.Date.AddDays(1).AddTicks(-1));
+                var amounts = await _transactionRepository.GetAmountsByDateAsync(
+                    fromUtc,
+                    toUtc,
+                    normalizedFilter.AccountIds ?? new List<int>(),
+                    CategoryTypeEnum.Expense);
+                var trend = BuildSpendingTrend(amounts, normalizedFilter, now);
+                return OperationResult<List<DashboardSpendingTrendDto>>.Ok(trend, "Spending trend retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving spending trend.");
+                return OperationResult<List<DashboardSpendingTrendDto>>.Fail($"Error retrieving spending trend: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult<CashFlowDto>> GetCashFlowAsync(DashboardFilterDto filter)
+        {
+            try
+            {
+                filter ??= new DashboardFilterDto();
+
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var normalizedFilter = NormalizeOverviewFilter(filter, now);
+
+                var (rangeStart, rangeEnd) = ResolveRangeLocal(normalizedFilter, now);
+                var fromUtc = _timeZoneService.ConvertToUtc(rangeStart.Date);
+                var toUtc = _timeZoneService.ConvertToUtc(rangeEnd.Date.AddDays(1).AddTicks(-1));
+                var accountIds = normalizedFilter.AccountIds ?? new List<int>();
+
+                var aggregates = await _transactionRepository.GetCashFlowAggregatesAsync(
+                    fromUtc,
+                    toUtc,
+                    accountIds) ?? new List<DashboardCashFlowAggregateEntry>();
+
+                var incomeCategories = normalizedFilter.TransactionFilter == DashboardTransactionFilter.Expense
+                    ? new List<DashboardCategoryAggregateEntry>()
+                    : aggregates
+                        .Where(x => x.CategoryType == CategoryTypeEnum.Income)
+                        .Select(x => new DashboardCategoryAggregateEntry
+                        {
+                            CategoryId = x.CategoryId,
+                            CategoryName = x.CategoryName,
+                            Amount = x.Amount,
+                            TransactionCount = x.TransactionCount,
+                            CategoryColor = "#9e9e9e"
+                        })
+                        .ToList();
+
+                var expenseCategories = normalizedFilter.TransactionFilter == DashboardTransactionFilter.Income
+                    ? new List<DashboardCategoryAggregateEntry>()
+                    : aggregates
+                        .Where(x => x.CategoryType == CategoryTypeEnum.Expense)
+                        .Select(x => new DashboardCategoryAggregateEntry
+                        {
+                            CategoryId = x.CategoryId,
+                            CategoryName = x.CategoryName,
+                            Amount = x.Amount,
+                            TransactionCount = x.TransactionCount,
+                            CategoryColor = "#9e9e9e"
+                        })
+                        .ToList();
+
+                var cashFlow = BuildCashFlow(incomeCategories, expenseCategories, now);
+                return OperationResult<CashFlowDto>.Ok(cashFlow, "Cash flow retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving cash flow.");
+                return OperationResult<CashFlowDto>.Fail($"Error retrieving cash flow: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult<List<CategoryBreakdownDto>>> GetCategoryBreakdownAsync(DashboardFilterDto filter)
+        {
+            try
+            {
+                filter ??= new DashboardFilterDto();
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var normalizedFilter = NormalizeOverviewFilter(filter, now);
+                if (normalizedFilter.TransactionFilter == DashboardTransactionFilter.Income)
+                {
+                    return OperationResult<List<CategoryBreakdownDto>>.Ok(new List<CategoryBreakdownDto>(), "Category breakdown retrieved successfully");
+                }
+
+                var (rangeStart, rangeEnd) = ResolveRangeLocal(normalizedFilter, now);
+                var fromUtc = _timeZoneService.ConvertToUtc(rangeStart.Date);
+                var toUtc = _timeZoneService.ConvertToUtc(rangeEnd.Date.AddDays(1).AddTicks(-1));
+                var aggregates = await _transactionRepository.GetCategoryAggregatesAsync(
+                    fromUtc,
+                    toUtc,
+                    normalizedFilter.AccountIds ?? new List<int>(),
+                    CategoryTypeEnum.Expense,
+                    top: 6);
+                var breakdown = BuildCategoryBreakdown(aggregates);
+                return OperationResult<List<CategoryBreakdownDto>>.Ok(breakdown, "Category breakdown retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving category breakdown.");
+                return OperationResult<List<CategoryBreakdownDto>>.Fail($"Error retrieving category breakdown: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult<List<RecentTransactionDto>>> GetRecentTransactionsAsync(
+            DashboardFilterDto filter,
+            int count = 10)
+        {
+            try
+            {
+                filter ??= new DashboardFilterDto();
+                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
+                var normalizedFilter = NormalizeOverviewFilter(filter, now);
+                var (rangeStart, rangeEnd) = ResolveRangeLocal(normalizedFilter, now);
+                var fromUtc = _timeZoneService.ConvertToUtc(rangeStart.Date);
+                var toUtc = _timeZoneService.ConvertToUtc(rangeEnd.Date.AddDays(1).AddTicks(-1));
+
+                var (categoryType, includeTransfers) = normalizedFilter.TransactionFilter switch
+                {
+                    DashboardTransactionFilter.Income => ((CategoryTypeEnum?)CategoryTypeEnum.Income, false),
+                    DashboardTransactionFilter.Expense => ((CategoryTypeEnum?)CategoryTypeEnum.Expense, false),
+                    _ => ((CategoryTypeEnum?)null, true)
+                };
+
+                var recentEntries = await _transactionRepository.GetRecentDashboardEntriesAsync(
+                    fromUtc,
+                    toUtc,
+                    normalizedFilter.AccountIds ?? new List<int>(),
+                    categoryType,
+                    includeTransfers,
+                    count);
+
+                var recent = BuildRecentTransactions(
+                    recentEntries.Select(entry =>
+                    {
+                        entry.Date = _timeZoneService.ConvertFromUtc(entry.Date);
+                        return entry;
+                    }).ToList(),
+                    count,
+                    now);
+                return OperationResult<List<RecentTransactionDto>>.Ok(recent, "Recent transactions retrieved successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving recent transactions.");
+                return OperationResult<List<RecentTransactionDto>>.Fail($"Error retrieving recent transactions: {ex.Message}");
+            }
+        }
+
         public async Task<OperationResult<DashboardSummaryDto>> GetSummaryAsync()
         {
             try
@@ -147,60 +367,10 @@ namespace MoneyTracker.Application.Services
 
         public async Task<OperationResult<CashFlowDto>> GetCashFlowAsync(TimePeriodFilter period = TimePeriodFilter.ThisMonth)
         {
-            try
+            return await GetCashFlowAsync(new DashboardFilterDto
             {
-                var filter = new TransactionFilterDto
-                {
-                    TimePeriod = period,
-                    SkipSorting = true
-                };
-
-                var transactionsResult = await _transactionService.GetFilteredAsync(filter);
-                if (!transactionsResult.Success)
-                    return OperationResult<CashFlowDto>.Fail(transactionsResult.Message);
-
-                var transactions = transactionsResult.Data.Transactions;
-
-                var totalIncome = transactions
-                    .Where(t => t.IsIncome())
-                    .Sum(t => Math.Abs(t.Amount));
-
-                var totalExpenses = transactions
-                    .Where(t => t.IsExpense())
-                    .Sum(t => Math.Abs(t.Amount));
-
-                var netCashFlow = totalIncome - totalExpenses;
-                var incomeByCategory = BuildCashFlowCategoryBreakdown(transactions, isIncome: true);
-                var expenseByCategory = BuildCashFlowCategoryBreakdown(transactions, isIncome: false);
-
-                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
-                var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
-                var daysElapsed = now.Day;
-                var daysLeft = daysInMonth - daysElapsed;
-
-                var dailyBurnRate = daysElapsed > 0 ? totalExpenses / daysElapsed : 0;
-                var projectedMonthEnd = totalIncome - (dailyBurnRate * daysInMonth);
-
-                var cashFlow = new CashFlowDto
-                {
-                    TotalIncome = totalIncome,
-                    TotalExpenses = totalExpenses,
-                    NetCashFlow = netCashFlow,
-                    DailyBurnRate = dailyBurnRate,
-                    DaysLeftInMonth = daysLeft,
-                    ProjectedMonthEnd = projectedMonthEnd,
-                    DaysInMonth = daysInMonth,
-                    DaysElapsed = daysElapsed,
-                    IncomeByCategory = incomeByCategory,
-                    ExpenseByCategory = expenseByCategory
-                };
-
-                return OperationResult<CashFlowDto>.Ok(cashFlow, "Cash flow retrieved successfully");
-            }
-            catch (Exception ex)
-            {
-                return OperationResult<CashFlowDto>.Fail($"Error retrieving cash flow: {ex.Message}");
-            }
+                TimePeriod = period
+            });
         }
 
         public async Task<OperationResult<List<FinancialAlertDto>>> GetAlertsAsync()
@@ -293,50 +463,10 @@ namespace MoneyTracker.Application.Services
 
         public async Task<OperationResult<List<CategoryBreakdownDto>>> GetCategoryBreakdownAsync(TimePeriodFilter period = TimePeriodFilter.ThisMonth)
         {
-            try
+            return await GetCategoryBreakdownAsync(new DashboardFilterDto
             {
-                var filter = new TransactionFilterDto
-                {
-                    TimePeriod = period,
-                    SkipSorting = true
-                };
-
-                var transactionsResult = await _transactionService.GetFilteredAsync(filter);
-                if (!transactionsResult.Success)
-                    return OperationResult<List<CategoryBreakdownDto>>.Fail(transactionsResult.Message);
-
-                var transactions = transactionsResult.Data.Transactions
-                    .Where(t => t.IsExpense() && t.CategoryId > 0)
-                    .ToList();
-
-                var totalExpenses = transactions.Sum(t => Math.Abs(t.Amount));
-
-                var categoryBreakdown = transactions
-                    .GroupBy(t => new {
-                        t.CategoryId,
-                        CategoryName = t.Category.Name ?? "Sin categoría",
-                        CategoryColor = t.Category.Color ?? "#9e9e9e"
-                    })
-                    .Select(g => new CategoryBreakdownDto
-                    {
-                        CategoryId = g.Key.CategoryId,
-                        CategoryName = g.Key.CategoryName,
-                        CategoryColor = g.Key.CategoryColor,
-                        Amount = g.Sum(t => Math.Abs(t.Amount)),
-                        Percentage = totalExpenses > 0 ? (g.Sum(t => Math.Abs(t.Amount)) / totalExpenses) * 100 : 0,
-                        TransactionCount = g.Count(),
-                        AverageTransaction = g.Count() > 0 ? g.Sum(t => Math.Abs(t.Amount)) / g.Count() : 0
-                    })
-                    .OrderByDescending(c => c.Amount)
-                    .Take(6)
-                    .ToList();
-
-                return OperationResult<List<CategoryBreakdownDto>>.Ok(categoryBreakdown, "Category breakdown retrieved successfully");
-            }
-            catch (Exception ex)
-            {
-                return OperationResult<List<CategoryBreakdownDto>>.Fail($"Error retrieving category breakdown: {ex.Message}");
-            }
+                TimePeriod = period
+            });
         }
 
         public async Task<OperationResult<List<AccountActivityDto>>> GetAccountActivityAsync()
@@ -414,45 +544,10 @@ namespace MoneyTracker.Application.Services
 
         public async Task<OperationResult<List<RecentTransactionDto>>> GetRecentTransactionsAsync(int count = 10)
         {
-            try
+            return await GetRecentTransactionsAsync(new DashboardFilterDto
             {
-                // OPTIMIZED: Get recent transactions with a filter instead of all transactions
-                var filter = new TransactionFilterDto
-                {
-                    TimePeriod = TimePeriodFilter.LastMonth, // Get last month to ensure we have enough data
-                    SkipSorting = true
-                };
-
-                var transactionsResult = await _transactionService.GetFilteredAsync(filter);
-                if (!transactionsResult.Success)
-                    return OperationResult<List<RecentTransactionDto>>.Fail(transactionsResult.Message);
-
-                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
-
-                var recentTransactions = transactionsResult.Data.Transactions
-                    .OrderByDescending(t => t.Date)
-                    .Take(count)
-                    .Select(t => new RecentTransactionDto
-                    {
-                        Id = t.Id,
-                        Name = t.Name,
-                        Description = t.Description,
-                        Amount = t.Amount,
-                        Date = t.Date,
-                        AccountName = t.Account?.Name ?? "Cuenta desconocida",
-                        CategoryName = t.Category?.Name ?? "Sin categoría",
-                        CategoryColor = t.Category?.Color ?? "#9e9e9e",
-                        Type = t.TransactionType,
-                        RelativeTime = CalculateRelativeTime(t.Date, now)
-                    })
-                    .ToList();
-
-                return OperationResult<List<RecentTransactionDto>>.Ok(recentTransactions, "Recent transactions retrieved successfully");
-            }
-            catch (Exception ex)
-            {
-                return OperationResult<List<RecentTransactionDto>>.Fail($"Error retrieving recent transactions: {ex.Message}");
-            }
+                TimePeriod = TimePeriodFilter.LastMonth
+            }, count);
         }
 
         public async Task<OperationResult<List<BalanceTrendDto>>> GetBalanceTrendAsync(int months = 6)
@@ -525,6 +620,7 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error retrieving balance trend.");
                 return OperationResult<List<BalanceTrendDto>>.Fail($"Error retrieving balance trend: {ex.Message}");
             }
         }
@@ -603,6 +699,18 @@ namespace MoneyTracker.Application.Services
             };
         }
 
+        private static List<DashboardTransactionEntry> ApplyDashboardEntryFilter(
+            List<DashboardTransactionEntry> entries,
+            DashboardTransactionFilter transactionFilter)
+        {
+            return transactionFilter switch
+            {
+                DashboardTransactionFilter.Income => entries.Where(IsIncomeEntry).ToList(),
+                DashboardTransactionFilter.Expense => entries.Where(IsExpenseEntry).ToList(),
+                _ => entries
+            };
+        }
+
         private DashboardSummaryDto BuildSummary(List<AccountDto> accounts)
         {
             var assets = accounts
@@ -661,6 +769,85 @@ namespace MoneyTracker.Application.Services
             };
         }
 
+        private CashFlowDto BuildCashFlow(List<DashboardTransactionEntry> entries, DateTime now)
+        {
+            var totalIncome = entries
+                .Where(IsIncomeEntry)
+                .Sum(t => Math.Abs(t.Amount));
+
+            var totalExpenses = entries
+                .Where(IsExpenseEntry)
+                .Sum(t => Math.Abs(t.Amount));
+
+            var netCashFlow = totalIncome - totalExpenses;
+            var incomeByCategory = BuildCashFlowCategoryBreakdown(entries, isIncome: true);
+            var expenseByCategory = BuildCashFlowCategoryBreakdown(entries, isIncome: false);
+            var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+            var daysElapsed = now.Day;
+            var daysLeft = daysInMonth - daysElapsed;
+            var dailyBurnRate = daysElapsed > 0 ? totalExpenses / daysElapsed : 0;
+            var projectedMonthEnd = totalIncome - (dailyBurnRate * daysInMonth);
+
+            return new CashFlowDto
+            {
+                TotalIncome = totalIncome,
+                TotalExpenses = totalExpenses,
+                NetCashFlow = netCashFlow,
+                DailyBurnRate = dailyBurnRate,
+                DaysLeftInMonth = daysLeft,
+                ProjectedMonthEnd = projectedMonthEnd,
+                DaysInMonth = daysInMonth,
+                DaysElapsed = daysElapsed,
+                IncomeByCategory = incomeByCategory,
+                ExpenseByCategory = expenseByCategory
+            };
+        }
+
+        private static CashFlowDto BuildCashFlow(
+            List<DashboardCategoryAggregateEntry> incomeCategories,
+            List<DashboardCategoryAggregateEntry> expenseCategories,
+            DateTime now)
+        {
+            var totalIncome = incomeCategories.Sum(x => x.Amount);
+            var totalExpenses = expenseCategories.Sum(x => x.Amount);
+            var netCashFlow = totalIncome - totalExpenses;
+            var daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+            var daysElapsed = now.Day;
+            var daysLeft = daysInMonth - daysElapsed;
+            var dailyBurnRate = daysElapsed > 0 ? totalExpenses / daysElapsed : 0;
+            var projectedMonthEnd = totalIncome - (dailyBurnRate * daysInMonth);
+
+            return new CashFlowDto
+            {
+                TotalIncome = totalIncome,
+                TotalExpenses = totalExpenses,
+                NetCashFlow = netCashFlow,
+                DailyBurnRate = dailyBurnRate,
+                DaysLeftInMonth = daysLeft,
+                ProjectedMonthEnd = projectedMonthEnd,
+                DaysInMonth = daysInMonth,
+                DaysElapsed = daysElapsed,
+                IncomeByCategory = incomeCategories
+                    .OrderByDescending(x => x.Amount)
+                    .Select(x => new CashFlowCategoryDto
+                    {
+                        CategoryId = x.CategoryId,
+                        CategoryName = x.CategoryName,
+                        Amount = x.Amount
+                    })
+                    .ToList(),
+                ExpenseByCategory = expenseCategories
+                    .OrderByDescending(x => x.Amount)
+                    .Select(x => new CashFlowCategoryDto
+                    {
+                        CategoryId = x.CategoryId,
+                        CategoryName = x.CategoryName,
+                        Amount = x.Amount
+                    })
+                    .ToList()
+            };
+        }
+
         private static List<CashFlowCategoryDto> BuildCashFlowCategoryBreakdown(
             List<TransactionDto> transactions,
             bool isIncome)
@@ -671,6 +858,27 @@ namespace MoneyTracker.Application.Services
                 {
                     t.CategoryId,
                     CategoryName = t.Category?.Name ?? "Sin categoria"
+                })
+                .Select(g => new CashFlowCategoryDto
+                {
+                    CategoryId = g.Key.CategoryId,
+                    CategoryName = g.Key.CategoryName,
+                    Amount = g.Sum(t => Math.Abs(t.Amount))
+                })
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+        }
+
+        private static List<CashFlowCategoryDto> BuildCashFlowCategoryBreakdown(
+            List<DashboardTransactionEntry> entries,
+            bool isIncome)
+        {
+            return entries
+                .Where(t => isIncome ? IsIncomeEntry(t) : IsExpenseEntry(t))
+                .GroupBy(t => new
+                {
+                    t.CategoryId,
+                    CategoryName = t.CategoryName
                 })
                 .Select(g => new CashFlowCategoryDto
                 {
@@ -712,6 +920,60 @@ namespace MoneyTracker.Application.Services
                 .ToList();
         }
 
+        private static List<CategoryBreakdownDto> BuildCategoryBreakdown(List<DashboardTransactionEntry> entries)
+        {
+            var expenses = entries
+                .Where(t => IsExpenseEntry(t) && t.CategoryId > 0)
+                .ToList();
+
+            var totalExpenses = expenses.Sum(t => Math.Abs(t.Amount));
+
+            return expenses
+                .GroupBy(t => new
+                {
+                    t.CategoryId,
+                    t.CategoryName,
+                    t.CategoryColor
+                })
+                .Select(g => new CategoryBreakdownDto
+                {
+                    CategoryId = g.Key.CategoryId,
+                    CategoryName = g.Key.CategoryName,
+                    CategoryColor = g.Key.CategoryColor,
+                    Amount = g.Sum(t => Math.Abs(t.Amount)),
+                    Percentage = totalExpenses > 0 ? (g.Sum(t => Math.Abs(t.Amount)) / totalExpenses) * 100 : 0,
+                    TransactionCount = g.Count(),
+                    AverageTransaction = g.Count() > 0 ? g.Sum(t => Math.Abs(t.Amount)) / g.Count() : 0
+                })
+                .OrderByDescending(c => c.Amount)
+                .Take(6)
+                .ToList();
+        }
+
+        private static List<CategoryBreakdownDto> BuildCategoryBreakdown(List<DashboardCategoryAggregateEntry> aggregates)
+        {
+            var expenses = aggregates
+                .Where(x => x.Amount > 0 && x.CategoryId > 0)
+                .OrderByDescending(x => x.Amount)
+                .ToList();
+
+            var totalExpenses = expenses.Sum(x => x.Amount);
+
+            return expenses
+                .Select(x => new CategoryBreakdownDto
+                {
+                    CategoryId = x.CategoryId,
+                    CategoryName = x.CategoryName,
+                    CategoryColor = x.CategoryColor,
+                    Amount = x.Amount,
+                    Percentage = totalExpenses > 0 ? (x.Amount / totalExpenses) * 100 : 0,
+                    TransactionCount = x.TransactionCount,
+                    AverageTransaction = x.TransactionCount > 0 ? x.Amount / x.TransactionCount : 0
+                })
+                .Take(6)
+                .ToList();
+        }
+
         private List<RecentTransactionDto> BuildRecentTransactions(List<TransactionDto> transactions, int count, DateTime now)
         {
             if (count <= 0 || transactions.Count == 0)
@@ -744,6 +1006,51 @@ namespace MoneyTracker.Application.Services
                     RelativeTime = CalculateRelativeTime(t.Date, now)
                 })
                 .ToList();
+        }
+
+        private List<RecentTransactionDto> BuildRecentTransactions(List<DashboardTransactionEntry> entries, int count, DateTime now)
+        {
+            if (count <= 0 || entries.Count == 0)
+                return new List<RecentTransactionDto>();
+
+            var latest = new PriorityQueue<DashboardTransactionEntry, DateTime>();
+            foreach (var entry in entries)
+            {
+                latest.Enqueue(entry, entry.Date);
+                if (latest.Count > count)
+                {
+                    latest.Dequeue();
+                }
+            }
+
+            return latest.UnorderedItems
+                .Select(x => x.Element)
+                .OrderByDescending(t => t.Date)
+                .Select(t => new RecentTransactionDto
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Description = t.Description,
+                    Amount = t.Amount,
+                    Date = _timeZoneService.ConvertFromUtc(t.Date),
+                    AccountName = t.AccountName,
+                    CategoryName = t.CategoryName,
+                    CategoryColor = t.CategoryColor,
+                    Type = GetEntryType(t),
+                    RelativeTime = CalculateRelativeTime(_timeZoneService.ConvertFromUtc(t.Date), now)
+                })
+                .ToList();
+        }
+
+        private async Task<List<DashboardTransactionEntry>> LoadDashboardEntriesAsync(DashboardFilterDto filter, DateTime now)
+        {
+            var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
+            var fromUtc = _timeZoneService.ConvertToUtc(rangeStart.Date);
+            var toUtc = _timeZoneService.ConvertToUtc(rangeEnd.Date.AddDays(1).AddTicks(-1));
+            return await _transactionRepository.GetDashboardEntriesAsync(
+                fromUtc,
+                toUtc,
+                filter.AccountIds ?? new List<int>());
         }
 
         private async Task<List<BalanceTrendMovementDto>> LoadTrendEntriesAsync(
@@ -1102,6 +1409,148 @@ namespace MoneyTracker.Application.Services
             return dailyTrend;
         }
 
+        private static List<DashboardSpendingTrendDto> BuildSpendingTrend(
+            List<DashboardTransactionEntry> entries,
+            DashboardFilterDto filter,
+            DateTime now)
+        {
+            var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
+            var expenses = entries
+                .Where(IsExpenseEntry)
+                .Where(t => t.Date >= rangeStart && t.Date <= rangeEnd)
+                .ToList();
+
+            var totalDays = (rangeEnd.Date - rangeStart.Date).TotalDays;
+            var useMonthlyBuckets = totalDays > 120;
+
+            if (useMonthlyBuckets)
+            {
+                var grouped = expenses
+                    .GroupBy(t => new DateTime(t.Date.Year, t.Date.Month, 1))
+                    .ToDictionary(g => g.Key, g => g.Sum(x => Math.Abs(x.Amount)));
+
+                var cursor = new DateTime(rangeStart.Year, rangeStart.Month, 1);
+                var endMonth = new DateTime(rangeEnd.Year, rangeEnd.Month, 1);
+                var trend = new List<DashboardSpendingTrendDto>();
+
+                while (cursor <= endMonth)
+                {
+                    grouped.TryGetValue(cursor, out var amount);
+                    trend.Add(new DashboardSpendingTrendDto
+                    {
+                        Date = cursor,
+                        Label = cursor.ToString("MMM yyyy"),
+                        Amount = amount
+                    });
+
+                    cursor = cursor.AddMonths(1);
+                }
+
+                return trend;
+            }
+
+            var byDay = expenses
+                .GroupBy(t => t.Date.Date)
+                .ToDictionary(g => g.Key, g => g.Sum(x => Math.Abs(x.Amount)));
+
+            var dailyTrend = new List<DashboardSpendingTrendDto>();
+            for (var day = rangeStart.Date; day <= rangeEnd.Date; day = day.AddDays(1))
+            {
+                byDay.TryGetValue(day, out var amount);
+                dailyTrend.Add(new DashboardSpendingTrendDto
+                {
+                    Date = day,
+                    Label = day.ToString("dd MMM"),
+                    Amount = amount
+                });
+            }
+
+            return dailyTrend;
+        }
+
+        private List<DashboardSpendingTrendDto> BuildSpendingTrend(
+            List<DashboardAmountByDateEntry> entries,
+            DashboardFilterDto filter,
+            DateTime now)
+        {
+            var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
+            var localEntries = entries
+                .Select(x => new DashboardAmountByDateEntry
+                {
+                    Date = _timeZoneService.ConvertFromUtc(x.Date),
+                    Amount = x.Amount
+                })
+                .Where(x => x.Date >= rangeStart && x.Date <= rangeEnd)
+                .ToList();
+
+            var totalDays = (rangeEnd.Date - rangeStart.Date).TotalDays;
+            var useMonthlyBuckets = totalDays > 120;
+
+            if (useMonthlyBuckets)
+            {
+                var grouped = localEntries
+                    .GroupBy(t => new DateTime(t.Date.Year, t.Date.Month, 1))
+                    .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
+                var cursor = new DateTime(rangeStart.Year, rangeStart.Month, 1);
+                var endMonth = new DateTime(rangeEnd.Year, rangeEnd.Month, 1);
+                var trend = new List<DashboardSpendingTrendDto>();
+
+                while (cursor <= endMonth)
+                {
+                    grouped.TryGetValue(cursor, out var amount);
+                    trend.Add(new DashboardSpendingTrendDto
+                    {
+                        Date = cursor,
+                        Label = cursor.ToString("MMM yyyy"),
+                        Amount = amount
+                    });
+
+                    cursor = cursor.AddMonths(1);
+                }
+
+                return trend;
+            }
+
+            var byDay = localEntries
+                .GroupBy(t => t.Date.Date)
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+
+            var dailyTrend = new List<DashboardSpendingTrendDto>();
+            for (var day = rangeStart.Date; day <= rangeEnd.Date; day = day.AddDays(1))
+            {
+                byDay.TryGetValue(day, out var amount);
+                dailyTrend.Add(new DashboardSpendingTrendDto
+                {
+                    Date = day,
+                    Label = day.ToString("dd MMM"),
+                    Amount = amount
+                });
+            }
+
+            return dailyTrend;
+        }
+
+        private static bool IsIncomeEntry(DashboardTransactionEntry entry)
+            => !IsTransferEntry(entry) && entry.CategoryType == CategoryTypeEnum.Income;
+
+        private static bool IsExpenseEntry(DashboardTransactionEntry entry)
+            => !IsTransferEntry(entry) && entry.CategoryType == CategoryTypeEnum.Expense;
+
+        private static bool IsTransferEntry(DashboardTransactionEntry entry)
+            => SystemCategoryCodes.IsTransfer(entry.SystemCategoryCode)
+               || entry.CategoryType == CategoryTypeEnum.Transfer;
+
+        private static TransactionTypeEnum GetEntryType(DashboardTransactionEntry entry)
+        {
+            if (IsTransferEntry(entry))
+                return TransactionTypeEnum.Transfer;
+
+            return entry.CategoryType == CategoryTypeEnum.Income
+                ? TransactionTypeEnum.Income
+                : TransactionTypeEnum.Expense;
+        }
+
         private static DashboardFilterDto NormalizeOverviewFilter(DashboardFilterDto original, DateTime now)
         {
             var clone = new DashboardFilterDto
@@ -1131,13 +1580,13 @@ namespace MoneyTracker.Application.Services
             var diff = now - transactionDate;
 
             if (diff.TotalMinutes < 60)
-                return $"Hace {(int)diff.TotalMinutes} minutos";
+                return $"{(int)diff.TotalMinutes} minutes ago";
             if (diff.TotalHours < 24)
-                return $"Hace {(int)diff.TotalHours} horas";
+                return $"{(int)diff.TotalHours} hours ago";
             if (diff.TotalDays < 7)
-                return $"Hace {(int)diff.TotalDays} días";
+                return $"{(int)diff.TotalDays} days ago";
             if (diff.TotalDays < 30)
-                return $"Hace {(int)(diff.TotalDays / 7)} semanas";
+                return $"{(int)(diff.TotalDays / 7)} weeks ago";
 
             return transactionDate.ToString("dd/MM/yyyy");
         }

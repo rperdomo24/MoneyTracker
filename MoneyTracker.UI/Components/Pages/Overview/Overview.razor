@@ -9,6 +9,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
+@using System.Threading
 @inject IDashboardService DashboardService
 @inject IAccountService AccountService
 @inject IDashboardFilterStateService DashboardFilterState
@@ -26,17 +27,17 @@
                     <MudStack Spacing="1">
                         <MudText Typo="Typo.h4" Style="color: white; font-weight: 600;">
                             <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" />
-                            Bienvenido, @UserDisplayName
+                            Welcome, @UserDisplayName
                         </MudText>
                         <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
-                            Here's what's happening with your finances. Última actualización: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
+                            Here's what's happening with your finances. Last updated: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
                         </MudText>
                     </MudStack>
                     <MudButton Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Filled.Refresh"
                                Style="color: white; border-color: white;"
                                OnClick="RefreshDashboard">
-                        Actualizar
+                        Refresh
                     </MudButton>
                 </MudStack>
             </MudPaper>
@@ -47,7 +48,7 @@
                 <MudGrid Spacing="2">
                     <MudItem xs="12" md="3">
                         <MudSelect T="TimePeriodFilter"
-                                   Label="Período"
+                                   Label="Period"
                                    Variant="Variant.Outlined"
                                    Value="_selectedPeriod"
                                    ValueChanged="OnPeriodChanged">
@@ -60,7 +61,7 @@
 
                     <MudItem xs="12" md="4">
                         <MudSelect T="int"
-                                   Label="Cuentas"
+                                   Label="Accounts"
                                    Variant="Variant.Outlined"
                                    MultiSelection="true"
                                    SelectedValues="_selectedAccountIds"
@@ -74,7 +75,7 @@
 
                     <MudItem xs="12" md="3">
                         <MudSelect T="DashboardTransactionFilter"
-                                   Label="Transacciones"
+                                   Label="Transactions"
                                    Variant="Variant.Outlined"
                                    @bind-Value="_selectedTransactionFilter">
                             @foreach (var transactionOption in _transactionFilterOptions)
@@ -91,21 +92,21 @@
                                    Style="height:56px;"
                                    StartIcon="@Icons.Material.Filled.FilterAlt"
                                    OnClick="ApplyFiltersAsync">
-                            Aplicar
+                            Apply
                         </MudButton>
                     </MudItem>
 
                     @if (_selectedPeriod == TimePeriodFilter.Custom)
                     {
                         <MudItem xs="12" md="3">
-                            <MudDatePicker Label="Desde"
+                            <MudDatePicker Label="From"
                                            Variant="Variant.Outlined"
                                            Editable="false"
                                            Date="_customFromDate"
                                            DateChanged="OnFromDateChanged" />
                         </MudItem>
                         <MudItem xs="12" md="3">
-                            <MudDatePicker Label="Hasta"
+                            <MudDatePicker Label="To"
                                            Variant="Variant.Outlined"
                                            Editable="false"
                                            Date="_customToDate"
@@ -126,6 +127,26 @@
         {
             <MudItem xs="12">
                 <BalanceTrendCard Data="_balanceTrend" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <BudgetSummaryCard Data="_budgetSummary" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <CategoryBreakdownCard Data="_categoryBreakdown" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <SpendingTrendCard Data="_spendingTrend" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <CashFlowCard Data="_cashFlow" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <RecentTransactionsCard Data="_recentTransactions" />
             </MudItem>
         }
     </MudGrid>
@@ -148,6 +169,11 @@
 @code {
     private bool _isLoading = true;
     private List<BalanceTrendDto> _balanceTrend = new();
+    private DashboardBudgetSummaryDto _budgetSummary = new();
+    private List<DashboardSpendingTrendDto> _spendingTrend = new();
+    private List<CategoryBreakdownDto> _categoryBreakdown = new();
+    private CashFlowDto _cashFlow = new();
+    private List<RecentTransactionDto> _recentTransactions = new();
     private List<AccountDto> _accounts = new();
     private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
     private DashboardTransactionFilter _selectedTransactionFilter = DashboardTransactionFilter.All;
@@ -155,24 +181,25 @@
     private DateTime? _customFromDate;
     private DateTime? _customToDate;
     private string? _userDisplayName;
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
 
-    private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Usuario" : _userDisplayName;
+    private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "User" : _userDisplayName;
     private static readonly List<(TimePeriodFilter Value, string Label)> _periodOptions =
     [
-        (TimePeriodFilter.AllTime, "Todo el tiempo"),
-        (TimePeriodFilter.Last30Days, "Últimos 30 días"),
-        (TimePeriodFilter.Last90Days, "Últimos 90 días"),
-        (TimePeriodFilter.ThisMonth, "Este mes"),
-        (TimePeriodFilter.LastMonth, "Mes anterior"),
-        (TimePeriodFilter.ThisYear, "Este año"),
-        (TimePeriodFilter.Custom, "Rango personalizado")
+        (TimePeriodFilter.AllTime, "All time"),
+        (TimePeriodFilter.Last30Days, "Last 30 days"),
+        (TimePeriodFilter.Last90Days, "Last 90 days"),
+        (TimePeriodFilter.ThisMonth, "This month"),
+        (TimePeriodFilter.LastMonth, "Last month"),
+        (TimePeriodFilter.ThisYear, "This year"),
+        (TimePeriodFilter.Custom, "Custom range")
     ];
 
     private static readonly List<(DashboardTransactionFilter Value, string Label)> _transactionFilterOptions =
     [
-        (DashboardTransactionFilter.All, "Todas"),
-        (DashboardTransactionFilter.Income, "Ingresos"),
-        (DashboardTransactionFilter.Expense, "Gastos")
+        (DashboardTransactionFilter.All, "All"),
+        (DashboardTransactionFilter.Income, "Income"),
+        (DashboardTransactionFilter.Expense, "Expenses")
     ];
 
     protected override async Task OnInitializedAsync()
@@ -185,7 +212,7 @@
         catch (Exception ex)
         {
             _isLoading = false;
-            Snackbar.Add($"Error inicializando dashboard: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error initializing dashboard: {ex.Message}", Severity.Error);
         }
     }
 
@@ -200,7 +227,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"No se pudieron restaurar filtros guardados: {ex.Message}", Severity.Warning);
+            Snackbar.Add($"Could not restore saved filters: {ex.Message}", Severity.Warning);
         }
 
         await LoadDashboardData();
@@ -223,7 +250,7 @@
 
         if (string.IsNullOrWhiteSpace(preferredName))
         {
-            _userDisplayName = "Usuario";
+            _userDisplayName = "User";
             return;
         }
 
@@ -234,7 +261,7 @@
     {
         var trimmed = rawName.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
-            return "Usuario";
+            return "User";
 
         if (trimmed.Contains('@'))
         {
@@ -244,7 +271,7 @@
                 .Replace('-', ' ')
                 .Trim();
 
-            return string.IsNullOrWhiteSpace(alias) ? "Usuario" : alias;
+            return string.IsNullOrWhiteSpace(alias) ? "User" : alias;
         }
 
         return trimmed;
@@ -257,12 +284,12 @@
             var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
             if (!accountsResult.Success)
             {
-                Snackbar.Add($"No se pudieron cargar cuentas para filtros: {accountsResult.Message}", Severity.Warning);
+                Snackbar.Add($"Could not load accounts for filters: {accountsResult.Message}", Severity.Warning);
                 return;
             }
             if (accountsResult.Data is null)
             {
-                Snackbar.Add("No se recibieron cuentas para filtros.", Severity.Warning);
+                Snackbar.Add("No accounts were returned for filters.", Severity.Warning);
                 return;
             }
 
@@ -272,7 +299,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error cargando cuentas para filtros: {ex.Message}", Severity.Warning);
+            Snackbar.Add($"Error loading accounts for filters: {ex.Message}", Severity.Warning);
         }
     }
 
@@ -302,6 +329,8 @@
 
     private async Task LoadDashboardData()
     {
+        await _loadLock.WaitAsync();
+
         _isLoading = true;
         StateHasChanged();
 
@@ -317,28 +346,104 @@
             };
 
             var balanceTrendResult = await DashboardService.GetBalanceTrendAsync(filter);
-
+            var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync();
+            var spendingTrendResult = await DashboardService.GetSpendingTrendAsync(filter);
+            var categoryBreakdownResult = await DashboardService.GetCategoryBreakdownAsync(filter);
+            var cashFlowFilter = new DashboardFilterDto
+            {
+                TimePeriod = filter.TimePeriod,
+                FromDate = filter.FromDate,
+                ToDate = filter.ToDate,
+                AccountIds = filter.AccountIds,
+                TransactionFilter = DashboardTransactionFilter.All
+            };
+            var cashFlowResult = await DashboardService.GetCashFlowAsync(cashFlowFilter);
+            var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(filter, 6);
             if (!balanceTrendResult.Success)
             {
-                Snackbar.Add($"Error cargando Net Worth Trend: {balanceTrendResult.Message}", Severity.Error);
+                Snackbar.Add($"Error loading Net Worth Trend: {balanceTrendResult.Message}", Severity.Error);
                 return;
             }
             if (balanceTrendResult.Data is null)
             {
-                Snackbar.Add("No se recibieron datos de Net Worth Trend.", Severity.Error);
+                Snackbar.Add("No Net Worth Trend data was returned.", Severity.Error);
                 return;
             }
-
+            if (!budgetSummaryResult.Success)
+            {
+                Snackbar.Add($"Error loading Budget Summary: {budgetSummaryResult.Message}", Severity.Error);
+                return;
+            }
+            if (budgetSummaryResult.Data is null)
+            {
+                Snackbar.Add("No Budget Summary data was returned.", Severity.Error);
+                return;
+            }
+            if (!spendingTrendResult.Success)
+            {
+                Snackbar.Add($"Error loading Spending Trend: {spendingTrendResult.Message}", Severity.Error);
+                return;
+            }
+            if (spendingTrendResult.Data is null)
+            {
+                Snackbar.Add("No Spending Trend data was returned.", Severity.Error);
+                return;
+            }
+            if (!categoryBreakdownResult.Success)
+            {
+                Snackbar.Add($"Error loading Category Breakdown: {categoryBreakdownResult.Message}", Severity.Error);
+                return;
+            }
+            if (categoryBreakdownResult.Data is null)
+            {
+                Snackbar.Add("No Category Breakdown data was returned.", Severity.Error);
+                return;
+            }
+            if (!cashFlowResult.Success)
+            {
+                Snackbar.Add($"Error loading Cash Flow: {cashFlowResult.Message}", Severity.Error);
+                return;
+            }
+            if (cashFlowResult.Data is null)
+            {
+                Snackbar.Add("No Cash Flow data was returned.", Severity.Error);
+                return;
+            }
+            if (!recentTransactionsResult.Success)
+            {
+                Snackbar.Add($"Error loading Recent Transactions: {recentTransactionsResult.Message}", Severity.Error);
+                return;
+            }
+            if (recentTransactionsResult.Data is null)
+            {
+                Snackbar.Add("No Recent Transactions data was returned.", Severity.Error);
+                return;
+            }
             _balanceTrend = balanceTrendResult.Data;
+            _budgetSummary = budgetSummaryResult.Data;
+            _spendingTrend = spendingTrendResult.Data;
+            _categoryBreakdown = categoryBreakdownResult.Data;
+            _cashFlow = cashFlowResult.Data;
+            _recentTransactions = recentTransactionsResult.Data;
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error crítico cargando dashboard: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Critical error loading dashboard: {ex.Message}", Severity.Error);
         }
         finally
         {
             _isLoading = false;
-            StateHasChanged();
+            try
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
         }
     }
 
@@ -381,13 +486,13 @@
     {
         if (_selectedPeriod == TimePeriodFilter.Custom && (!_customFromDate.HasValue || !_customToDate.HasValue))
         {
-            Snackbar.Add("Selecciona fechas desde y hasta para el rango personalizado.", Severity.Warning);
+            Snackbar.Add("Select both from and to dates for custom range.", Severity.Warning);
             return;
         }
 
         if (_selectedPeriod == TimePeriodFilter.Custom && _customFromDate > _customToDate)
         {
-            Snackbar.Add("La fecha desde no puede ser mayor que la fecha hasta.", Severity.Warning);
+            Snackbar.Add("From date cannot be greater than to date.", Severity.Warning);
             return;
         }
 

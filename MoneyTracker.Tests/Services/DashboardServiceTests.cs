@@ -25,6 +25,11 @@ namespace MoneyTracker.Tests.Services
 
         private DashboardService CreateService()
         {
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
+
             _transactionRepository
                 .Setup(x => x.GetTrendEntriesAsync(
                     It.IsAny<DateTime?>(),
@@ -33,12 +38,124 @@ namespace MoneyTracker.Tests.Services
                     It.IsAny<CategoryTypeEnum?>()))
                 .ReturnsAsync(new List<TransactionTrendEntry>());
 
+            _transactionRepository
+                .Setup(x => x.GetDashboardEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>()))
+                .ReturnsAsync(new List<DashboardTransactionEntry>());
+
+            _transactionRepository
+                .Setup(x => x.GetCategoryAggregatesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum>(),
+                    It.IsAny<int>()))
+                .ReturnsAsync(new List<DashboardCategoryAggregateEntry>());
+
+            _transactionRepository
+                .Setup(x => x.GetAmountsByDateAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum>()))
+                .ReturnsAsync(new List<DashboardAmountByDateEntry>());
+
+            _transactionRepository
+                .Setup(x => x.GetRecentDashboardEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum?>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<int>()))
+                .ReturnsAsync(new List<DashboardTransactionEntry>());
+
+            _transactionRepository
+                .Setup(x => x.GetCashFlowAggregatesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>()))
+                .ReturnsAsync(new List<DashboardCashFlowAggregateEntry>());
+
             return new DashboardService(
                 _accountService.Object,
                 _transactionService.Object,
                 _transactionRepository.Object,
                 _budgetService.Object,
                 _timeZoneService.Object);
+        }
+
+        [Fact]
+        public async Task GetOverviewWidgetsAsync_WhenSuccess_UsesSingleDashboardQueryAndBuildsWidgets()
+        {
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
+
+            _transactionRepository
+                .Setup(x => x.GetDashboardEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>()))
+                .ReturnsAsync(new List<DashboardTransactionEntry>
+                {
+                    new()
+                    {
+                        Id = 1,
+                        Name = "Salary",
+                        Description = "Monthly salary",
+                        Amount = 1500m,
+                        Date = new DateTime(2026, 3, 2),
+                        AccountId = 1,
+                        AccountName = "Main",
+                        CategoryId = 1,
+                        CategoryName = "Income",
+                        CategoryColor = "#4caf50",
+                        CategoryType = CategoryTypeEnum.Income
+                    },
+                    new()
+                    {
+                        Id = 2,
+                        Name = "Food",
+                        Description = "Groceries",
+                        Amount = 300m,
+                        Date = new DateTime(2026, 3, 5),
+                        AccountId = 1,
+                        AccountName = "Main",
+                        CategoryId = 2,
+                        CategoryName = "Food",
+                        CategoryColor = "#f44336",
+                        CategoryType = CategoryTypeEnum.Expense
+                    }
+                });
+
+            _budgetService
+                .Setup(x => x.GetMonthlyWithUsageAsync(It.IsAny<int>(), It.IsAny<int>()))
+                .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
+
+            var svc = CreateService();
+            var result = await svc.GetOverviewWidgetsAsync(new DashboardFilterDto
+            {
+                TimePeriod = TimePeriodFilter.ThisMonth
+            }, recentTransactionsCount: 6);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.CashFlow.TotalIncome.Should().Be(1500m);
+            result.Data.CashFlow.TotalExpenses.Should().Be(300m);
+            result.Data.CategoryBreakdown.Should().ContainSingle(x => x.CategoryName == "Food");
+            result.Data.RecentTransactions.Should().HaveCount(2);
+
+            _transactionRepository.Verify(x => x.GetDashboardEntriesAsync(
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<List<int>>()),
+                Times.Once);
+
+            _transactionService.Verify(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()), Times.Never);
         }
 
         [Fact]
@@ -79,15 +196,17 @@ namespace MoneyTracker.Tests.Services
         {
             // Use a fixed local date so monthly burn-rate fields are deterministic.
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(new DateTime(2026, 3, 10, 12, 0, 0));
-            _transactionService.Setup(x => x.GetFilteredAsync(It.IsAny<TransactionFilterDto>()))
-                .ReturnsAsync(OperationResult<TransactionSummaryDto>.Ok(new TransactionSummaryDto
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _transactionRepository
+                .Setup(x => x.GetCashFlowAggregatesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>()))
+                .ReturnsAsync(new List<DashboardCashFlowAggregateEntry>
                 {
-                    Transactions = new List<TransactionDto>
-                    {
-                        new() { Amount = 1000m, CategoryId = 1, Category = new CategoryDto { Type = CategoryTypeEnum.Income } },
-                        new() { Amount = 300m, CategoryId = 2, Category = new CategoryDto { Type = CategoryTypeEnum.Expense } }
-                    }
-                }));
+                    new() { CategoryType = CategoryTypeEnum.Income, CategoryId = 1, CategoryName = "Salary", Amount = 1000m, TransactionCount = 1 },
+                    new() { CategoryType = CategoryTypeEnum.Expense, CategoryId = 2, CategoryName = "Food", Amount = 300m, TransactionCount = 1 }
+                });
             var svc = CreateService();
 
             var result = await svc.GetCashFlowAsync(TimePeriodFilter.ThisMonth);

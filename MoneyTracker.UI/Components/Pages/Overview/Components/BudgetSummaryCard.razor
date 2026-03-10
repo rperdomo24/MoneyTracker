@@ -39,7 +39,7 @@
                 @if (Data.OverBudgetCount > 0)
                 {
                     <MudAlert Severity="Severity.Warning" Dense="true">
-                        @Data.OverBudgetCount categoría(s) sobre presupuesto
+                        @Data.OverBudgetCount category(ies) over budget
                     </MudAlert>
                 }
 
@@ -75,5 +75,4 @@
 
 @code {
     [Parameter] public DashboardBudgetSummaryDto? Data { get; set; }
-
 }

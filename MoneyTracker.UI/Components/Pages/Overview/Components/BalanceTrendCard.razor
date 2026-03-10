@@ -11,7 +11,7 @@
                     @CurrencyHelper.FormatCurrency(_endValue)
                 </MudText>
                 <MudText Typo="Typo.body1" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
-                    @CurrencyHelper.FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs inicio del periodo
+                    @CurrencyHelper.FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs period start
                 </MudText>
             </MudStack>
 
@@ -23,7 +23,7 @@
         @if (_chartData.Any())
         {
             <div class="networth-apex-chart">
-                <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="310">
+                <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="280">
                     <ApexPointSeries TItem="BalancePoint"
                                      Items="_chartData"
                                      Name="Net Worth"

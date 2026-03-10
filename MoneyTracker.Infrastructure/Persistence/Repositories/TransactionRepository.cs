@@ -1,19 +1,27 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
+using Npgsql;
+using NpgsqlTypes;
 
 public class TransactionRepository : ITransactionRepository
 {
     private readonly MoneyTrackerDbContext _context;
     private readonly ILogger<TransactionRepository> _logger;
+    private readonly ITenantContext _tenantContext;
 
-    public TransactionRepository(MoneyTrackerDbContext context, ILogger<TransactionRepository> logger)
+    public TransactionRepository(
+        MoneyTrackerDbContext context,
+        ILogger<TransactionRepository> logger,
+        ITenantContext tenantContext)
     {
         _context = context;
         _logger = logger;
+        _tenantContext = tenantContext;
     }
 
     public async Task<List<Transaction>> GetAllAsync()
@@ -179,6 +187,301 @@ public class TransactionRepository : ITransactionRepository
             _logger.LogError(ex, "Error getting trend transaction entries");
             return new List<TransactionTrendEntry>();
         }
+    }
+
+    public async Task<List<DashboardTransactionEntry>> GetDashboardEntriesAsync(
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        List<int> accountIds)
+    {
+        try
+        {
+            var query = _context.Transaction
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted);
+
+            query = ApplyDateFilter(query, fromDateUtc, toDateUtc);
+
+            if (accountIds.Any())
+            {
+                query = query.Where(t => accountIds.Contains(t.AccountId));
+            }
+
+            return await query
+                .Select(t => new DashboardTransactionEntry
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Description = t.Description ?? string.Empty,
+                    Amount = t.Amount,
+                    Date = t.Date,
+                    AccountId = t.AccountId,
+                    AccountName = t.Account != null ? t.Account.Name : "Cuenta desconocida",
+                    CategoryId = t.CategoryId,
+                    CategoryName = t.Category != null ? t.Category.Name : "Sin categoría",
+                    CategoryColor = t.Category != null && t.Category.Color != null ? t.Category.Color : "#9e9e9e",
+                    CategoryType = t.Category != null ? t.Category.Type : CategoryTypeEnum.Transfer,
+                    SystemCategoryCode = t.Category != null ? t.Category.SystemCategoryCode : null
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting dashboard transaction entries");
+            return new List<DashboardTransactionEntry>();
+        }
+    }
+
+    public async Task<List<DashboardTransactionEntry>> GetRecentDashboardEntriesAsync(
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        List<int> accountIds,
+        CategoryTypeEnum? categoryType,
+        bool includeTransfers,
+        int count)
+    {
+        try
+        {
+            var safeCount = Math.Max(1, count);
+            var query = _context.Transaction
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted);
+
+            query = ApplyDateFilter(query, fromDateUtc, toDateUtc);
+
+            if (accountIds.Any())
+            {
+                query = query.Where(t => accountIds.Contains(t.AccountId));
+            }
+
+            if (categoryType.HasValue)
+            {
+                query = query.Where(t => t.Category != null && t.Category.Type == categoryType.Value);
+            }
+            else if (!includeTransfers)
+            {
+                query = query.Where(t =>
+                    t.Category != null &&
+                    (t.Category.Type == CategoryTypeEnum.Income || t.Category.Type == CategoryTypeEnum.Expense));
+            }
+
+            return await query
+                .OrderByDescending(t => t.Date)
+                .ThenByDescending(t => t.CreatedAt)
+                .Take(safeCount)
+                .Select(t => new DashboardTransactionEntry
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    Description = t.Description ?? string.Empty,
+                    Amount = t.Amount,
+                    Date = t.Date,
+                    AccountId = t.AccountId,
+                    AccountName = t.Account != null ? t.Account.Name : "Cuenta desconocida",
+                    CategoryId = t.CategoryId,
+                    CategoryName = t.Category != null ? t.Category.Name : "Sin categoría",
+                    CategoryColor = t.Category != null && t.Category.Color != null ? t.Category.Color : "#9e9e9e",
+                    CategoryType = t.Category != null ? t.Category.Type : CategoryTypeEnum.Transfer,
+                    SystemCategoryCode = t.Category != null ? t.Category.SystemCategoryCode : null
+                })
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting recent dashboard transaction entries");
+            return new List<DashboardTransactionEntry>();
+        }
+    }
+
+    public async Task<List<DashboardCategoryAggregateEntry>> GetCategoryAggregatesAsync(
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        List<int> accountIds,
+        CategoryTypeEnum categoryType,
+        int top = 0)
+    {
+        try
+        {
+            var query = _context.Transaction
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted && t.Category != null && t.Category.Type == categoryType);
+
+            query = ApplyDateFilter(query, fromDateUtc, toDateUtc);
+
+            if (accountIds.Any())
+            {
+                query = query.Where(t => accountIds.Contains(t.AccountId));
+            }
+
+            IQueryable<DashboardCategoryAggregateEntry> grouped = query
+                .GroupBy(t => new
+                {
+                    t.CategoryId,
+                    CategoryName = t.Category != null ? t.Category.Name : "Sin categoría",
+                    CategoryColor = t.Category != null && t.Category.Color != null ? t.Category.Color : "#9e9e9e"
+                })
+                .Select(g => new DashboardCategoryAggregateEntry
+                {
+                    CategoryId = g.Key.CategoryId,
+                    CategoryName = g.Key.CategoryName,
+                    CategoryColor = g.Key.CategoryColor,
+                    Amount = g.Sum(x => Math.Abs(x.Amount)),
+                    TransactionCount = g.Count()
+                })
+                .OrderByDescending(x => x.Amount);
+
+            if (top > 0)
+            {
+                grouped = grouped.Take(top);
+            }
+
+            return await grouped.ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting dashboard category aggregates");
+            return new List<DashboardCategoryAggregateEntry>();
+        }
+    }
+
+    public async Task<List<DashboardAmountByDateEntry>> GetAmountsByDateAsync(
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        List<int> accountIds,
+        CategoryTypeEnum categoryType)
+    {
+        try
+        {
+            var query = _context.Transaction
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted && t.Category != null && t.Category.Type == categoryType);
+
+            query = ApplyDateFilter(query, fromDateUtc, toDateUtc);
+
+            if (accountIds.Any())
+            {
+                query = query.Where(t => accountIds.Contains(t.AccountId));
+            }
+
+            return await query
+                .GroupBy(t => t.Date.Date)
+                .Select(g => new DashboardAmountByDateEntry
+                {
+                    Date = g.Key,
+                    Amount = g.Sum(x => Math.Abs(x.Amount))
+                })
+                .OrderBy(x => x.Date)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting dashboard amounts by date");
+            return new List<DashboardAmountByDateEntry>();
+        }
+    }
+
+    public async Task<List<DashboardCashFlowAggregateEntry>> GetCashFlowAggregatesAsync(
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        List<int> accountIds)
+    {
+        try
+        {
+            var tenantId = _tenantContext.TenantId;
+            if (!tenantId.HasValue || tenantId == Guid.Empty)
+            {
+                _logger.LogWarning("Tenant context not found while loading cash flow aggregates.");
+                return new List<DashboardCashFlowAggregateEntry>();
+            }
+
+            const string sql = """
+                SELECT
+                    c."Type" AS CategoryType,
+                    t."CategoryId" AS CategoryId,
+                    COALESCE(c."Name", 'Uncategorized') AS CategoryName,
+                    SUM(ABS(t."Amount")) AS Amount,
+                    COUNT(*)::int AS TransactionCount
+                FROM "Transaction" t
+                INNER JOIN "Categories" c ON c."Id" = t."CategoryId"
+                WHERE
+                    t."TenantId" = @tenantId
+                    AND c."TenantId" = @tenantId
+                    AND t."IsDeleted" = FALSE
+                    AND c."IsDeleted" = FALSE
+                    AND (@fromUtc IS NULL OR t."Date" >= @fromUtc)
+                    AND (@toUtc IS NULL OR t."Date" <= @toUtc)
+                    AND c."Type" IN (1, 2)
+                    AND (
+                        @hasAccounts = FALSE
+                        OR t."AccountId" = ANY(@accountIds)
+                    )
+                GROUP BY c."Type", t."CategoryId", c."Name"
+                ORDER BY Amount DESC;
+                """;
+
+            var result = new List<DashboardCashFlowAggregateEntry>();
+            var safeAccountIds = accountIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToArray();
+            return await ExecuteCashFlowAggregateSqlAsync(
+                sql,
+                tenantId.Value,
+                fromDateUtc,
+                toDateUtc,
+                safeAccountIds,
+                result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting cash flow aggregates");
+            return new List<DashboardCashFlowAggregateEntry>();
+        }
+    }
+
+    private async Task<List<DashboardCashFlowAggregateEntry>> ExecuteCashFlowAggregateSqlAsync(
+        string sql,
+        Guid tenantId,
+        DateTime? fromDateUtc,
+        DateTime? toDateUtc,
+        int[] safeAccountIds,
+        List<DashboardCashFlowAggregateEntry> result)
+    {
+        var connectionString = _context.Database.GetConnectionString();
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            _logger.LogError("Database connection string is not configured.");
+            return result;
+        }
+
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.Add(new NpgsqlParameter("tenantId", tenantId));
+        command.Parameters.Add(new NpgsqlParameter("fromUtc", fromDateUtc.HasValue ? fromDateUtc.Value : DBNull.Value));
+        command.Parameters.Add(new NpgsqlParameter("toUtc", toDateUtc.HasValue ? toDateUtc.Value : DBNull.Value));
+        command.Parameters.Add(new NpgsqlParameter("hasAccounts", safeAccountIds.Length > 0));
+        command.Parameters.Add(new NpgsqlParameter<int[]>("accountIds", safeAccountIds)
+        {
+            NpgsqlDbType = NpgsqlDbType.Array | NpgsqlDbType.Integer
+        });
+
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            result.Add(new DashboardCashFlowAggregateEntry
+            {
+                CategoryType = (CategoryTypeEnum)reader.GetInt32(0),
+                CategoryId = reader.GetInt32(1),
+                CategoryName = reader.GetString(2),
+                Amount = reader.GetDecimal(3),
+                TransactionCount = reader.GetInt32(4)
+            });
+        }
+
+        return result;
     }
 
     private IQueryable<Transaction> ApplyDateFilter(IQueryable<Transaction> query, DateTime? startDateUtc, DateTime? endDateUtc)
