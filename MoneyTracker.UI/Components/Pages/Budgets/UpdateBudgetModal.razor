@@ -1,7 +1,6 @@
 ﻿@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Budgets
 @using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Domain.Enums.Budgets
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
@@ -52,24 +51,6 @@
                         <MudText Typo="Typo.body2">Include children categories</MudText>
                     </MudCheckBox>
 
-                    <MudCheckBox @bind-Value="_rolloverEnabled" Color="Color.Primary" Dense="true">
-                        <MudText Typo="Typo.body2">Enable rollover</MudText>
-                    </MudCheckBox>
-
-                    <MudSelect T="RolloverMode"
-                               Label="Rollover Mode"
-                               Variant="Variant.Outlined"
-                               @bind-Value="_rolloverMode"
-                               Disabled="@(!_rolloverEnabled)"
-                               AnchorOrigin="Origin.BottomCenter">
-
-                        <MudSelectItem Value="RolloverMode.None">None</MudSelectItem>
-                        <MudSelectItem Value="RolloverMode.CarryOverRemaining">Carry remaining balance</MudSelectItem>
-                        <MudSelectItem Value="RolloverMode.CarryOverOverspend">Carry overspend</MudSelectItem>
-                        <MudSelectItem Value="RolloverMode.Reset">Reset next month</MudSelectItem>
-
-                    </MudSelect>
-
                 </MudStack>
             </MudForm>
         }
@@ -115,9 +96,6 @@
 
     private decimal _amount = 0;
     private bool _includeChildren = true;
-    private bool _rolloverEnabled = false;
-    private RolloverMode _rolloverMode = RolloverMode.None;
-
     protected async override Task OnParametersSetAsync()
     {
         await LoadCategoriesAsync();
@@ -128,8 +106,6 @@
     {
         _amount = Budget.Amount;
         _includeChildren = Budget.IncludeChildren;
-        _rolloverEnabled = Budget.RolloverEnabled;
-        _rolloverMode = Budget.RolloverMode;
         _selectedCategory = _categories?.FirstOrDefault(c => c.Id == Budget.CategoryId);
 
         _subtitle = $"{Budget.Month:D2}/{Budget.Year}";
@@ -198,8 +174,8 @@
                 Month = Budget.Month,
                 Amount = _amount,
                 IncludeChildren = _includeChildren,
-                RolloverEnabled = _rolloverEnabled,
-                RolloverMode = _rolloverMode
+                RolloverEnabled = false,
+                RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None
             };
 
             var result = await BudgetService.CreateOrUpdateAsync(dto);

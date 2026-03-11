@@ -22,8 +22,8 @@ else
 {
     var parents = Items!
         .Where(x => x.ParentCategoryId is null)
-        .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ? primero con movimiento
-        .ThenByDescending(x => x.Amount > 0)              // opcional: luego los que tienen budget
+        .OrderByDescending(x => Math.Abs(x.Used) > 0.01m)
+        .ThenByDescending(x => x.Amount > 0)
         .ThenBy(x => x.CategoryName)
         .ToList();
 
@@ -33,95 +33,74 @@ else
         .ToDictionary(
             g => g.Key,
             g => g
-                .OrderByDescending(x => Math.Abs(x.Used) > 0.01m) // ? hijos con movimiento primero
-                .ThenByDescending(x => x.Amount > 0)             // opcional
+                .OrderByDescending(x => Math.Abs(x.Used) > 0.01m)
+                .ThenByDescending(x => x.Amount > 0)
                 .ThenBy(x => x.CategoryName)
                 .ToList()
         );
 
     <MudStack Spacing="2" Class="mt-2">
-
         @foreach (var parent in parents)
         {
             var hasChildren = childrenByParent.TryGetValue(parent.CategoryId, out var children) && children.Count > 0;
             var isExpanded = hasChildren && _expandedParents.Contains(parent.CategoryId);
+            var displayBudget = GetDisplayBudget(parent, children);
+            var displayUsed = GetDisplayUsed(parent, children);
+            var displayRemaining = displayBudget - displayUsed;
+            var displayColor = GetBudgetColor(parent, children);
+            var displayProgress = GetProgressValue(parent, children);
+            var healthLabel = GetHealthLabel(parent, children);
+            var isGroupOnly = IsGroupOnly(parent, children);
 
             <MudPaper Class="pa-4" Elevation="1" Style="border-radius:16px;">
                 <MudStack Spacing="2">
-
-                    <!-- Header row -->
                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-
-                            <!-- Parent icon with circular progress (clean, like child) -->
-                            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center">
-
-                                <!-- PC / Large screens -->
-                                <MudHidden Breakpoint="Breakpoint.MdAndDown">
-                                    <MudProgressCircular Rounded="true"
-                                                         Size="Size.Large"
-                                                         StrokeWidth="4"
-                                                         Value="@Math.Clamp(parent.ProgressPercent, 0, 100)"
-                                                         Color="@GetBudgetColor(parent)">
-                                        <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
-                                            <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
-                                                     Color="Color.Surface"
-                                                     Size="Size.Medium" />
-                                        </MudAvatar>
-                                    </MudProgressCircular>
-                                </MudHidden>
-
-                                <!-- Tablet + Phone -->
-                                <MudHidden Breakpoint="Breakpoint.LgAndUp">
-                                    <MudProgressCircular Rounded="true"
-                                                         Size="Size.Large"
-                                                         StrokeWidth="4"
-                                                         Value="@Math.Clamp(parent.ProgressPercent, 0, 100)"
-                                                         Color="@GetBudgetColor(parent)">
-                                        <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
-                                            <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
-                                                     Color="Color.Surface"
-                                                     Size="Size.Medium" />
-                                        </MudAvatar>
-                                    </MudProgressCircular>
-                                </MudHidden>
-
-                            </MudStack>
-
-
+                            <MudAvatar Size="Size.Medium" Style="@($"background-color:{parent.CategoryColor};")">
+                                <MudIcon Icon="@(parent.CategoryIcon.ToIcon())"
+                                         Color="Color.Surface"
+                                         Size="Size.Medium" />
+                            </MudAvatar>
 
                             <MudStack Spacing="0">
                                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@parent.CategoryName</MudText>
-
                                 <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                                    @if (parent.Remaining < 0)
+                                    @if (isGroupOnly)
+                                    {
+                                        <span>Grouped by child budgets</span>
+                                    }
+                                    else if (displayRemaining < 0)
                                     {
                                         <span style="color: var(--mud-palette-error);">
-                                            @CurrencyHelper.FormatCurrency(Math.Abs(parent.Remaining)) over
+                                            @CurrencyHelper.FormatCurrency(Math.Abs(displayRemaining)) over
                                         </span>
                                     }
                                     else
                                     {
                                         <span style="color: var(--mud-palette-success);">
-                                            @CurrencyHelper.FormatCurrency(parent.Remaining) left
+                                            @CurrencyHelper.FormatCurrency(displayRemaining) left
                                         </span>
                                     }
 
                                     @if (hasChildren)
                                     {
-                                        <span style="opacity:0.75;"> • @children!.Count subcategories</span>
+                                        <span style="opacity:0.75;"> - @children!.Count subcategories</span>
                                     }
                                 </MudText>
                             </MudStack>
-
                         </MudStack>
 
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Variant="Variant.Filled"
+                                     Color="@displayColor">
+                                @healthLabel
+                            </MudChip>
 
                             @if (hasChildren)
                             {
-                                <MudIconButton Icon="@(isExpanded? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
                                                Color="Color.Inherit"
                                                Size="Size.Small"
                                                OnClick="@(() => ToggleParent(parent.CategoryId))" />
@@ -138,27 +117,37 @@ else
                                     <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" /> Delete
                                 </MudMenuItem>
                             </MudMenu>
-
                         </MudStack>
                     </MudStack>
 
-                    <!-- Amount row -->
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.End">
                         <div>
-                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Budget</MudText>
-                            <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(parent.Amount)</MudText>
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">@(isGroupOnly ? "Children budgets" : "Budget")</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(displayBudget)</MudText>
                         </div>
 
                         <div style="text-align:right;">
-                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Used</MudText>
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">@(isGroupOnly ? "Total used" : "Used")</MudText>
                             <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
-                                @CurrencyHelper.FormatCurrency(parent.Used)
+                                @CurrencyHelper.FormatCurrency(displayUsed)
                             </MudText>
                         </div>
                     </MudStack>
 
-                    <!-- chips -->
-                    <MudStack Row="true" Spacing="1">
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.caption" Style="opacity:0.75;">Usage</MudText>
+                            <MudText Typo="Typo.caption" Class="font-weight-medium">
+                                @GetProgressLabel(parent, children)
+                            </MudText>
+                        </MudStack>
+
+                        <MudProgressLinear Value="@displayProgress"
+                                           Color="@displayColor"
+                                           Size="Size.Large" />
+                    </MudStack>
+
+                    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
                         @if (parent.IncludeChildren)
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Include Children</MudChip>
@@ -167,44 +156,37 @@ else
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Rollover</MudChip>
                         }
+                        @if (!parent.HasBudget && Math.Abs(parent.Used) > 0.01m)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning">Activity without budget</MudChip>
+                        }
+                        @if (isGroupOnly)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">Using child budgets</MudChip>
+                        }
                     </MudStack>
 
-                    <!-- Children list -->
                     @if (hasChildren)
                     {
                         <MudCollapse Expanded="@isExpanded">
                             <MudStack Spacing="1" Class="mt-2">
-
                                 @foreach (var child in children!)
                                 {
                                     <MudPaper Elevation="0"
                                               Class="pa-3"
                                               Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
-
-                                        <MudGrid Spacing="1">
-
-                                            <!-- Left: icon + name + remaining -->
+                                        <MudGrid Spacing="2">
                                             <MudItem xs="12" sm="7">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-
                                                     <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight" Style="opacity:0.7;" />
-
-                                                    <!-- Child icon with circular progress around it -->
-                                                    <MudProgressCircular Rounded="true"
-                                                                         Size="Size.Medium"
-                                                                         StrokeWidth="3"
-                                                                         Value="@child.ProgressPercent"
-                                                                         Color="@GetBudgetColor(child)">
-                                                        <MudAvatar Size="Size.Small" Style="@($"background-color:{child.CategoryColor};")">
-                                                            <MudIcon Icon="@(child.CategoryIcon.ToIcon())"
-                                                                     Color="Color.Surface"
-                                                                     Size="Size.Small" />
-                                                        </MudAvatar>
-                                                    </MudProgressCircular>
+                                                    <MudAvatar Size="Size.Small" Style="@($"background-color:{child.CategoryColor};")">
+                                                        <MudIcon Icon="@(child.CategoryIcon.ToIcon())"
+                                                                 Color="Color.Surface"
+                                                                 Size="Size.Small" />
+                                                    </MudAvatar>
 
                                                     <MudStack Spacing="0">
                                                         <MudText Typo="Typo.subtitle2" Class="font-weight-bold">@child.CategoryName</MudText>
-
                                                         <MudText Typo="Typo.caption" Style="opacity:0.75;">
                                                             @if (child.Remaining < 0)
                                                             {
@@ -220,13 +202,16 @@ else
                                                             }
                                                         </MudText>
                                                     </MudStack>
-
                                                 </MudStack>
                                             </MudItem>
 
-                                            <!-- Right: amounts -->
-                                            <MudItem xs="10" sm="4">
+                                            <MudItem xs="9" sm="4">
                                                 <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                                    <MudChip T="string"
+                                                             Size="Size.Small"
+                                                             Color="@GetBudgetColor(child)">
+                                                        @GetHealthLabel(child)
+                                                    </MudChip>
                                                     <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
                                                         @CurrencyHelper.FormatCurrency(child.Used)
                                                     </MudText>
@@ -236,8 +221,7 @@ else
                                                 </MudStack>
                                             </MudItem>
 
-                                            <!-- Menu -->
-                                            <MudItem xs="2" sm="1">
+                                            <MudItem xs="3" sm="1">
                                                 <MudStack AlignItems="AlignItems.End">
                                                     <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
                                                         <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(child))">
@@ -253,17 +237,28 @@ else
                                                 </MudStack>
                                             </MudItem>
 
+                                            <MudItem xs="12">
+                                                <MudStack Spacing="1">
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.75;">Usage</MudText>
+                                                        <MudText Typo="Typo.caption" Class="font-weight-medium">
+                                                            @GetProgressLabel(child)
+                                                        </MudText>
+                                                    </MudStack>
+
+                                                    <MudProgressLinear Value="@GetProgressValue(child)"
+                                                                       Color="@GetBudgetColor(child)"
+                                                                       Size="Size.Medium" />
+                                                </MudStack>
+                                            </MudItem>
                                         </MudGrid>
                                     </MudPaper>
                                 }
-
                             </MudStack>
                         </MudCollapse>
                     }
-
                 </MudStack>
             </MudPaper>
-
         }
     </MudStack>
 }
@@ -285,18 +280,100 @@ else
             _expandedParents.Remove(parentCategoryId);
     }
 
-    private Color GetBudgetColor(BudgetListItemVm item)
+    private static bool IsGroupOnly(BudgetListItemVm item, List<BudgetListItemVm>? children)
+        => !item.HasBudget && children?.Any(x => x.HasBudget) == true;
+
+    private static decimal GetDisplayBudget(BudgetListItemVm item, List<BudgetListItemVm>? children)
     {
-        if (item.Remaining < 0)
+        if (!IsGroupOnly(item, children))
+            return item.Amount;
+
+        return (children ?? new()).Sum(x => x.Amount);
+    }
+
+    private static decimal GetDisplayUsed(BudgetListItemVm item, List<BudgetListItemVm>? children)
+    {
+        if (!IsGroupOnly(item, children))
+            return item.Used;
+
+        return item.Used + (children ?? new()).Sum(x => x.Used);
+    }
+
+    private Color GetBudgetColor(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
+    {
+        if (IsGroupOnly(item, children))
+        {
+            var remaining = GetDisplayBudget(item, children) - GetDisplayUsed(item, children);
+            if (remaining < 0) return Color.Error;
+
+            var budget = GetDisplayBudget(item, children);
+            if (budget <= 0) return Color.Info;
+
+            var progress = (int)Math.Round((double)(GetDisplayUsed(item, children) / budget) * 100d);
+            if (progress >= 80) return Color.Warning;
+
+            return Color.Info;
+        }
+
+        if (item.IsOverBudget)
             return Color.Error;
 
-        if (item.Amount <= 0)
+        if (!item.HasBudget)
             return Color.Default;
 
-        if (item.ProgressPercent >= 80)
+        if (item.IsNearLimit)
             return Color.Warning;
 
         return Color.Success;
     }
-}
 
+    private static double GetProgressValue(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
+    {
+        if (IsGroupOnly(item, children))
+        {
+            var budget = GetDisplayBudget(item, children);
+            if (budget <= 0) return 0d;
+
+            var ratio = (double)(GetDisplayUsed(item, children) / budget) * 100d;
+            return Math.Clamp(ratio, 0d, 100d);
+        }
+
+        if (!item.HasBudget)
+            return 0d;
+
+        var percent = item.Amount == 0 ? 0d : (double)(item.Used / item.Amount) * 100d;
+        return Math.Clamp(percent, 0d, 100d);
+    }
+
+    private static string GetProgressLabel(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
+    {
+        if (IsGroupOnly(item, children))
+        {
+            var budget = GetDisplayBudget(item, children);
+            if (budget <= 0)
+                return "Child budgets pending";
+
+            var progress = (int)Math.Round((double)(GetDisplayUsed(item, children) / budget) * 100d);
+            return $"{Math.Clamp(progress, 0, 100)}% across children";
+        }
+
+        if (!item.HasBudget)
+            return Math.Abs(item.Used) > 0.01m ? "No budget set" : "Waiting for budget";
+
+        return $"{item.ProgressPercent}% used";
+    }
+
+    private static string GetHealthLabel(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
+    {
+        if (IsGroupOnly(item, children))
+            return "Grouped";
+
+        return item.HealthState switch
+        {
+            BudgetHealthState.OverBudget => "Over",
+            BudgetHealthState.Warning => "Near limit",
+            BudgetHealthState.Healthy => "On track",
+            _ => "No budget"
+        };
+    }
+}

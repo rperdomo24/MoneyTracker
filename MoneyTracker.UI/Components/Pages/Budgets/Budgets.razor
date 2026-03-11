@@ -1,4 +1,4 @@
-﻿@page "/budgets"
+@page "/budgets"
 @using MoneyTracker.Application.DTOs.Budgets
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
@@ -52,7 +52,7 @@
                                Color="Color.Secondary"
                                @bind-Value="_onlyWithActivity"
                                @bind-Value:after="OnOnlyWithActivityChanged"
-                               Label="Only with activity" />
+                               Label="Active categories only" />
                 </MudStack>
             </MudItem>
         </MudHidden>
@@ -83,28 +83,84 @@
                 </MudStack>
 
                 <MudText Typo="Typo.caption" Style="opacity:0.75;" Class="mt-1">
-                    Only with activity
+                    Active categories only
                 </MudText>
             </MudItem>
         </MudHidden>
 
     </MudGrid>
 
+    <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border-radius:16px; border:1px solid var(--mud-palette-divider);">
+        <MudStack Spacing="2">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Filters</MudText>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Secondary"
+                           StartIcon="@(_listExpanded ? Icons.Material.Filled.ViewSidebar : Icons.Material.Filled.TableRows)"
+                           OnClick="ToggleListExpanded">
+                    @(_listExpanded ? "Show overview" : "Expand list")
+                </MudButton>
+            </MudStack>
+
+            <MudTextField T="string"
+                          Value="@_searchText"
+                          ValueChanged="OnSearchChanged"
+                          Placeholder="Search categories"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true"
+                          Immediate="true" />
+
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.All)" Color="@GetViewModeColor(BudgetViewMode.All)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.All))">
+                All
+            </MudChip>
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.Budgeted)" Color="@GetViewModeColor(BudgetViewMode.Budgeted)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.Budgeted))">
+                Budgeted
+            </MudChip>
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.WithoutBudget)" Color="@GetViewModeColor(BudgetViewMode.WithoutBudget)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.WithoutBudget))">
+                Without budget
+            </MudChip>
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.WaitingForBudget)" Color="@GetViewModeColor(BudgetViewMode.WaitingForBudget)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.WaitingForBudget))">
+                Waiting for budget
+            </MudChip>
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.OverBudget)" Color="@GetViewModeColor(BudgetViewMode.OverBudget)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.OverBudget))">
+                Over budget
+            </MudChip>
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.NearLimit)" Color="@GetViewModeColor(BudgetViewMode.NearLimit)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.NearLimit))">
+                Near limit
+            </MudChip>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
     <!-- MAIN LAYOUT: Overview (left) + List (right) -->
     <MudGrid Spacing="3">
 
         <!-- LEFT: Overview -->
-        <MudItem xs="12" md="5">
-            <BudgetsOverviewCard @key="@($"{_year}-{_month}-{_activeTabIndex}-{_onlyWithActivity}")"
+        @if (!_listExpanded)
+        {
+            <MudItem xs="12" md="5">
+                <BudgetsOverviewCard @key="@($"{_year}-{_month}-{_activeTabIndex}-{_onlyWithActivity}-{_viewMode}")"
                                  MonthLabel="@_currentMonthLabel"
                                  IsExpenseTab="@(_activeTabIndex == 0)"
                                  Summary="@CurrentSummary"
                                  Slices="@CurrentSlices"
+                                 Items="@CurrentItems"
+                                 ActiveViewMode="@((int)_viewMode)"
+                                 SelectedSliceKey="@(_activeTabIndex == 0 ? _selectedExpenseSliceKey : _selectedIncomeSliceKey)"
+                                 OnSliceSelected="OnSliceSelectedAsync"
+                                 WithoutBudgetFilterActive="@(_viewMode == BudgetViewMode.WithoutBudget)"
+                                 OnFilterModeSelected="OnOverviewFilterSelectedAsync"
+                                 OnToggleWithoutBudgetFilter="ToggleWithoutBudgetFilterAsync"
                                  OnAddBudget="OpenAddBudgetModalFromTab" />
-        </MudItem>
+            </MudItem>
+        }
 
         <!-- RIGHT: Tabs + Lists -->
-        <MudItem xs="12" md="7">
+        <MudItem xs="12" md="@(_listExpanded ? 12 : 7)">
 
             <!-- Desktop Tabs -->
             <MudHidden Breakpoint="Breakpoint.SmAndDown">
@@ -173,15 +229,30 @@
 </MudContainer>
 
 @code {
+    private enum BudgetViewMode
+    {
+        All = 0,
+        Budgeted = 1,
+        WithoutBudget = 2,
+        WaitingForBudget = 3,
+        OverBudget = 4,
+        NearLimit = 5
+    }
+
     private bool _loading = true;
     private int _activeTabIndex = 0;
 
     private int _year;
     private int _month;
     private string _currentMonthLabel = string.Empty;
+    private string _searchText = string.Empty;
+    private bool _listExpanded = false;
+    private string? _selectedExpenseSliceKey;
+    private string? _selectedIncomeSliceKey;
 
     // Default OFF so new categories and children are visible without activity.
     private bool _onlyWithActivity = false;
+    private BudgetViewMode _viewMode = BudgetViewMode.All;
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();
@@ -197,6 +268,9 @@
 
     private List<BudgetCategorySliceVm> CurrentSlices
         => _activeTabIndex == 0 ? _expenseSlices : _incomeSlices;
+
+    private List<BudgetListItemVm> CurrentItems
+        => _activeTabIndex == 0 ? _expenseBudgets : _incomeBudgets;
 
     private bool _initializedFromStorage = false;
 
@@ -224,6 +298,11 @@
             _month = saved.Month ?? today.Month;
             _activeTabIndex = saved.ActiveTabIndex;
             _onlyWithActivity = saved.OnlyWithActivity; // respeta lo guardado
+            _searchText = saved.SearchText ?? string.Empty;
+            _listExpanded = saved.ListExpanded;
+            _viewMode = Enum.IsDefined(typeof(BudgetViewMode), saved.ViewMode)
+                ? (BudgetViewMode)saved.ViewMode
+                : BudgetViewMode.All;
         }
 
         BuildMonthLabel();
@@ -234,6 +313,55 @@
     private async Task OnOnlyWithActivityChanged()
     {
         await PersistStateAsync();
+        await LoadBudgets();
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _searchText = value ?? string.Empty;
+        await PersistStateAsync();
+        await LoadBudgets();
+    }
+
+    private async Task ToggleWithoutBudgetFilterAsync()
+    {
+        _viewMode = _viewMode == BudgetViewMode.WithoutBudget
+            ? BudgetViewMode.All
+            : BudgetViewMode.WithoutBudget;
+        ClearOverviewSelection();
+        await PersistStateAsync();
+        await LoadBudgets();
+    }
+
+    private async Task SetViewModeAsync(BudgetViewMode mode)
+    {
+        _viewMode = mode;
+        ClearOverviewSelection();
+        await PersistStateAsync();
+        await LoadBudgets();
+    }
+
+    private async Task OnOverviewFilterSelectedAsync(int mode)
+    {
+        if (!Enum.IsDefined(typeof(BudgetViewMode), mode))
+            return;
+
+        await SetViewModeAsync((BudgetViewMode)mode);
+    }
+
+    private async Task ToggleListExpanded()
+    {
+        _listExpanded = !_listExpanded;
+        await PersistStateAsync();
+    }
+
+    private async Task OnSliceSelectedAsync(string sliceKey)
+    {
+        if (_activeTabIndex == 0)
+            _selectedExpenseSliceKey = _selectedExpenseSliceKey == sliceKey ? null : sliceKey;
+        else
+            _selectedIncomeSliceKey = _selectedIncomeSliceKey == sliceKey ? null : sliceKey;
+
         await LoadBudgets();
     }
 
@@ -258,14 +386,22 @@
             if (_onlyWithActivity)
                 all = ApplyOnlyWithActivity(all);
 
-            _expenseBudgets = all.Where(x => x.CategoryType == CategoryTypeEnum.Expense).ToList();
-            _incomeBudgets = all.Where(x => x.CategoryType == CategoryTypeEnum.Income).ToList();
+            var listItems = all;
+
+            listItems = ApplyViewModeFilter(listItems);
+            listItems = ApplySearchFilter(listItems);
+
+            _expenseBudgets = listItems.Where(x => x.CategoryType == CategoryTypeEnum.Expense).ToList();
+            _incomeBudgets = listItems.Where(x => x.CategoryType == CategoryTypeEnum.Income).ToList();
 
             _expenseSummary = BuildSummaryDto(all, CategoryTypeEnum.Expense);
             _incomeSummary = BuildSummaryDto(all, CategoryTypeEnum.Income);
 
             _expenseSlices = BuildSlices(all, CategoryTypeEnum.Expense);
             _incomeSlices = BuildSlices(all, CategoryTypeEnum.Income);
+
+            _expenseBudgets = ApplyOverviewSliceFilter(_expenseBudgets, _expenseSlices, _selectedExpenseSliceKey);
+            _incomeBudgets = ApplyOverviewSliceFilter(_incomeBudgets, _incomeSlices, _selectedIncomeSliceKey);
         }
         catch (Exception ex)
         {
@@ -287,23 +423,22 @@
         _incomeSummary = new();
         _expenseSlices = new();
         _incomeSlices = new();
+        ClearOverviewSelection();
     }
 
     // Expense negative / Income positive
     private BudgetMonthlySummaryDto BuildSummaryDto(List<BudgetListItemVm> all, CategoryTypeEnum type)
     {
-        var parents = all
-            .Where(x => x.CategoryType == type && x.ParentCategoryId is null)
-            .ToList();
+        var overviewItems = GetOverviewItems(all, type);
 
-        var totalBudgeted = parents.Sum(x => x.Amount);
+        var totalBudgeted = overviewItems.Sum(x => x.Amount);
 
         decimal totalUsedDisplay;
 
         if (type == CategoryTypeEnum.Expense)
-            totalUsedDisplay = parents.Sum(x => NormalizeExpenseUsed(x.Used));
+            totalUsedDisplay = overviewItems.Sum(x => NormalizeExpenseUsed(x.Used));
         else
-            totalUsedDisplay = parents.Sum(x => NormalizeIncomeUsed(x.Used));
+            totalUsedDisplay = overviewItems.Sum(x => NormalizeIncomeUsed(x.Used));
 
         return new BudgetMonthlySummaryDto
         {
@@ -314,29 +449,97 @@
         };
     }
 
-    // All categories (no "Others")
     private List<BudgetCategorySliceVm> BuildSlices(List<BudgetListItemVm> all, CategoryTypeEnum type)
     {
-        var parents = all
-            .Where(x => x.CategoryType == type && x.ParentCategoryId is null)
+        var typedItems = all
+            .Where(x => x.CategoryType == type)
             .ToList();
 
-        var slices = parents
-            .Select(x =>
+        var childrenByParent = typedItems
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CategoryName).ToList());
+
+        var slices = new List<BudgetCategorySliceVm>();
+
+        foreach (var root in typedItems.Where(x => x.ParentCategoryId is null).OrderBy(x => x.CategoryName))
+        {
+            var subtree = GetSubtreeItems(root.CategoryId, typedItems);
+            var effectiveItems = GetOverviewItems(subtree, type);
+
+            if (root.HasBudget)
             {
                 var value = type == CategoryTypeEnum.Expense
-                    ? NormalizeExpenseUsed(x.Used)
-                    : NormalizeIncomeUsed(x.Used);
+                    ? NormalizeExpenseUsed(root.Used)
+                    : NormalizeIncomeUsed(root.Used);
 
-                return new BudgetCategorySliceVm
+                if (value > 0)
                 {
-                    CategoryId = x.CategoryId,
-                    Name = x.CategoryName,
-                    Color = x.CategoryColor,
-                    Used = value
-                };
-            })
-            .Where(x => x.Used > 0)
+                    slices.Add(new BudgetCategorySliceVm
+                    {
+                        Key = $"category:{root.CategoryId}",
+                        CategoryId = root.CategoryId,
+                        CategoryIds = new List<int> { root.CategoryId },
+                        Name = root.CategoryName,
+                        Color = root.CategoryColor,
+                        Used = value
+                    });
+                }
+
+                continue;
+            }
+
+            var budgetedChildren = effectiveItems
+                .Where(x => x.CategoryId != root.CategoryId && x.HasBudget)
+                .ToList();
+
+            if (budgetedChildren.Count == 0)
+                continue;
+
+            var groupedUsed = budgetedChildren.Sum(x => type == CategoryTypeEnum.Expense
+                ? NormalizeExpenseUsed(x.Used)
+                : NormalizeIncomeUsed(x.Used));
+
+            if (groupedUsed <= 0)
+                continue;
+
+            slices.Add(new BudgetCategorySliceVm
+            {
+                Key = $"group:{root.CategoryId}",
+                CategoryId = root.CategoryId,
+                CategoryIds = subtree.Select(x => x.CategoryId).ToList(),
+                Name = root.CategoryName,
+                Color = root.CategoryColor,
+                Used = groupedUsed
+            });
+        }
+
+        var withoutBudgetItems = typedItems
+            .Where(x => !x.HasBudget && Math.Abs(x.Used) > 0.01m)
+            .ToList();
+
+        if (withoutBudgetItems.Count > 0)
+        {
+            var withoutBudgetUsed = withoutBudgetItems.Sum(x => type == CategoryTypeEnum.Expense
+                ? NormalizeExpenseUsed(x.Used)
+                : NormalizeIncomeUsed(x.Used));
+
+            if (withoutBudgetUsed > 0)
+            {
+                slices.Add(new BudgetCategorySliceVm
+                {
+                    Key = "without-budget",
+                    CategoryId = -1,
+                    CategoryIds = withoutBudgetItems.Select(x => x.CategoryId).Distinct().ToList(),
+                    Name = "Without budget",
+                    Color = "#9e9e9e",
+                    Used = withoutBudgetUsed,
+                    IsWithoutBudget = true
+                });
+            }
+        }
+
+        slices = slices
             .OrderByDescending(x => x.Used)
             .ToList();
 
@@ -347,6 +550,36 @@
             s.Percent = (int)Math.Round((double)(s.Used / total) * 100d);
 
         return slices;
+    }
+
+    private static List<BudgetListItemVm> GetSubtreeItems(int rootCategoryId, List<BudgetListItemVm> items)
+    {
+        var byParent = items
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<BudgetListItemVm>();
+        var itemsById = items.ToDictionary(x => x.CategoryId);
+
+        if (!itemsById.TryGetValue(rootCategoryId, out var root))
+            return result;
+
+        result.Add(root);
+        AddChildren(rootCategoryId);
+        return result;
+
+        void AddChildren(int parentId)
+        {
+            if (!byParent.TryGetValue(parentId, out var children))
+                return;
+
+            foreach (var child in children)
+            {
+                result.Add(child);
+                AddChildren(child.CategoryId);
+            }
+        }
     }
 
     private static List<BudgetListItemVm> ApplyOnlyWithActivity(List<BudgetListItemVm> items)
@@ -385,6 +618,182 @@
         return items.Where(x => HasActivityTree(x.CategoryId)).ToList();
     }
 
+    private static List<BudgetListItemVm> ApplyWithoutBudgetFilter(List<BudgetListItemVm> items)
+    {
+        var itemsById = items.ToDictionary(x => x.CategoryId);
+        var childrenByParent = items
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.CategoryId).ToList());
+
+        var includeIds = new HashSet<int>();
+        var matches = items
+            .Where(x => !x.HasBudget && Math.Abs(x.Used) > 0.01m)
+            .ToList();
+
+        foreach (var match in matches)
+        {
+            includeIds.Add(match.CategoryId);
+
+            var currentParentId = match.ParentCategoryId;
+            while (currentParentId.HasValue)
+            {
+                includeIds.Add(currentParentId.Value);
+                currentParentId = itemsById.TryGetValue(currentParentId.Value, out var parent)
+                    ? parent.ParentCategoryId
+                    : null;
+            }
+
+            AddDescendants(match.CategoryId);
+        }
+
+        return items.Where(x => includeIds.Contains(x.CategoryId)).ToList();
+
+        void AddDescendants(int categoryId)
+        {
+            if (!childrenByParent.TryGetValue(categoryId, out var childIds))
+                return;
+
+            foreach (var childId in childIds)
+            {
+                if (includeIds.Add(childId))
+                    AddDescendants(childId);
+            }
+        }
+    }
+
+    private List<BudgetListItemVm> ApplyViewModeFilter(List<BudgetListItemVm> items)
+    {
+        return _viewMode switch
+        {
+            BudgetViewMode.Budgeted => ApplyHierarchyFilter(items, x => x.HasBudget),
+            BudgetViewMode.WithoutBudget => ApplyWithoutBudgetFilter(items),
+            BudgetViewMode.WaitingForBudget => ApplyHierarchyFilter(items, x => !x.HasBudget && Math.Abs(x.Used) <= 0.01m),
+            BudgetViewMode.OverBudget => ApplyHierarchyFilter(items, x => x.IsOverBudget),
+            BudgetViewMode.NearLimit => ApplyHierarchyFilter(items, x => x.IsNearLimit),
+            _ => items
+        };
+    }
+
+    private List<BudgetListItemVm> ApplySearchFilter(List<BudgetListItemVm> items)
+    {
+        if (string.IsNullOrWhiteSpace(_searchText))
+            return items;
+
+        var term = _searchText.Trim();
+        return ApplyHierarchyFilter(items, x => x.CategoryName.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static List<BudgetListItemVm> ApplyHierarchyFilter(List<BudgetListItemVm> items, Func<BudgetListItemVm, bool> predicate)
+    {
+        var itemsById = items.ToDictionary(x => x.CategoryId);
+        var childrenByParent = items
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.CategoryId).ToList());
+
+        var includeIds = new HashSet<int>();
+
+        foreach (var match in items.Where(predicate))
+        {
+            includeIds.Add(match.CategoryId);
+
+            var currentParentId = match.ParentCategoryId;
+            while (currentParentId.HasValue)
+            {
+                includeIds.Add(currentParentId.Value);
+                currentParentId = itemsById.TryGetValue(currentParentId.Value, out var parent)
+                    ? parent.ParentCategoryId
+                    : null;
+            }
+
+            AddDescendants(match.CategoryId);
+        }
+
+        return items.Where(x => includeIds.Contains(x.CategoryId)).ToList();
+
+        void AddDescendants(int categoryId)
+        {
+            if (!childrenByParent.TryGetValue(categoryId, out var childIds))
+                return;
+
+            foreach (var childId in childIds)
+            {
+                if (includeIds.Add(childId))
+                    AddDescendants(childId);
+            }
+        }
+    }
+
+    private static List<BudgetListItemVm> ApplyOverviewSliceFilter(
+        List<BudgetListItemVm> items,
+        List<BudgetCategorySliceVm> slices,
+        string? selectedSliceKey)
+    {
+        if (string.IsNullOrWhiteSpace(selectedSliceKey))
+            return items;
+
+        var selectedSlice = slices.FirstOrDefault(x => x.Key == selectedSliceKey);
+        if (selectedSlice is null)
+            return items;
+
+        if (selectedSlice.IsWithoutBudget)
+            return ApplyWithoutBudgetFilter(items);
+
+        var allowedIds = selectedSlice.CategoryIds.ToHashSet();
+        return items.Where(x => allowedIds.Contains(x.CategoryId)).ToList();
+    }
+
+    private static List<BudgetListItemVm> GetOverviewItems(List<BudgetListItemVm> all, CategoryTypeEnum type)
+    {
+        var typedItems = all
+            .Where(x => x.CategoryType == type)
+            .ToList();
+
+        var childrenByParent = typedItems
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CategoryName).ToList());
+
+        var roots = typedItems
+            .Where(x => x.ParentCategoryId is null)
+            .OrderBy(x => x.CategoryName)
+            .ToList();
+
+        var result = new List<BudgetListItemVm>();
+
+        foreach (var root in roots)
+            AddNode(root);
+
+        return result;
+
+        void AddNode(BudgetListItemVm item)
+        {
+            var children = childrenByParent.TryGetValue(item.CategoryId, out var childItems)
+                ? childItems
+                : new List<BudgetListItemVm>();
+
+            if (item.HasBudget)
+            {
+                result.Add(item);
+
+                if (!item.IncludeChildren)
+                {
+                    foreach (var child in children)
+                        AddNode(child);
+                }
+
+                return;
+            }
+
+            if (Math.Abs(item.Used) > 0.01m || children.Count == 0)
+                result.Add(item);
+
+            foreach (var child in children)
+                AddNode(child);
+        }
+    }
+
     private static BudgetListItemVm MapToVm(BudgetWithUsageDto x) => new()
     {
         Id = x.Budget.Id,
@@ -415,7 +824,10 @@
             Year = _year,
             Month = _month,
             ActiveTabIndex = _activeTabIndex,
-            OnlyWithActivity = _onlyWithActivity
+            OnlyWithActivity = _onlyWithActivity,
+            SearchText = _searchText,
+            ViewMode = (int)_viewMode,
+            ListExpanded = _listExpanded
         });
     }
 
@@ -555,6 +967,18 @@
     {
         // Income debería ser positivo; si viniera negativo por error, lo volvemos positivo
         return used < 0 ? -used : used;
+    }
+
+    private Variant GetViewModeVariant(BudgetViewMode mode)
+        => _viewMode == mode ? Variant.Filled : Variant.Outlined;
+
+    private Color GetViewModeColor(BudgetViewMode mode)
+        => _viewMode == mode ? Color.Primary : Color.Default;
+
+    private void ClearOverviewSelection()
+    {
+        _selectedExpenseSliceKey = null;
+        _selectedIncomeSliceKey = null;
     }
 
 }
