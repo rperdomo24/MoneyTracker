@@ -308,7 +308,7 @@
     private static string BuildFilterKey(int accountId, TransactionFilterDto filter)
     {
         // String key: stable & simple
-        return $"{accountId}|{filter.TimePeriod}|{filter.Type?.ToString() ?? ""}|{filter.CategoryId?.ToString() ?? ""}|{(filter.SearchText ?? "").Trim()}";
+        return $"{accountId}|{filter.TimePeriod}|{filter.FromDate:yyyyMMdd}|{filter.ToDate:yyyyMMdd}|{filter.Type?.ToString() ?? ""}|{filter.CategoryId?.ToString() ?? ""}|{(filter.SearchText ?? "").Trim()}";
     }
 
     public void Dispose()

@@ -54,6 +54,7 @@
                 <MudSelect T="TimePeriodFilter"
                            Label="Time Period"
                            @bind-Value="_tempFilter.TimePeriod"
+                           @bind-Value:after="OnTimePeriodChanged"
                            Variant="Variant.Outlined"
                            AnchorOrigin="Origin.BottomCenter">
                     <MudSelectItem Value="TimePeriodFilter.Last7Days">
@@ -92,6 +93,12 @@
                             <MudText>This Year</MudText>
                         </MudStack>
                     </MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Custom">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.EditCalendar" Size="Size.Small" />
+                            <MudText>Custom Range</MudText>
+                        </MudStack>
+                    </MudSelectItem>
                     <MudSelectItem Value="TimePeriodFilter.AllTime">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudIcon Icon="@Icons.Material.Filled.AllInclusive" Size="Size.Small" />
@@ -99,6 +106,25 @@
                         </MudStack>
                     </MudSelectItem>
                 </MudSelect>
+
+                @if (_tempFilter.TimePeriod == TimePeriodFilter.Custom)
+                {
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker Label="Start Date"
+                                           @bind-Date="_tempFilter.FromDate"
+                                           Variant="Variant.Outlined"
+                                           MaxDate="_tempFilter.ToDate ?? DateTime.Today" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker Label="End Date"
+                                           @bind-Date="_tempFilter.ToDate"
+                                           Variant="Variant.Outlined"
+                                           MinDate="_tempFilter.FromDate"
+                                           MaxDate="DateTime.Today" />
+                        </MudItem>
+                    </MudGrid>
+                }
 
                 <!-- Transaction Type -->
                 <MudSelect T="CategoryTypeEnum?"
@@ -226,6 +252,8 @@
         {
             SearchText = Filter.SearchText,
             TimePeriod = Filter.TimePeriod,
+            FromDate = Filter.FromDate,
+            ToDate = Filter.ToDate,
             Type = Filter.Type,
             CategoryId = Filter.CategoryId,
             AccountIds = new List<int> { AccountId }
@@ -286,6 +314,15 @@
             _tempFilter.CategoryId = null;
     }
 
+    private void OnTimePeriodChanged()
+    {
+        if (_tempFilter.TimePeriod != TimePeriodFilter.Custom)
+        {
+            _tempFilter.FromDate = null;
+            _tempFilter.ToDate = null;
+        }
+    }
+
     private async Task ApplyFilters()
     {
         _tempFilter.AccountIds = new List<int> { AccountId };
@@ -301,7 +338,9 @@
             AccountIds = new List<int> { AccountId },
             Type = null,
             CategoryId = null,
-            SearchText = string.Empty
+            SearchText = string.Empty,
+            FromDate = null,
+            ToDate = null
         };
 
         await ApplyFilters();
