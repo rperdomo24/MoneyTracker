@@ -134,6 +134,85 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task DuplicateTransactionAsync_WhenRegularTransaction_UpdatesAccountBalance()
+        {
+            _tz.Setup(x => x.GetNowInUtc()).Returns(new DateTime(2026, 3, 11, 12, 0, 0, DateTimeKind.Utc));
+
+            _txRepo.Setup(x => x.GetByIdAsync(5))
+                .ReturnsAsync(new Transaction
+                {
+                    Id = 5,
+                    Name = "Lunch",
+                    AccountId = 10,
+                    Amount = -20m,
+                    CategoryId = 2,
+                    Date = new DateTime(2026, 3, 10, 12, 0, 0, DateTimeKind.Utc),
+                    CreatedAt = new DateTime(2026, 3, 10, 12, 0, 0, DateTimeKind.Utc),
+                    Category = new Category
+                    {
+                        Id = 2,
+                        Name = "Food",
+                        Type = CategoryTypeEnum.Expense,
+                        Icon = "Restaurant"
+                    }
+                });
+
+            _txRepo.Setup(x => x.AddAndReturnIdAsync(It.IsAny<Transaction>())).ReturnsAsync(77);
+
+            var account = new Account { Id = 10, Name = "Cash", Balance = 100m, Icon = "Wallet", Type = AccountType.Cash };
+            _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+
+            var svc = CreateService();
+
+            var result = await svc.DuplicateTransactionAsync(5);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().Be(77);
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == 80m)), Times.Once);
+        }
+
+        [Fact]
+        public async Task DuplicateTransactionAsync_WhenBalanceUpdateFails_DeletesDuplicatedTransactionAndReturnsFail()
+        {
+            _tz.Setup(x => x.GetNowInUtc()).Returns(new DateTime(2026, 3, 11, 12, 0, 0, DateTimeKind.Utc));
+
+            _txRepo.Setup(x => x.GetByIdAsync(6))
+                .ReturnsAsync(new Transaction
+                {
+                    Id = 6,
+                    Name = "Salary",
+                    AccountId = 11,
+                    Amount = 1000m,
+                    CategoryId = 1,
+                    Date = new DateTime(2026, 3, 10, 12, 0, 0, DateTimeKind.Utc),
+                    CreatedAt = new DateTime(2026, 3, 10, 12, 0, 0, DateTimeKind.Utc),
+                    Category = new Category
+                    {
+                        Id = 1,
+                        Name = "Income",
+                        Type = CategoryTypeEnum.Income,
+                        Icon = "AttachMoney"
+                    }
+                });
+
+            _txRepo.Setup(x => x.AddAndReturnIdAsync(It.IsAny<Transaction>())).ReturnsAsync(88);
+            _txRepo.Setup(x => x.DeleteAsync(88)).Returns(Task.CompletedTask);
+
+            var account = new Account { Id = 11, Name = "Bank", Balance = 500m, Icon = "AccountBalance", Type = AccountType.Bank };
+            _accountRepo.Setup(x => x.GetByIdAsync(11)).ReturnsAsync(account);
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(false);
+
+            var svc = CreateService();
+
+            var result = await svc.DuplicateTransactionAsync(6);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be("Error updating account balance");
+            _txRepo.Verify(x => x.DeleteAsync(88), Times.Once);
+        }
+
+        [Fact]
         public async Task GetFilteredAsync_AppliesSearchAndCategoryFilters()
         {
             // Repository returns a superset; service must apply app-layer text/category/type filters.

@@ -433,6 +433,7 @@
 
                 if (result.Success)
                 {
+                    AccountsDrawer.RequestRefresh();
                     Snackbar.Add(result.Message ?? "Transfer updated successfully", Severity.Success);
                     await OnTransactionUpdated.InvokeAsync();
                     await Close();
@@ -454,6 +455,7 @@
 
                 if (result.Success)
                 {
+                    AccountsDrawer.RequestRefresh();
                     Snackbar.Add(result.Message ?? "Transaction updated successfully", Severity.Success);
                     await OnTransactionUpdated.InvokeAsync();
                     await Close();
@@ -515,6 +517,7 @@
 
             if (result.Success)
             {
+                AccountsDrawer.RequestRefresh();
                 Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
                 await OnTransactionUpdated.InvokeAsync();
                 await Close();

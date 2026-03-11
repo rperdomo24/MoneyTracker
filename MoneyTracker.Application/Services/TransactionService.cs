@@ -394,6 +394,13 @@ namespace MoneyTracker.Application.Services
                 var duplicate = original.MapToDuplicate(_timeZoneService);
                 int newId = await _repository.AddAndReturnIdAsync(duplicate);
 
+                var balanceResult = await UpdateAccountBalanceOnlyAsync(duplicate.AccountId, duplicate.Amount);
+                if (!balanceResult.Success)
+                {
+                    await _repository.DeleteAsync(newId);
+                    return OperationResult<int>.Fail(balanceResult.Message ?? "Error updating account balance");
+                }
+
                 _logger.LogInformation(
                     "Transaction duplicated: Original {OriginalId} -> New {NewId}",
                     transactionId, newId);
