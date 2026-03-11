@@ -34,6 +34,14 @@
 - Add or update tests under `MoneyTracker.Tests/Services` when adding/altering application use-cases.
 - No feature is complete without validating impacted tests.
 
+## Logging and security rules
+- Every new auth, registration, invitation, OTP, or email flow must persist controlled failures and unexpected exceptions through `IErrorLogService`.
+- Prefer `LogExceptionAsync(exception, customMessage)` for exceptions and `LogMessageAsync(...)` for handled failures.
+- Do not persist raw passwords, OTP values, invitation tokens, or full email addresses in application error logs.
+- For persisted auth/email logs, prefer masked email text or existing user and tenant ids.
+- Email links sent from the server must use `ApplicationSettings.PublicBaseUrl` in non-development environments.
+- Do not rely on request-host fallback for production email links.
+
 ## Commenting rules
 - Keep comments in English only.
 - Add comments only when they provide non-obvious, high-value context.
