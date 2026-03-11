@@ -17,6 +17,17 @@
         @if (Data != null && Data.TotalBudgeted > 0)
         {
             <MudStack Spacing="2">
+                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudChip T="string"
+                             Variant="Variant.Filled"
+                             Color="@GetHealthColor()">
+                        @Data.HealthLabel
+                    </MudChip>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @($"{Data.BudgetedCategoryCount} budgeted categories")
+                    </MudText>
+                </MudStack>
+
                 <MudStack Row Justify="Justify.SpaceBetween">
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">Budgeted</MudText>
                     <MudText Typo="Typo.body2">@CurrencyHelper.FormatCurrency(Data.TotalBudgeted)</MudText>
@@ -36,10 +47,33 @@
                                    Color="@(Data.TotalRemaining >= 0 ? Color.Warning : Color.Error)"
                                    Size="Size.Medium" />
 
-                @if (Data.OverBudgetCount > 0)
+                <MudStack Row Wrap="Wrap.Wrap" Spacing="1">
+                    @if (Data.NearLimitCount > 0)
+                    {
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small">
+                            @($"{Data.NearLimitCount} near limit")
+                        </MudChip>
+                    }
+
+                    @if (Data.OverBudgetCount > 0)
+                    {
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small">
+                            @($"{Data.OverBudgetCount} over budget")
+                        </MudChip>
+                    }
+
+                    @if (Data.NoBudgetActivityCount > 0)
+                    {
+                        <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info" Size="Size.Small">
+                            @($"{Data.NoBudgetActivityCount} without budget")
+                        </MudChip>
+                    }
+                </MudStack>
+
+                @if (Data.OverBudgetCount > 0 || Data.NoBudgetActivityCount > 0)
                 {
-                    <MudAlert Severity="Severity.Warning" Dense="true">
-                        @Data.OverBudgetCount category(ies) over budget
+                    <MudAlert Severity="@(Data.OverBudgetCount > 0 ? Severity.Warning : Severity.Info)" Dense="true">
+                        @GetStatusMessage()
                     </MudAlert>
                 }
 
@@ -47,16 +81,24 @@
                 {
                     <MudDivider />
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Top categories</MudText>
-                    @foreach (var item in Data.TopCategories.Take(3))
+                    @foreach (var item in Data.TopCategories.Take(4))
                     {
-                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="min-width:0;">
                                 <div style="@($"width:10px;height:10px;border-radius:50%;background:{item.CategoryColor};")"></div>
-                                <MudText Typo="Typo.caption">@item.CategoryName</MudText>
+                                <MudStack Spacing="0" Style="min-width:0;">
+                                    <MudText Typo="Typo.caption">@item.CategoryName</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @(item.IsGroupOnly ? "Grouped from child budgets" : CurrencyHelper.FormatCurrency(item.RemainingAmount))
+                                    </MudText>
+                                </MudStack>
                             </MudStack>
-                            <MudText Typo="Typo.caption" Class="@(item.IsOverBudget ? "mud-error-text" : "mud-text-secondary")">
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Variant="Variant.Outlined"
+                                     Color="@GetItemColor(item)">
                                 @item.ProgressPercent%
-                            </MudText>
+                            </MudChip>
                         </MudStack>
                     }
                 }
@@ -75,6 +117,54 @@
 
 @code {
     [Parameter] public DashboardBudgetSummaryDto? Data { get; set; }
+
+    private string GetStatusMessage()
+    {
+        if (Data is null)
+            return string.Empty;
+
+        if (Data.OverBudgetCount > 0 && Data.NoBudgetActivityCount > 0)
+            return $"{Data.OverBudgetCount} categories are over budget and {Data.NoBudgetActivityCount} categories have activity without a budget.";
+
+        if (Data.OverBudgetCount > 0)
+            return $"{Data.OverBudgetCount} categories are already over budget.";
+
+        if (Data.NoBudgetActivityCount > 0)
+            return $"{Data.NoBudgetActivityCount} categories have activity without a budget.";
+
+        return string.Empty;
+    }
+
+    private Color GetHealthColor()
+    {
+        if (Data is null)
+            return Color.Default;
+
+        if (Data.OverBudgetCount > 0)
+            return Color.Error;
+
+        if (Data.NearLimitCount > 0)
+            return Color.Warning;
+
+        if (Data.BudgetedCategoryCount > 0)
+            return Color.Success;
+
+        return Color.Default;
+    }
+
+    private static Color GetItemColor(DashboardBudgetItemDto item)
+    {
+        if (item.IsOverBudget)
+            return Color.Error;
+
+        if (item.IsNearLimit)
+            return Color.Warning;
+
+        if (item.IsGroupOnly)
+            return Color.Info;
+
+        return Color.Success;
+    }
 
     private string HeaderText
     {

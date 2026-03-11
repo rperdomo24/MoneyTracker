@@ -1328,34 +1328,27 @@ namespace MoneyTracker.Application.Services
                 };
             }
 
-            var expenseBudgets = budgetResult.Data
+            var expenseItems = budgetResult.Data
                 .Where(x => x.CategoryType == Domain.Enums.Category.CategoryTypeEnum.Expense)
-                .Where(x => x.Budget.Amount > 0)
                 .ToList();
 
-            var totalBudgeted = expenseBudgets.Sum(x => x.Budget.Amount);
-            var totalUsed = expenseBudgets.Sum(x => Math.Abs(x.Used));
+            var overviewItems = GetBudgetOverviewItems(expenseItems);
+            var totalBudgeted = overviewItems.Sum(x => x.BudgetAmount);
+            var totalUsed = overviewItems.Sum(x => x.UsedAmount);
             var totalRemaining = totalBudgeted - totalUsed;
-            var overBudgetCount = expenseBudgets.Count(x => x.Used > x.Budget.Amount);
+            var budgetedCategoryCount = overviewItems.Count(x => x.BudgetAmount > 0);
+            var overBudgetCount = overviewItems.Count(x => x.IsOverBudget);
+            var nearLimitCount = overviewItems.Count(x => x.IsNearLimit);
+            var noBudgetActivityCount = expenseItems.Count(x => x.Budget.Amount <= 0 && Math.Abs(x.Used) > 0.01m);
             var progress = totalBudgeted <= 0
                 ? 0
                 : (int)Math.Clamp(Math.Round((double)(totalUsed / totalBudgeted) * 100), 0, 999);
 
-            var topCategories = expenseBudgets
-                .OrderByDescending(x => x.Used > x.Budget.Amount)
-                .ThenByDescending(x => x.ProgressPercent)
-                .ThenByDescending(x => x.Used)
+            var topCategories = overviewItems
+                .OrderByDescending(x => x.IsOverBudget)
+                .ThenByDescending(x => x.IsNearLimit)
+                .ThenByDescending(x => x.UsedAmount)
                 .Take(5)
-                .Select(x => new DashboardBudgetItemDto
-                {
-                    CategoryName = x.CategoryName,
-                    CategoryColor = x.CategoryColor ?? "#9e9e9e",
-                    BudgetAmount = x.Budget.Amount,
-                    UsedAmount = Math.Abs(x.Used),
-                    RemainingAmount = x.Budget.Amount - Math.Abs(x.Used),
-                    ProgressPercent = x.ProgressPercent,
-                    IsOverBudget = x.Used > x.Budget.Amount
-                })
                 .ToList();
 
             return new DashboardBudgetSummaryDto
@@ -1366,8 +1359,121 @@ namespace MoneyTracker.Application.Services
                 TotalUsed = totalUsed,
                 TotalRemaining = totalRemaining,
                 ProgressPercent = progress,
+                BudgetedCategoryCount = budgetedCategoryCount,
+                NearLimitCount = nearLimitCount,
                 OverBudgetCount = overBudgetCount,
+                NoBudgetActivityCount = noBudgetActivityCount,
+                HealthLabel = GetBudgetHealthLabel(budgetedCategoryCount, nearLimitCount, overBudgetCount),
                 TopCategories = topCategories
+            };
+        }
+
+        private static string GetBudgetHealthLabel(int budgetedCategoryCount, int nearLimitCount, int overBudgetCount)
+        {
+            if (overBudgetCount > 0)
+                return "Over budget";
+
+            if (nearLimitCount > 0)
+                return "At risk";
+
+            if (budgetedCategoryCount > 0)
+                return "Healthy";
+
+            return "No budgets";
+        }
+
+        private static List<DashboardBudgetItemDto> GetBudgetOverviewItems(List<BudgetWithUsageDto> items)
+        {
+            var childrenByParent = items
+                .Where(x => x.ParentCategoryId.HasValue)
+                .GroupBy(x => x.ParentCategoryId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CategoryName).ToList());
+
+            var roots = items
+                .Where(x => x.ParentCategoryId is null)
+                .OrderBy(x => x.CategoryName)
+                .ToList();
+
+            var result = new List<DashboardBudgetItemDto>();
+
+            foreach (var root in roots)
+                AddNode(root);
+
+            return result;
+
+            void AddNode(BudgetWithUsageDto item)
+            {
+                var children = childrenByParent.TryGetValue(item.Category.Id, out var childItems)
+                    ? childItems
+                    : new List<BudgetWithUsageDto>();
+
+                if (item.Budget.Amount > 0)
+                {
+                    result.Add(MapBudgetOverviewItem(item));
+
+                    if (!item.Budget.IncludeChildren)
+                    {
+                        foreach (var child in children)
+                            AddNode(child);
+                    }
+
+                    return;
+                }
+
+                var budgetedChildren = GetBudgetOverviewItems(children)
+                    .Where(x => x.BudgetAmount > 0)
+                    .ToList();
+
+                if (budgetedChildren.Count > 0)
+                {
+                    var groupedBudget = budgetedChildren.Sum(x => x.BudgetAmount);
+                    var groupedUsed = budgetedChildren.Sum(x => x.UsedAmount);
+                    var groupedProgress = groupedBudget <= 0
+                        ? 0
+                        : (int)Math.Clamp(Math.Round((double)(groupedUsed / groupedBudget) * 100), 0, 999);
+
+                    result.Add(new DashboardBudgetItemDto
+                    {
+                        CategoryName = item.CategoryName,
+                        CategoryColor = item.CategoryColor ?? "#9e9e9e",
+                        BudgetAmount = groupedBudget,
+                        UsedAmount = groupedUsed,
+                        RemainingAmount = groupedBudget - groupedUsed,
+                        ProgressPercent = groupedProgress,
+                        IsOverBudget = groupedUsed > groupedBudget,
+                        IsNearLimit = groupedBudget > 0 && groupedUsed <= groupedBudget && groupedProgress >= 80,
+                        IsGroupOnly = true
+                    });
+
+                    return;
+                }
+
+                if (Math.Abs(item.Used) > 0.01m || children.Count == 0)
+                    result.Add(MapBudgetOverviewItem(item));
+
+                foreach (var child in children)
+                    AddNode(child);
+            }
+        }
+
+        private static DashboardBudgetItemDto MapBudgetOverviewItem(BudgetWithUsageDto item)
+        {
+            var usedAmount = Math.Abs(item.Used);
+            var progress = item.Budget.Amount <= 0
+                ? 0
+                : (int)Math.Clamp(Math.Round((double)(usedAmount / item.Budget.Amount) * 100), 0, 999);
+
+            return new DashboardBudgetItemDto
+            {
+                CategoryName = item.CategoryName,
+                CategoryColor = item.CategoryColor ?? "#9e9e9e",
+                BudgetAmount = item.Budget.Amount,
+                UsedAmount = usedAmount,
+                RemainingAmount = item.Budget.Amount - usedAmount,
+                ProgressPercent = progress,
+                IsOverBudget = item.Budget.Amount > 0 && usedAmount > item.Budget.Amount,
+                IsNearLimit = item.Budget.Amount > 0 && usedAmount <= item.Budget.Amount && progress >= 80,
+                IsGroupOnly = false
             };
         }
 

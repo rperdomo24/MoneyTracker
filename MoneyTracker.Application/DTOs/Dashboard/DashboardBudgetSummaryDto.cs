@@ -8,7 +8,11 @@ namespace MoneyTracker.Application.DTOs.Dashboard
         public decimal TotalUsed { get; set; }
         public decimal TotalRemaining { get; set; }
         public int ProgressPercent { get; set; }
+        public int BudgetedCategoryCount { get; set; }
+        public int NearLimitCount { get; set; }
         public int OverBudgetCount { get; set; }
+        public int NoBudgetActivityCount { get; set; }
+        public string HealthLabel { get; set; } = "No budgets";
         public List<DashboardBudgetItemDto> TopCategories { get; set; } = new();
     }
 
@@ -21,5 +25,7 @@ namespace MoneyTracker.Application.DTOs.Dashboard
         public decimal RemainingAmount { get; set; }
         public int ProgressPercent { get; set; }
         public bool IsOverBudget { get; set; }
+        public bool IsNearLimit { get; set; }
+        public bool IsGroupOnly { get; set; }
     }
 }

@@ -12,6 +12,7 @@ using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Enums.Filters;
 using MoneyTracker.Domain.Interfaces;
 using Moq;
+using Microsoft.Extensions.Logging;
 
 namespace MoneyTracker.Tests.Services
 {
@@ -22,6 +23,7 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ITransactionRepository> _transactionRepository = new();
         private readonly Mock<IBudgetService> _budgetService = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
+        private readonly Mock<ILogger<DashboardService>> _logger = new();
 
         private DashboardService CreateService()
         {
@@ -84,7 +86,8 @@ namespace MoneyTracker.Tests.Services
                 _transactionService.Object,
                 _transactionRepository.Object,
                 _budgetService.Object,
-                _timeZoneService.Object);
+                _timeZoneService.Object,
+                _logger.Object);
         }
 
         [Fact]
@@ -577,7 +580,57 @@ namespace MoneyTracker.Tests.Services
             result.Data.BudgetSummary.TotalUsed.Should().Be(550m);
             result.Data.BudgetSummary.TotalRemaining.Should().Be(150m);
             result.Data.BudgetSummary.OverBudgetCount.Should().Be(1);
+            result.Data.BudgetSummary.NearLimitCount.Should().Be(1);
+            result.Data.BudgetSummary.BudgetedCategoryCount.Should().Be(2);
+            result.Data.BudgetSummary.HealthLabel.Should().Be("Over budget");
             result.Data.BudgetSummary.TopCategories.Should().NotBeEmpty();
+        }
+
+        [Fact]
+        public async Task GetBudgetSummaryAsync_WhenParentHasNoBudgetButChildrenDo_GroupsChildrenIntoDashboardSummary()
+        {
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
+                .Returns(new DateTime(2026, 3, 10, 12, 0, 0));
+
+            _budgetService
+                .Setup(x => x.GetMonthlyWithUsageAsync(2026, 3))
+                .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>
+                {
+                    new()
+                    {
+                        Budget = new BudgetDto { CategoryId = 10, Amount = 0m },
+                        Category = new CategoryDto { Id = 10, Name = "Living", Type = CategoryTypeEnum.Expense, Color = "#123456" },
+                        Used = 0m
+                    },
+                    new()
+                    {
+                        Budget = new BudgetDto { CategoryId = 11, Amount = 300m },
+                        Category = new CategoryDto { Id = 11, ParentId = 10, Name = "Groceries", Type = CategoryTypeEnum.Expense, Color = "#4caf50" },
+                        Used = 240m
+                    },
+                    new()
+                    {
+                        Budget = new BudgetDto { CategoryId = 12, Amount = 200m },
+                        Category = new CategoryDto { Id = 12, ParentId = 10, Name = "Household", Type = CategoryTypeEnum.Expense, Color = "#ff9800" },
+                        Used = 90m
+                    }
+                }));
+
+            var svc = CreateService();
+            var result = await svc.GetBudgetSummaryAsync(new DashboardFilterDto
+            {
+                TimePeriod = TimePeriodFilter.ThisMonth
+            });
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.TotalBudgeted.Should().Be(500m);
+            result.Data.TotalUsed.Should().Be(330m);
+            result.Data.BudgetedCategoryCount.Should().Be(1);
+            result.Data.TopCategories.Should().ContainSingle();
+            result.Data.TopCategories[0].CategoryName.Should().Be("Living");
+            result.Data.TopCategories[0].IsGroupOnly.Should().BeTrue();
+            result.Data.TopCategories[0].ProgressPercent.Should().Be(66);
         }
 
         [Fact]

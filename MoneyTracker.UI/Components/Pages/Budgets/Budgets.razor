@@ -161,6 +161,7 @@
 
         <!-- RIGHT: Tabs + Lists -->
         <MudItem xs="12" md="@(_listExpanded ? 12 : 7)">
+            @* Temporarily hidden: the Missing budgets panel adds too much vertical space. *@
 
             <!-- Desktop Tabs -->
             <MudHidden Breakpoint="Breakpoint.SmAndDown">
@@ -256,6 +257,8 @@
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();
+    private List<BudgetListItemVm> _expenseMissingBudgets = new();
+    private List<BudgetListItemVm> _incomeMissingBudgets = new();
 
     private BudgetMonthlySummaryDto _expenseSummary = new();
     private BudgetMonthlySummaryDto _incomeSummary = new();
@@ -271,6 +274,9 @@
 
     private List<BudgetListItemVm> CurrentItems
         => _activeTabIndex == 0 ? _expenseBudgets : _incomeBudgets;
+
+    private List<BudgetListItemVm> CurrentMissingBudgetItems
+        => _activeTabIndex == 0 ? _expenseMissingBudgets : _incomeMissingBudgets;
 
     private bool _initializedFromStorage = false;
 
@@ -381,7 +387,12 @@
                 return;
             }
 
-            var all = result.Data.Select(MapToVm).ToList();
+            var allRaw = result.Data.Select(MapToVm).ToList();
+
+            _expenseMissingBudgets = BuildMissingBudgetItems(allRaw, CategoryTypeEnum.Expense);
+            _incomeMissingBudgets = BuildMissingBudgetItems(allRaw, CategoryTypeEnum.Income);
+
+            var all = allRaw;
 
             if (_onlyWithActivity)
                 all = ApplyOnlyWithActivity(all);
@@ -419,6 +430,8 @@
     {
         _expenseBudgets = new();
         _incomeBudgets = new();
+        _expenseMissingBudgets = new();
+        _incomeMissingBudgets = new();
         _expenseSummary = new();
         _incomeSummary = new();
         _expenseSlices = new();
@@ -742,6 +755,46 @@
 
         var allowedIds = selectedSlice.CategoryIds.ToHashSet();
         return items.Where(x => allowedIds.Contains(x.CategoryId)).ToList();
+    }
+
+    private static List<BudgetListItemVm> BuildMissingBudgetItems(List<BudgetListItemVm> all, CategoryTypeEnum type)
+    {
+        var typedItems = all
+            .Where(x => x.CategoryType == type)
+            .ToList();
+
+        var childrenByParent = typedItems
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var memo = new Dictionary<int, bool>();
+
+        bool HasBudgetedDescendants(int categoryId)
+        {
+            if (memo.TryGetValue(categoryId, out var cached))
+                return cached;
+
+            if (!childrenByParent.TryGetValue(categoryId, out var children))
+                return memo[categoryId] = false;
+
+            foreach (var child in children)
+            {
+                if (child.HasBudget || HasBudgetedDescendants(child.CategoryId))
+                    return memo[categoryId] = true;
+            }
+
+            return memo[categoryId] = false;
+        }
+
+        return typedItems
+            .Where(x => !x.HasBudget)
+            .Where(x => Math.Abs(x.Used) <= 0.01m)
+            .Where(x => !HasBudgetedDescendants(x.CategoryId))
+            .OrderByDescending(x => x.ParentCategoryId.HasValue)
+            .ThenByDescending(x => x.ChildrenCount == 0)
+            .ThenBy(x => x.CategoryName)
+            .ToList();
     }
 
     private static List<BudgetListItemVm> GetOverviewItems(List<BudgetListItemVm> all, CategoryTypeEnum type)
