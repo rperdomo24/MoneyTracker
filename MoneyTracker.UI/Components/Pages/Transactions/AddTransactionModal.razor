@@ -468,8 +468,13 @@
 
     private async Task CreateCategory()
     {
+        var categoryType = _transactionType == TransactionTypeEnum.Income
+            ? CategoryTypeEnum.Income
+            : CategoryTypeEnum.Expense;
+
         var parameters = new DialogParameters
         {
+            ["CategoryType"] = categoryType,
             ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, async () =>
             {
                 await ReloadCategories();
