@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.DTOs;
@@ -105,21 +107,32 @@ namespace MoneyTracker.UI
 
             builder.Services.Configure<ApplicationSettings>(
             builder.Configuration.GetSection("ApplicationSettings"));
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
+            builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
             builder.Services.AddScoped<IEmailSenderService, SmtpEmailSenderService>();
             builder.Services.AddScoped<ITimeRangeService, TimeRangeService>();
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
             builder.Services.AddScoped<IAccountRepository, AccountRepository>();
             builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+            builder.Services.AddScoped<IUserInvitationRepository, UserInvitationRepository>();
             builder.Services.AddScoped<ITransactionService, TransactionService>();
             builder.Services.AddScoped<ICategoryService, CategoryService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
+            builder.Services.AddScoped<IUserInvitationService, UserInvitationService>();
             builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
             builder.Services.AddScoped<IValidator<CreateTransferDto>, CreateTransferValidator>();
             builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
             builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
             builder.Services.AddScoped<IValidator<LoginOtpRequestDto>, LoginOtpRequestValidator>();
+            builder.Services.AddScoped<IValidator<CreateUserInvitationDto>, CreateUserInvitationValidator>();
+            builder.Services.AddScoped<IValidator<AcceptInvitationRequestDto>, AcceptInvitationRequestValidator>();
             builder.Services.AddScoped<IValidator<CategoryDto>, CategoryValidator>();
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
             builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
@@ -153,11 +166,25 @@ namespace MoneyTracker.UI
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
             {
-                app.UseExceptionHandler("/Error");
+                app.UseExceptionHandler(errorApp =>
+                {
+                    errorApp.Run(async context =>
+                    {
+                        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+                        if (exceptionFeature?.Error is not null)
+                        {
+                            var errorLogService = context.RequestServices.GetRequiredService<IErrorLogService>();
+                            await errorLogService.LogExceptionAsync(exceptionFeature.Error, "Unhandled application exception.", cancellationToken: context.RequestAborted);
+                        }
+
+                        context.Response.Redirect("/Error");
+                    });
+                });
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
 
+            app.UseForwardedHeaders();
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseAuthorization();

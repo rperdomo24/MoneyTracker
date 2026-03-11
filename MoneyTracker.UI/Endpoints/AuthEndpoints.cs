@@ -1,8 +1,12 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.DTOs.Auth;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Domain.Entities;
 using MoneyTracker.Infrastructure.Persistence;
 
 namespace MoneyTracker.UI.Endpoints
@@ -22,6 +26,7 @@ namespace MoneyTracker.UI.Endpoints
                 UserManager<ApplicationUser> userManager,
                 IEmailSenderService emailSenderService,
                 IVerificationCodeService verificationCodeService,
+                IErrorLogService errorLogService,
                 IValidator<LoginRequestDto> validator) =>
             {
                 var dto = new LoginRequestDto
@@ -35,29 +40,35 @@ namespace MoneyTracker.UI.Endpoints
                 if (!validation.IsValid)
                 {
                     var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
+                    await LogHandledAsync(errorLogService, $"Login validation failed. {error}");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, error, null));
                 }
 
                 var normalizedEmail = email.Trim().ToLowerInvariant();
+                var maskedEmail = MaskEmail(normalizedEmail);
                 var user = await userManager.FindByEmailAsync(normalizedEmail);
                 if (user is null)
                 {
+                    await LogHandledAsync(errorLogService, $"Login failed because user {maskedEmail} was not found.");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
                 var preCheck = await signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
                 if (preCheck.IsLockedOut)
                 {
+                    await LogHandledAsync(errorLogService, $"Login failed because user {maskedEmail} is locked out.");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Your account is temporarily locked. Try again later.", null));
                 }
 
                 if (preCheck.IsNotAllowed)
                 {
+                    await LogHandledAsync(errorLogService, $"Login blocked because user {maskedEmail} has not confirmed email.");
                     return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString("Email confirmation is required before sign in.")}");
                 }
 
                 if (!preCheck.Succeeded)
                 {
+                    await LogHandledAsync(errorLogService, $"Login failed because password validation did not succeed for {maskedEmail}.");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
@@ -74,6 +85,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!result.RequiresTwoFactor)
                 {
+                    await LogHandledAsync(errorLogService, $"Login failed because sign-in did not complete for {maskedEmail}.");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
@@ -87,6 +99,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!codeResult.Success || codeResult.Data is null)
                 {
+                    await LogHandledAsync(errorLogService, $"OTP issue failed during login for {maskedEmail}. {codeResult.Message}");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, codeResult.Message, null));
                 }
 
@@ -97,6 +110,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!sendResult.Success)
                 {
+                    await LogHandledAsync(errorLogService, $"OTP email send failed during login for {maskedEmail}. {sendResult.Message}");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, sendResult.Message, null));
                 }
 
@@ -111,6 +125,7 @@ namespace MoneyTracker.UI.Endpoints
                 SignInManager<ApplicationUser> signInManager,
                 UserManager<ApplicationUser> userManager,
                 IVerificationCodeService verificationCodeService,
+                IErrorLogService errorLogService,
                 IValidator<LoginOtpRequestDto> validator) =>
             {
                 var dto = new LoginOtpRequestDto { Code = code };
@@ -118,17 +133,20 @@ namespace MoneyTracker.UI.Endpoints
                 if (!validation.IsValid)
                 {
                     var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
+                    await LogHandledAsync(errorLogService, $"OTP validation failed. {error}");
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, error, null, ParseUtc(expiresAtUtc)));
                 }
 
                 var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
                 if (user is null)
                 {
+                    await LogHandledAsync(errorLogService, "OTP verification failed because the auth session expired.");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Session expired. Please sign in again.", null));
                 }
 
                 if (await userManager.IsLockedOutAsync(user))
                 {
+                    await LogHandledAsync(errorLogService, $"OTP verification failed because user {MaskEmail(user.Email)} is locked out.");
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null, ParseUtc(expiresAtUtc)));
                 }
 
@@ -144,9 +162,11 @@ namespace MoneyTracker.UI.Endpoints
                     await userManager.AccessFailedAsync(user);
                     if (await userManager.IsLockedOutAsync(user))
                     {
+                        await LogHandledAsync(errorLogService, $"OTP verification locked out user {MaskEmail(user.Email)}.");
                         return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null, ParseUtc(expiresAtUtc)));
                     }
 
+                    await LogHandledAsync(errorLogService, $"OTP verification failed for user {MaskEmail(user.Email)}. Invalid or expired code.");
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Invalid or expired verification code.", null, ParseUtc(expiresAtUtc)));
                 }
 
@@ -160,11 +180,13 @@ namespace MoneyTracker.UI.Endpoints
                 [FromForm] string? returnUrl,
                 SignInManager<ApplicationUser> signInManager,
                 IEmailSenderService emailSenderService,
-                IVerificationCodeService verificationCodeService) =>
+                IVerificationCodeService verificationCodeService,
+                IErrorLogService errorLogService) =>
             {
                 var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
                 if (user is null)
                 {
+                    await LogHandledAsync(errorLogService, "OTP resend failed because the auth session expired.");
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Session expired. Please sign in again.", null));
                 }
 
@@ -178,6 +200,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!codeResult.Success || codeResult.Data is null)
                 {
+                    await LogHandledAsync(errorLogService, $"OTP resend issue failed for user {MaskEmail(user.Email)}. {codeResult.Message}");
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, codeResult.Message, null, null));
                 }
 
@@ -188,6 +211,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!sendResult.Success)
                 {
+                    await LogHandledAsync(errorLogService, $"OTP resend email failed for user {MaskEmail(user.Email)}. {sendResult.Message}");
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, sendResult.Message, null, null));
                 }
 
@@ -196,10 +220,15 @@ namespace MoneyTracker.UI.Endpoints
 
             authGroup.MapPost("/resend-confirmation", async (
                 [FromForm] string email,
+                HttpRequest request,
                 UserManager<ApplicationUser> userManager,
-                IEmailSenderService emailSenderService) =>
+                IEmailSenderService emailSenderService,
+                IErrorLogService errorLogService,
+                IOptions<ApplicationSettings> applicationOptions,
+                IHostEnvironment hostEnvironment) =>
             {
                 var normalizedEmail = email.Trim().ToLowerInvariant();
+                var maskedEmail = MaskEmail(normalizedEmail);
                 var user = await userManager.FindByEmailAsync(normalizedEmail);
                 if (user is null)
                 {
@@ -208,12 +237,22 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (await userManager.IsEmailConfirmedAsync(user))
                 {
+                    await LogHandledAsync(errorLogService, $"Confirmation resend skipped because {maskedEmail} is already confirmed.");
                     return Results.LocalRedirect(BuildLoginUrl(null, null, "Email already confirmed. You can sign in."));
                 }
 
                 var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
                 var encodedToken = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(token));
-                var confirmationUrl = $"/confirm-email?userId={Uri.EscapeDataString(user.Id.ToString())}&code={Uri.EscapeDataString(encodedToken)}";
+                var confirmationUrl = BuildAbsoluteUrl(
+                    request,
+                    applicationOptions.Value,
+                    hostEnvironment,
+                    $"/confirm-email?userId={Uri.EscapeDataString(user.Id.ToString())}&code={Uri.EscapeDataString(encodedToken)}");
+                if (string.IsNullOrWhiteSpace(confirmationUrl))
+                {
+                    await LogHandledAsync(errorLogService, "Confirmation email could not be prepared because PublicBaseUrl is missing.");
+                    return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString("PublicBaseUrl must be configured before sending confirmation emails.")}");
+                }
                 var sendResult = await emailSenderService.SendAsync(
                     user.Email!,
                     "Confirm your MoneyTracker email",
@@ -221,22 +260,119 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!sendResult.Success)
                 {
+                    await LogHandledAsync(errorLogService, $"Confirmation email failed for {maskedEmail}. {sendResult.Message}");
                     return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString(sendResult.Message)}");
                 }
 
                 return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&info={Uri.EscapeDataString("Confirmation link sent. Check your email.")}");
             }).AllowAnonymous();
 
+            authGroup.MapPost("/invite-register", async (
+                [FromForm] string token,
+                [FromForm] string displayName,
+                [FromForm] string password,
+                [FromForm] string confirmPassword,
+                UserManager<ApplicationUser> userManager,
+                MoneyTrackerDbContext dbContext,
+                ITenantBootstrapService tenantBootstrapService,
+                IUserInvitationService userInvitationService,
+                IErrorLogService errorLogService,
+                IValidator<AcceptInvitationRequestDto> validator) =>
+            {
+                var dto = new AcceptInvitationRequestDto
+                {
+                    Token = token,
+                    DisplayName = displayName,
+                    Password = password,
+                    ConfirmPassword = confirmPassword
+                };
+
+                var validation = await validator.ValidateAsync(dto);
+                if (!validation.IsValid)
+                {
+                    var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
+                    await LogHandledAsync(errorLogService, $"Invite registration validation failed. {error}");
+                    return Results.LocalRedirect($"/invite/register?token={Uri.EscapeDataString(token)}&error={Uri.EscapeDataString(error)}");
+                }
+
+                var invitationResult = await userInvitationService.GetValidInvitationAsync(token);
+                if (!invitationResult.Success || invitationResult.Data is null)
+                {
+                    await LogHandledAsync(errorLogService, $"Invite registration failed because invitation token was invalid. {invitationResult.Message}");
+                    return Results.LocalRedirect($"/invite/register?token={Uri.EscapeDataString(token)}&error={Uri.EscapeDataString(invitationResult.Message)}");
+                }
+
+                var normalizedEmail = invitationResult.Data.Email.Trim().ToLowerInvariant();
+                var maskedEmail = MaskEmail(normalizedEmail);
+                var existingUser = await userManager.FindByEmailAsync(normalizedEmail);
+                if (existingUser is not null)
+                {
+                    await LogHandledAsync(errorLogService, $"Invite registration skipped because {maskedEmail} already has an account.");
+                    return Results.LocalRedirect($"/login?info={Uri.EscapeDataString("This invitation email already has an account. Please sign in.")}");
+                }
+
+                var tenantId = Guid.NewGuid();
+                var user = new ApplicationUser
+                {
+                    UserName = normalizedEmail,
+                    Email = normalizedEmail,
+                    EmailConfirmed = true,
+                    TenantId = tenantId,
+                    DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim(),
+                    TwoFactorEnabled = true
+                };
+
+                var createResult = await userManager.CreateAsync(user, password);
+                if (!createResult.Succeeded)
+                {
+                    var error = string.Join(" ", createResult.Errors.Select(x => x.Description));
+                    await LogHandledAsync(errorLogService, $"Invite registration user creation failed for {maskedEmail}. {error}");
+                    return Results.LocalRedirect($"/invite/register?token={Uri.EscapeDataString(token)}&error={Uri.EscapeDataString(error)}");
+                }
+
+                try
+                {
+                    dbContext.Tenants.Add(new Tenant
+                    {
+                        TenantId = tenantId,
+                        Name = BuildTenantName(displayName, normalizedEmail),
+                        OwnerUserId = user.Id
+                    });
+
+                    await dbContext.SaveChangesAsync();
+                    await tenantBootstrapService.SeedDefaultsAsync(tenantId);
+
+                    var acceptResult = await userInvitationService.MarkAcceptedAsync(invitationResult.Data.InvitationId);
+                    if (!acceptResult.Success)
+                    {
+                        await LogHandledAsync(errorLogService, $"Invite registration accept marker failed for {maskedEmail}. {acceptResult.Message}");
+                        await userManager.DeleteAsync(user);
+                        return Results.LocalRedirect($"/invite/register?token={Uri.EscapeDataString(token)}&error={Uri.EscapeDataString(acceptResult.Message)}");
+                    }
+
+                    return Results.LocalRedirect("/login?info=Account%20created%20successfully.%20You%20can%20sign%20in.");
+                }
+                catch (Exception ex)
+                {
+                    await errorLogService.LogExceptionAsync(ex, $"Invite registration failed for {maskedEmail}.");
+                    await userManager.DeleteAsync(user);
+                    return Results.LocalRedirect($"/invite/register?token={Uri.EscapeDataString(token)}&error={Uri.EscapeDataString("Registration failed. Please try again.")}");
+                }
+            }).AllowAnonymous();
+
             authGroup.MapPost("/forgot-password", async (
                 [FromForm] string email,
                 UserManager<ApplicationUser> userManager,
                 IEmailSenderService emailSenderService,
-                IVerificationCodeService verificationCodeService) =>
+                IVerificationCodeService verificationCodeService,
+                IErrorLogService errorLogService) =>
             {
                 var normalizedEmail = email.Trim().ToLowerInvariant();
+                var maskedEmail = MaskEmail(normalizedEmail);
                 var user = await userManager.FindByEmailAsync(normalizedEmail);
                 if (user is null || !await userManager.IsEmailConfirmedAsync(user))
                 {
+                    await LogHandledAsync(errorLogService, $"Forgot password request ignored for {maskedEmail} because the account is missing or unconfirmed.");
                     return Results.LocalRedirect("/forgot-password?info=If%20the%20account%20exists%2C%20a%20reset%20code%20was%20sent.");
                 }
 
@@ -250,6 +386,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!codeResult.Success || codeResult.Data is null)
                 {
+                    await LogHandledAsync(errorLogService, $"Password reset OTP issue failed for {maskedEmail}. {codeResult.Message}");
                     return Results.LocalRedirect($"/forgot-password?error={Uri.EscapeDataString(codeResult.Message)}");
                 }
 
@@ -260,6 +397,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!sendResult.Success)
                 {
+                    await LogHandledAsync(errorLogService, $"Password reset email failed for {maskedEmail}. {sendResult.Message}");
                     return Results.LocalRedirect($"/forgot-password?error={Uri.EscapeDataString(sendResult.Message)}");
                 }
 
@@ -272,17 +410,21 @@ namespace MoneyTracker.UI.Endpoints
                 [FromForm] string newPassword,
                 [FromForm] string confirmPassword,
                 UserManager<ApplicationUser> userManager,
-                IVerificationCodeService verificationCodeService) =>
+                IVerificationCodeService verificationCodeService,
+                IErrorLogService errorLogService) =>
             {
                 if (!string.Equals(newPassword, confirmPassword, StringComparison.Ordinal))
                 {
+                    await LogHandledAsync(errorLogService, $"Reset password failed for {email} because confirmation did not match.");
                     return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(email)}&error={Uri.EscapeDataString("Password confirmation does not match.")}");
                 }
 
                 var normalizedEmail = email.Trim().ToLowerInvariant();
+                var maskedEmail = MaskEmail(normalizedEmail);
                 var user = await userManager.FindByEmailAsync(normalizedEmail);
                 if (user is null)
                 {
+                    await LogHandledAsync(errorLogService, $"Reset password ignored because user {maskedEmail} was not found.");
                     return Results.LocalRedirect("/login?info=Password%20updated%20if%20the%20account%20exists.");
                 }
 
@@ -294,6 +436,7 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (!verifyResult.Success)
                 {
+                    await LogHandledAsync(errorLogService, $"Reset password OTP verification failed for {maskedEmail}. {verifyResult.Message}");
                     return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(email)}&error={Uri.EscapeDataString(verifyResult.Message)}");
                 }
 
@@ -302,6 +445,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (!resetResult.Succeeded)
                 {
                     var error = string.Join(" ", resetResult.Errors.Select(x => x.Description));
+                    await LogHandledAsync(errorLogService, $"Reset password failed for {maskedEmail}. {error}");
                     return Results.LocalRedirect($"/reset-password?email={Uri.EscapeDataString(email)}&error={Uri.EscapeDataString(error)}");
                 }
 
@@ -375,6 +519,67 @@ namespace MoneyTracker.UI.Endpoints
                 out var parsed)
                 ? parsed
                 : null;
+        }
+
+        private static string BuildTenantName(string? displayName, string normalizedEmail)
+        {
+            if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                return displayName.Trim();
+            }
+
+            var atIndex = normalizedEmail.IndexOf('@');
+            if (atIndex > 0)
+            {
+                var localPart = normalizedEmail[..atIndex].Trim();
+                if (!string.IsNullOrWhiteSpace(localPart))
+                {
+                    return localPart;
+                }
+            }
+
+            return "Personal";
+        }
+
+        private static Task LogHandledAsync(IErrorLogService errorLogService, string message, CancellationToken cancellationToken = default)
+            => errorLogService.LogMessageAsync(message, "Warning", "AuthFlow", cancellationToken);
+
+        private static string? BuildAbsoluteUrl(HttpRequest request, ApplicationSettings settings, IHostEnvironment hostEnvironment, string relativePath)
+        {
+            if (Uri.TryCreate(relativePath, UriKind.Absolute, out var absoluteUri))
+            {
+                return absoluteUri.ToString();
+            }
+
+            var baseUrl = settings.PublicBaseUrl?.Trim();
+            if (!string.IsNullOrWhiteSpace(baseUrl))
+            {
+                return $"{baseUrl.TrimEnd('/')}/{relativePath.TrimStart('/')}";
+            }
+
+            if (!hostEnvironment.IsDevelopment())
+            {
+                return null;
+            }
+
+            var host = request.Host.HasValue ? request.Host.Value : "localhost";
+            return $"{request.Scheme}://{host}/{relativePath.TrimStart('/')}";
+        }
+
+        private static string MaskEmail(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return "***";
+            }
+
+            var atIndex = email.IndexOf('@');
+            if (atIndex <= 1)
+            {
+                return "***";
+            }
+
+            return $"{email[0]}***{email[(atIndex - 1)..]}";
         }
     }
 }

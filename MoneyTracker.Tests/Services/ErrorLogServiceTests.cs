@@ -15,7 +15,7 @@ namespace MoneyTracker.Tests.Services
         public async Task LogAsync_WhenCalled_PersistsErrorLog()
         {
             await using var db = CreateDbContext();
-            var service = new ErrorLogService(db, NullLogger<ErrorLogService>.Instance);
+            var service = CreateService(db);
 
             await service.LogAsync(new ExceptionLogEntryDto
             {
@@ -42,7 +42,7 @@ namespace MoneyTracker.Tests.Services
         public async Task LogAsync_WhenMessageIsTooLong_TruncatesMessage()
         {
             await using var db = CreateDbContext();
-            var service = new ErrorLogService(db, NullLogger<ErrorLogService>.Instance);
+            var service = CreateService(db);
             var longMessage = new string('x', 4500);
 
             await service.LogAsync(new ExceptionLogEntryDto
@@ -55,6 +55,19 @@ namespace MoneyTracker.Tests.Services
             saved.Message.Length.Should().Be(4000);
         }
 
+        [Fact]
+        public async Task LogExceptionAsync_WhenCalled_PersistsMappedException()
+        {
+            await using var db = CreateDbContext();
+            var service = CreateService(db);
+
+            await service.LogExceptionAsync(new InvalidOperationException("Boom"), "Custom failure");
+
+            var saved = await db.ErrorLogs.SingleAsync();
+            saved.ExceptionType.Should().Be(typeof(InvalidOperationException).FullName);
+            saved.Message.Should().Be("Custom failure");
+        }
+
         private static MoneyTrackerDbContext CreateDbContext()
         {
             var options = new DbContextOptionsBuilder<MoneyTrackerDbContext>()
@@ -65,6 +78,18 @@ namespace MoneyTracker.Tests.Services
             tenantContext.SetupGet(x => x.TenantId).Returns((Guid?)null);
 
             return new MoneyTrackerDbContext(options, tenantContext.Object);
+        }
+
+        private static ErrorLogService CreateService(MoneyTrackerDbContext db)
+        {
+            var currentUserService = new Mock<ICurrentUserService>();
+            var tenantContext = new Mock<ITenantContext>();
+
+            return new ErrorLogService(
+                db,
+                NullLogger<ErrorLogService>.Instance,
+                currentUserService.Object,
+                tenantContext.Object);
         }
     }
 }

@@ -13,7 +13,7 @@ namespace MoneyTracker.Tests.Services
         public async Task IssueCodeAsync_WhenNoActiveCode_ReturnsNewCode()
         {
             await using var db = CreateDbContext();
-            var service = new VerificationCodeService(db);
+            var service = new VerificationCodeService(db, CreateErrorLogService().Object);
             var userId = Guid.NewGuid();
             var tenantId = Guid.NewGuid();
 
@@ -29,7 +29,7 @@ namespace MoneyTracker.Tests.Services
         public async Task IssueCodeAsync_WhenCooldownActive_ReturnsFail()
         {
             await using var db = CreateDbContext();
-            var service = new VerificationCodeService(db);
+            var service = new VerificationCodeService(db, CreateErrorLogService().Object);
             var userId = Guid.NewGuid();
             var tenantId = Guid.NewGuid();
 
@@ -45,7 +45,7 @@ namespace MoneyTracker.Tests.Services
         public async Task VerifyCodeAsync_WhenCodeMatches_MarksAsConsumed()
         {
             await using var db = CreateDbContext();
-            var service = new VerificationCodeService(db);
+            var service = new VerificationCodeService(db, CreateErrorLogService().Object);
             var userId = Guid.NewGuid();
             var tenantId = Guid.NewGuid();
 
@@ -63,7 +63,7 @@ namespace MoneyTracker.Tests.Services
         public async Task VerifyCodeAsync_WhenExpired_InvalidatesRecordAndFails()
         {
             await using var db = CreateDbContext();
-            var service = new VerificationCodeService(db);
+            var service = new VerificationCodeService(db, CreateErrorLogService().Object);
             var userId = Guid.NewGuid();
             var tenantId = Guid.NewGuid();
 
@@ -86,7 +86,7 @@ namespace MoneyTracker.Tests.Services
         public async Task VerifyCodeAsync_WhenMaxAttemptsReached_InvalidatesRecord()
         {
             await using var db = CreateDbContext();
-            var service = new VerificationCodeService(db);
+            var service = new VerificationCodeService(db, CreateErrorLogService().Object);
             var userId = Guid.NewGuid();
             var tenantId = Guid.NewGuid();
 
@@ -114,6 +114,18 @@ namespace MoneyTracker.Tests.Services
             tenantContext.SetupGet(x => x.TenantId).Returns((Guid?)null);
 
             return new MoneyTrackerDbContext(options, tenantContext.Object);
+        }
+
+        private static Mock<IErrorLogService> CreateErrorLogService()
+        {
+            var errorLogService = new Mock<IErrorLogService>();
+            errorLogService.Setup(x => x.LogAsync(It.IsAny<MoneyTracker.Application.DTOs.ExceptionLogEntryDto>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            errorLogService.Setup(x => x.LogExceptionAsync(It.IsAny<Exception>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            errorLogService.Setup(x => x.LogMessageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            return errorLogService;
         }
     }
 }

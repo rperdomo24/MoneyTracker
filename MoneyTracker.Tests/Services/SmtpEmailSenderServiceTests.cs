@@ -2,7 +2,9 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MoneyTracker.Application.Constants.Configuration;
+using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Infrastructure.Services;
+using Moq;
 
 namespace MoneyTracker.Tests.Services
 {
@@ -54,6 +56,9 @@ namespace MoneyTracker.Tests.Services
         }
 
         private static SmtpEmailSenderService CreateService(EmailSettings settings)
-            => new(Options.Create(settings), NullLogger<SmtpEmailSenderService>.Instance);
+        {
+            var errorLogService = new Mock<IErrorLogService>();
+            return new SmtpEmailSenderService(Options.Create(settings), NullLogger<SmtpEmailSenderService>.Instance, errorLogService.Object);
+        }
     }
 }

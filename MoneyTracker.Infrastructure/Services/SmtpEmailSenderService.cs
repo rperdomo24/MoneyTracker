@@ -12,11 +12,13 @@ namespace MoneyTracker.Infrastructure.Services
     {
         private readonly EmailSettings _settings;
         private readonly ILogger<SmtpEmailSenderService> _logger;
+        private readonly IErrorLogService _errorLogService;
 
-        public SmtpEmailSenderService(IOptions<EmailSettings> options, ILogger<SmtpEmailSenderService> logger)
+        public SmtpEmailSenderService(IOptions<EmailSettings> options, ILogger<SmtpEmailSenderService> logger, IErrorLogService errorLogService)
         {
             _settings = options.Value;
             _logger = logger;
+            _errorLogService = errorLogService;
         }
 
         public OperationResult ValidateConfiguration()
@@ -66,6 +68,7 @@ namespace MoneyTracker.Infrastructure.Services
             if (!validation.Success)
             {
                 _logger.LogWarning("SMTP validation failed before sending email to {ToEmail}. Reason: {Reason}", toEmail, validation.Message);
+                await _errorLogService.LogMessageAsync($"SMTP validation failed before sending email. {validation.Message}");
                 return validation;
             }
 
@@ -93,6 +96,7 @@ namespace MoneyTracker.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send email to {ToEmail}. Subject: {Subject}", toEmail, subject);
+                await _errorLogService.LogExceptionAsync(ex, $"Failed to send email. Subject: {subject}");
                 return OperationResult.Fail("Unable to send email with current SMTP settings.");
             }
         }
