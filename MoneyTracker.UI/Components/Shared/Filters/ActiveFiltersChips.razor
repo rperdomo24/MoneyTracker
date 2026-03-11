@@ -50,14 +50,14 @@
                     </MudTooltip>
                 }
 
-                @if (Filter.Type.HasValue)
+                @if (Filter.Type is CategoryTypeEnum typeValue)
                 {
-                    var typeText = Filter.Type.Value.ToString();
+                    var typeText = typeValue.ToString();
                     <MudChip T="string"
                              Size="Size.Small"
-                             Color="@(Filter.Type.Value == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
+                             Color="@(typeValue == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
                              OnClose="RemoveTypeFilter">
-                        @(Filter.Type.Value == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
+                        @(typeValue == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
                     </MudChip>
                 }
             </MudStack>
@@ -117,14 +117,14 @@
                     </MudTooltip>
                 }
 
-                @if (Filter.Type.HasValue)
+                @if (Filter.Type is CategoryTypeEnum typeValue)
                 {
-                    var typeText = Filter.Type.Value.ToString();
+                    var typeText = typeValue.ToString();
                     <MudChip T="string"
                              Size="Size.Small"
-                             Color="@(Filter.Type.Value == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
+                             Color="@(typeValue == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
                              OnClose="RemoveTypeFilter">
-                        @(Filter.Type.Value == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
+                        @(typeValue == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
                     </MudChip>
                 }
             </MudStack>
