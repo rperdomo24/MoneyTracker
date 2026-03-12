@@ -7,7 +7,7 @@
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-3">
             <MudStack Spacing="1">
                 <MudText Typo="Typo.h6">Net Worth</MudText>
-                <MudText Typo="Typo.h3" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
+                <MudText Typo="Typo.h3" Class="@(_endValue >= 0 ? "mud-success-text" : "mud-error-text")">
                     @CurrencyHelper.FormatCurrency(_endValue)
                 </MudText>
                 <MudText Typo="Typo.body1" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
@@ -89,11 +89,6 @@
         background-color: rgba(255, 255, 255, 0.03) !important;
     }
 
-    .networth-apex-chart .apexcharts-series path.apexcharts-line {
-        stroke: #00d1a0 !important;
-        stroke-width: 3px !important;
-    }
-
 </style>
 
 @code {
@@ -121,7 +116,7 @@
             _deltaPercent = 0;
             _startDateLabel = "-";
             _endDateLabel = "-";
-            _chartOptions = BuildOptions(IsDarkMode);
+            _chartOptions = BuildOptions(IsDarkMode, true);
             return;
         }
 
@@ -145,10 +140,10 @@
         _endDateLabel = sorted.Last().Date.ToString("dd MMM yyyy");
         _periodLabel = $"{Math.Max(1, (sorted.Last().Date - sorted.First().Date).Days + 1)}D";
 
-        _chartOptions = BuildOptions(IsDarkMode);
+        _chartOptions = BuildOptions(IsDarkMode, _endValue < 0);
     }
 
-    private static ApexChartOptions<BalancePoint> BuildOptions(bool isDarkMode)
+    private static ApexChartOptions<BalancePoint> BuildOptions(bool isDarkMode, bool isNegative)
         => new()
         {
             Chart = new Chart
@@ -175,7 +170,7 @@
                 Size = 0
             },
             DataLabels = new DataLabels { Enabled = false },
-            Colors = new List<string> { "#00d1a0" },
+            Colors = new List<string> { isNegative ? "#ff5252" : "#00d1a0" },
             Legend = new Legend { Show = false },
             Grid = new Grid
             {

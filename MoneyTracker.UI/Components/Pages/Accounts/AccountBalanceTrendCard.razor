@@ -95,7 +95,7 @@
         }
 
         _loading = true;
-        _chartOptions = BuildOptions(IsDarkMode, IsDebtAccount());
+        _chartOptions = BuildOptions(IsDarkMode, IsTrendNegative());
 
         try
         {
@@ -119,7 +119,7 @@
             }
 
             BuildTrendSeries(transactions);
-            _chartOptions = BuildOptions(IsDarkMode, IsDebtAccount());
+            _chartOptions = BuildOptions(IsDarkMode, IsTrendNegative());
         }
         catch
         {
@@ -209,7 +209,7 @@
         };
     }
 
-    private static ApexChartOptions<BalanceTrendPoint> BuildOptions(bool isDarkMode, bool isDebt)
+    private static ApexChartOptions<BalanceTrendPoint> BuildOptions(bool isDarkMode, bool isNegative)
         => new()
         {
             Chart = new Chart
@@ -230,7 +230,7 @@
             },
             DataLabels = new DataLabels { Enabled = false },
             Markers = new Markers { Size = 0 },
-            Colors = new List<string> { isDebt ? "#ff5252" : "#00d1a0" },
+            Colors = new List<string> { isNegative ? "#ff5252" : "#00d1a0" },
             Legend = new Legend { Show = false },
             Grid = new Grid { Show = false },
             Xaxis = new XAxis
@@ -263,6 +263,17 @@
     }
 
     private bool IsDebtAccount() => Account?.Type == AccountType.Credit;
+    private bool IsTrendNegative()
+    {
+        if (Account is null)
+            return false;
+
+        if (IsDebtAccount())
+            return ToDebtValue(Account.CurrentBalance) > 0;
+
+        return Account.CurrentBalance < 0;
+    }
+
     private static decimal ToDebtValue(decimal balance) => Math.Max(0m, -balance);
     private decimal ToDisplayValue(decimal balance) => IsDebtAccount() ? ToDebtValue(balance) : balance;
 
@@ -273,7 +284,7 @@
         _deltaPercent = 0m;
         _fromLabel = "-";
         _toLabel = "-";
-        _chartOptions = BuildOptions(IsDarkMode, IsDebtAccount());
+        _chartOptions = BuildOptions(IsDarkMode, IsTrendNegative());
     }
 
     private string GetTitle() => IsDebtAccount() ? "Debt Trend" : "Balance Trend";

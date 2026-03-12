@@ -121,20 +121,32 @@
 
                 <!-- ✅ Parent Category (CategorySelector) -->
                 <CategorySelector @bind-SelectedCategory="_selectedParent"
+                                  @bind-SelectedCategory:after="OnParentChanged"
                                   Categories="@GetAvailableParents().ToList()"
                                   FilterByType="@_category.Type"
                                   Label="Parent Category"
                                   Required="false"
                                   Clearable="true"
-                                  Disabled="@_hasChildren"
+                                  Disabled="false"
                                   ShowNoneOption="true"
                                   NoneText="None (Main Category)"
                                   ShowAddButton="false" />
 
+                @if (_category.ParentId.HasValue)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.LinkOff"
+                               OnClick="UnlinkParent"
+                               Class="mb-4">
+                        Unlink Parent
+                    </MudButton>
+                }
+
                 @if (_hasChildren)
                 {
-                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-4" Style="margin-top: -12px;">
-                        <MudText Typo="Typo.caption">Cannot change parent (has @_category.Children.Count subcategories)</MudText>
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" Style="margin-top: -12px;">
+                        <MudText Typo="Typo.caption">This category has @_category.Children.Count subcategories; changing parent will move the whole subtree.</MudText>
                     </MudAlert>
                 }
 
@@ -300,6 +312,9 @@
         _selectedParent = _category.ParentId.HasValue
             ? _availableParents.FirstOrDefault(p => p.Id == _category.ParentId.Value)
             : null;
+
+        _parentCategory = _selectedParent;
+        _isSubcategory = _selectedParent != null;
     }
 
     private void OnTypeChanged()
@@ -313,6 +328,27 @@
             _category.ParentId = null;
             _parentCategory = null;
         }
+    }
+
+    private void OnParentChanged()
+    {
+        if (_category == null)
+            return;
+
+        _category.ParentId = _selectedParent?.Id;
+        _parentCategory = _selectedParent;
+        _isSubcategory = _selectedParent != null;
+    }
+
+    private void UnlinkParent()
+    {
+        if (_category == null)
+            return;
+
+        _selectedParent = null;
+        _category.ParentId = null;
+        _parentCategory = null;
+        _isSubcategory = false;
     }
 
     private async Task Update()

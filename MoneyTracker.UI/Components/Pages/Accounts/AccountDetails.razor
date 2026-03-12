@@ -115,10 +115,13 @@
             </MudStack>
         </MudHidden>
 
-        <AccountBalanceTrendCard Account="_account"
-                                 AccountId="Id"
-                                 Filter="_filterDto"
-                                 IsDarkMode="IsDarkMode" />
+        @if (_showTrendChart)
+        {
+            <AccountBalanceTrendCard Account="_account"
+                                     AccountId="Id"
+                                     Filter="_filterDto"
+                                     IsDarkMode="IsDarkMode" />
+        }
 
         <!-- Account Info Card -->
         <MudPaper Class="pa-4 mb-4" Elevation="1">
@@ -317,6 +320,7 @@
         <AccountTransactionsList AccountId="@Id"
                                  Filter="_filterDto"
                                  OnTransactionChanged="OnTransactionChanged"
+                                 OnLoaded="OnTransactionsLoaded"
                                  OnClearFilters="ClearAllFilters"
                                  @key="_transactionsKey" />
     }
@@ -338,6 +342,7 @@
     private bool _filtersDrawerOpen = false;
     private int _transactionsKey = 0;
     private int? _lastStorageAccountId;
+    private bool _showTrendChart = false;
 
     private TransactionFilterDto _filterDto = new()
     {
@@ -404,6 +409,7 @@
             if (result.Success && result.Data != null)
             {
                 _account = result.Data;
+                _showTrendChart = false;
                 UpdateBreadcrumb();
             }
             else
@@ -525,12 +531,14 @@
         _filterDto.AccountIds = new List<int> { Id };
 
         await FilterStorage.SaveAsync(Id, _filterDto);
+        _showTrendChart = false;
         _transactionsKey++;
         StateHasChanged();
     }
 
     private Task OnSearchChanged()
     {
+        _showTrendChart = false;
         _transactionsKey++;
         StateHasChanged();
         return Task.CompletedTask;
@@ -545,6 +553,7 @@
         };
 
         await FilterStorage.ClearAsync(Id);
+        _showTrendChart = false;
         _transactionsKey++;
         StateHasChanged();
     }
@@ -552,8 +561,16 @@
     private async Task OnTransactionChanged()
     {
         await LoadAccount();
+        _showTrendChart = false;
         _transactionsKey++;
         StateHasChanged();
+    }
+
+    private Task OnTransactionsLoaded()
+    {
+        _showTrendChart = true;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private bool HasActiveFilters()
