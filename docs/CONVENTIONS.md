@@ -39,8 +39,21 @@
 - Prefer `LogExceptionAsync(exception, customMessage)` for exceptions and `LogMessageAsync(...)` for handled failures.
 - Do not persist raw passwords, OTP values, invitation tokens, or full email addresses in application error logs.
 - For persisted auth/email logs, prefer masked email text or existing user and tenant ids.
+- Authentication audit events (success/failure) must be persisted through `IAuthAuditService` into `AuthAuditLogs`.
+- For auth auditing, store action, outcome, reason, masked identity, and request context (`ip`, `user-agent`, `path`, `traceId`).
 - Email links sent from the server must use `ApplicationSettings.PublicBaseUrl` in non-development environments.
 - Do not rely on request-host fallback for production email links.
+
+## Timezone and DateTime rules
+- Business data must be stored in UTC and converted to local time only for presentation.
+- Use `ITimeZoneService` as the single conversion source (`ConvertToUtc`, `ConvertFromUtc`, `GetNowInUtc`, local-now helpers).
+- Date filters and period aggregations shown to users must be computed in local time boundaries, not raw UTC day boundaries.
+- Mapper and service layers are responsible for UTC/local conversions; UI should not duplicate timezone math.
+
+## DbContext concurrency rules
+- Do not run parallel operations on the same `DbContext` instance.
+- Repository methods that can be triggered concurrently from Blazor UI flows should use isolated context instances per operation.
+- If multiple UI components refresh at once (drawers/charts/lists), backend data access must avoid sharing the same active EF operation.
 
 ## Commenting rules
 - Keep comments in English only.
@@ -78,6 +91,7 @@
 - Do convert dates through `ITimeZoneService` for transaction-related flows.
 - Do follow existing MudBlazor dialog structure.
 - Do keep feature UI under `MoneyTracker.UI/Components/Pages/<Feature>`.
+- Do keep mobile page containers compact and consistent (`pa-1 pa-sm-6` baseline for full-width pages unless intentionally different).
 - Don't introduce AutoMapper.
 - Don't bypass mappers with ad-hoc property mapping in UI.
 - Don't add secrets to docs/config commits.

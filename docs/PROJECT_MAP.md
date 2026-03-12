@@ -14,6 +14,7 @@
 - Domain contains entities, enums, constants, and repository interfaces.
 - Infrastructure contains EF Core PostgreSQL persistence, repositories, migrations, and timezone service.
 - Error logging persists handled and unhandled auth/email/OTP failures into `ErrorLogs`.
+- Authentication outcomes are audited in `AuthAuditLogs` (login, OTP verification/resend, logout, and session redirects).
 - Tests focus on application services (`Account`, `Category`, `Transaction`, `Budget`, `Dashboard`, `TimeRange`, `TextImport`).
 - DI composition currently happens in the UI entry point (`Program.cs`), not in separate extension modules.
 - Data is persisted through `MoneyTrackerDbContext` (`IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>`) and repositories.
@@ -74,8 +75,16 @@ MoneyTracker.Tests -> tests Application services with mocks
 - Transaction mapping converts UTC <-> local in mappers (`TransactionMapper.cs`).
 - Date range filtering for periods/custom ranges uses `TimeRangeService` + timezone conversion.
 - `TimeZoneService` falls back to UTC if configured timezone is invalid (`Infrastructure/Services/TimeZoneService.cs`).
+- Local month/day aggregations used in charts and summaries must be based on converted local timestamps, not raw UTC day boundaries.
+
+## Data access concurrency notes
+- Blazor Server pages can trigger concurrent refreshes (lists, charts, drawers) inside one user circuit.
+- EF Core `DbContext` is not thread-safe for parallel operations on the same instance.
+- Repository pattern now isolates EF operations per method execution to avoid `"A second operation was started on this context instance..."` runtime failures.
 
 ## Security and operations notes
 - Configure `ApplicationSettings.PublicBaseUrl` before enabling invitation or confirmation emails in any deployed environment.
 - Auth/OTP/SMTP/invitation failures are persisted through `IErrorLogService` into the `ErrorLogs` table.
 - Persisted handled logs should avoid storing raw invitation tokens, OTP values, or full email addresses.
+- Auth lifecycle auditing is persisted through `IAuthAuditService` into `AuthAuditLogs` and should use masked identifiers instead of sensitive values.
+- Cookie auth redirect-to-login events are audited to detect session expiration or invalid session patterns.
