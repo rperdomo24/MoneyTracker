@@ -429,8 +429,13 @@ namespace MoneyTracker.Application.Services
                     return OperationResult<CategoryStatsDto>.Ok(new CategoryStatsDto(), "No transactions found.");
                 }
 
+                var localNow = _timeZoneService.GetLocalTimeInConfiguredTimeZone();
                 var thisMonthAmount = categoryTransactions
-                    .Where(t => t.Date.IsThisMonth())
+                    .Where(t =>
+                    {
+                        var localDate = _timeZoneService.ConvertFromUtc(t.Date);
+                        return localDate.Month == localNow.Month && localDate.Year == localNow.Year;
+                    })
                     .Sum(t => t.Amount);
 
                 var dto = new CategoryStatsDto

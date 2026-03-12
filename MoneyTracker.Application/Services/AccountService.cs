@@ -7,6 +7,8 @@ using MoneyTracker.Application.Mappers.Transactions;
 using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Interfaces;
+using MoneyTracker.Application.Constants;
+using Microsoft.Extensions.Logging;
 
 namespace MoneyTracker.Application.Services
 {
@@ -17,19 +19,25 @@ namespace MoneyTracker.Application.Services
         private readonly ITransactionService _transactionService;
         private readonly ITimeZoneService _timeZoneService;
         private readonly ISystemCategoryResolver _systemCategoryResolver;
+        private readonly ILogger<AccountService>? _logger;
+        private readonly IErrorLogService? _errorLogService;
 
         public AccountService(
             IAccountRepository repository,
             ITransactionRepository transactionRepository,
             ITransactionService transactionService,
             ITimeZoneService timeZoneService,
-            ISystemCategoryResolver systemCategoryResolver)
+            ISystemCategoryResolver systemCategoryResolver,
+            ILogger<AccountService>? logger = null,
+            IErrorLogService? errorLogService = null)
         {
             _repository = repository;
             _transactionRepository = transactionRepository;
             _transactionService = transactionService;
             _timeZoneService = timeZoneService;
             _systemCategoryResolver = systemCategoryResolver;
+            _logger = logger;
+            _errorLogService = errorLogService;
         }
 
         public async Task<OperationResult<List<AccountDto>>> GetAllAsync()
@@ -70,7 +78,7 @@ namespace MoneyTracker.Application.Services
 
             var success = await _repository.UpdateAsync(existing);
             if (!success)
-                return OperationResult.Fail("Error updating account");
+                return OperationResult.Fail(ServiceMessages.AccountUpdateError);
 
             return OperationResult.Ok(OperationMessages.Updated);
         }
@@ -90,18 +98,18 @@ namespace MoneyTracker.Application.Services
 
                 var recalculatedBalance = await _transactionService.GetAccountBalanceAsync(affectedAccountId);
                 if (!recalculatedBalance.Success)
-                    return OperationResult.Fail(recalculatedBalance.Message ?? "Error syncing related account balances");
+                    return OperationResult.Fail(recalculatedBalance.Message ?? ServiceMessages.RelatedAccountBalanceSyncError);
 
                 account.Balance = recalculatedBalance.Data;
 
                 var updated = await _repository.UpdateAsync(account);
                 if (!updated)
-                    return OperationResult.Fail("Error syncing related account balances");
+                    return OperationResult.Fail(ServiceMessages.RelatedAccountBalanceSyncError);
             }
 
             var success = await _repository.DeleteAsync(id);
             if (!success)
-                return OperationResult.Fail("Error deleting account");
+                return OperationResult.Fail(ServiceMessages.AccountDeleteError);
 
             return OperationResult.Ok(OperationMessages.Deleted);
         }
@@ -124,7 +132,7 @@ namespace MoneyTracker.Application.Services
 
                 var success = await _repository.AddAsync(entity);
                 if (!success)
-                    return OperationResult.Fail("Error creating account");
+                    return OperationResult.Fail(ServiceMessages.AccountCreateError);
 
                 // ✅ Create initial balance transaction if needed
                 if (initialBalance != 0)
@@ -136,7 +144,7 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult.Fail($"Error creating account: {ex.Message}");
+                return await FailWithLoggedExceptionAsync(ex, OperationMessages.UnexpectedError, ServiceMessages.AccountCreateError);
             }
         }
 
@@ -152,16 +160,16 @@ namespace MoneyTracker.Application.Services
                 var adjustment = newBalance - currentBalance;
 
                 if (adjustment == 0)
-                    return OperationResult.Ok("No changes in balance");
+                    return OperationResult.Ok(ServiceMessages.AccountAdjustNoChanges);
 
                 await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
 
                 var sign = adjustment > 0 ? "+" : "";
-                return OperationResult.Ok($"Balance adjusted by {sign}{adjustment:C2}");
+                return OperationResult.Ok(string.Format(ServiceMessages.AccountBalanceAdjusted, sign, adjustment));
             }
             catch (Exception ex)
             {
-                return OperationResult.Fail($"Error adjusting balance: {ex.Message}");
+                return await FailWithLoggedExceptionAsync(ex, OperationMessages.UnexpectedError, "Error adjusting account balance.");
             }
         }
 
@@ -173,7 +181,7 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<decimal>.Fail($"Error calculating balance: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<decimal>(ex, OperationMessages.UnexpectedError, ServiceMessages.AccountBalanceCalculatedError);
             }
         }
 
@@ -242,15 +250,37 @@ namespace MoneyTracker.Application.Services
 
             var balanceResult = await GetCurrentBalanceAsync(accountId);
             if (!balanceResult.Success)
-                return OperationResult.Fail(balanceResult.Message ?? "Error calculating balance");
+                return OperationResult.Fail(balanceResult.Message ?? ServiceMessages.AccountBalanceCalculatedError);
 
             account.Balance = balanceResult.Data;
 
             var updated = await _repository.UpdateAsync(account);
             if (!updated)
-                return OperationResult.Fail("Error syncing account balance");
+                return OperationResult.Fail(ServiceMessages.AccountBalanceSyncError);
 
-            return OperationResult.Ok("Account balance synced successfully");
+            return OperationResult.Ok(ServiceMessages.AccountSynced);
+        }
+
+        private async Task<OperationResult> FailWithLoggedExceptionAsync(Exception ex, string failMessage, string logContext)
+        {
+            _logger?.LogError(ex, logContext);
+            if (_errorLogService is not null)
+            {
+                await _errorLogService.LogExceptionAsync(ex, logContext);
+            }
+
+            return OperationResult.Fail(failMessage);
+        }
+
+        private async Task<OperationResult<T>> FailWithLoggedExceptionAsync<T>(Exception ex, string failMessage, string logContext)
+        {
+            _logger?.LogError(ex, logContext);
+            if (_errorLogService is not null)
+            {
+                await _errorLogService.LogExceptionAsync(ex, logContext);
+            }
+
+            return OperationResult<T>.Fail(failMessage);
         }
 
     }

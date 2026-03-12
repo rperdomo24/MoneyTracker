@@ -272,5 +272,41 @@ namespace MoneyTracker.Tests.Services
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.UnexpectedError);
         }
+
+        [Fact]
+        public async Task GetCategoryStatsAsync_UsesLocalMonthFromTimeZoneService()
+        {
+            _tz.Setup(x => x.GetLocalTimeInConfiguredTimeZone())
+                .Returns(new DateTime(2026, 3, 1, 10, 0, 0));
+            _tz.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d.AddHours(-6));
+
+            _txRepo.Setup(x => x.GetAllAsync())
+                .ReturnsAsync(new List<Transaction>
+                {
+                    new()
+                    {
+                        Id = 1,
+                        CategoryId = 7,
+                        Amount = 120m,
+                        Date = new DateTime(2026, 3, 1, 2, 0, 0, DateTimeKind.Utc)
+                    },
+                    new()
+                    {
+                        Id = 2,
+                        CategoryId = 7,
+                        Amount = 80m,
+                        Date = new DateTime(2026, 3, 1, 15, 0, 0, DateTimeKind.Utc)
+                    }
+                });
+
+            var svc = CreateService();
+            var result = await svc.GetCategoryStatsAsync(7);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.TotalCount.Should().Be(2);
+            result.Data.ThisMonthAmount.Should().Be(80m);
+        }
     }
 }

@@ -162,6 +162,80 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task GetSpendingTrendAsync_WhenEntryFallsNearUtcMidnight_BucketsByLocalDate()
+        {
+            var svc = CreateService();
+
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d.AddHours(-6));
+
+            _transactionRepository
+                .Setup(x => x.GetDashboardEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>()))
+                .ReturnsAsync(new List<DashboardTransactionEntry>
+                {
+                    new()
+                    {
+                        Id = 1,
+                        Name = "Car insurance",
+                        Description = string.Empty,
+                        Amount = 300m,
+                        Date = new DateTime(2026, 3, 2, 3, 30, 0), // Local UTC-6 => 2026-03-01 21:30
+                        AccountId = 1,
+                        AccountName = "Main",
+                        CategoryId = 2,
+                        CategoryName = "Transport",
+                        CategoryColor = "#f44336",
+                        CategoryType = CategoryTypeEnum.Expense
+                    },
+                    new()
+                    {
+                        Id = 2,
+                        Name = "Food",
+                        Description = string.Empty,
+                        Amount = 100m,
+                        Date = new DateTime(2026, 3, 2, 18, 0, 0), // Local UTC-6 => 2026-03-02 12:00
+                        AccountId = 1,
+                        AccountName = "Main",
+                        CategoryId = 3,
+                        CategoryName = "Food",
+                        CategoryColor = "#ff9800",
+                        CategoryType = CategoryTypeEnum.Expense
+                    }
+                });
+
+            var result = await svc.GetSpendingTrendAsync(new DashboardFilterDto
+            {
+                TimePeriod = TimePeriodFilter.Custom,
+                FromDate = new DateTime(2026, 3, 1),
+                ToDate = new DateTime(2026, 3, 2)
+            });
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+
+            result.Data!.Single(x => x.Date.Date == new DateTime(2026, 3, 1)).Amount.Should().Be(300m);
+            result.Data.Single(x => x.Date.Date == new DateTime(2026, 3, 2)).Amount.Should().Be(100m);
+
+            _transactionRepository.Verify(x => x.GetDashboardEntriesAsync(
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<List<int>>()),
+                Times.Once);
+
+            _transactionRepository.Verify(x => x.GetAmountsByDateAsync(
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<List<int>>(),
+                It.IsAny<CategoryTypeEnum>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task GetSummaryAsync_WhenAccountsFail_ReturnsFailResult()
         {
             _accountService.Setup(x => x.GetAccountsWithBalancesAsync())

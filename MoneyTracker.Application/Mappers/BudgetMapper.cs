@@ -20,8 +20,9 @@ namespace MoneyTracker.Application.Mappers
             };
         }
 
-        public static Budget MapToEntity(this CreateBudgetDto dto)
+        public static Budget MapToEntity(this CreateBudgetDto dto, MoneyTracker.Application.Interfaces.ITimeZoneService timeZoneService)
         {
+            var nowUtc = timeZoneService.GetNowInUtc();
             return new Budget
             {
                 CategoryId = dto.CategoryId,
@@ -31,18 +32,18 @@ namespace MoneyTracker.Application.Mappers
                 IncludeChildren = dto.IncludeChildren,
                 RolloverEnabled = dto.RolloverEnabled,
                 RolloverMode = dto.RolloverMode,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = nowUtc,
+                UpdatedAt = nowUtc
             };
         }
 
-        public static void UpdateEntity(this Budget entity, UpdateBudgetDto dto)
+        public static void UpdateEntity(this Budget entity, UpdateBudgetDto dto, MoneyTracker.Application.Interfaces.ITimeZoneService timeZoneService)
         {
             entity.Amount = dto.Amount;
             entity.IncludeChildren = dto.IncludeChildren;
             entity.RolloverEnabled = dto.RolloverEnabled;
             entity.RolloverMode = dto.RolloverMode;
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = timeZoneService.GetNowInUtc();
         }
     }
 }

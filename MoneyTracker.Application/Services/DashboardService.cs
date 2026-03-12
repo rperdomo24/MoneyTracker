@@ -1,5 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.Common.Extensions;
+using MoneyTracker.Application.Constants;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Budgets;
 using MoneyTracker.Application.DTOs.Dashboard;
@@ -26,6 +27,7 @@ namespace MoneyTracker.Application.Services
         private readonly IBudgetService _budgetService;
         private readonly ITimeZoneService _timeZoneService;
         private readonly ILogger<DashboardService> _logger;
+        private readonly IErrorLogService? _errorLogService;
 
         public DashboardService(
             IAccountService accountService,
@@ -33,7 +35,8 @@ namespace MoneyTracker.Application.Services
             ITransactionRepository transactionRepository,
             IBudgetService budgetService,
             ITimeZoneService timeZoneService,
-            ILogger<DashboardService> logger)
+            ILogger<DashboardService> logger,
+            IErrorLogService? errorLogService = null)
         {
             _accountService = accountService;
             _transactionService = transactionService;
@@ -41,6 +44,7 @@ namespace MoneyTracker.Application.Services
             _budgetService = budgetService;
             _timeZoneService = timeZoneService;
             _logger = logger;
+            _errorLogService = errorLogService;
         }
 
         public async Task<OperationResult<DashboardOverviewDto>> GetOverviewAsync(
@@ -105,7 +109,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<DashboardOverviewDto>.Fail($"Error retrieving dashboard overview: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<DashboardOverviewDto>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    ServiceMessages.DashboardOverviewError);
             }
         }
 
@@ -135,7 +142,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<DashboardWidgetsDto>.Fail($"Error retrieving dashboard widgets: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<DashboardWidgetsDto>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    ServiceMessages.DashboardWidgetsError);
             }
         }
 
@@ -150,8 +160,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving budget summary.");
-                return OperationResult<DashboardBudgetSummaryDto>.Fail($"Error retrieving budget summary: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<DashboardBudgetSummaryDto>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving budget summary.");
             }
         }
 
@@ -175,18 +187,20 @@ namespace MoneyTracker.Application.Services
 
                 var fromUtc = _timeZoneService.ConvertToUtc(rangeStart.Date);
                 var toUtc = _timeZoneService.ConvertToUtc(rangeEnd.Date.AddDays(1).AddTicks(-1));
-                var amounts = await _transactionRepository.GetAmountsByDateAsync(
+                var entries = await _transactionRepository.GetDashboardEntriesAsync(
                     fromUtc,
                     toUtc,
-                    normalizedFilter.AccountIds ?? new List<int>(),
-                    CategoryTypeEnum.Expense);
-                var trend = BuildSpendingTrend(amounts, normalizedFilter, now);
+                    normalizedFilter.AccountIds ?? new List<int>());
+                var filteredEntries = ApplyDashboardEntryFilter(entries, normalizedFilter.TransactionFilter);
+                var trend = BuildSpendingTrend(filteredEntries, normalizedFilter, now);
                 return OperationResult<List<DashboardSpendingTrendDto>>.Ok(trend, "Spending trend retrieved successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving spending trend.");
-                return OperationResult<List<DashboardSpendingTrendDto>>.Fail($"Error retrieving spending trend: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<DashboardSpendingTrendDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving spending trend.");
             }
         }
 
@@ -219,7 +233,7 @@ namespace MoneyTracker.Application.Services
                             CategoryName = x.CategoryName,
                             Amount = x.Amount,
                             TransactionCount = x.TransactionCount,
-                            CategoryColor = "#9e9e9e"
+                            CategoryColor = DashboardConstants.DefaultCategoryColor
                         })
                         .ToList();
 
@@ -233,7 +247,7 @@ namespace MoneyTracker.Application.Services
                             CategoryName = x.CategoryName,
                             Amount = x.Amount,
                             TransactionCount = x.TransactionCount,
-                            CategoryColor = "#9e9e9e"
+                            CategoryColor = DashboardConstants.DefaultCategoryColor
                         })
                         .ToList();
 
@@ -242,8 +256,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving cash flow.");
-                return OperationResult<CashFlowDto>.Fail($"Error retrieving cash flow: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<CashFlowDto>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving cash flow.");
             }
         }
 
@@ -273,8 +289,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving category breakdown.");
-                return OperationResult<List<CategoryBreakdownDto>>.Fail($"Error retrieving category breakdown: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<CategoryBreakdownDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving category breakdown.");
             }
         }
 
@@ -306,20 +324,15 @@ namespace MoneyTracker.Application.Services
                     includeTransfers,
                     count);
 
-                var recent = BuildRecentTransactions(
-                    recentEntries.Select(entry =>
-                    {
-                        entry.Date = _timeZoneService.ConvertFromUtc(entry.Date);
-                        return entry;
-                    }).ToList(),
-                    count,
-                    now);
+                var recent = BuildRecentTransactions(recentEntries, count, now);
                 return OperationResult<List<RecentTransactionDto>>.Ok(recent, "Recent transactions retrieved successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving recent transactions.");
-                return OperationResult<List<RecentTransactionDto>>.Fail($"Error retrieving recent transactions: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<RecentTransactionDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving recent transactions.");
             }
         }
 
@@ -362,7 +375,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<DashboardSummaryDto>.Fail($"Error retrieving dashboard summary: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<DashboardSummaryDto>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    ServiceMessages.DashboardSummaryError);
             }
         }
 
@@ -458,7 +474,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<List<FinancialAlertDto>>.Fail($"Error retrieving alerts: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<FinancialAlertDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    ServiceMessages.DashboardAlertsError);
             }
         }
 
@@ -522,7 +541,7 @@ namespace MoneyTracker.Application.Services
                         AccountName = account.Name,
                         Type = account.Type,
                         Icon = account.Icon,
-                        Color = account.Color ?? "#9e9e9e",
+                        Color = account.Color ?? DashboardConstants.DefaultCategoryColor,
                         CurrentBalance = account.CurrentBalance,
                         CreditLimit = account.CreditLimit,
                         TransactionCount = transactionCount,
@@ -539,7 +558,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<List<AccountActivityDto>>.Fail($"Error retrieving account activity: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<AccountActivityDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    ServiceMessages.DashboardAccountActivityError);
             }
         }
 
@@ -569,7 +591,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<List<BalanceTrendDto>>.Fail($"Error retrieving balance trend: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<BalanceTrendDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving balance trend.");
             }
         }
 
@@ -621,8 +646,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving balance trend.");
-                return OperationResult<List<BalanceTrendDto>>.Fail($"Error retrieving balance trend: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<BalanceTrendDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    "Error retrieving balance trend.");
             }
         }
 
@@ -674,7 +701,10 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<List<MonthlyComparisonDto>>.Fail($"Error retrieving monthly comparison: {ex.Message}");
+                return await FailWithLoggedExceptionAsync<List<MonthlyComparisonDto>>(
+                    ex,
+                    OperationMessages.UnexpectedError,
+                    ServiceMessages.DashboardMonthlyComparisonError);
             }
         }
 
@@ -830,21 +860,11 @@ namespace MoneyTracker.Application.Services
                 DaysElapsed = daysElapsed,
                 IncomeByCategory = incomeCategories
                     .OrderByDescending(x => x.Amount)
-                    .Select(x => new CashFlowCategoryDto
-                    {
-                        CategoryId = x.CategoryId,
-                        CategoryName = x.CategoryName,
-                        Amount = x.Amount
-                    })
+                    .Select(x => x.MapToCashFlowCategory())
                     .ToList(),
                 ExpenseByCategory = expenseCategories
                     .OrderByDescending(x => x.Amount)
-                    .Select(x => new CashFlowCategoryDto
-                    {
-                        CategoryId = x.CategoryId,
-                        CategoryName = x.CategoryName,
-                        Amount = x.Amount
-                    })
+                    .Select(x => x.MapToCashFlowCategory())
                     .ToList()
             };
         }
@@ -858,14 +878,12 @@ namespace MoneyTracker.Application.Services
                 .GroupBy(t => new
                 {
                     t.CategoryId,
-                    CategoryName = t.Category?.Name ?? "Sin categoria"
+                    CategoryName = t.Category?.Name ?? DashboardConstants.UncategorizedNameNoAccent
                 })
-                .Select(g => new CashFlowCategoryDto
-                {
-                    CategoryId = g.Key.CategoryId,
-                    CategoryName = g.Key.CategoryName,
-                    Amount = g.Sum(t => Math.Abs(t.Amount))
-                })
+                .Select(g => DashboardMapper.MapToCashFlowCategory(
+                    g.Key.CategoryId,
+                    g.Key.CategoryName,
+                    g.Sum(t => Math.Abs(t.Amount))))
                 .OrderByDescending(x => x.Amount)
                 .ToList();
         }
@@ -881,12 +899,10 @@ namespace MoneyTracker.Application.Services
                     t.CategoryId,
                     CategoryName = t.CategoryName
                 })
-                .Select(g => new CashFlowCategoryDto
-                {
-                    CategoryId = g.Key.CategoryId,
-                    CategoryName = g.Key.CategoryName,
-                    Amount = g.Sum(t => Math.Abs(t.Amount))
-                })
+                .Select(g => DashboardMapper.MapToCashFlowCategory(
+                    g.Key.CategoryId,
+                    g.Key.CategoryName,
+                    g.Sum(t => Math.Abs(t.Amount))))
                 .OrderByDescending(x => x.Amount)
                 .ToList();
         }
@@ -903,19 +919,16 @@ namespace MoneyTracker.Application.Services
                 .GroupBy(t => new
                 {
                     t.CategoryId,
-                    CategoryName = t.Category?.Name ?? "Sin categoría",
-                    CategoryColor = t.Category?.Color ?? "#9e9e9e"
+                    CategoryName = t.Category?.Name ?? DashboardConstants.UncategorizedName,
+                    CategoryColor = t.Category?.Color ?? DashboardConstants.DefaultCategoryColor
                 })
-                .Select(g => new CategoryBreakdownDto
-                {
-                    CategoryId = g.Key.CategoryId,
-                    CategoryName = g.Key.CategoryName,
-                    CategoryColor = g.Key.CategoryColor,
-                    Amount = g.Sum(t => Math.Abs(t.Amount)),
-                    Percentage = totalExpenses > 0 ? (g.Sum(t => Math.Abs(t.Amount)) / totalExpenses) * 100 : 0,
-                    TransactionCount = g.Count(),
-                    AverageTransaction = g.Count() > 0 ? g.Sum(t => Math.Abs(t.Amount)) / g.Count() : 0
-                })
+                .Select(g => DashboardMapper.MapToCategoryBreakdown(
+                    g.Key.CategoryId,
+                    g.Key.CategoryName,
+                    g.Key.CategoryColor,
+                    g.Sum(t => Math.Abs(t.Amount)),
+                    totalExpenses,
+                    g.Count()))
                 .OrderByDescending(c => c.Amount)
                 .Take(6)
                 .ToList();
@@ -936,16 +949,13 @@ namespace MoneyTracker.Application.Services
                     t.CategoryName,
                     t.CategoryColor
                 })
-                .Select(g => new CategoryBreakdownDto
-                {
-                    CategoryId = g.Key.CategoryId,
-                    CategoryName = g.Key.CategoryName,
-                    CategoryColor = g.Key.CategoryColor,
-                    Amount = g.Sum(t => Math.Abs(t.Amount)),
-                    Percentage = totalExpenses > 0 ? (g.Sum(t => Math.Abs(t.Amount)) / totalExpenses) * 100 : 0,
-                    TransactionCount = g.Count(),
-                    AverageTransaction = g.Count() > 0 ? g.Sum(t => Math.Abs(t.Amount)) / g.Count() : 0
-                })
+                .Select(g => DashboardMapper.MapToCategoryBreakdown(
+                    g.Key.CategoryId,
+                    g.Key.CategoryName,
+                    g.Key.CategoryColor,
+                    g.Sum(t => Math.Abs(t.Amount)),
+                    totalExpenses,
+                    g.Count()))
                 .OrderByDescending(c => c.Amount)
                 .Take(6)
                 .ToList();
@@ -961,16 +971,7 @@ namespace MoneyTracker.Application.Services
             var totalExpenses = expenses.Sum(x => x.Amount);
 
             return expenses
-                .Select(x => new CategoryBreakdownDto
-                {
-                    CategoryId = x.CategoryId,
-                    CategoryName = x.CategoryName,
-                    CategoryColor = x.CategoryColor,
-                    Amount = x.Amount,
-                    Percentage = totalExpenses > 0 ? (x.Amount / totalExpenses) * 100 : 0,
-                    TransactionCount = x.TransactionCount,
-                    AverageTransaction = x.TransactionCount > 0 ? x.Amount / x.TransactionCount : 0
-                })
+                .Select(x => x.MapToCategoryBreakdown(totalExpenses))
                 .Take(6)
                 .ToList();
         }
@@ -993,19 +994,7 @@ namespace MoneyTracker.Application.Services
             return latest.UnorderedItems
                 .Select(x => x.Element)
                 .OrderByDescending(t => t.Date)
-                .Select(t => new RecentTransactionDto
-                {
-                    Id = t.Id,
-                    Name = t.Name,
-                    Description = t.Description,
-                    Amount = t.Amount,
-                    Date = t.Date,
-                    AccountName = t.Account?.Name ?? "Cuenta desconocida",
-                    CategoryName = t.Category?.Name ?? "Sin categoría",
-                    CategoryColor = t.Category?.Color ?? "#9e9e9e",
-                    Type = t.TransactionType,
-                    RelativeTime = CalculateRelativeTime(t.Date, now)
-                })
+                .Select(t => t.MapToRecentTransaction(now, CalculateRelativeTime))
                 .ToList();
         }
 
@@ -1027,18 +1016,12 @@ namespace MoneyTracker.Application.Services
             return latest.UnorderedItems
                 .Select(x => x.Element)
                 .OrderByDescending(t => t.Date)
-                .Select(t => new RecentTransactionDto
+                .Select(t =>
                 {
-                    Id = t.Id,
-                    Name = t.Name,
-                    Description = t.Description,
-                    Amount = t.Amount,
-                    Date = _timeZoneService.ConvertFromUtc(t.Date),
-                    AccountName = t.AccountName,
-                    CategoryName = t.CategoryName,
-                    CategoryColor = t.CategoryColor,
-                    Type = GetEntryType(t),
-                    RelativeTime = CalculateRelativeTime(_timeZoneService.ConvertFromUtc(t.Date), now)
+                    var localDate = _timeZoneService.ConvertFromUtc(t.Date);
+                    var type = GetEntryType(t);
+                    var relativeTime = CalculateRelativeTime(localDate, now);
+                    return t.MapToRecentTransaction(localDate, type, relativeTime);
                 })
                 .ToList();
         }
@@ -1435,7 +1418,7 @@ namespace MoneyTracker.Application.Services
                     result.Add(new DashboardBudgetItemDto
                     {
                         CategoryName = item.CategoryName,
-                        CategoryColor = item.CategoryColor ?? "#9e9e9e",
+                        CategoryColor = item.CategoryColor ?? DashboardConstants.DefaultCategoryColor,
                         BudgetAmount = groupedBudget,
                         UsedAmount = groupedUsed,
                         RemainingAmount = groupedBudget - groupedUsed,
@@ -1466,7 +1449,7 @@ namespace MoneyTracker.Application.Services
             return new DashboardBudgetItemDto
             {
                 CategoryName = item.CategoryName,
-                CategoryColor = item.CategoryColor ?? "#9e9e9e",
+                CategoryColor = item.CategoryColor ?? DashboardConstants.DefaultCategoryColor,
                 BudgetAmount = item.Budget.Amount,
                 UsedAmount = usedAmount,
                 RemainingAmount = item.Budget.Amount - usedAmount,
@@ -1485,7 +1468,7 @@ namespace MoneyTracker.Application.Services
             var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
             var expenses = transactions
                 .Where(t => t.IsExpense())
-                .Where(t => t.Date >= rangeStart && t.Date <= rangeEnd)
+                .Where(t => t.Date.Date >= rangeStart.Date && t.Date.Date <= rangeEnd.Date)
                 .ToList();
 
             var totalDays = (rangeEnd.Date - rangeStart.Date).TotalDays;
@@ -1536,7 +1519,7 @@ namespace MoneyTracker.Application.Services
             return dailyTrend;
         }
 
-        private static List<DashboardSpendingTrendDto> BuildSpendingTrend(
+        private List<DashboardSpendingTrendDto> BuildSpendingTrend(
             List<DashboardTransactionEntry> entries,
             DashboardFilterDto filter,
             DateTime now)
@@ -1544,7 +1527,12 @@ namespace MoneyTracker.Application.Services
             var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
             var expenses = entries
                 .Where(IsExpenseEntry)
-                .Where(t => t.Date >= rangeStart && t.Date <= rangeEnd)
+                .Select(t => new
+                {
+                    Date = _timeZoneService.ConvertFromUtc(t.Date),
+                    Amount = t.Amount
+                })
+                .Where(t => t.Date.Date >= rangeStart.Date && t.Date.Date <= rangeEnd.Date)
                 .ToList();
 
             var totalDays = (rangeEnd.Date - rangeStart.Date).TotalDays;
@@ -1607,7 +1595,7 @@ namespace MoneyTracker.Application.Services
                     Date = _timeZoneService.ConvertFromUtc(x.Date),
                     Amount = x.Amount
                 })
-                .Where(x => x.Date >= rangeStart && x.Date <= rangeEnd)
+                .Where(x => x.Date.Date >= rangeStart.Date && x.Date.Date <= rangeEnd.Date)
                 .ToList();
 
             var totalDays = (rangeEnd.Date - rangeStart.Date).TotalDays;
@@ -1716,6 +1704,18 @@ namespace MoneyTracker.Application.Services
                 return $"{(int)(diff.TotalDays / 7)} weeks ago";
 
             return transactionDate.ToString("dd/MM/yyyy");
+        }
+
+        private async Task<OperationResult<T>> FailWithLoggedExceptionAsync<T>(Exception ex, string failMessage, string logContext)
+        {
+            _logger.LogError(ex, logContext);
+
+            if (_errorLogService is not null)
+            {
+                await _errorLogService.LogExceptionAsync(ex, logContext);
+            }
+
+            return OperationResult<T>.Fail(failMessage);
         }
 
         #endregion
