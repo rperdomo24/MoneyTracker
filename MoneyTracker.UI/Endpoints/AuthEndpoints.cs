@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using MoneyTracker.Application.Constants;
 using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.DTOs.Auth;
 using MoneyTracker.Application.Interfaces;
@@ -22,10 +23,12 @@ namespace MoneyTracker.UI.Endpoints
                 [FromForm] string password,
                 [FromForm] bool rememberMe,
                 [FromForm] string? returnUrl,
+                HttpRequest request,
                 SignInManager<ApplicationUser> signInManager,
                 UserManager<ApplicationUser> userManager,
                 IEmailSenderService emailSenderService,
                 IVerificationCodeService verificationCodeService,
+                IAuthAuditService authAuditService,
                 IErrorLogService errorLogService,
                 IValidator<LoginRequestDto> validator) =>
             {
@@ -41,6 +44,7 @@ namespace MoneyTracker.UI.Endpoints
                 {
                     var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
                     await LogHandledAsync(errorLogService, $"Login validation failed. {error}");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "ValidationFailed", null, null, null);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, error, null));
                 }
 
@@ -50,6 +54,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (user is null)
                 {
                     await LogHandledAsync(errorLogService, $"Login failed because user {maskedEmail} was not found.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "UserNotFound", maskedEmail, null, null);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
@@ -57,18 +62,21 @@ namespace MoneyTracker.UI.Endpoints
                 if (preCheck.IsLockedOut)
                 {
                     await LogHandledAsync(errorLogService, $"Login failed because user {maskedEmail} is locked out.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "LockedOut", maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Your account is temporarily locked. Try again later.", null));
                 }
 
                 if (preCheck.IsNotAllowed)
                 {
                     await LogHandledAsync(errorLogService, $"Login blocked because user {maskedEmail} has not confirmed email.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "EmailNotConfirmed", maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&error={Uri.EscapeDataString("Email confirmation is required before sign in.")}");
                 }
 
                 if (!preCheck.Succeeded)
                 {
                     await LogHandledAsync(errorLogService, $"Login failed because password validation did not succeed for {maskedEmail}.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "InvalidPassword", maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
@@ -80,12 +88,14 @@ namespace MoneyTracker.UI.Endpoints
 
                 if (result.Succeeded)
                 {
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, true, null, maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect(SafeReturnUrl(returnUrl));
                 }
 
                 if (!result.RequiresTwoFactor)
                 {
                     await LogHandledAsync(errorLogService, $"Login failed because sign-in did not complete for {maskedEmail}.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "SignInIncomplete", maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Invalid email or password.", null));
                 }
 
@@ -100,6 +110,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (!codeResult.Success || codeResult.Data is null)
                 {
                     await LogHandledAsync(errorLogService, $"OTP issue failed during login for {maskedEmail}. {codeResult.Message}");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "OtpIssueFailed", maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, codeResult.Message, null));
                 }
 
@@ -111,6 +122,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (!sendResult.Success)
                 {
                     await LogHandledAsync(errorLogService, $"OTP email send failed during login for {maskedEmail}. {sendResult.Message}");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginPassword, false, "OtpEmailSendFailed", maskedEmail, user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, sendResult.Message, null));
                 }
 
@@ -122,9 +134,11 @@ namespace MoneyTracker.UI.Endpoints
                 [FromForm] bool rememberMe,
                 [FromForm] string? returnUrl,
                 [FromForm] string? expiresAtUtc,
+                HttpRequest request,
                 SignInManager<ApplicationUser> signInManager,
                 UserManager<ApplicationUser> userManager,
                 IVerificationCodeService verificationCodeService,
+                IAuthAuditService authAuditService,
                 IErrorLogService errorLogService,
                 IValidator<LoginOtpRequestDto> validator) =>
             {
@@ -134,6 +148,7 @@ namespace MoneyTracker.UI.Endpoints
                 {
                     var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
                     await LogHandledAsync(errorLogService, $"OTP validation failed. {error}");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpVerify, false, "ValidationFailed", null, null, null);
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, error, null, ParseUtc(expiresAtUtc)));
                 }
 
@@ -141,12 +156,14 @@ namespace MoneyTracker.UI.Endpoints
                 if (user is null)
                 {
                     await LogHandledAsync(errorLogService, "OTP verification failed because the auth session expired.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpVerify, false, "SessionExpired", null, null, null);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Session expired. Please sign in again.", null));
                 }
 
                 if (await userManager.IsLockedOutAsync(user))
                 {
                     await LogHandledAsync(errorLogService, $"OTP verification failed because user {MaskEmail(user.Email)} is locked out.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpVerify, false, "LockedOut", MaskEmail(user.Email), user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null, ParseUtc(expiresAtUtc)));
                 }
 
@@ -163,30 +180,36 @@ namespace MoneyTracker.UI.Endpoints
                     if (await userManager.IsLockedOutAsync(user))
                     {
                         await LogHandledAsync(errorLogService, $"OTP verification locked out user {MaskEmail(user.Email)}.");
+                        await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpVerify, false, "LockedOutAfterOtpFailure", MaskEmail(user.Email), user.Id, user.TenantId);
                         return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Your account is temporarily locked. Try again later.", null, ParseUtc(expiresAtUtc)));
                     }
 
                     await LogHandledAsync(errorLogService, $"OTP verification failed for user {MaskEmail(user.Email)}. Invalid or expired code.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpVerify, false, "InvalidOrExpiredCode", MaskEmail(user.Email), user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, "Invalid or expired verification code.", null, ParseUtc(expiresAtUtc)));
                 }
 
                 await userManager.ResetAccessFailedCountAsync(user);
                 await signInManager.SignInAsync(user, rememberMe);
+                await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpVerify, true, null, MaskEmail(user.Email), user.Id, user.TenantId);
                 return Results.LocalRedirect(SafeReturnUrl(returnUrl));
             }).AllowAnonymous();
 
             authGroup.MapPost("/login-otp/resend", async (
                 [FromForm] bool rememberMe,
                 [FromForm] string? returnUrl,
+                HttpRequest request,
                 SignInManager<ApplicationUser> signInManager,
                 IEmailSenderService emailSenderService,
                 IVerificationCodeService verificationCodeService,
+                IAuthAuditService authAuditService,
                 IErrorLogService errorLogService) =>
             {
                 var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
                 if (user is null)
                 {
                     await LogHandledAsync(errorLogService, "OTP resend failed because the auth session expired.");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpResend, false, "SessionExpired", null, null, null);
                     return Results.LocalRedirect(BuildLoginUrl(returnUrl, "Session expired. Please sign in again.", null));
                 }
 
@@ -201,6 +224,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (!codeResult.Success || codeResult.Data is null)
                 {
                     await LogHandledAsync(errorLogService, $"OTP resend issue failed for user {MaskEmail(user.Email)}. {codeResult.Message}");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpResend, false, "OtpIssueFailed", MaskEmail(user.Email), user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, codeResult.Message, null, null));
                 }
 
@@ -212,9 +236,11 @@ namespace MoneyTracker.UI.Endpoints
                 if (!sendResult.Success)
                 {
                     await LogHandledAsync(errorLogService, $"OTP resend email failed for user {MaskEmail(user.Email)}. {sendResult.Message}");
+                    await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpResend, false, "OtpEmailSendFailed", MaskEmail(user.Email), user.Id, user.TenantId);
                     return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, sendResult.Message, null, null));
                 }
 
+                await LogAuthAuditAsync(authAuditService, request, AuthAuditConstants.LoginOtpResend, true, null, MaskEmail(user.Email), user.Id, user.TenantId);
                 return Results.LocalRedirect(BuildOtpUrl(returnUrl, rememberMe, null, "A verification code was sent to your email.", codeResult.Data.ExpiresAtUtc));
             }).AllowAnonymous();
 
@@ -452,8 +478,36 @@ namespace MoneyTracker.UI.Endpoints
                 return Results.LocalRedirect("/login?info=Password%20updated%20successfully.");
             }).AllowAnonymous();
 
-            authGroup.MapGet("/logout", async (SignInManager<ApplicationUser> signInManager) =>
+            authGroup.MapGet("/logout", async (
+                HttpRequest request,
+                SignInManager<ApplicationUser> signInManager,
+                IAuthAuditService authAuditService) =>
             {
+                Guid? userId = null;
+                Guid? tenantId = null;
+
+                var userIdText = request.HttpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(userIdText, out var parsedUserId))
+                {
+                    userId = parsedUserId;
+                }
+
+                var tenantIdText = request.HttpContext.User.FindFirst("tenant_id")?.Value;
+                if (Guid.TryParse(tenantIdText, out var parsedTenantId))
+                {
+                    tenantId = parsedTenantId;
+                }
+
+                await LogAuthAuditAsync(
+                    authAuditService,
+                    request,
+                    AuthAuditConstants.Logout,
+                    true,
+                    null,
+                    null,
+                    userId,
+                    tenantId);
+
                 await signInManager.SignOutAsync();
                 return Results.LocalRedirect("/login");
             }).AllowAnonymous();
@@ -543,6 +597,41 @@ namespace MoneyTracker.UI.Endpoints
 
         private static Task LogHandledAsync(IErrorLogService errorLogService, string message, CancellationToken cancellationToken = default)
             => errorLogService.LogMessageAsync(message, "Warning", "AuthFlow", cancellationToken);
+
+        private static Task LogAuthAuditAsync(
+            IAuthAuditService authAuditService,
+            HttpRequest request,
+            string action,
+            bool success,
+            string? failureReason,
+            string? emailMasked,
+            Guid? userId,
+            Guid? tenantId,
+            CancellationToken cancellationToken = default)
+        {
+            var forwardedFor = request.Headers["X-Forwarded-For"].ToString();
+            var ipAddress = string.IsNullOrWhiteSpace(forwardedFor)
+                ? request.HttpContext.Connection.RemoteIpAddress?.ToString()
+                : forwardedFor.Split(',')[0].Trim();
+
+            var entry = new AuthAuditEntryDto
+            {
+                CreatedAtUtc = DateTime.UtcNow,
+                Action = action,
+                Outcome = success ? AuthAuditConstants.OutcomeSuccess : AuthAuditConstants.OutcomeFailure,
+                FailureReason = failureReason,
+                EmailMasked = emailMasked,
+                UserId = userId,
+                TenantId = tenantId,
+                IpAddress = ipAddress,
+                UserAgent = request.Headers.UserAgent.ToString(),
+                HttpMethod = request.Method,
+                Path = request.Path.ToString(),
+                TraceId = request.HttpContext.TraceIdentifier
+            };
+
+            return authAuditService.LogAsync(entry, cancellationToken);
+        }
 
         private static string? BuildAbsoluteUrl(HttpRequest request, ApplicationSettings settings, IHostEnvironment hostEnvironment, string relativePath)
         {

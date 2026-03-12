@@ -1,13 +1,15 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Application.Constants.Configuration;
+using MoneyTracker.Application.Constants;
+using MoneyTracker.Application.DTOs.Auth;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Budgets;
-using MoneyTracker.Application.DTOs.Auth;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
@@ -84,6 +86,35 @@ namespace MoneyTracker.UI
                 options.AccessDeniedPath = "/login";
                 options.SlidingExpiration = true;
                 options.ExpireTimeSpan = TimeSpan.FromDays(14);
+                options.Events = new CookieAuthenticationEvents
+                {
+                    OnRedirectToLogin = async context =>
+                    {
+                        var authAuditService = context.HttpContext.RequestServices.GetService<IAuthAuditService>();
+                        if (authAuditService is not null)
+                        {
+                            var forwardedFor = context.Request.Headers["X-Forwarded-For"].ToString();
+                            var ipAddress = string.IsNullOrWhiteSpace(forwardedFor)
+                                ? context.HttpContext.Connection.RemoteIpAddress?.ToString()
+                                : forwardedFor.Split(',')[0].Trim();
+
+                            await authAuditService.LogAsync(new AuthAuditEntryDto
+                            {
+                                CreatedAtUtc = DateTime.UtcNow,
+                                Action = AuthAuditConstants.SessionRedirectToLogin,
+                                Outcome = AuthAuditConstants.OutcomeFailure,
+                                FailureReason = "SessionExpiredOrInvalid",
+                                IpAddress = ipAddress,
+                                UserAgent = context.Request.Headers.UserAgent.ToString(),
+                                HttpMethod = context.Request.Method,
+                                Path = context.Request.Path.ToString(),
+                                TraceId = context.HttpContext.TraceIdentifier
+                            }, context.HttpContext.RequestAborted);
+                        }
+
+                        context.Response.Redirect(context.RedirectUri);
+                    }
+                };
             });
             builder.Services.AddAuthorization();
             builder.Services.AddCascadingAuthenticationState();
@@ -116,6 +147,7 @@ namespace MoneyTracker.UI
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
             builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
+            builder.Services.AddScoped<IAuthAuditService, AuthAuditService>();
             builder.Services.AddScoped<IEmailSenderService, SmtpEmailSenderService>();
             builder.Services.AddScoped<ITimeRangeService, TimeRangeService>();
             builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();

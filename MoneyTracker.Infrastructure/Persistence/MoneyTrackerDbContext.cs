@@ -30,6 +30,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<UserVerificationCode> UserVerificationCodes => Set<UserVerificationCode>();
         public DbSet<UserVerificationCodeAudit> UserVerificationCodeAudits => Set<UserVerificationCodeAudit>();
         public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
+        public DbSet<AuthAuditLog> AuthAuditLogs => Set<AuthAuditLog>();
         public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -98,6 +99,21 @@ namespace MoneyTracker.Infrastructure.Persistence
 
             modelBuilder.Entity<ErrorLog>()
                 .HasIndex(e => e.UserId);
+
+            modelBuilder.Entity<AuthAuditLog>()
+                .HasIndex(e => e.CreatedAtUtc);
+
+            modelBuilder.Entity<AuthAuditLog>()
+                .HasIndex(e => e.Action);
+
+            modelBuilder.Entity<AuthAuditLog>()
+                .HasIndex(e => e.Outcome);
+
+            modelBuilder.Entity<AuthAuditLog>()
+                .HasIndex(e => e.UserId);
+
+            modelBuilder.Entity<AuthAuditLog>()
+                .HasIndex(e => e.TenantId);
 
             modelBuilder.Entity<Account>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
