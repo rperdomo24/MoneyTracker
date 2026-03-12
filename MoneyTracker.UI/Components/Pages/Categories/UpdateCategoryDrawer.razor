@@ -1,0 +1,407 @@
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.Constants
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Validators
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared.Pickers
+@using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers
+@inject ICategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<MudDrawer @bind-Open="@IsOpen"
+           Anchor="Anchor.Right"
+           Elevation="2"
+           Variant="@DrawerVariant.Temporary"
+           OverlayAutoClose="false"
+           Width="500px">
+
+    <MudDrawerHeader>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="Close"
+                           Size="Size.Small" />
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Edit Category</MudText>
+        </MudStack>
+    </MudDrawerHeader>
+
+    <MudDrawerContainer Class="pa-4">
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Class="mt-4">Loading category...</MudText>
+            </MudStack>
+        }
+        else if (_category != null)
+        {
+            <MudForm Model="@_category" @ref="_form" Validation="validationRules.ValidateValue">
+
+                <!-- Preview Card -->
+                <MudPaper Class="pa-4 mb-4" Elevation="1" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                        <MudAvatar Size="Size.Large"
+                                   Style="@($"background-color: {_category.Color}; width: 80px; height: 80px;")">
+                            <MudIcon Icon="@_category.Icon.ToIcon()"
+                                     Color="Color.Surface"
+                                     Style="font-size: 2.5rem;" />
+                        </MudAvatar>
+
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h5">
+                                @(!string.IsNullOrWhiteSpace(_category.Name) ? _category.Name : "Category Name")
+                            </MudText>
+
+                            <MudChip T="string" Size="Size.Small" Color="@_category.Type.GetColor()">
+                                @_category.Type.GetDisplayName()
+                            </MudChip>
+
+                            @if (_parentCategory != null)
+                            {
+                                <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                                    Subcategory of @_parentCategory.Name
+                                </MudText>
+                            }
+
+                            @if (_category.Children?.Any() == true)
+                            {
+                                <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                                    @_category.Children.Count subcategories
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+
+                <!-- Category Name -->
+                <MudTextField Label="Category Name"
+                              @bind-Value="_category.Name"
+                              For="@(() => _category.Name)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Immediate="true"
+                              Class="mb-4"
+                              Placeholder="e.g., Groceries, Salary" />
+
+                <!-- Category Type -->
+                <MudSelect T="CategoryTypeEnum"
+                           Label="Category Type"
+                           @bind-Value="_category.Type"
+                           @bind-Value:after="OnTypeChanged"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           Disabled="@(_hasChildren || _isSubcategory)"
+                           Class="mb-4">
+                    @foreach (var type in Enum.GetValues<CategoryTypeEnum>())
+                    {
+                        <MudSelectItem T="CategoryTypeEnum" Value="@type">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@type.GetIcon()" Size="Size.Small" />
+                                <MudText>@type.GetDisplayName()</MudText>
+                            </MudStack>
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+
+                @if (_hasChildren || _isSubcategory)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" Style="margin-top: -12px;">
+                        @if (_hasChildren)
+                        {
+                            <MudText Typo="Typo.caption">Type locked (has @_category.Children.Count subcategories)</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption">Type inherited from parent category</MudText>
+                        }
+                    </MudAlert>
+                }
+
+                <!-- ✅ Parent Category (CategorySelector) -->
+                <CategorySelector @bind-SelectedCategory="_selectedParent"
+                                  @bind-SelectedCategory:after="OnParentChanged"
+                                  Categories="@GetAvailableParents().ToList()"
+                                  FilterByType="@_category.Type"
+                                  Label="Parent Category"
+                                  Required="false"
+                                  Clearable="true"
+                                  Disabled="false"
+                                  ShowNoneOption="true"
+                                  NoneText="None (Main Category)"
+                                  ShowAddButton="false" />
+
+                @if (_category.ParentId.HasValue)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.LinkOff"
+                               OnClick="UnlinkParent"
+                               Class="mb-4">
+                        Unlink Parent
+                    </MudButton>
+                }
+
+                @if (_hasChildren)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" Style="margin-top: -12px;">
+                        <MudText Typo="Typo.caption">This category has @_category.Children.Count subcategories; changing parent will move the whole subtree.</MudText>
+                    </MudAlert>
+                }
+
+                <!-- Color Picker -->
+                <ColorPicker @bind-SelectedColor="_category.Color"
+                             Label="Color"
+                             AllowCustomColor="true"
+                             Class="mb-4" />
+
+                <!-- Icon Picker -->
+                <IconPicker @bind-SelectedIcon="_category.Icon"
+                            Label="Icon" />
+            </MudForm>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Error">
+                Category not found or failed to load.
+            </MudAlert>
+        }
+    </MudDrawerContainer>
+
+    <!-- Actions -->
+    <div Class="pa-4" Style="border-top: 1px solid var(--mud-palette-divider);">
+        <MudStack Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="Update"
+                       Disabled="@(_isSaving || string.IsNullOrWhiteSpace(_category?.Name))">
+                @if (_isSaving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <span>Updating...</span>
+                }
+                else
+                {
+                    <span>Update</span>
+                }
+            </MudButton>
+
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Default"
+                       FullWidth="true"
+                       OnClick="Close">
+                Cancel
+            </MudButton>
+        </MudStack>
+    </div>
+</MudDrawer>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public int CategoryId { get; set; }
+    [Parameter] public EventCallback OnCategoryUpdated { get; set; }
+
+    private readonly CategoryValidator validationRules = new();
+
+    private CategoryDto? _category;
+    private CategoryDto? _parentCategory;
+
+    private CategoryDto? _selectedParent;
+
+    private List<CategoryDto> _allCategories = new();
+    private List<CategoryDto> _availableParents = new();
+
+    private MudForm _form = null!;
+    private bool _loading = true;
+    private bool _isSaving = false;
+    private bool _hasChildren = false;
+    private bool _isSubcategory = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && CategoryId > 0)
+        {
+            await LoadCategory();
+            await LoadAvailableParents();
+            SyncSelectedParent();
+        }
+    }
+
+    private async Task LoadCategory()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await CategoryService.GetByIdAsync(CategoryId);
+            if (result.Success && result.Data != null)
+            {
+                _category = result.Data;
+                _hasChildren = _category.Children?.Any() == true;
+                _isSubcategory = _category.ParentId.HasValue;
+
+                if (_isSubcategory && _category.ParentId.HasValue)
+                {
+                    var parentResult = await CategoryService.GetByIdAsync(_category.ParentId.Value);
+                    if (parentResult.Success)
+                        _parentCategory = parentResult.Data;
+                }
+                else
+                {
+                    _parentCategory = null;
+                }
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? OperationMessages.NotFound, Severity.Error);
+                await Close();
+            }
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+            await Close();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadAvailableParents()
+    {
+        try
+        {
+            var result = await CategoryService.GetAllWithChildAsync(false);
+            if (result.Success && result.Data != null)
+            {
+                _allCategories = result.Data.ToList();
+
+                _availableParents = _allCategories
+                    .Where(c => c.ParentId == null && !c.IsSystem && c.Id != CategoryId)
+                    .OrderBy(c => c.Name)
+                    .ToList();
+            }
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
+    }
+
+    private IEnumerable<CategoryDto> GetAvailableParents()
+    {
+        if (_category == null) return Enumerable.Empty<CategoryDto>();
+
+        return _availableParents
+            .Where(p => p.Type == _category.Type)
+            .OrderBy(p => p.Name);
+    }
+
+    private void SyncSelectedParent()
+    {
+        if (_category == null)
+            return;
+
+        _selectedParent = _category.ParentId.HasValue
+            ? _availableParents.FirstOrDefault(p => p.Id == _category.ParentId.Value)
+            : null;
+
+        _parentCategory = _selectedParent;
+        _isSubcategory = _selectedParent != null;
+    }
+
+    private void OnTypeChanged()
+    {
+        if (_category == null) return;
+
+        // If type changed, parent might be invalid now
+        if (_selectedParent != null && _selectedParent.Type != _category.Type)
+        {
+            _selectedParent = null;
+            _category.ParentId = null;
+            _parentCategory = null;
+        }
+    }
+
+    private void OnParentChanged()
+    {
+        if (_category == null)
+            return;
+
+        _category.ParentId = _selectedParent?.Id;
+        _parentCategory = _selectedParent;
+        _isSubcategory = _selectedParent != null;
+    }
+
+    private void UnlinkParent()
+    {
+        if (_category == null)
+            return;
+
+        _selectedParent = null;
+        _category.ParentId = null;
+        _parentCategory = null;
+        _isSubcategory = false;
+    }
+
+    private async Task Update()
+    {
+        if (_isSaving || string.IsNullOrWhiteSpace(_category?.Name))
+            return;
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            await _form.Validate();
+
+            if (!_form.IsValid)
+            {
+                Snackbar.Add(OperationMessages.ValidationError, Severity.Warning);
+                return;
+            }
+
+            // ✅ Sync ParentId from selector
+            _category!.ParentId = _selectedParent?.Id;
+
+            // Refresh preview text
+            _parentCategory = _selectedParent;
+
+            var result = await CategoryService.UpdateAsync(_category);
+
+            if (result.Success)
+            {
+                Snackbar.Add(OperationMessages.Updated, Severity.Success);
+                await OnCategoryUpdated.InvokeAsync();
+                await Close();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

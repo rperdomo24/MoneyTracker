@@ -1,0 +1,193 @@
+﻿@* Components/Shared/TransactionList.razor *@
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.UI.Components.Shared.Cards
+@using MoneyTracker.UI.Components.Shared.Navigation
+@using MoneyTracker.UI.Components.Shared.Selection
+@using MoneyTracker.UI.Helpers
+
+<MudPaper Elevation="2">
+    @if (Loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Class="mt-4">Loading transactions...</MudText>
+        </MudStack>
+    }
+    else if (GroupedTransactions?.Any() == true)
+    {
+        <!-- Toolbar Simple -->
+        <MudStack Row="true"
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="px-4 py-2"
+                  Style="border-bottom: 1px solid var(--mud-palette-divider);">
+            <MudText Typo="Typo.subtitle1">
+                Transactions (@TotalTransactions)
+            </MudText>
+
+            @if (HasActiveFilters)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Text">
+                    Filtered
+                </MudChip>
+            }
+        </MudStack>
+
+        <!-- Expansion Panels -->
+        <MudExpansionPanels MultiExpansion="true" Elevation="0" Square="true">
+            @foreach (var group in GroupedTransactions)
+            {
+                <MudExpansionPanel Expanded="true">
+                    <TitleContent>
+
+                        <!-- Mobile: 2-row header -->
+                        <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                            <MudStack Spacing="1" Style="width:100%;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudCheckBox T="bool"
+                                                     Dense="true"
+                                                     Size="Size.Small"
+                                                     Value="@IsGroupSelected(group)"
+                                                     ValueChanged="@(value => ToggleGroupSelection(group, value))"
+                                                     @onclick:stopPropagation="true" />
+
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday"
+                                                 Size="Size.Small"
+                                                 Color="Color.Default"
+                                                 Style="opacity: 0.6;" />
+
+                                        <MudText Typo="Typo.body2" Style="font-weight: 500; opacity: 0.7; white-space: nowrap;">
+                                            @group.DateDisplay
+                                        </MudText>
+                                    </MudStack>
+
+                                </MudStack>
+
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+                                    <MudText Typo="Typo.caption" Style="opacity: 0.6;">
+                                        @group.Count transactions
+                                    </MudText>
+
+                                    <MudText Typo="Typo.body2"
+                                             Color="@CurrencyHelper.GetAmountColor(group.Total)"
+                                             Style="font-weight: 600;">
+                                        @CurrencyHelper.FormatCurrency(group.Total)
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudHidden>
+
+                        <!-- Tablet/Desktop: single row -->
+                        <MudHidden Breakpoint="Breakpoint.Xs">
+                            <MudStack Row="true"
+                                      Justify="Justify.SpaceBetween"
+                                      AlignItems="AlignItems.Center"
+                                      Style="width: 100%;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudCheckBox T="bool"
+                                                 Dense="true"
+                                                 Size="Size.Small"
+                                                 Value="@IsGroupSelected(group)"
+                                                 ValueChanged="@(value => ToggleGroupSelection(group, value))"
+                                                 @onclick:stopPropagation="true" />
+
+                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday"
+                                             Size="Size.Small"
+                                             Color="Color.Default"
+                                             Style="opacity: 0.6;" />
+
+                                    <MudText Typo="Typo.body2" Style="font-weight: 500; opacity: 0.7;">
+                                        @group.DateDisplay
+                                    </MudText>
+
+                                    <MudText Typo="Typo.caption" Style="opacity: 0.5;">
+                                        · @group.Count transactions
+                                    </MudText>
+                                </MudStack>
+
+                                <MudText Typo="Typo.body2"
+                                         Color="@CurrencyHelper.GetAmountColor(group.Total)"
+                                         Style="font-weight: 600;">
+                                    @CurrencyHelper.FormatCurrency(group.Total)
+                                </MudText>
+                            </MudStack>
+                        </MudHidden>
+
+                    </TitleContent>
+                    <ChildContent>
+                        <MudStack Spacing="2" Class="pa-2" Style="min-width:0;">
+                            @foreach (var transaction in group.Transactions)
+                            {
+                                <MudStack Style="min-width:0;">
+                                    <TransactionCardGroup Transaction="@transaction"
+                                                          PairedTransaction="@GetPairedTransaction(transaction)"
+                                                          ShowAccounts="@ShowAccounts"
+                                                          ShowActions="true"
+                                                          ShowCheckbox="true"
+                                                          IsSelected="@IsTransactionSelected(transaction.Id)"
+                                                          OnSelectionChanged="@(value => ToggleTransactionSelection(transaction.Id, value))"
+                                                          IsDuplicating="@IsDuplicating(transaction.Id)"
+                                                          OnCardClick="OnEdit"
+                                                          OnEdit="OnEdit"
+                                                          OnDuplicate="OnDuplicate"
+                                                          OnDelete="OnDelete" />
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+
+        <!-- Paginación -->
+        <PaginationWithPageSize CurrentPage="@CurrentPage"
+                                TotalPages="@TotalPages"
+                                TotalItems="@TotalTransactions"
+                                PageSize="@RowsPerPage"
+                                PageSizeChanged="@HandlePageSizeChanged"
+                                OnPageChanged="@HandlePageChanged"
+                                ItemName="transactions"
+                                PageSizeOptions="@PageSizeOptions" />
+    }
+    else
+    {
+        <!-- Empty State -->
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+            @if (HasActiveFilters)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.SearchOff"
+                         Size="Size.Large"
+                         Color="Color.Default"
+                         Style="font-size: 4rem; opacity: 0.3;"
+                         Class="mb-4" />
+                <MudText Typo="Typo.h6" Class="mb-2">No transactions found</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Default" Class="mb-4" Style="opacity: 0.7;">
+                    No transactions match your current filters.
+                </MudText>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           OnClick="OnClearFilters">
+                    Clear Filters
+                </MudButton>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.Receipt"
+                         Size="Size.Large"
+                         Color="Color.Default"
+                         Style="font-size: 4rem; opacity: 0.3;"
+                         Class="mb-4" />
+                <MudText Typo="Typo.h6" Class="mb-2">No transactions yet</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Default" Style="opacity: 0.7;">
+                    @EmptyStateMessage
+                </MudText>
+            }
+        </MudStack>
+    }
+</MudPaper>
+
+<!-- Selection Action Bar -->
+<SelectionActionBar SelectedCount="@SelectedCount"
+                    OnClearSelection="ClearSelection"
+                    OnDeleteSelected="OnDeleteSelected" />

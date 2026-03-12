@@ -1,0 +1,206 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Budgets
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers
+@inject ICategoryService CategoryService
+@inject IBudgetService BudgetService
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">Update Budget</MudText>
+                <MudText Typo="Typo.body2" Style="opacity: .7;">@_subtitle</MudText>
+            </div>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-6">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <MudText Class="mt-3">Loading...</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudForm @ref="_form">
+                <MudStack Spacing="3">
+
+                    <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                  Categories="@(_categories ?? new())"
+                                  Disabled="true"
+                                  ShowAddButton="false" />
+
+                    <MudNumericField T="decimal"
+                                     Label="Budget Amount"
+                                     Variant="Variant.Outlined"
+                                     @bind-Value="_amount"
+                                     Required="true"
+                                     Min="0.01m"
+                                     Format="F2"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="$"
+                                     HideSpinButtons="false" />
+
+                    <MudCheckBox @bind-Value="_includeChildren" Color="Color.Primary" Dense="true">
+                        <MudText Typo="Typo.body2">Include children categories</MudText>
+                    </MudCheckBox>
+
+                </MudStack>
+            </MudForm>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel" Disabled="@_saving">
+            Cancel
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)"
+                   OnClick="SaveAsync"
+                   Disabled="@(_loading || _saving)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ml-2">Saving...</MudText>
+            }
+            else
+            {
+                <span>Update</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public BudgetDto Budget { get; set; } = new();
+    [Parameter] public EventCallback OnBudgetSaved { get; set; }
+
+    private MudForm _form = default!;
+    private bool _loading = true;
+    private bool _saving = false;
+
+    private List<CategoryDto>? _categories;
+    private CategoryDto? _selectedCategory;
+
+    private string _subtitle = string.Empty;
+
+    private decimal _amount = 0;
+    private bool _includeChildren = true;
+    protected async override Task OnParametersSetAsync()
+    {
+        await LoadCategoriesAsync();
+        LoadBudgetIntoForm();
+    }
+
+    private void LoadBudgetIntoForm()
+    {
+        _amount = Budget.Amount;
+        _includeChildren = Budget.IncludeChildren;
+        _selectedCategory = _categories?.FirstOrDefault(c => c.Id == Budget.CategoryId);
+
+        _subtitle = $"{Budget.Month:D2}/{Budget.Year}";
+        StateHasChanged();
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            // ✅ Standardized categories source/shape (same as Add)
+            var result = await CategoryService.GetAllWithChildAsync(false);
+
+            if (result.Success && result.Data != null)
+            {
+                _categories = result.Data.Where(c => !c.IsSystem).ToList();
+
+                // Set the selected category from the loaded list to avoid "blank" rendering
+                _selectedCategory = _categories.FirstOrDefault(c => c.Id == Budget.CategoryId);
+            }
+            else
+            {
+                _categories = new();
+                _selectedCategory = null;
+            }
+        }
+        catch
+        {
+            _categories = new();
+            _selectedCategory = null;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving) return;
+
+        await _form.Validate();
+        if (!_form.IsValid)
+            return;
+
+        if (_amount <= 0)
+        {
+            Snackbar.Add("Amount must be greater than zero", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new BudgetDto
+            {
+                Id = Budget.Id,
+                CategoryId = Budget.CategoryId, // category is locked
+                Year = Budget.Year,
+                Month = Budget.Month,
+                Amount = _amount,
+                IncludeChildren = _includeChildren,
+                RolloverEnabled = false,
+                RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None
+            };
+
+            var result = await BudgetService.CreateOrUpdateAsync(dto);
+
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Budget updated", Severity.Success);
+                await OnBudgetSaved.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error updating budget", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

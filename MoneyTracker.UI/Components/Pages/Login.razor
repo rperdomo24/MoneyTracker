@@ -1,0 +1,73 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-4">Sign in</MudText>
+
+        <form method="post" action="/auth/login">
+            <AntiforgeryToken />
+            <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined" Immediate="true" />
+            <MudTextField @bind-Value="_password"
+                          Label="Password"
+                          Variant="Variant.Outlined"
+                          InputType="@PasswordInputType"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@PasswordAdornmentIcon"
+                          OnAdornmentClick="TogglePasswordVisibility"
+                          Class="mt-3" />
+            <MudCheckBox @bind-Value="_rememberMe" Label="Remember me" Class="mt-2" />
+            <input type="hidden" name="email" value="@_email" />
+            <input type="hidden" name="password" value="@_password" />
+            <input type="hidden" name="rememberMe" value="@_rememberMe.ToString().ToLowerInvariant()" />
+            <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
+
+            @if (!string.IsNullOrWhiteSpace(Error))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@Error</MudAlert>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Info))
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@Info</MudAlert>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
+                Sign in
+            </MudButton>
+        </form>
+
+        <MudText Typo="Typo.body2" Class="mt-3">
+            <MudLink Href="/forgot-password">Forgot your password?</MudLink>
+        </MudText>
+
+        <MudText Typo="Typo.body2" Class="mt-4">
+            Beta access is invite-only right now.
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Info { get; set; }
+
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private bool _rememberMe = true;
+    private bool _showPassword;
+
+    private InputType PasswordInputType => _showPassword ? InputType.Text : InputType.Password;
+    private string PasswordAdornmentIcon => _showPassword
+        ? Icons.Material.Filled.VisibilityOff
+        : Icons.Material.Filled.Visibility;
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private static string SafeReturnUrl(string? returnUrl)
+        => !string.IsNullOrWhiteSpace(returnUrl) && returnUrl.StartsWith('/') ? returnUrl : "/";
+}

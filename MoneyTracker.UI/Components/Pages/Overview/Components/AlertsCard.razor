@@ -1,0 +1,118 @@
+﻿@using MoneyTracker.Application.DTOs.Dashboard
+
+<MudCard Class="dashboard-card">
+    <MudCardContent>
+        <MudStack Spacing="3">
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Color="Color.Warning" Size="Size.Medium">
+                        <MudIcon Icon="@Icons.Material.Filled.Notifications" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h6">Alertas Financieras</MudText>
+                </MudStack>
+                @if (Data?.Count > 0)
+                {
+                    <MudBadge Content="@Data.Count" Color="Color.Error" Overlap="true">
+                        <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" />
+                    </MudBadge>
+                }
+            </MudStack>
+
+            @if (Data?.Any() == true)
+            {
+                <MudStack Spacing="2">
+                    @foreach (var alert in Data.Take(4))
+                    {
+                        <MudAlert Severity="@GetAlertSeverity(alert)"
+                                  Dense="true"
+                                  Icon="@GetAlertIcon(alert.Type)"
+                                  Class="@(alert.IsUrgent ? "mud-elevation-4" : "")">
+                            <MudStack>
+                                <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                    @alert.Message
+                                </MudText>
+                                @if (!string.IsNullOrEmpty(alert.AccountName) && alert.AccountName != "Sistema")
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @GetAlertDetails(alert)
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudAlert>
+                    }
+
+                    @if (Data.Count > 4)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   Size="Size.Small"
+                                   FullWidth="true"
+                                   OnClick="ShowAllAlerts">
+                            Ver todas las alertas (+@(Data.Count - 4))
+                        </MudButton>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                             Color="Color.Success"
+                             Size="Size.Large" />
+                    <MudText Typo="Typo.body1" Align="Align.Center">
+                        ¡Todo en orden!
+                    </MudText>
+                    <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                        No hay alertas pendientes
+                    </MudText>
+                </MudStack>
+            }
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public List<FinancialAlertDto>? Data { get; set; }
+
+    private Severity GetAlertSeverity(FinancialAlertDto alert)
+    {
+        return alert.Type switch
+        {
+            "CreditLimit" when alert.IsUrgent => Severity.Error,
+            "CreditLimit" => Severity.Warning,
+            "LowBalance" when alert.IsUrgent => Severity.Error,
+            "LowBalance" => Severity.Warning,
+            "HighActivity" => Severity.Info,
+            "Healthy" => Severity.Success,
+            _ => Severity.Normal
+        };
+    }
+
+    private string GetAlertIcon(string type)
+    {
+        return type switch
+        {
+            "CreditLimit" => Icons.Material.Filled.CreditCard,
+            "LowBalance" => Icons.Material.Filled.AccountBalanceWallet,
+            "HighActivity" => Icons.Material.Filled.TrendingUp,
+            "Healthy" => Icons.Material.Filled.CheckCircle,
+            _ => Icons.Material.Filled.Info
+        };
+    }
+
+    private string GetAlertDetails(FinancialAlertDto alert)
+    {
+        return alert.Type switch
+        {
+            "CreditLimit" when alert.Amount.HasValue && alert.Limit.HasValue =>
+                $"${alert.Amount:N2} de ${alert.Limit:N2} utilizados ({(alert.Amount / alert.Limit * 100):F0}%)",
+            "LowBalance" when alert.Amount.HasValue =>
+                $"Balance actual: ${alert.Amount:N2}",
+            _ => alert.AccountName
+        };
+    }
+
+    private void ShowAllAlerts()
+    {
+        // Implementation to show all alerts dialog
+    }
+}

@@ -1,0 +1,18 @@
+@page "/register"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-4">Closed beta</MudText>
+        <MudText Typo="Typo.body1">
+            Public registration is disabled while beta access is managed by invitation.
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mt-3">
+            If you already have an invite link, open it to finish your registration.
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mt-4">
+            Already have an account? <MudLink Href="/login">Sign in</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>

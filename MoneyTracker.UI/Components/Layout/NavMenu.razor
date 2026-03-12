@@ -1,30 +1,21 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">MoneyTracker.UI</a>
-    </div>
-</div>
+﻿<MudNavMenu>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <!-- Dashboard -->
+    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Dashboard">Home</MudNavLink>
+    <MudNavLink Href="/transactions" Icon="@Icons.Material.Filled.ListAlt">Transactions</MudNavLink>
+    <MudNavLink Href="/budgets" Icon="@Icons.Material.Filled.PieChart">Budgets</MudNavLink>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+@*     <MudNavLink Href="/calendar" Icon="@Icons.Material.Filled.CalendarToday">Calendar</MudNavLink>
+*@
+    <!-- Management -->
+    <MudNavGroup Title="Settings" Icon="@Icons.Material.Filled.Settings">
+        <MudNavLink Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">Accounts</MudNavLink>
+        <MudNavLink Href="/categories" Icon="@Icons.Material.Filled.Category">Categories</MudNavLink>
+        <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Person">My Profile</MudNavLink>
+        <MudNavLink Href="/logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
+    </MudNavGroup>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    <!-- Settings -->
+    @* <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink> *@
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+</MudNavMenu>

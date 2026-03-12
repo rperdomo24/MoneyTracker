@@ -1,0 +1,179 @@
+@using ApexCharts
+@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="MudBlazor.Color.Secondary" Size="MudBlazor.Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Cash Flow by Category</MudText>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (_points.Any())
+        {
+            <MudStack Spacing="2">
+                <ApexChart TItem="CashFlowPoint" Options="_chartOptions" Height="280">
+                    <ApexPointSeries TItem="CashFlowPoint"
+                                     Items="_points"
+                                     Name="Income"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="p => p.Category"
+                                     YValue="p => p.Income" />
+                    <ApexPointSeries TItem="CashFlowPoint"
+                                     Items="_points"
+                                     Name="Expenses"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="p => p.Category"
+                                     YValue="p => p.Expenses" />
+                </ApexChart>
+
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Class="mud-success-text">
+                        Income: @CurrencyHelper.FormatCurrency(_totalIncome)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="mud-error-text">
+                        Expenses: @CurrencyHelper.FormatCurrency(_totalExpenses)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(_net)">
+                        Net: @CurrencyHelper.FormatCurrency(_net)
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Not enough data to build the cash flow chart for this range.
+            </MudAlert>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public CashFlowDto? Data { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
+
+    private readonly List<CashFlowPoint> _points = new();
+    private ApexChartOptions<CashFlowPoint> _chartOptions = new();
+    private decimal _totalIncome;
+    private decimal _totalExpenses;
+    private decimal _net;
+
+    protected override void OnParametersSet()
+    {
+        _points.Clear();
+        _totalIncome = 0;
+        _totalExpenses = 0;
+        _net = 0;
+
+        if (Data is null)
+        {
+            _chartOptions = BuildOptions(IsDarkMode);
+            return;
+        }
+
+        _totalIncome = Data.TotalIncome;
+        _totalExpenses = Data.TotalExpenses;
+        _net = Data.NetCashFlow;
+
+        var income = GetTopCategories(Data.IncomeByCategory, 5, "Other Income");
+        var expenses = GetTopCategories(Data.ExpenseByCategory, 5, "Other Expenses");
+
+        var merged = new Dictionary<string, CashFlowPoint>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in income)
+        {
+            if (!merged.TryGetValue(item.CategoryName, out var point))
+            {
+                point = new CashFlowPoint { Category = item.CategoryName };
+                merged[item.CategoryName] = point;
+            }
+
+            point.Income += Math.Abs(item.Amount);
+        }
+
+        foreach (var item in expenses)
+        {
+            if (!merged.TryGetValue(item.CategoryName, out var point))
+            {
+                point = new CashFlowPoint { Category = item.CategoryName };
+                merged[item.CategoryName] = point;
+            }
+
+            point.Expenses += Math.Abs(item.Amount);
+        }
+
+        _points.AddRange(
+            merged.Values
+                .OrderByDescending(x => x.Income + x.Expenses)
+                .Take(8));
+
+        _chartOptions = BuildOptions(IsDarkMode);
+    }
+
+    private static List<CashFlowCategoryDto> GetTopCategories(
+        List<CashFlowCategoryDto> categories,
+        int maxItems,
+        string otherName)
+    {
+        if (categories.Count <= maxItems)
+            return categories;
+
+        var top = categories.Take(maxItems).ToList();
+        var otherAmount = categories.Skip(maxItems).Sum(x => x.Amount);
+
+        if (otherAmount > 0)
+        {
+            top.Add(new CashFlowCategoryDto
+            {
+                CategoryName = otherName,
+                Amount = otherAmount
+            });
+        }
+
+        return top;
+    }
+
+    private static ApexChartOptions<CashFlowPoint> BuildOptions(bool isDarkMode)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Type = ApexCharts.ChartType.Bar,
+                Toolbar = new Toolbar { Show = false },
+                Background = "transparent"
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    Horizontal = true,
+                    BorderRadius = 4
+                }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = new List<string> { "#2ecc71", "#e74c3c" },
+            Legend = new Legend
+            {
+                Show = true,
+                Position = LegendPosition.Top
+            }
+        };
+
+    private sealed class CashFlowPoint
+    {
+        public string Category { get; set; } = string.Empty;
+        public decimal Income { get; set; }
+        public decimal Expenses { get; set; }
+    }
+}

@@ -1,0 +1,202 @@
+@using MoneyTracker.Application.DTOs.Dashboard
+@using ApexCharts
+@using MoneyTracker.UI.Helpers
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="MudBlazor.Color.Error" Size="MudBlazor.Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.TrendingDown" />
+                </MudAvatar>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Spending Trend</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        How your spending changes over the selected period
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (_chartData.Any())
+        {
+            <MudStack Spacing="2" AlignItems="AlignItems.Stretch" Style="width:100%;">
+                <MudText Typo="Typo.h4" Class="mud-error-text">
+                    @CurrencyHelper.FormatCurrency(_total)
+                </MudText>
+
+                <MudText Typo="Typo.body2" Class="@GetChangeClass()">
+                    @CurrencyHelper.FormatSignedCurrency(_change) (@FormatSignedPercent(_changePercent)) vs period start
+                </MudText>
+
+                <MudPaper Class="chart-panel" Elevation="0">
+                    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+                        <ApexChart TItem="SpendingPoint" Options="_chartOptions" Height="220">
+                            <ApexPointSeries TItem="SpendingPoint"
+                                             Items="_chartData"
+                                             Name="Spending"
+                                             SeriesType="SeriesType.Line"
+                                             XValue="point => point.Date"
+                                             YValue="point => point.Value" />
+                        </ApexChart>
+                    </MudHidden>
+
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <ApexChart TItem="SpendingPoint" Options="_chartOptions" Height="280">
+                            <ApexPointSeries TItem="SpendingPoint"
+                                             Items="_chartData"
+                                             Name="Spending"
+                                             SeriesType="SeriesType.Line"
+                                             XValue="point => point.Date"
+                                             YValue="point => point.Value" />
+                        </ApexChart>
+                    </MudHidden>
+                </MudPaper>
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Average: @CurrencyHelper.FormatCurrency(_average)
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Peak: @CurrencyHelper.FormatCurrency(_peak) (@_peakLabel)
+                    </MudText>
+                </MudStack>
+
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Period: @_startDateLabel to @_endDateLabel
+                </MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Size="MudBlazor.Size.Large" />
+                <MudText Typo="Typo.body1" Align="MudBlazor.Align.Center">
+                    No spending data available
+                </MudText>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+<style>
+    .chart-panel {
+        width: 100%;
+        border: 1px solid color-mix(in srgb, var(--mud-palette-error) 20%, transparent);
+        border-radius: 12px;
+        padding: 8px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
+    }
+</style>
+
+@code {
+    [Parameter] public List<DashboardSpendingTrendDto>? Data { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
+
+    private readonly List<SpendingPoint> _chartData = new();
+    private ApexChartOptions<SpendingPoint> _chartOptions = new();
+    private decimal _total;
+    private decimal _average;
+    private decimal _peak;
+    private decimal _change;
+    private decimal _changePercent;
+    private string _peakLabel = "-";
+    private string _startDateLabel = "-";
+    private string _endDateLabel = "-";
+
+    protected override void OnParametersSet()
+    {
+        _chartData.Clear();
+
+        if (Data?.Any() != true)
+        {
+            _total = 0;
+            _average = 0;
+            _peak = 0;
+            _change = 0;
+            _changePercent = 0;
+            _peakLabel = "-";
+            _startDateLabel = "-";
+            _endDateLabel = "-";
+            _chartOptions = BuildOptions(IsDarkMode);
+            return;
+        }
+
+        var sorted = Data.OrderBy(x => x.Date).ToList();
+        _chartData.AddRange(sorted.Select(x => new SpendingPoint
+        {
+            Date = x.Date,
+            Value = x.Amount
+        }));
+
+        _total = sorted.Sum(x => x.Amount);
+        _average = sorted.Average(x => x.Amount);
+        _peak = sorted.Max(x => x.Amount);
+
+        var first = sorted.First().Amount;
+        var last = sorted.Last().Amount;
+        _change = last - first;
+        _changePercent = first == 0 ? 0 : (_change / first) * 100m;
+
+        var peakPoint = sorted.OrderByDescending(x => x.Amount).First();
+        _peakLabel = peakPoint.Date.ToString("dd MMM yyyy");
+        _startDateLabel = sorted.First().Date.ToString("dd MMM yyyy");
+        _endDateLabel = sorted.Last().Date.ToString("dd MMM yyyy");
+
+        _chartOptions = BuildOptions(IsDarkMode);
+    }
+
+    private static ApexChartOptions<SpendingPoint> BuildOptions(bool isDarkMode)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false }
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            Stroke = new Stroke
+            {
+                Curve = Curve.Straight,
+                Width = 2
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = new List<string> { "#e53935" },
+            Legend = new Legend { Show = false },
+            Grid = new Grid
+            {
+                Show = false
+            },
+            Xaxis = new XAxis
+            {
+                Type = XAxisType.Datetime,
+                Labels = new XAxisLabels { Show = false }
+            },
+            Yaxis =
+            [
+                new YAxis { Show = false }
+            ],
+            Tooltip = new Tooltip
+            {
+                X = new TooltipX { Format = "dd MMM yyyy" }
+            }
+        };
+
+    private string GetChangeClass()
+        => _change <= 0 ? "mud-success-text" : "mud-error-text";
+
+    private static string FormatSignedPercent(decimal percent)
+        => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";
+
+    private sealed class SpendingPoint
+    {
+        public DateTime Date { get; set; }
+        public decimal Value { get; set; }
+    }
+}

@@ -1,0 +1,47 @@
+﻿@* Reusable Pagination Footer Component *@
+
+@if (TotalPages > 1)
+{
+    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+        <MudPagination Count="@TotalPages"
+                       Selected="@CurrentPage"
+                       SelectedChanged="OnPageChanged"
+                       Color="Color.Primary"
+                       ShowFirstButton="@ShowFirstLastButtons"
+                       ShowLastButton="@ShowFirstLastButtons"
+                       BoundaryCount="@BoundaryCount"
+                       MiddleCount="@MiddleCount" />
+
+        @if (ShowInfo)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Default">
+                Showing @GetStartRow()-@GetEndRow() of @TotalItems @ItemName
+            </MudText>
+        }
+    </MudStack>
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; } = 1;
+    [Parameter] public int TotalItems { get; set; } = 0;
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    [Parameter] public bool ShowInfo { get; set; } = true;
+    [Parameter] public bool ShowFirstLastButtons { get; set; } = true;
+    [Parameter] public int BoundaryCount { get; set; } = 1;
+    [Parameter] public int MiddleCount { get; set; } = 3;
+    [Parameter] public string ItemName { get; set; } = "items";
+
+    private int GetStartRow()
+    {
+        if (TotalItems == 0) return 0;
+        return (CurrentPage - 1) * PageSize + 1;
+    }
+
+    private int GetEndRow()
+    {
+        return Math.Min(CurrentPage * PageSize, TotalItems);
+    }
+}

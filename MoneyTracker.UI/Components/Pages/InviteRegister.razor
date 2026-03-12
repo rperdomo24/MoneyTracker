@@ -1,0 +1,82 @@
+@page "/invite/register"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+@using MoneyTracker.Application.Interfaces
+@inject IUserInvitationService UserInvitationService
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
+    <MudPaper Class="pa-6">
+        <MudText Typo="Typo.h5" Class="mb-4">Create account</MudText>
+
+        @if (_isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        }
+        else
+        {
+            <form method="post" action="/auth/invite-register">
+                <AntiforgeryToken />
+                <MudTextField Value="_email" Label="Email" Variant="Variant.Outlined" ReadOnly="true" />
+                <MudTextField @bind-Value="_displayName" Label="Display name" Variant="Variant.Outlined" Class="mt-3" />
+                <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mt-3" />
+                <MudTextField @bind-Value="_confirmPassword" Label="Confirm password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mt-3" />
+
+                @if (!string.IsNullOrWhiteSpace(_info))
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@_info</MudAlert>
+                }
+
+                <input type="hidden" name="token" value="@Token" />
+                <input type="hidden" name="displayName" value="@_displayName" />
+                <input type="hidden" name="password" value="@_password" />
+                <input type="hidden" name="confirmPassword" value="@_confirmPassword" />
+
+                <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
+                    Create account
+                </MudButton>
+            </form>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery] public string? Token { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Info { get; set; }
+
+    private bool _isLoading = true;
+    private string _email = string.Empty;
+    private string _displayName = string.Empty;
+    private string _password = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private string? _error;
+    private string? _info;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _error = Error;
+        _info = Info;
+
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            _error ??= "Invitation token is missing.";
+            _isLoading = false;
+            return;
+        }
+
+        var result = await UserInvitationService.GetValidInvitationAsync(Token);
+        if (!result.Success || result.Data is null)
+        {
+            _error = result.Message;
+            _isLoading = false;
+            return;
+        }
+
+        _email = result.Data.Email;
+        _isLoading = false;
+    }
+}

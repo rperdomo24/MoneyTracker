@@ -1,0 +1,238 @@
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Validators
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Components.Shared.Pickers
+@using MoneyTracker.UI.Helpers
+@inject IAccountService AccountService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Edit Account</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Class="mt-4">Loading account...</MudText>
+            </MudStack>
+        }
+        else if (_account != null)
+        {
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
+                <MudForm @ref="_form" Model="_account" Validation="_validator.ValidateValue">
+
+                    <!-- Preview Card -->
+                    <MudPaper Class="pa-4 mb-4" Elevation="1" Style="background-color: var(--mud-palette-background-grey);">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                            <MudAvatar Size="Size.Large"
+                                       Style="@($"background-color: {_account.Color}; width: 80px; height: 80px;")">
+                                <MudIcon Icon="@_account.Icon.ToIcon()"
+                                         Color="Color.Surface"
+                                         Style="font-size: 2.5rem;" />
+                            </MudAvatar>
+
+                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.h5">
+                                    @_account.Name
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="opacity: 0.7;">
+                                    @_account.Type.ToLabel()
+                                </MudText>
+                                <MudText Typo="Typo.h6" Class="@GetBalanceClass(_account.CurrentBalance)">
+                                    @FormatBalance(_account.CurrentBalance)
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+
+                    <!-- Account Name -->
+                    <MudTextField Label="Account Name"
+                                  @bind-Value="_account.Name"
+                                  For="@(() => _account.Name)"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  Immediate="true"
+                                  Class="mb-4" />
+
+                    <!-- Account Type (Locked) -->
+                    <MudTextField Label="Account Type"
+                                  Value="@_account.Type.ToLabel()"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true"
+                                  Class="mb-4"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@_account.Type.ToIcon()" />
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4" Style="margin-top: -12px;">
+                        <MudText Typo="Typo.caption">Type cannot be changed after creation</MudText>
+                    </MudAlert>
+
+                    <!-- Current Balance (Read-only) -->
+                    <MudTextField Label="Current Balance"
+                                  Value="@FormatBalance(_account.CurrentBalance)"
+                                  Variant="Variant.Outlined"
+                                  ReadOnly="true"
+                                  Class="@($"mb-4 {GetBalanceClass(_account.CurrentBalance)}")"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.AccountBalance" />
+
+                    <!-- Credit Limit (only for Credit cards) -->
+                    @if (_account.Type == AccountType.Credit)
+                    {
+                        <MudNumericField Label="Credit Limit"
+                                         @bind-Value="_account.CreditLimit"
+                                         For="@(() => _account.CreditLimit)"
+                                         Variant="Variant.Outlined"
+                                         Format="N2"
+                                         Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                         Class="mb-4"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$"
+                                         Placeholder="0.00" />
+                    }
+
+                    <!-- Color Picker -->
+                    <ColorPicker @bind-SelectedColor="_account.Color"
+                                 Label="Color"
+                                 AllowCustomColor="true"
+                                 Class="mb-4" />
+
+                    <!-- Icon Picker -->
+                    <IconPicker TIcon="AccountIcon"
+                                @bind-SelectedIcon="_account.Icon"
+                                Label="Icon" />
+                </MudForm>
+            </MudContainer>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Error">Account not found</MudAlert>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">
+            Cancel
+        </MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Update"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@(_isSubmitting || _account == null)">
+            @if (_isSubmitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Updating...</span>
+            }
+            else
+            {
+                <span>Update</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int AccountId { get; set; }
+    [Parameter] public EventCallback OnAccountUpdated { get; set; }
+
+    private MudForm _form = default!;
+    private AccountDto? _account;
+    private bool _loading = true;
+    private bool _isSubmitting = false;
+
+    private readonly AccountValidator _validator = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAccount();
+    }
+
+    private async Task LoadAccount()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AccountService.GetByIdAsync(AccountId);
+            if (result.Success && result.Data != null)
+            {
+                _account = result.Data;
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Account not found", Severity.Error);
+                MudDialog.Cancel();
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error loading account", Severity.Error);
+            MudDialog.Cancel();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Update()
+    {
+        if (_account == null || _isSubmitting)
+            return;
+
+        _isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            await _form.Validate();
+
+            if (!_form.IsValid)
+            {
+                Snackbar.Add("Please fix validation errors", Severity.Warning);
+                return;
+            }
+
+            var result = await AccountService.UpdateAsync(_account);
+            if (result.Success)
+            {
+                AccountsDrawer.RequestRefresh();
+                Snackbar.Add($"Account '{_account.Name}' updated successfully", Severity.Success);
+                await OnAccountUpdated.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to update account", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error updating account", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string FormatBalance(decimal balance)
+        => CurrencyHelper.FormatCurrency(balance);
+
+    private static string GetBalanceClass(decimal balance)
+        => CurrencyHelper.GetAmountClass(balance);
+}

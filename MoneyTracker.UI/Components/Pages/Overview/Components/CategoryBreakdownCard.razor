@@ -1,0 +1,204 @@
+@using MudBlazor
+@using ApexCharts
+@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
+@inject NavigationManager NavigationManager
+
+<MudPaper Elevation="1" Class="pa-3 dashboard-card" Style="border-radius:16px;">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Expenses by Category</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    Spending breakdown for the selected period
+                </MudText>
+            </MudStack>
+
+            <MudButton Variant="Variant.Text"
+                       Size="MudBlazor.Size.Small"
+                       StartIcon="@Icons.Material.Filled.ReceiptLong"
+                       OnClick="NavigateToBudgets">
+                View budgets
+            </MudButton>
+        </MudStack>
+
+        @if (_hasChartData)
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                <ApexChart TItem="CategorySlicePoint" Options="_chartOptions" Height="180">
+                    <ApexPointSeries TItem="CategorySlicePoint"
+                                     Items="_chartPoints"
+                                     Name="Expenses"
+                                     SeriesType="SeriesType.Donut"
+                                     XValue="point => point.Name"
+                                     YValue="point => point.Amount" />
+                </ApexChart>
+
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">Spent</MudText>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                    @CurrencyHelper.FormatCurrency(_totalExpenses)
+                </MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @_totalTransactions transactions
+                </MudText>
+            </MudStack>
+
+            <MudStack Spacing="1">
+                @foreach (var item in _legendCategories)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                              Class="category-row" @onclick="NavigateToBudgets">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudAvatar Size="MudBlazor.Size.Small" Style="@($"background-color:{item.CategoryColor};")" />
+                            <MudText Typo="Typo.body2">@item.CategoryName</MudText>
+                        </MudStack>
+
+                        <MudStack AlignItems="AlignItems.End" Spacing="0">
+                            <MudText Typo="Typo.body2" Class="font-weight-medium">@CurrencyHelper.FormatCurrency(item.Amount)</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @($"{item.Percentage:N1}%")
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="pa-6">
+                <MudText Typo="Typo.h5" Style="opacity:0.6;">@CurrencyHelper.FormatCurrency(0)</MudText>
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.ReceiptLong"
+                           OnClick="NavigateToBudgets">
+                    View budgets
+                </MudButton>
+            </MudStack>
+        }
+
+        <MudGrid Spacing="1">
+            <MudItem xs="12" sm="6">
+                <MudPaper Elevation="0" Class="pa-2" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Categories</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@_validCategories.Count</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Elevation="0" Class="pa-2" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Average per transaction</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(_averageTransaction)</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+</MudPaper>
+
+<style>
+    .category-row {
+        cursor: pointer;
+        border-radius: 10px;
+        padding: 6px 8px;
+    }
+</style>
+
+@code {
+    [Parameter] public List<CategoryBreakdownDto>? Data { get; set; }
+
+    private bool _hasChartData;
+    private List<CategoryBreakdownDto> _validCategories = new();
+    private List<CategoryBreakdownDto> _legendCategories = new();
+    private ApexChartOptions<CategorySlicePoint> _chartOptions = BuildChartOptions(new List<string>());
+    private List<CategorySlicePoint> _chartPoints = new();
+    private decimal _totalExpenses;
+    private int _totalTransactions;
+    private decimal _averageTransaction;
+
+    protected override void OnParametersSet()
+    {
+        _hasChartData = false;
+        _validCategories = Data?
+            .Where(x => x.Amount > 0)
+            .OrderByDescending(x => x.Amount)
+            .ToList() ?? new();
+
+        _totalExpenses = _validCategories.Sum(x => x.Amount);
+        _totalTransactions = _validCategories.Sum(x => x.TransactionCount);
+        _averageTransaction = _totalTransactions > 0
+            ? _totalExpenses / _totalTransactions
+            : 0;
+
+        if (!_validCategories.Any())
+        {
+            _legendCategories = new();
+            _chartPoints = new();
+            _chartOptions = BuildChartOptions(new List<string>());
+            return;
+        }
+
+        _legendCategories = BuildLegendCategories(_validCategories, 3);
+        _chartPoints = _legendCategories
+            .Select(x => new CategorySlicePoint
+            {
+                Name = x.CategoryName,
+                Amount = x.Amount
+            })
+            .ToList();
+        _chartOptions = BuildChartOptions(_legendCategories.Select(x => x.CategoryColor).ToList());
+        _hasChartData = _chartPoints.Any();
+    }
+
+    private void NavigateToBudgets()
+        => NavigationManager.NavigateTo("/budgets");
+
+    private static List<CategoryBreakdownDto> BuildLegendCategories(
+        List<CategoryBreakdownDto> source,
+        int topItems)
+    {
+        if (source.Count <= topItems)
+            return source;
+
+        var top = source.Take(topItems).ToList();
+        var others = source.Skip(topItems).ToList();
+        var othersAmount = others.Sum(x => x.Amount);
+        if (othersAmount <= 0)
+            return top;
+
+        var othersTxCount = others.Sum(x => x.TransactionCount);
+        var totalAmount = source.Sum(x => x.Amount);
+
+        top.Add(new CategoryBreakdownDto
+        {
+            CategoryId = 0,
+            CategoryName = "Other",
+            CategoryColor = "#9e9e9e",
+            Amount = othersAmount,
+            Percentage = totalAmount > 0 ? (othersAmount / totalAmount) * 100 : 0,
+            TransactionCount = othersTxCount,
+            AverageTransaction = othersTxCount > 0 ? othersAmount / othersTxCount : 0
+        });
+
+        return top;
+    }
+
+    private static ApexChartOptions<CategorySlicePoint> BuildChartOptions(List<string> colors)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations { Enabled = false }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = colors,
+            Legend = new Legend { Show = false }
+        };
+
+    private sealed class CategorySlicePoint
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+    }
+
+}

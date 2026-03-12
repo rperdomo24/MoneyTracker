@@ -1,0 +1,253 @@
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.Constants
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Validators
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared.Pickers
+@using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers
+@inject ICategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Create Category</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_category != null)
+        {
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
+                <MudForm Model="@_category" @ref="_form" Validation="validationRules.ValidateValue">
+
+                    <!-- Preview Card -->
+                    <MudPaper Class="pa-4 mb-4" Elevation="1" Style="background-color: var(--mud-palette-background-grey);">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                            <MudAvatar Size="Size.Large"
+                                       Style="@($"background-color: {_category.Color}; width: 80px; height: 80px;")">
+                                <MudIcon Icon="@_category.Icon.ToIcon()"
+                                         Color="Color.Surface"
+                                         Style="font-size: 2.5rem;" />
+                            </MudAvatar>
+
+                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.h5">
+                                    @(!string.IsNullOrWhiteSpace(_category.Name) ? _category.Name : "Category Name")
+                                </MudText>
+
+                                <MudChip T="string" Size="Size.Small" Color="@_category.Type.GetColor()">
+                                    @_category.Type.GetDisplayName()
+                                </MudChip>
+
+                                @if (_selectedParent != null)
+                                {
+                                    <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                                        Subcategory of @_selectedParent.Name
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+
+                    <!-- Category Name -->
+                    <MudTextField Label="Category Name"
+                                  @bind-Value="_category.Name"
+                                  For="@(() => _category.Name)"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  Immediate="true"
+                                  Class="mb-4"
+                                  Placeholder="e.g., Groceries, Salary" />
+
+                    <!-- Parent Selector -->
+                    @if (_parentCategory == null)
+                    {
+                        <CategorySelector @bind-SelectedCategory="_selectedParent"
+                                          Categories="@_availableParents"
+                                          FilterByType="@_category.Type"
+                                          Label="Parent Category (Optional)"
+                                          Required="false"
+                                          Clearable="true"
+                                          ShowNoneOption="true"
+                                          NoneText="None (Main Category)"
+                                          ShowAddButton="false" />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mb-4">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Small" Style="@($"background-color: {_parentCategory.Color};")">
+                                    <MudIcon Icon="@_parentCategory.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.body2">
+                                        <strong>Subcategory of:</strong> @_parentCategory.Name
+                                    </MudText>
+                                </div>
+                            </MudStack>
+                        </MudAlert>
+                    }
+
+                    <!-- Color Picker -->
+                    <ColorPicker @bind-SelectedColor="_category.Color"
+                                 Label="Color"
+                                 AllowCustomColor="true"
+                                 Class="mb-4" />
+
+                    <!-- Icon Picker -->
+                    <IconPicker @bind-SelectedIcon="_category.Icon"
+                                Label="Icon" />
+
+                </MudForm>
+            </MudContainer>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">
+            Cancel
+        </MudButton>
+
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Save"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@(_isSaving || string.IsNullOrWhiteSpace(_category?.Name))">
+
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Creating...</span>
+            }
+            else
+            {
+                <span>Create</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter] public CategoryTypeEnum? CategoryType { get; set; }
+    [Parameter] public int? ParentId { get; set; }
+    [Parameter] public EventCallback OnCategoryUpdated { get; set; }
+
+    private readonly CategoryValidator validationRules = new();
+
+    private CategoryDto _category = new();
+    private CategoryDto? _selectedParent;
+    private CategoryDto? _parentCategory;
+
+    private List<CategoryDto> _allCategories = new();
+    private List<CategoryDto> _availableParents = new();
+
+    private MudForm _form = null!;
+    private bool _isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+        InitializeCategory();
+
+        if (ParentId.HasValue && ParentId.Value > 0)
+            LoadParentFromParameter();
+    }
+
+    private async Task LoadCategories()
+    {
+        try
+        {
+            var result = await CategoryService.GetAllWithChildAsync(false);
+
+            if (result.Success && result.Data != null)
+            {
+                _allCategories = result.Data.ToList();
+
+                _availableParents = _allCategories
+                    .Where(c => c.ParentId == null && !c.IsSystem)
+                    .OrderBy(c => c.Name)
+                    .ToList();
+            }
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
+    }
+
+    private void InitializeCategory()
+    {
+        _category = new CategoryDto
+        {
+            Color = "#ef4444",
+            Icon = CategoryIcon.LocalCafe,
+            Type = CategoryType ?? CategoryTypeEnum.Expense
+        };
+    }
+
+    private void LoadParentFromParameter()
+    {
+        _parentCategory = _allCategories.FirstOrDefault(c => c.Id == ParentId);
+
+        if (_parentCategory != null)
+        {
+            _selectedParent = _parentCategory;
+            _category.ParentId = _parentCategory.Id;
+            _category.Type = _parentCategory.Type;
+        }
+    }
+
+    private void Cancel() => MudDialog?.Close(DialogResult.Cancel());
+
+    private async Task Save()
+    {
+        if (_isSaving || string.IsNullOrWhiteSpace(_category?.Name))
+            return;
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            await _form.Validate();
+
+            if (!_form.IsValid)
+            {
+                Snackbar.Add(OperationMessages.ValidationError, Severity.Warning);
+                return;
+            }
+
+            // ✅ Sync ParentId from selector
+            _category.ParentId = _selectedParent?.Id;
+
+            var result = await CategoryService.CreateAsync(_category);
+
+            if (result.Success)
+            {
+                Snackbar.Add(OperationMessages.Created, Severity.Success);
+                await OnCategoryUpdated.InvokeAsync();
+                MudDialog?.Close(DialogResult.Ok(_category));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,386 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers
+@inject ISnackbar Snackbar
+
+<MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
+<MudDrawer @bind-Open="@IsOpen"
+           Anchor="Anchor.Right"
+           Elevation="2"
+           Variant="@DrawerVariant.Temporary"
+           Width="400px">
+
+    <MudDrawerHeader>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.FilterList" Size="Size.Medium" />
+                <MudText Typo="Typo.h6">Filters</MudText>
+            </MudStack>
+
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Size="Size.Small"
+                           OnClick="CancelAndClose" />
+        </MudStack>
+    </MudDrawerHeader>
+
+    <MudDrawerContainer Class="pa-4">
+        <MudGrid>
+
+            <!-- Time Period Filter -->
+            <MudItem xs="12" md="12">
+                <MudSelect T="TimePeriodFilter"
+                           Label="Time Period"
+                           @bind-Value="_tempFilter.TimePeriod"
+                           @bind-Value:after="OnTimePeriodChanged"
+                           Variant="Variant.Outlined"
+                           MaxHeight="400">
+                    <MudSelectItem Value="TimePeriodFilter.AllTime">All Time</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last7Days">Last 7 Days</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last30Days">Last 30 Days</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Last90Days">Last 90 Days</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.LastMonth">Last Month</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.ThisMonth">This Month</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.ThisYear">This Year</MudSelectItem>
+                    <MudSelectItem Value="TimePeriodFilter.Custom">Custom Range</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <!-- Custom Date Range -->
+            @if (_tempFilter.TimePeriod == TimePeriodFilter.Custom)
+            {
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="Start Date"
+                                   @bind-Date="_tempFilter.FromDate"
+                                   Variant="Variant.Outlined"
+                                   MaxDate="_tempFilter.ToDate ?? DateTime.Today" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="End Date"
+                                   @bind-Date="_tempFilter.ToDate"
+                                   Variant="Variant.Outlined"
+                                   MinDate="_tempFilter.FromDate"
+                                   MaxDate="DateTime.Today" />
+                </MudItem>
+            }
+
+            <!-- Type Filter -->
+            <MudItem xs="12" md="12">
+                <MudSelect T="CategoryTypeEnum?"
+                           Label="Type"
+                           @bind-Value="_tempFilter.Type"
+                           @bind-Value:after="OnTypeChanged"
+                           Variant="Variant.Outlined"
+                           Clearable="true">
+                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Income)">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@CategoryTypeEnum.Income.GetIcon()"
+                                     Color="@CategoryTypeEnum.Income.GetColor()"
+                                     Class="mr-2" Size="Size.Small" />
+                            Income
+                        </div>
+                    </MudSelectItem>
+
+                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Expense)">
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@CategoryTypeEnum.Expense.GetIcon()"
+                                     Color="@CategoryTypeEnum.Expense.GetColor()"
+                                     Class="mr-2" Size="Size.Small" />
+                            Expense
+                        </div>
+                    </MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <!-- Category Filter -->
+            <MudItem xs="12" md="12">
+                <CategorySelector SelectedCategory="_selectedCategory"
+                                  SelectedCategoryChanged="OnCategorySelected"
+                                  Categories="@(_categories ?? new())"
+                                  FilterByType="@(_tempFilter.Type ?? CategoryTypeEnum.Expense)"
+                                  Label="Category"
+                                  Required="false"
+                                  Clearable="true"
+                                  Disabled="@(!_tempFilter.Type.HasValue)"
+                                  ShowAddButton="false" />
+            </MudItem>
+
+            <!-- Accounts Filter -->
+            @if (_orderedAccounts?.Any() == true)
+            {
+                <MudItem xs="12" md="12">
+                    <MudSelect T="int"
+                               Label="Accounts"
+                               MultiSelection="true"
+                               @bind-SelectedValues="_selectedAccountIds"
+                               @bind-SelectedValues:after="OnSelectedAccountsChanged"
+                               Variant="Variant.Outlined"
+                               Clearable="true"
+                               MultiSelectionTextFunc="GetSelectedAccountsText"
+                               MaxHeight="400">
+
+                        @{
+                            AccountType? currentType = null;
+                        }
+
+                        @foreach (var account in _orderedAccounts)
+                        {
+                            if (currentType != account.Type)
+                            {
+                                currentType = account.Type;
+
+                                <MudSelectItem T="int" Value="-1" Disabled="true">
+                                    <div class="py-2 px-1"
+                                         style="background-color: var(--mud-palette-action-hover); border-left: 3px solid var(--mud-palette-primary); margin: 4px -12px;">
+                                        <MudText Typo="Typo.subtitle2"
+                                                 Class="text-primary font-weight-bold d-flex align-center">
+                                            <MudIcon Icon="@account.Type.ToIcon()"
+                                                     Size="Size.Small"
+                                                     Class="mr-2" />
+                                            @account.Type.ToLabel()
+                                        </MudText>
+                                    </div>
+                                </MudSelectItem>
+                            }
+
+                            <MudSelectItem T="int" Value="@account.Id">
+                                <div class="d-flex align-center py-2 px-1">
+                                    <MudAvatar Size="Size.Small"
+                                               Style="@($"background-color: {(string.IsNullOrEmpty(account.Color) ? "#757575" : account.Color)}; margin-right: 12px; flex-shrink: 0;")">
+                                        <MudIcon Icon="@account.Type.ToIcon()"
+                                                 Color="Color.Surface"
+                                                 Size="Size.Small" />
+                                    </MudAvatar>
+
+                                    <div class="flex-grow-1 min-width-0">
+                                        <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                            @account.Name
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Class="text-muted">
+                                            @account.Type.ToLabel()
+                                        </MudText>
+                                    </div>
+
+                                    <MudText Typo="Typo.body2"
+                                             Class="@($"{CurrencyHelper.GetAmountClass(account.CurrentBalance)} ml-2 font-weight-medium")"
+                                             Style="flex-shrink: 0;">
+                                        @CurrencyHelper.FormatCurrency(account.CurrentBalance)
+                                    </MudText>
+                                </div>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            }
+
+            <!-- Search Field -->
+            <MudItem xs="12" md="12">
+                <MudTextField T="string"
+                              Label="Search"
+                              @bind-Value="_tempFilter.SearchText"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Variant="Variant.Outlined"
+                              Placeholder="Search by name or description..."
+                              Clearable="true"
+                              DebounceInterval="500" />
+            </MudItem>
+        </MudGrid>
+    </MudDrawerContainer>
+
+    <!-- Apply Filters Button -->
+    <MudDivider />
+
+    <MudPaper Class="pa-4" Square="true" Elevation="0">
+        <MudStack Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Check"
+                       OnClick="ApplyAndClose">
+                Apply Filters
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.RestartAlt"
+                       OnClick="ClearAllFilters"
+                       Disabled="@(_activeFilterCount == 0)">
+                Reset Filters
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+</MudDrawer>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    [Parameter] public TransactionFilterDto Filter { get; set; } = new();
+    [Parameter] public EventCallback<TransactionFilterDto> OnFilterChanged { get; set; }
+    [Parameter] public EventCallback OnFiltersApplied { get; set; }
+
+    [Parameter] public List<CategoryDto>? Categories { get; set; }
+    [Parameter] public List<AccountDto>? Accounts { get; set; }
+
+    private TransactionFilterDto _tempFilter = new();
+
+    private List<CategoryDto>? _categories;
+    private List<AccountDto>? _activeAccounts;
+    private List<AccountDto>? _orderedAccounts;
+
+    private int _activeFilterCount = 0;
+    private CategoryDto? _selectedCategory;
+
+    // ✅ MudBlazor 9 requiere IReadOnlyCollection<T> aquí
+    private IReadOnlyCollection<int> _selectedAccountIds = Array.Empty<int>();
+
+    protected override void OnParametersSet()
+    {
+        _categories = Categories ?? new();
+        _activeAccounts = Accounts ?? new();
+
+        _orderedAccounts = _activeAccounts
+            .OrderBy(a => (int)a.Type)
+            .ThenBy(a => a.Name)
+            .ToList();
+
+        if (!IsOpen)
+            return;
+
+        _tempFilter = new TransactionFilterDto
+        {
+            TimePeriod = Filter.TimePeriod,
+            FromDate = Filter.FromDate,
+            ToDate = Filter.ToDate,
+            AccountIds = Filter.AccountIds?.ToList() ?? new List<int>(),
+            SearchText = Filter.SearchText ?? string.Empty,
+            CategoryId = Filter.CategoryId,
+            Type = Filter.Type
+        };
+
+        _selectedAccountIds = (_tempFilter.AccountIds ?? new List<int>()).ToArray();
+
+        _selectedCategory = Filter.CategoryId.HasValue
+            ? _categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)
+            : null;
+
+        CalculateActiveFilterCount();
+    }
+
+    private Task OnTimePeriodChanged()
+    {
+        if (_tempFilter.TimePeriod != TimePeriodFilter.Custom)
+        {
+            _tempFilter.FromDate = null;
+            _tempFilter.ToDate = null;
+        }
+
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
+    private Task OnTypeChanged()
+    {
+        if (_selectedCategory != null && _tempFilter.Type.HasValue && _selectedCategory.Type != _tempFilter.Type.Value)
+            _selectedCategory = null;
+
+        _tempFilter.CategoryId = _selectedCategory?.Id;
+
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
+    private Task OnCategorySelected(CategoryDto? value)
+    {
+        _selectedCategory = value;
+        _tempFilter.CategoryId = value?.Id;
+
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSelectedAccountsChanged()
+    {
+        _tempFilter.AccountIds = _selectedAccountIds.ToList();
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
+    private void CalculateActiveFilterCount()
+    {
+        _activeFilterCount = TransactionFilterHelper.GetActiveFilterCount(_tempFilter);
+    }
+
+    private Task ClearAllFilters()
+    {
+        _tempFilter = TransactionFilterHelper.ResetToDefaults();
+        _selectedCategory = null;
+        _selectedAccountIds = Array.Empty<int>();
+        CalculateActiveFilterCount();
+        return Task.CompletedTask;
+    }
+
+    private async Task ApplyAndClose()
+    {
+        Filter.TimePeriod = _tempFilter.TimePeriod;
+        Filter.FromDate = _tempFilter.FromDate;
+        Filter.ToDate = _tempFilter.ToDate;
+        Filter.AccountIds = _tempFilter.AccountIds?.ToList() ?? new List<int>();
+        Filter.SearchText = _tempFilter.SearchText ?? string.Empty;
+        Filter.CategoryId = _tempFilter.CategoryId;
+        Filter.Type = _tempFilter.Type;
+
+        await OnFilterChanged.InvokeAsync(Filter);
+        await OnFiltersApplied.InvokeAsync();
+
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    private async Task CancelAndClose()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(IsOpen);
+    }
+
+    // ✅ MudBlazor 9: MultiSelectionTextFunc recibe lista de strings (los values llegan como texto)
+    private string? GetSelectedAccountsText(IReadOnlyList<string?>? selectedValues)
+    {
+        if (selectedValues == null || selectedValues.Count == 0 || _activeAccounts?.Any() != true)
+            return "Select accounts...";
+
+        var selectedIds = selectedValues
+            .Select(value => int.TryParse(value, out var id) ? (int?)id : null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (selectedIds.Count == 0)
+            return "Select accounts...";
+
+        var selectedAccounts = _activeAccounts
+            .Where(a => selectedIds.Contains(a.Id))
+            .ToList();
+
+        if (selectedAccounts.Count == 0)
+            return "Select accounts...";
+
+        if (selectedAccounts.Count == 1)
+        {
+            var account = selectedAccounts[0];
+            return $"{account.Name} ({CurrencyHelper.FormatCurrency(account.CurrentBalance)})";
+        }
+
+        if (selectedAccounts.Count <= 2)
+            return string.Join(", ", selectedAccounts.Select(a => a.Name));
+
+        var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
+        return $"{selectedAccounts.Count} accounts ({CurrencyHelper.FormatCurrency(totalBalance)})";
+    }
+}

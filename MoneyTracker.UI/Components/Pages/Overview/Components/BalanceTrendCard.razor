@@ -1,0 +1,239 @@
+@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
+@using ApexCharts
+
+<MudCard Class="dashboard-card networth-hero-card">
+    <MudCardContent Class="networth-hero-content">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-3">
+            <MudStack Spacing="1">
+                <MudText Typo="Typo.h6">Net Worth</MudText>
+                <MudText Typo="Typo.h3" Class="@(_endValue >= 0 ? "mud-success-text" : "mud-error-text")">
+                    @CurrencyHelper.FormatCurrency(_endValue)
+                </MudText>
+                <MudText Typo="Typo.body1" Class="@(_delta >= 0 ? "mud-success-text" : "mud-error-text")">
+                    @CurrencyHelper.FormatSignedCurrency(_delta) (@FormatSignedPercent(_deltaPercent)) vs period start
+                </MudText>
+            </MudStack>
+
+            <MudPaper Class="period-chip" Elevation="0">
+                <MudText Typo="Typo.body2">@_periodLabel</MudText>
+            </MudPaper>
+        </MudStack>
+
+        @if (_chartData.Any())
+        {
+            <div class="networth-apex-chart">
+                <ApexChart TItem="BalancePoint" Options="_chartOptions" Height="280">
+                    <ApexPointSeries TItem="BalancePoint"
+                                     Items="_chartData"
+                                     Name="Net Worth"
+                                     SeriesType="SeriesType.Line"
+                                     XValue="point => point.Date"
+                                     YValue="point => point.Value" />
+                </ApexChart>
+            </div>
+
+            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-1">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @_startDateLabel
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @_endDateLabel
+                </MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                <MudIcon Icon="@Icons.Material.Filled.ShowChart"
+                         Color="MudBlazor.Color.Default"
+                         Size="MudBlazor.Size.Large" />
+                <MudText Typo="Typo.body1" Align="MudBlazor.Align.Center">
+                    No trend data available
+                </MudText>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+<style>
+    .networth-hero-card {
+        border-radius: 14px;
+        border: 1px solid var(--mud-palette-divider);
+        background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--mud-palette-surface) 96%, white 4%),
+            var(--mud-palette-surface)
+        );
+    }
+
+    .networth-hero-content {
+        padding: 20px 22px 16px 22px;
+    }
+
+    .period-chip {
+        border: 1px solid var(--mud-palette-divider);
+        border-radius: 10px;
+        padding: 6px 12px;
+        color: var(--mud-palette-text-primary) !important;
+        background-color: color-mix(in srgb, var(--mud-palette-surface) 95%, white 5%) !important;
+    }
+
+    .mud-theme-dark .networth-hero-card {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, #14171d, #101318);
+    }
+
+    .mud-theme-dark .period-chip {
+        border: 1px solid rgba(255, 255, 255, 0.20);
+        background-color: rgba(255, 255, 255, 0.03) !important;
+    }
+
+</style>
+
+@code {
+    [Parameter] public List<BalanceTrendDto>? Data { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
+
+    private readonly List<BalancePoint> _chartData = new();
+    private ApexChartOptions<BalancePoint> _chartOptions = new();
+    private decimal _endValue;
+    private decimal _delta;
+    private decimal _deltaPercent;
+    private string _startDateLabel = "-";
+    private string _endDateLabel = "-";
+    private string _periodLabel = "30D";
+    private const int MaxChartPoints = 320;
+
+    protected override void OnParametersSet()
+    {
+        _chartData.Clear();
+
+        if (Data?.Any() != true)
+        {
+            _endValue = 0;
+            _delta = 0;
+            _deltaPercent = 0;
+            _startDateLabel = "-";
+            _endDateLabel = "-";
+            _chartOptions = BuildOptions(IsDarkMode, true);
+            return;
+        }
+
+        var sorted = Data
+            .OrderBy(x => x.Date)
+            .ToList();
+
+        var pointsToRender = DownsampleTrend(sorted, MaxChartPoints);
+        _chartData.AddRange(pointsToRender.Select(x => new BalancePoint
+        {
+            Date = x.Date,
+            Value = x.TotalBalance
+        }));
+
+        var start = sorted.First().TotalBalance;
+        _endValue = sorted.Last().TotalBalance;
+        _delta = _endValue - start;
+        _deltaPercent = start == 0 ? 0 : (_delta / Math.Abs(start)) * 100m;
+
+        _startDateLabel = sorted.First().Date.ToString("dd MMM yyyy");
+        _endDateLabel = sorted.Last().Date.ToString("dd MMM yyyy");
+        _periodLabel = $"{Math.Max(1, (sorted.Last().Date - sorted.First().Date).Days + 1)}D";
+
+        _chartOptions = BuildOptions(IsDarkMode, _endValue < 0);
+    }
+
+    private static ApexChartOptions<BalancePoint> BuildOptions(bool isDarkMode, bool isNegative)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations
+                {
+                    Enabled = false
+                }
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            Stroke = new Stroke
+            {
+                Curve = Curve.Straight,
+                Width = 3
+            },
+            Markers = new Markers
+            {
+                Size = 0
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = new List<string> { isNegative ? "#ff5252" : "#00d1a0" },
+            Legend = new Legend { Show = false },
+            Grid = new Grid
+            {
+                Show = false
+            },
+            Xaxis = new XAxis
+            {
+                Type = XAxisType.Datetime,
+                Labels = new XAxisLabels
+                {
+                    Show = false
+                }
+            },
+            Yaxis =
+            [
+                new YAxis
+                {
+                    Show = false
+                }
+            ],
+            Tooltip = new Tooltip
+            {
+                X = new TooltipX { Format = "dd MMM yyyy" }
+            }
+        };
+
+    private static string FormatSignedPercent(decimal percent)
+        => percent < 0 ? $"{percent:N1}%" : $"+{percent:N1}%";
+
+    private static List<BalanceTrendDto> DownsampleTrend(List<BalanceTrendDto> source, int maxPoints)
+    {
+        if (source.Count <= maxPoints || maxPoints < 3)
+            return source;
+
+        var selected = new List<BalanceTrendDto>(maxPoints);
+        var step = (source.Count - 1d) / (maxPoints - 1d);
+        var seen = new HashSet<int>();
+
+        for (var i = 0; i < maxPoints; i++)
+        {
+            var index = (int)Math.Round(i * step, MidpointRounding.AwayFromZero);
+            index = Math.Clamp(index, 0, source.Count - 1);
+
+            if (seen.Add(index))
+            {
+                selected.Add(source[index]);
+            }
+        }
+
+        if (selected[0].Date != source[0].Date)
+            selected.Insert(0, source[0]);
+        if (selected[^1].Date != source[^1].Date)
+            selected.Add(source[^1]);
+
+        return selected
+            .OrderBy(x => x.Date)
+            .ToList();
+    }
+
+    private sealed class BalancePoint
+    {
+        public DateTime Date { get; set; }
+        public decimal Value { get; set; }
+    }
+}
+

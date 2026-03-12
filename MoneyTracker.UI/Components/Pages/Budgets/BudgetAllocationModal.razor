@@ -1,0 +1,97 @@
+﻿@using MoneyTracker.Domain.Enums.Category
+@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Allocate Budget</MudText>
+    </TitleContent>
+
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">
+            Set the parent total and distribute it across children.
+        </MudText>
+
+        <MudTextField T="decimal"
+                      Label="Parent Total"
+                      Variant="Variant.Outlined"
+                      @bind-Value="_parentTotal"
+                      Immediate="true" />
+
+        <MudDivider Class="my-4" />
+
+        @if (Children?.Any() == true)
+        {
+            <MudStack Spacing="2">
+                @foreach (var c in Children)
+                {
+                    <MudPaper Class="pa-3" Elevation="0" Style="border: 1px solid var(--mud-palette-divider);">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.subtitle2">@c.Name</MudText>
+
+                            <MudTextField T="decimal"
+                                          Variant="Variant.Outlined"
+                                          Style="max-width: 160px;"
+                                          Adornment="Adornment.Start"
+                                          AdornmentText="$"
+                                          @bind-Value="c.Amount"
+                                          Immediate="true" />
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+
+            <MudText Typo="Typo.caption" Class="mt-3">
+                Remaining: <b>@Remaining.ToString("N2")</b>
+            </MudText>
+        }
+        else
+        {
+            <MudText Class="text-muted">No child categories provided.</MudText>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save" Disabled="@(Remaining != 0)">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+
+    [Parameter] public string ParentName { get; set; } = "Parent";
+    [Parameter] public List<BudgetAllocationChildVm> Children { get; set; } = new();
+
+    private decimal _parentTotal;
+
+    private decimal Remaining
+        => _parentTotal - (Children?.Sum(x => x.Amount) ?? 0);
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Save()
+    {
+        // Devuelve el total y la distribución al caller
+        MudDialog.Close(DialogResult.Ok(new BudgetAllocationResultVm
+        {
+            ParentTotal = _parentTotal,
+            Children = Children
+        }));
+    }
+
+    public class BudgetAllocationChildVm
+    {
+        public int CategoryId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+    }
+
+    public class BudgetAllocationResultVm
+    {
+        public decimal ParentTotal { get; set; }
+        public List<BudgetAllocationChildVm> Children { get; set; } = new();
+    }
+}

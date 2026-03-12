@@ -1,0 +1,209 @@
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Validators
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Components.Shared.Pickers
+@using MoneyTracker.UI.Helpers
+@inject IAccountService AccountService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Add Account</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
+            <MudForm @ref="_form" Model="_account" Validation="_validator.ValidateValue">
+
+                <!-- Preview Card -->
+                <MudPaper Class="pa-4 mb-4" Elevation="1" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                        <MudAvatar Size="Size.Large"
+                                   Style="@($"background-color: {_account.Color}; width: 80px; height: 80px;")">
+                            <MudIcon Icon="@_account.Icon.ToIcon()"
+                                     Color="Color.Surface"
+                                     Style="font-size: 2.5rem;" />
+                        </MudAvatar>
+
+                        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h5">
+                                @(!string.IsNullOrWhiteSpace(_account.Name) ? _account.Name : "Account Name")
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="opacity: 0.7;">
+                                @_account.Type.ToLabel()
+                            </MudText>
+                            @if (_initialBalance != 0)
+                            {
+                                <MudText Typo="Typo.h6" Class="@GetBalanceClass(_initialBalance)">
+                                    @FormatBalance(_initialBalance)
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+
+                <!-- Account Name -->
+                <MudTextField Label="Account Name"
+                              @bind-Value="_account.Name"
+                              For="@(() => _account.Name)"
+                              Variant="Variant.Outlined"
+                              Required="true"
+                              Immediate="true"
+                              Class="mb-4"
+                              Placeholder="e.g., Main Checking, VISA Credit Card" />
+
+                <!-- Account Type -->
+                <MudSelect T="AccountType"
+                           Label="Account Type"
+                           @bind-Value="_account.Type"
+                           Variant="Variant.Outlined"
+                           Required="true"
+                           Class="mb-4">
+                    @foreach (AccountType type in Enum.GetValues<AccountType>())
+                    {
+                        <MudSelectItem T="AccountType" Value="@type">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@type.ToIcon()" Size="Size.Small" />
+                                <MudText>@type.ToLabel()</MudText>
+                            </MudStack>
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+
+                <!-- Initial Balance -->
+                <MudNumericField Label="Initial Balance"
+                                 @bind-Value="_initialBalance"
+                                 Variant="Variant.Outlined"
+                                 Format="N2"
+                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                 Class="mb-4"
+                                 Adornment="Adornment.Start"
+                                 AdornmentText="$"
+                                 Placeholder="0.00" />
+
+                <!-- Credit Limit (only for credit accounts) -->
+                @if (_account.Type == AccountType.Credit)
+                {
+                    <MudNumericField Label="Credit Limit"
+                                     @bind-Value="_account.CreditLimit"
+                                     For="@(() => _account.CreditLimit)"
+                                     Variant="Variant.Outlined"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                     Class="mb-4"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="$"
+                                     Placeholder="0.00" />
+                }
+
+                <!-- Color Picker -->
+                <ColorPicker @bind-SelectedColor="_account.Color"
+                             Label="Color"
+                             AllowCustomColor="true"
+                             Class="mb-4" />
+
+                <!-- Icon Picker -->
+                <IconPicker TIcon="AccountIcon"
+                            @bind-SelectedIcon="_account.Icon"
+                            Label="Icon" />
+            </MudForm>
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">
+            Cancel
+        </MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="CreateAccount"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@(_isSubmitting || string.IsNullOrWhiteSpace(_account?.Name))">
+            @if (_isSubmitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Creating...</span>
+            }
+            else
+            {
+                <span>Create</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public EventCallback OnAccountAdded { get; set; }
+
+    private MudForm _form = default!;
+    private AccountDto _account = new();
+    private decimal _initialBalance = 0;
+    private bool _isSubmitting = false;
+
+    private readonly AccountValidator _validator = new();
+
+    protected override void OnInitialized()
+    {
+        _account.Type = AccountType.Checking;
+        _account.Icon = AccountIcon.Wallet;
+        _account.Color = "#2196F3";
+    }
+
+    private async Task CreateAccount()
+    {
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            OperationResult result;
+
+            if (_initialBalance != 0)
+            {
+                result = await AccountService.CreateWithInitialBalanceAsync(_account, _initialBalance);
+            }
+            else
+            {
+                result = await AccountService.CreateAsync(_account);
+            }
+
+            if (result.Success)
+            {
+                Snackbar.Add($"Account '{_account.Name}' created successfully!", Severity.Success);
+                await OnAccountAdded.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to create account", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error creating account", Severity.Error);
+        }
+        finally
+        {
+            AccountsDrawer.RequestRefresh();
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string FormatBalance(decimal balance)
+        => CurrencyHelper.FormatCurrency(balance);
+
+    private static string GetBalanceClass(decimal balance)
+        => CurrencyHelper.GetAmountClass(balance);
+}
