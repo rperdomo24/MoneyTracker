@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
@@ -10,16 +11,16 @@ using NpgsqlTypes;
 
 public class TransactionRepository : ITransactionRepository
 {
-    private readonly MoneyTrackerDbContext _context;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TransactionRepository> _logger;
     private readonly ITenantContext _tenantContext;
 
     public TransactionRepository(
-        MoneyTrackerDbContext context,
+        IServiceScopeFactory scopeFactory,
         ILogger<TransactionRepository> logger,
         ITenantContext tenantContext)
     {
-        _context = context;
+        _scopeFactory = scopeFactory;
         _logger = logger;
         _tenantContext = tenantContext;
     }
@@ -28,7 +29,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            return await _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            return await context.Transaction
                 .Include(e => e.Category)
                 .Include(e => e.Account)
                 .ToListAsync();
@@ -44,7 +48,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            return await _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            return await context.Transaction
                 .Include(e => e.Category)
                 .Include(e => e.Account)
                 .FirstOrDefaultAsync(e => e.Id == id);
@@ -60,8 +67,11 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            _context.Transaction.Add(transaction);
-            await _context.SaveChangesAsync();
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            context.Transaction.Add(transaction);
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -74,8 +84,11 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            _context.Transaction.Update(transaction);
-            await _context.SaveChangesAsync();
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            context.Transaction.Update(transaction);
+            await context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -88,11 +101,14 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            var entity = await _context.Transaction.FindAsync(id);
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            var entity = await context.Transaction.FindAsync(id);
             if (entity is not null)
             {
-                _context.Transaction.Remove(entity);
-                await _context.SaveChangesAsync();
+                context.Transaction.Remove(entity);
+                await context.SaveChangesAsync();
             }
         }
         catch (Exception ex)
@@ -111,9 +127,12 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
             _ = transactionTypeIds;
 
-            var query = _context.Transaction
+            var query = context.Transaction
                 .Where(t => !t.IsDeleted)
                 .AsNoTracking()
                 .Include(e => e.Category)
@@ -151,7 +170,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            var query = _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            var query = context.Transaction
                 .AsNoTracking()
                 .Where(t => !t.IsDeleted);
 
@@ -196,7 +218,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            var query = _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            var query = context.Transaction
                 .AsNoTracking()
                 .Where(t => !t.IsDeleted);
 
@@ -242,8 +267,11 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
             var safeCount = Math.Max(1, count);
-            var query = _context.Transaction
+            var query = context.Transaction
                 .AsNoTracking()
                 .Where(t => !t.IsDeleted);
 
@@ -302,7 +330,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            var query = _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            var query = context.Transaction
                 .AsNoTracking()
                 .Where(t => !t.IsDeleted && t.Category != null && t.Category.Type == categoryType);
 
@@ -352,7 +383,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            var query = _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            var query = context.Transaction
                 .AsNoTracking()
                 .Where(t => !t.IsDeleted && t.Category != null && t.Category.Type == categoryType);
 
@@ -447,7 +481,10 @@ public class TransactionRepository : ITransactionRepository
         int[] safeAccountIds,
         List<DashboardCashFlowAggregateEntry> result)
     {
-        var connectionString = _context.Database.GetConnectionString();
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+        var connectionString = context.Database.GetConnectionString();
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             _logger.LogError("Database connection string is not configured.");
@@ -499,8 +536,11 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            _context.Transaction.Add(transaction);
-            await _context.SaveChangesAsync();
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            context.Transaction.Add(transaction);
+            await context.SaveChangesAsync();
             return transaction.Id;
         }
         catch (Exception ex)
@@ -515,6 +555,9 @@ public class TransactionRepository : ITransactionRepository
         DateTime fromUtc,
         DateTime toUtc)
     {
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
         var sql = @"
         WITH RECURSIVE category_tree AS (
             SELECT ""Id""
@@ -535,7 +578,7 @@ public class TransactionRepository : ITransactionRepository
           AND NOT t.""IsDeleted""
         ORDER BY t.""Date"" DESC";
 
-        return await _context.Transaction
+        return await context.Transaction
             .FromSqlRaw(sql, categoryId, fromUtc, toUtc)
             .Include(t => t.Category)
             .Include(t => t.Account)
@@ -547,7 +590,10 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
-            return await _context.Transaction
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+            return await context.Transaction
                 .Where(t => t.AccountId == accountId && !t.IsDeleted)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0m;
         }
@@ -562,9 +608,12 @@ public class TransactionRepository : ITransactionRepository
     {
         try
         {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
             var nowUtc = DateTime.UtcNow;
 
-            var rootTransactions = await _context.Transaction
+            var rootTransactions = await context.Transaction
                 .AsNoTracking()
                 .Where(t => !t.IsDeleted && t.AccountId == accountId)
                 .Select(t => new { t.Id, t.TransferPairId, t.AccountId })
@@ -590,7 +639,7 @@ public class TransactionRepository : ITransactionRepository
 
             if (pairedIds.Count > 0)
             {
-                var pairedTransactions = await _context.Transaction
+                var pairedTransactions = await context.Transaction
                     .AsNoTracking()
                     .Where(t => !t.IsDeleted && pairedIds.Contains(t.Id))
                     .Select(t => new { t.Id, t.AccountId })
@@ -603,7 +652,7 @@ public class TransactionRepository : ITransactionRepository
                 }
             }
 
-            var transactionsToDelete = await _context.Transaction
+            var transactionsToDelete = await context.Transaction
                 .Where(t => !t.IsDeleted && transactionIds.Contains(t.Id))
                 .Include(t => t.Attachments)
                 .ToListAsync(cancellationToken);
@@ -621,7 +670,7 @@ public class TransactionRepository : ITransactionRepository
                 }
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
 
             return affectedAccountIds.ToList();
         }
