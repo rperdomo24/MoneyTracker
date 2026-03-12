@@ -23,6 +23,8 @@
   - `MoneyTracker.Application/Mappers/*`
   - `MoneyTracker.Application/Mappers/Transactions/*`
 - `AutoMapper` is not used (no `AutoMapper` references found).
+- Manual mappers are mandatory for object transformations between layers; do not add mapping libraries.
+- New or changed DTO/entity conversions must be implemented in mapper files, not inline in UI/components.
 
 ## Architecture boundary rules
 - UI (`MoneyTracker.UI`) must depend on `MoneyTracker.Application` contracts only.
@@ -37,6 +39,8 @@
 ## Logging and security rules
 - Every new auth, registration, invitation, OTP, or email flow must persist controlled failures and unexpected exceptions through `IErrorLogService`.
 - Prefer `LogExceptionAsync(exception, customMessage)` for exceptions and `LogMessageAsync(...)` for handled failures.
+- In `catch` blocks, preserve the original exception details in logs/persisted logs (type, message, stack trace) for debugging.
+- User-facing responses from services/endpoints should return safe generic messages while internal logs keep full exception context.
 - Do not persist raw passwords, OTP values, invitation tokens, or full email addresses in application error logs.
 - For persisted auth/email logs, prefer masked email text or existing user and tenant ids.
 - Authentication audit events (success/failure) must be persisted through `IAuthAuditService` into `AuthAuditLogs`.
@@ -87,6 +91,7 @@
 - Do reuse `OperationMessages` when possible.
 - Do keep mapping in mapper extension files.
 - Do use FluentValidation validators for DTO validation.
+- Do centralize repeatable messages and labels into constants (`OperationMessages`, feature constants) instead of hardcoded strings.
 - Do register dependencies in `Program.cs` consistently.
 - Do convert dates through `ITimeZoneService` for transaction-related flows.
 - Do follow existing MudBlazor dialog structure.
@@ -94,6 +99,7 @@
 - Do keep mobile page containers compact and consistent (`pa-1 pa-sm-6` baseline for full-width pages unless intentionally different).
 - Don't introduce AutoMapper.
 - Don't bypass mappers with ad-hoc property mapping in UI.
+- Don't leave repeated user/system text hardcoded when it can be centralized in constants.
 - Don't add secrets to docs/config commits.
 - Don't change architecture boundaries without explicit agreement.
 - Don't replace dialog pattern with `MudDialogTitle/MudDialogContent/MudDialogActions` unless repo standard changes.
