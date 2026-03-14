@@ -344,32 +344,7 @@ namespace MoneyTracker.Application.Services
                 if (!accountsResult.Success)
                     return OperationResult<DashboardSummaryDto>.Fail(accountsResult.Message);
 
-                var accounts = accountsResult.Data;
-
-                var assets = accounts
-                    .Where(a => a.Type != AccountType.Credit && a.CurrentBalance >= 0)
-                    .Sum(a => a.CurrentBalance);
-
-                var liabilities = Math.Abs(accounts
-                    .Where(a => a.Type == AccountType.Credit || a.CurrentBalance < 0)
-                    .Sum(a => Math.Min(a.CurrentBalance, 0)));
-
-                var netWorth = assets - liabilities;
-
-                // Simplified calculation - no recursive calls
-                var monthlyChange = 0m; // You can implement this separately later
-                var monthlyChangePercentage = 0m;
-
-                var summary = new DashboardSummaryDto
-                {
-                    TotalAssets = assets,
-                    TotalLiabilities = liabilities,
-                    NetWorth = netWorth,
-                    MonthlyChange = monthlyChange,
-                    MonthlyChangePercentage = monthlyChangePercentage,
-                    IsPositiveChange = monthlyChange >= 0,
-                    Last6MonthsNetWorth = new List<decimal>() // Empty for now
-                };
+                var summary = BuildSummary(accountsResult.Data ?? new List<AccountDto>());
 
                 return OperationResult<DashboardSummaryDto>.Ok(summary, "Dashboard summary retrieved successfully");
             }
@@ -745,11 +720,11 @@ namespace MoneyTracker.Application.Services
         private DashboardSummaryDto BuildSummary(List<AccountDto> accounts)
         {
             var assets = accounts
-                .Where(a => a.Type != AccountType.Credit && a.CurrentBalance >= 0)
+                .Where(a => a.CurrentBalance > 0)
                 .Sum(a => a.CurrentBalance);
 
             var liabilities = Math.Abs(accounts
-                .Where(a => a.Type == AccountType.Credit || a.CurrentBalance < 0)
+                .Where(a => a.CurrentBalance < 0)
                 .Sum(a => Math.Min(a.CurrentBalance, 0)));
 
             var netWorth = assets - liabilities;

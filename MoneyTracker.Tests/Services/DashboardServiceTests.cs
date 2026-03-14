@@ -251,7 +251,7 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetSummaryAsync_WhenSuccess_CalculatesAssetsAndNetWorth()
         {
-            // Credit balances are liabilities; non-credit positive balances are assets.
+            // Assets include any positive account balance; liabilities are the absolute value of negative balances.
             _accountService.Setup(x => x.GetAccountsWithBalancesAsync()).ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
             {
                 new() { Id = 1, Name = "Cash", Type = AccountType.Cash, CurrentBalance = 1000m },
@@ -266,6 +266,24 @@ namespace MoneyTracker.Tests.Services
             result.Data!.TotalAssets.Should().Be(1200m);
             result.Data.TotalLiabilities.Should().Be(300m);
             result.Data.NetWorth.Should().Be(900m);
+        }
+
+        [Fact]
+        public async Task GetSummaryAsync_WhenCreditAccountHasPositiveBalance_IncludesItAsAsset()
+        {
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync()).ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
+            {
+                new() { Id = 1, Name = "Checking", Type = AccountType.Checking, CurrentBalance = 469.51m },
+                new() { Id = 2, Name = "Credit", Type = AccountType.Credit, CurrentBalance = 40.44m }
+            }));
+
+            var svc = CreateService();
+            var result = await svc.GetSummaryAsync();
+
+            result.Success.Should().BeTrue();
+            result.Data!.TotalAssets.Should().Be(509.95m);
+            result.Data.TotalLiabilities.Should().Be(0m);
+            result.Data.NetWorth.Should().Be(509.95m);
         }
 
         [Fact]
@@ -345,6 +363,37 @@ namespace MoneyTracker.Tests.Services
             result.Data.Should().NotBeNullOrEmpty();
             result.Data!.First().Date.Should().Be(new DateTime(2025, 12, 1));
             result.Data.Last().Date.Should().Be(new DateTime(2026, 3, 5));
+        }
+
+        [Fact]
+        public async Task GetBalanceTrendAsync_WhenCreditAccountHasPositiveBalance_EndPointMatchesSignedAccountSum()
+        {
+            _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
+                .Returns(new DateTime(2026, 3, 5, 12, 0, 0));
+            _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
+                .Returns((DateTime d) => d);
+
+            _accountService.Setup(x => x.GetAccountsWithBalancesAsync())
+                .ReturnsAsync(OperationResult<List<AccountDto>>.Ok(new List<AccountDto>
+                {
+                    new() { Id = 1, Name = "Checking", Type = AccountType.Checking, CurrentBalance = 469.51m },
+                    new() { Id = 2, Name = "Credit", Type = AccountType.Credit, CurrentBalance = 40.44m }
+                }));
+
+            _transactionRepository
+                .Setup(x => x.GetTrendEntriesAsync(
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<DateTime?>(),
+                    It.IsAny<List<int>>(),
+                    It.IsAny<CategoryTypeEnum?>()))
+                .ReturnsAsync(new List<TransactionTrendEntry>());
+
+            var svc = CreateService();
+            var result = await svc.GetBalanceTrendAsync(1);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNullOrEmpty();
+            result.Data!.Last().TotalBalance.Should().Be(509.95m);
         }
 
         [Fact]
