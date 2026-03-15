@@ -293,6 +293,90 @@ namespace MoneyTracker.UI.Endpoints
                 return Results.LocalRedirect($"/verify-email-pending?email={Uri.EscapeDataString(normalizedEmail)}&info={Uri.EscapeDataString("Confirmation link sent. Check your email.")}");
             }).AllowAnonymous();
 
+            authGroup.MapPost("/register", async (
+                [FromForm] string displayName,
+                [FromForm] string email,
+                [FromForm] string password,
+                [FromForm] string confirmPassword,
+                UserManager<ApplicationUser> userManager,
+                MoneyTrackerDbContext dbContext,
+                ITenantBootstrapService tenantBootstrapService,
+                IErrorLogService errorLogService,
+                IOptions<ApplicationSettings> applicationOptions,
+                IValidator<RegisterRequestDto> validator) =>
+            {
+                if (!applicationOptions.Value.EnablePublicRegistration)
+                {
+                    await LogHandledAsync(errorLogService, "Public registration attempt rejected because it is disabled by configuration.");
+                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString("Public registration is currently disabled.")}");
+                }
+
+                var dto = new RegisterRequestDto
+                {
+                    DisplayName = displayName,
+                    Email = email,
+                    Password = password,
+                    ConfirmPassword = confirmPassword
+                };
+
+                var validation = await validator.ValidateAsync(dto);
+                if (!validation.IsValid)
+                {
+                    var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
+                    await LogHandledAsync(errorLogService, $"Public registration validation failed. {error}");
+                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString(error)}");
+                }
+
+                var normalizedEmail = email.Trim().ToLowerInvariant();
+                var maskedEmail = MaskEmail(normalizedEmail);
+                var existingUser = await userManager.FindByEmailAsync(normalizedEmail);
+                if (existingUser is not null)
+                {
+                    await LogHandledAsync(errorLogService, $"Public registration skipped because {maskedEmail} already has an account.");
+                    return Results.LocalRedirect($"/login?info={Uri.EscapeDataString("This email already has an account. Please sign in.")}");
+                }
+
+                var tenantId = Guid.NewGuid();
+                var user = new ApplicationUser
+                {
+                    UserName = normalizedEmail,
+                    Email = normalizedEmail,
+                    EmailConfirmed = true,
+                    TenantId = tenantId,
+                    DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim(),
+                    TwoFactorEnabled = true
+                };
+
+                var createResult = await userManager.CreateAsync(user, password);
+                if (!createResult.Succeeded)
+                {
+                    var error = string.Join(" ", createResult.Errors.Select(x => x.Description));
+                    await LogHandledAsync(errorLogService, $"Public registration user creation failed for {maskedEmail}. {error}");
+                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString(error)}");
+                }
+
+                try
+                {
+                    dbContext.Tenants.Add(new Tenant
+                    {
+                        TenantId = tenantId,
+                        Name = BuildTenantName(displayName, normalizedEmail),
+                        OwnerUserId = user.Id
+                    });
+
+                    await dbContext.SaveChangesAsync();
+                    await tenantBootstrapService.SeedDefaultsAsync(tenantId);
+
+                    return Results.LocalRedirect("/login?info=Account%20created%20successfully.%20You%20can%20sign%20in.");
+                }
+                catch (Exception ex)
+                {
+                    await errorLogService.LogExceptionAsync(ex, $"Public registration failed for {maskedEmail}.");
+                    await userManager.DeleteAsync(user);
+                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString("Registration failed. Please try again.")}");
+                }
+            }).AllowAnonymous();
+
             authGroup.MapPost("/invite-register", async (
                 [FromForm] string token,
                 [FromForm] string displayName,

@@ -1,6 +1,9 @@
 @page "/login"
 @attribute [AllowAnonymous]
 @layout Layout.AuthLayout
+@using Microsoft.Extensions.Options
+@using MoneyTracker.Application.Constants.Configuration
+@inject IOptions<ApplicationSettings> ApplicationOptions
 
 <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
     <MudPaper Class="pa-6">
@@ -42,9 +45,18 @@
             <MudLink Href="/forgot-password">Forgot your password?</MudLink>
         </MudText>
 
-        <MudText Typo="Typo.body2" Class="mt-4">
-            Beta access is invite-only right now.
-        </MudText>
+        @if (ApplicationOptions.Value.EnablePublicRegistration)
+        {
+            <MudText Typo="Typo.body2" Class="mt-4">
+                Need an account? <MudLink Href="/register">Create one</MudLink>
+            </MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mt-4">
+                Beta access is invite-only right now.
+            </MudText>
+        }
     </MudPaper>
 </MudContainer>
 
