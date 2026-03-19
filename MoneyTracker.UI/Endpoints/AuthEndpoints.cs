@@ -308,7 +308,7 @@ namespace MoneyTracker.UI.Endpoints
                 if (!applicationOptions.Value.EnablePublicRegistration)
                 {
                     await LogHandledAsync(errorLogService, "Public registration attempt rejected because it is disabled by configuration.");
-                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString("Public registration is currently disabled.")}");
+                    return Results.LocalRedirect(BuildRegisterUrl(null, null, "Public registration is currently disabled.", null));
                 }
 
                 var dto = new RegisterRequestDto
@@ -324,7 +324,7 @@ namespace MoneyTracker.UI.Endpoints
                 {
                     var error = string.Join(" ", validation.Errors.Select(x => x.ErrorMessage).Distinct());
                     await LogHandledAsync(errorLogService, $"Public registration validation failed. {error}");
-                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString(error)}");
+                    return Results.LocalRedirect(BuildRegisterUrl(displayName, email, error, null));
                 }
 
                 var normalizedEmail = email.Trim().ToLowerInvariant();
@@ -352,7 +352,7 @@ namespace MoneyTracker.UI.Endpoints
                 {
                     var error = string.Join(" ", createResult.Errors.Select(x => x.Description));
                     await LogHandledAsync(errorLogService, $"Public registration user creation failed for {maskedEmail}. {error}");
-                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString(error)}");
+                    return Results.LocalRedirect(BuildRegisterUrl(displayName, email, error, null));
                 }
 
                 try
@@ -373,7 +373,7 @@ namespace MoneyTracker.UI.Endpoints
                 {
                     await errorLogService.LogExceptionAsync(ex, $"Public registration failed for {maskedEmail}.");
                     await userManager.DeleteAsync(user);
-                    return Results.LocalRedirect($"/register?error={Uri.EscapeDataString("Registration failed. Please try again.")}");
+                    return Results.LocalRedirect(BuildRegisterUrl(displayName, email, "Registration failed. Please try again.", null));
                 }
             }).AllowAnonymous();
 
@@ -641,6 +641,34 @@ namespace MoneyTracker.UI.Endpoints
             }
 
             return url;
+        }
+
+        private static string BuildRegisterUrl(string? displayName, string? email, string? error, string? info)
+        {
+            var url = "/register";
+            var query = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                query.Add($"displayName={Uri.EscapeDataString(displayName)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                query.Add($"email={Uri.EscapeDataString(email)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(error))
+            {
+                query.Add($"error={Uri.EscapeDataString(error)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(info))
+            {
+                query.Add($"info={Uri.EscapeDataString(info)}");
+            }
+
+            return query.Count == 0 ? url : $"{url}?{string.Join("&", query)}";
         }
 
         private static DateTime? ParseUtc(string? value)

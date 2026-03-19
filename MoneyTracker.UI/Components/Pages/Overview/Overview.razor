@@ -336,6 +336,12 @@
 
         try
         {
+            if (!_accounts.Any())
+            {
+                SetEmptyDashboardData();
+                return;
+            }
+
             var filter = new DashboardFilterDto
             {
                 TimePeriod = _selectedPeriod,
@@ -445,6 +451,16 @@
                 _loadLock.Release();
             }
         }
+    }
+
+    private void SetEmptyDashboardData()
+    {
+        _balanceTrend = new();
+        _budgetSummary = new DashboardBudgetSummaryDto();
+        _spendingTrend = new();
+        _categoryBreakdown = new();
+        _cashFlow = new CashFlowDto();
+        _recentTransactions = new();
     }
 
     private async Task RefreshDashboard()
