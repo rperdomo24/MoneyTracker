@@ -1,4 +1,7 @@
-﻿<!DOCTYPE html>
+﻿@using MoneyTracker.UI.Services.Branding
+@inject IBrandingService BrandingService
+
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -13,7 +16,10 @@
     <link href="@Assets["/css/QuickActionsFab.css"]" rel="stylesheet">
     <link href="@Assets["/css/Dashboard.css"]" rel="stylesheet">
     <ImportMap />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="@BrandingService.GetAssetPath(BrandingAsset.Favicon32)" />
+    <link rel="apple-touch-icon" sizes="180x180" href="@BrandingService.GetAssetPath(BrandingAsset.AppleTouch180)" />
+    <link rel="icon" type="image/png" sizes="192x192" href="@BrandingService.GetAssetPath(BrandingAsset.AppIcon192)" />
+    <link rel="icon" type="image/png" sizes="512x512" href="@BrandingService.GetAssetPath(BrandingAsset.AppIcon512)" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 

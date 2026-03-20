@@ -27,6 +27,7 @@ using MoneyTracker.UI.Services.Components.Drawer;
 using MoneyTracker.UI.Services.Filters;
 using MoneyTracker.UI.Services.Filters.Interface;
 using MoneyTracker.UI.Services.User;
+using MoneyTracker.UI.Services.Branding;
 using MoneyTracker.UI.Utility.Settings;
 using ApexCharts;
 using MudBlazor;
@@ -135,6 +136,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IBudgetFilterStateService, BudgetFilterStateService>();
             builder.Services.AddScoped<IDashboardFilterStateService, DashboardFilterStateService>();
             builder.Services.AddScoped<IAccountsPanelStateService, AccountsPanelStateService>();
+            builder.Services.AddSingleton<IBrandingService, BrandingService>();
 
             builder.Services.Configure<ApplicationSettings>(
             builder.Configuration.GetSection("ApplicationSettings"));
