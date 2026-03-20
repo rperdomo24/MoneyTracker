@@ -4,65 +4,71 @@
 @using MoneyTracker.Application.Interfaces
 @inject IUserInvitationService UserInvitationService
 
-<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
-    <MudPaper Class="pa-6">
-        <MudText Typo="Typo.h5" Class="mb-4">Create account</MudText>
+<MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Create account</MudText>
+<MudText Typo="Typo.body2" Align="Align.Center" Class="mb-4">Finish your invitation setup.</MudText>
 
-        @if (_isLoading)
+@if (_isLoading)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="mt-2">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </MudStack>
+}
+else if (!string.IsNullOrWhiteSpace(_error))
+{
+    <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+}
+else
+{
+    <form method="post" action="/auth/invite-register">
+        <AntiforgeryToken />
+
+        <MudTextField Value="@_email"
+                      Label="Email"
+                      Variant="Variant.Outlined"
+                      ReadOnly="true"
+                      FullWidth="true" />
+
+        <MudTextField @bind-Value="_displayName"
+                      Label="Display name"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Class="mt-3" />
+
+        <MudTextField @bind-Value="_password"
+                      Label="Password"
+                      Variant="Variant.Outlined"
+                      InputType="@PasswordInputType"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@PasswordAdornmentIcon"
+                      OnAdornmentClick="TogglePasswordVisibility"
+                      FullWidth="true"
+                      Class="mt-3" />
+
+        <MudTextField @bind-Value="_confirmPassword"
+                      Label="Confirm password"
+                      Variant="Variant.Outlined"
+                      InputType="@ConfirmPasswordInputType"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@ConfirmPasswordAdornmentIcon"
+                      OnAdornmentClick="ToggleConfirmPasswordVisibility"
+                      FullWidth="true"
+                      Class="mt-3" />
+
+        @if (!string.IsNullOrWhiteSpace(_info))
         {
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@_info</MudAlert>
         }
-        else if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
-        }
-        else
-        {
-            <form method="post" action="/auth/invite-register">
-                <AntiforgeryToken />
-                <MudText Typo="Typo.caption" Class="mb-1 d-block">Email</MudText>
-                <input type="email"
-                       value="@_email"
-                       readonly
-                       autocomplete="email"
-                       class="mud-input-slot mud-input-root mud-input-root-outlined"
-                       style="width:100%; padding: 14px 12px; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;" />
-                <MudText Typo="Typo.caption" Class="mb-1 mt-3 d-block">Display name</MudText>
-                <input type="text"
-                       name="displayName"
-                       @bind="_displayName"
-                       autocomplete="name"
-                       class="mud-input-slot mud-input-root mud-input-root-outlined"
-                       style="width:100%; padding: 14px 12px; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;" />
-                <MudText Typo="Typo.caption" Class="mb-1 mt-3 d-block">Password</MudText>
-                <input type="password"
-                       name="password"
-                       @bind="_password"
-                       autocomplete="new-password"
-                       class="mud-input-slot mud-input-root mud-input-root-outlined"
-                       style="width:100%; padding: 14px 12px; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;" />
-                <MudText Typo="Typo.caption" Class="mb-1 mt-3 d-block">Confirm password</MudText>
-                <input type="password"
-                       name="confirmPassword"
-                       @bind="_confirmPassword"
-                       autocomplete="new-password"
-                       class="mud-input-slot mud-input-root mud-input-root-outlined"
-                       style="width:100%; padding: 14px 12px; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;" />
 
-                @if (!string.IsNullOrWhiteSpace(_info))
-                {
-                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@_info</MudAlert>
-                }
+        <input type="hidden" name="displayName" value="@_displayName" />
+        <input type="hidden" name="password" value="@_password" />
+        <input type="hidden" name="confirmPassword" value="@_confirmPassword" />
+        <input type="hidden" name="token" value="@Token" />
 
-                <input type="hidden" name="token" value="@Token" />
-
-                <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
-                    Create account
-                </MudButton>
-            </form>
-        }
-    </MudPaper>
-</MudContainer>
+        <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
+            Create account
+        </MudButton>
+    </form>
+}
 
 @code {
     [SupplyParameterFromQuery] public string? Token { get; set; }
@@ -76,6 +82,16 @@
     private string _confirmPassword = string.Empty;
     private string? _error;
     private string? _info;
+    private bool _showPassword;
+    private bool _showConfirmPassword;
+    private InputType PasswordInputType => _showPassword ? InputType.Text : InputType.Password;
+    private InputType ConfirmPasswordInputType => _showConfirmPassword ? InputType.Text : InputType.Password;
+    private string PasswordAdornmentIcon => _showPassword
+        ? Icons.Material.Filled.VisibilityOff
+        : Icons.Material.Filled.Visibility;
+    private string ConfirmPasswordAdornmentIcon => _showConfirmPassword
+        ? Icons.Material.Filled.VisibilityOff
+        : Icons.Material.Filled.Visibility;
 
     protected override async Task OnInitializedAsync()
     {
@@ -99,5 +115,15 @@
 
         _email = result.Data.Email;
         _isLoading = false;
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        _showConfirmPassword = !_showConfirmPassword;
     }
 }

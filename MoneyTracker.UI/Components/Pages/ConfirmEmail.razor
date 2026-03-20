@@ -7,28 +7,26 @@
 @using MoneyTracker.Infrastructure.Persistence
 @inject UserManager<ApplicationUser> UserManager
 
-<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
-    <MudPaper Class="pa-6">
-        <MudText Typo="Typo.h5">Email confirmation</MudText>
+<MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Email confirmation</MudText>
 
-        @if (_isLoading)
-        {
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="mt-4" />
-        }
-        else if (_succeeded)
-        {
-            <MudAlert Severity="Severity.Success" Dense="true" Class="mt-4">
-                Email confirmed successfully. You can now <MudLink Href="/login">sign in</MudLink>.
-            </MudAlert>
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">
-                @(_error ?? "Invalid or expired confirmation link.")
-            </MudAlert>
-        }
-    </MudPaper>
-</MudContainer>
+@if (_isLoading)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </MudStack>
+}
+else if (_succeeded)
+{
+    <MudAlert Severity="Severity.Success" Dense="true" Class="mt-4">
+        Email confirmed successfully. You can now <MudLink Href="/login">sign in</MudLink>.
+    </MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">
+        @(_error ?? "Invalid or expired confirmation link.")
+    </MudAlert>
+}
 
 @code {
     [SupplyParameterFromQuery] public string? UserId { get; set; }

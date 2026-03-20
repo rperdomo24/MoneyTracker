@@ -1,10 +1,71 @@
 @inherits LayoutComponentBase
+@using MoneyTracker.UI.Services.Branding
+@inject IBrandingService BrandingService
 
-<MudThemeProvider />
+<MudThemeProvider Theme="@_authTheme" IsDarkMode="false" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <MudPopoverProvider />
 
-<MudMainContent>
-    @Body
+<MudMainContent Class="d-flex align-center justify-center pa-4"
+                Style="min-height: 100vh; background: linear-gradient(140deg, var(--mud-palette-background), var(--mud-palette-surface));">
+    <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="pa-0">
+        <MudPaper Outlined="true" Elevation="1" Class="pa-6">
+            <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.HorizontalLogo)"
+                          Alt="Money Tracker"
+                          Width="190"
+                          Height="48" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Your personal finance hub</MudText>
+            </MudStack>
+
+            @Body
+        </MudPaper>
+    </MudContainer>
 </MudMainContent>
+
+@code {
+    private readonly MudTheme _authTheme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#2143B5",
+            Secondary = "#2A364E",
+            Background = "#F4F7F6",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#FFFFFF",
+            AppbarText = "#2A364E",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#2A364E",
+            DrawerIcon = "#2143B5",
+            TextPrimary = "#2A364E",
+            TextSecondary = "#607186",
+            ActionDefault = "#2143B5",
+            ActionDisabled = "#B6CCD8",
+            ActionDisabledBackground = "#E0E6E9",
+            Info = "#2143B5",
+            Success = "#2BD48A",
+            Warning = "#F39C12",
+            Error = "#EF5350",
+            TableLines = "#E0E0E0",
+            LinesDefault = "#E0E0E0",
+            Divider = "#E0E0E0"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = ["Poppins", "Segoe UI", "sans-serif"]
+            },
+            H1 = new H1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            H2 = new H2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            H3 = new H3Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            H4 = new H4Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            H5 = new H5Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            H6 = new H6Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            Body1 = new Body1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            Body2 = new Body2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+            Button = new ButtonTypography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] }
+        }
+    };
+}

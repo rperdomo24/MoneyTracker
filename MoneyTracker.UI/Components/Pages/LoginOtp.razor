@@ -3,72 +3,65 @@
 @layout Layout.AuthLayout
 @implements IDisposable
 
-<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
-    <MudPaper Class="pa-6">
-        <MudText Typo="Typo.h5" Class="mb-2">Email verification code</MudText>
-        <MudText Typo="Typo.body2" Class="mb-3">Enter the code sent to your email.</MudText>
-        @if (_remainingSeconds > 0)
-        {
-            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
-                This code expires in @FormatRemaining(_remainingSeconds).
-            </MudAlert>
-        }
-        else if (_hasExpiry)
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">
-                This code has expired. Request a new code.
-            </MudAlert>
-        }
+<MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Email verification code</MudText>
+<MudText Typo="Typo.body2" Align="Align.Center" Class="mb-3">Enter the code sent to your email.</MudText>
+@if (_remainingSeconds > 0)
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+        This code expires in @FormatRemaining(_remainingSeconds).
+    </MudAlert>
+}
+else if (_hasExpiry)
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-2">
+        This code has expired. Request a new code.
+    </MudAlert>
+}
 
-        @if (!string.IsNullOrWhiteSpace(Info))
-        {
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@Info</MudAlert>
-        }
+@if (!string.IsNullOrWhiteSpace(Info))
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@Info</MudAlert>
+}
 
-        @if (!string.IsNullOrWhiteSpace(Error))
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@Error</MudAlert>
-        }
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@Error</MudAlert>
+}
 
-        <form method="post" action="/auth/login-otp">
-            <AntiforgeryToken />
-            <MudText Typo="Typo.caption" Class="mb-1 d-block">OTP code</MudText>
-            <input type="text"
-                   name="code"
-                   @bind="_code"
-                   autocomplete="one-time-code"
-                   inputmode="numeric"
-                   pattern="[0-9]*"
-                   class="mud-input-slot mud-input-root mud-input-root-outlined"
-                   style="width:100%; padding: 14px 12px; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;" />
-            <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
-            <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
-            <input type="hidden" name="expiresAtUtc" value="@ExpiresAtUtc" />
+<form method="post" action="/auth/login-otp">
+    <AntiforgeryToken />
+    <MudTextField @bind-Value="_code"
+                  Label="OTP code"
+                  Variant="Variant.Outlined"
+                  FullWidth="true"
+                  Class="mt-3" />
+    <input type="hidden" name="code" value="@_code" />
+    <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
+    <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
+    <input type="hidden" name="expiresAtUtc" value="@ExpiresAtUtc" />
 
-            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
-                Verify and sign in
-            </MudButton>
-        </form>
+    <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
+        Verify and sign in
+    </MudButton>
+</form>
 
-        <form method="post" action="/auth/login-otp/resend">
-            <AntiforgeryToken />
-            <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
-            <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
-            <input type="hidden" name="expiresAtUtc" value="@ExpiresAtUtc" />
-            <MudButton ButtonType="ButtonType.Submit" Color="Color.Default" Variant="Variant.Outlined" FullWidth="true" Class="mt-2">
-                Resend code
-            </MudButton>
-        </form>
+<form method="post" action="/auth/login-otp/resend">
+    <AntiforgeryToken />
+    <input type="hidden" name="rememberMe" value="@RememberMe.ToString().ToLowerInvariant()" />
+    <input type="hidden" name="returnUrl" value="@SafeReturnUrl(ReturnUrl)" />
+    <input type="hidden" name="expiresAtUtc" value="@ExpiresAtUtc" />
+    <MudButton ButtonType="ButtonType.Submit" Color="Color.Default" Variant="Variant.Outlined" FullWidth="true" Class="mt-2">
+        Resend code
+    </MudButton>
+</form>
 
-        <MudButton Href="/login"
-                   Color="Color.Secondary"
-                   Variant="Variant.Text"
-                   FullWidth="true"
-                   Class="mt-2">
-            Back to sign in
-        </MudButton>
-    </MudPaper>
-</MudContainer>
+<MudButton Href="/login"
+           Color="Color.Secondary"
+           Variant="Variant.Text"
+           FullWidth="true"
+           Class="mt-2">
+    Back to sign in
+</MudButton>
 
 @code {
     [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
