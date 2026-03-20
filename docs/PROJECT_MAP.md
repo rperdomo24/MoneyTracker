@@ -7,6 +7,7 @@
 - Beta onboarding now supports invite-only registration with tokenized invitations and public signup disabled.
 - Tenant isolation is column-based (`TenantId`) with EF Core query filters and save-time tenant enforcement.
 - UI is implemented with MudBlazor components and dialog-based CRUD flows.
+- Branding assets (logos/icons/favicons) are resolved through `IBrandingService` to avoid hardcoded image paths across components.
 - Dashboard trend visualizations are rendered with ApexCharts in Blazor components.
 - Net Worth Trend now has a dedicated data path (`IDashboardService.GetBalanceTrendAsync(DashboardFilterDto)` + `ITransactionRepository.GetTrendEntriesAsync`) to avoid loading full dashboard payloads for a single chart.
 - Account details render balance/debt history through a dedicated component (`AccountBalanceTrendCard`) that interprets credit accounts as debt-oriented values for clearer UX.
@@ -35,6 +36,7 @@ MoneyTracker.Tests -> tests Application services with mocks
 - Tenant context: `ICurrentUserService` / `ITenantContext` resolves `TenantId` and `UserId` from claims.
 - Claim issuance: `ApplicationUserClaimsPrincipalFactory` adds `tenant_id` claim at sign-in.
 - Auth pages use `AuthLayout` (no app navigation shell behind login/register/OTP).
+- `AuthLayout` now owns a dedicated auth theme + branded centered shell; auth pages provide only page-specific form content.
 - Auth POST flows are handled via server endpoints (`/auth/login`, `/auth/login-otp`, `/auth/login-otp/resend`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/resend-confirmation`, `/auth/invite-register`, `/auth/logout`) to safely issue cookies in Blazor Server.
 - Login flow is hard-enabled for OTP and lockout (`MaxFailedAccessAttempts=3`, temporary lockout window configured in Identity options).
 - Verification codes are persisted in `UserVerificationCodes` and validated server-side (hashed code, expiry, resend cooldown, max-attempt invalidation).
@@ -45,6 +47,7 @@ MoneyTracker.Tests -> tests Application services with mocks
 
 ## Folder and project map
 - `MoneyTracker.UI`: `Program.cs`, Razor pages/components, UI state services, filters, dialogs, app settings.
+- `MoneyTracker.UI/Services/Branding`: centralized asset mapping (`BrandingAsset`, `IBrandingService`, `BrandingService`) used by app head metadata and layouts.
 - `MoneyTracker.Application`: service layer, DTOs, FluentValidation validators, mapping extensions, shared result/message types.
 - `MoneyTracker.Domain`: entities (`Account`, `Category`, `Transaction`, `Budget`, `UserInvitation`), enums, constants, repository contracts.
 - `MoneyTracker.Infrastructure`: `MoneyTrackerDbContext`, repositories, migrations, seeders, `TimeZoneService`, `ErrorLogService`.
@@ -54,6 +57,7 @@ MoneyTracker.Tests -> tests Application services with mocks
 ## Where to start reading (top 7 files)
 - `MoneyTracker.UI/Program.cs`: DI wiring, DB provider, MudBlazor/snackbar setup, hosted app pipeline.
 - `MoneyTracker.Infrastructure/Persistence/MoneyTrackerDbContext.cs`: data model, relationships, constraints, seeding.
+- `MoneyTracker.UI/Services/Branding/BrandingService.cs`: single source for logo/icon/favicons paths used in UI.
 - `MoneyTracker.Application/Common/OperationResult.cs`: service return contract pattern.
 - `MoneyTracker.UI/Endpoints/AuthEndpoints.cs`: login/OTP/password reset/invitation flows and absolute email link generation.
 - `MoneyTracker.Application/Services/TransactionService.cs`: largest business flow surface (CRUD, filters, transfers, duplication).
