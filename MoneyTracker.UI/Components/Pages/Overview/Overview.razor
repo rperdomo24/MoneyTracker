@@ -4,14 +4,12 @@
 @using MoneyTracker.UI.Components.Shared
 @using System.Security.Claims
 @using MudBlazor
-@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
 @using System.Threading
 @inject IDashboardService DashboardService
-@inject IAccountService AccountService
 @inject IDashboardFilterStateService DashboardFilterState
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -23,99 +21,73 @@
         @* Header *@
         <MudItem xs="12">
             <MudPaper Class="pa-4" Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
-                <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                    <MudStack Spacing="1">
-                        <MudText Typo="Typo.h4" Style="color: white; font-weight: 600;">
-                            <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" />
-                            Welcome, @UserDisplayName
-                        </MudText>
-                        <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
-                            Here's what's happening with your finances. Last updated: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
-                        </MudText>
-                    </MudStack>
-                    <MudButton Variant="Variant.Outlined"
-                               StartIcon="@Icons.Material.Filled.Refresh"
-                               Style="color: white; border-color: white;"
-                               OnClick="RefreshDashboard">
-                        Refresh
-                    </MudButton>
-                </MudStack>
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="7">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.h4" Style="color: white; font-weight: 600;">
+                                <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" />
+                                Welcome, @UserDisplayName
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
+                                Here's what's happening with your finances. Last updated: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
+                            </MudText>
+                        </MudStack>
+                    </MudItem>
+
+                    <MudItem xs="12" md="5">
+                        <MudStack Row Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+                            <MudSelect T="TimePeriodFilter"
+                                       Label="Period"
+                                       Variant="Variant.Filled"
+                                       Dense="true"
+                                       Class="w-100"
+                                       Style="background-color: var(--mud-palette-surface); color: var(--mud-palette-text-primary); border-radius: 8px;"
+                                       Value="_selectedPeriod"
+                                       ValueChanged="OnPeriodChanged">
+                                @foreach (var periodOption in _periodOptions)
+                                {
+                                    <MudSelectItem Value="@periodOption.Value">
+                                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                            <MudIcon Icon="@GetPeriodIcon(periodOption.Value)" Size="Size.Small" />
+                                            <MudText Typo="Typo.body2">@periodOption.Label</MudText>
+                                        </MudStack>
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                           Style="color: white;"
+                                           OnClick="RefreshDashboard"
+                                           title="Refresh dashboard" />
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
             </MudPaper>
         </MudItem>
 
-        <MudItem xs="12">
-            <MudPaper Class="pa-4">
-                <MudGrid Spacing="2">
-                    <MudItem xs="12" md="3">
-                        <MudSelect T="TimePeriodFilter"
-                                   Label="Period"
-                                   Variant="Variant.Outlined"
-                                   Value="_selectedPeriod"
-                                   ValueChanged="OnPeriodChanged">
-                            @foreach (var periodOption in _periodOptions)
-                            {
-                                <MudSelectItem Value="@periodOption.Value">@periodOption.Label</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudItem>
-
-                    <MudItem xs="12" md="4">
-                        <MudSelect T="int"
-                                   Label="Accounts"
-                                   Variant="Variant.Outlined"
-                                   MultiSelection="true"
-                                   SelectedValues="_selectedAccountIds"
-                                   SelectedValuesChanged="OnSelectedAccountsChanged">
-                            @foreach (var account in _accounts)
-                            {
-                                <MudSelectItem Value="@account.Id">@account.Name</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudItem>
-
-                    <MudItem xs="12" md="3">
-                        <MudSelect T="DashboardTransactionFilter"
-                                   Label="Transactions"
-                                   Variant="Variant.Outlined"
-                                   @bind-Value="_selectedTransactionFilter">
-                            @foreach (var transactionOption in _transactionFilterOptions)
-                            {
-                                <MudSelectItem Value="@transactionOption.Value">@transactionOption.Label</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudItem>
-
-                    <MudItem xs="12" md="2">
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   FullWidth="true"
-                                   Style="height:56px;"
-                                   StartIcon="@Icons.Material.Filled.FilterAlt"
-                                   OnClick="ApplyFiltersAsync">
-                            Apply
-                        </MudButton>
-                    </MudItem>
-
-                    @if (_selectedPeriod == TimePeriodFilter.Custom)
-                    {
-                        <MudItem xs="12" md="3">
+        @if (_selectedPeriod == TimePeriodFilter.Custom)
+        {
+            <MudItem xs="12">
+                <MudPaper Class="pa-4">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="6">
                             <MudDatePicker Label="From"
                                            Variant="Variant.Outlined"
                                            Editable="false"
                                            Date="_customFromDate"
                                            DateChanged="OnFromDateChanged" />
                         </MudItem>
-                        <MudItem xs="12" md="3">
+                        <MudItem xs="12" md="6">
                             <MudDatePicker Label="To"
                                            Variant="Variant.Outlined"
                                            Editable="false"
                                            Date="_customToDate"
                                            DateChanged="OnToDateChanged" />
                         </MudItem>
-                    }
-                </MudGrid>
-            </MudPaper>
-        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+        }
 
         @if (_isLoading)
         {
@@ -125,12 +97,8 @@
         }
         else
         {
-            <MudItem xs="12">
+            <MudItem xs="12" md="8">
                 <BalanceTrendCard Data="_balanceTrend" />
-            </MudItem>
-
-            <MudItem xs="12" md="4">
-                <BudgetSummaryCard Data="_budgetSummary" />
             </MudItem>
 
             <MudItem xs="12" md="4">
@@ -141,13 +109,19 @@
                 <SpendingTrendCard Data="_spendingTrend" />
             </MudItem>
 
-            <MudItem xs="12" md="6">
-                <CashFlowCard Data="_cashFlow" />
-            </MudItem>
-
-            <MudItem xs="12" md="6">
+            <MudItem xs="12" md="4">
                 <RecentTransactionsCard Data="_recentTransactions" />
             </MudItem>
+
+            <MudItem xs="12" md="4">
+                <BudgetSummaryCard Data="_budgetSummary" />
+            </MudItem>
+
+            @* Temporarily hidden: Cash Flow card
+            <MudItem xs="12" md="4">
+                <CashFlowCard Data="_cashFlow" />
+            </MudItem>
+            *@
         }
     </MudGrid>
 </MudContainer>
@@ -172,12 +146,8 @@
     private DashboardBudgetSummaryDto _budgetSummary = new();
     private List<DashboardSpendingTrendDto> _spendingTrend = new();
     private List<CategoryBreakdownDto> _categoryBreakdown = new();
-    private CashFlowDto _cashFlow = new();
     private List<RecentTransactionDto> _recentTransactions = new();
-    private List<AccountDto> _accounts = new();
     private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
-    private DashboardTransactionFilter _selectedTransactionFilter = DashboardTransactionFilter.All;
-    private IReadOnlyCollection<int> _selectedAccountIds = Array.Empty<int>();
     private DateTime? _customFromDate;
     private DateTime? _customToDate;
     private string? _userDisplayName;
@@ -195,19 +165,21 @@
         (TimePeriodFilter.Custom, "Custom range")
     ];
 
-    private static readonly List<(DashboardTransactionFilter Value, string Label)> _transactionFilterOptions =
-    [
-        (DashboardTransactionFilter.All, "All"),
-        (DashboardTransactionFilter.Income, "Income"),
-        (DashboardTransactionFilter.Expense, "Expenses")
-    ];
+    // Temporarily hidden: Transactions filter options.
+    // private static readonly List<(DashboardTransactionFilter Value, string Label)> _transactionFilterOptions =
+    // [
+    //     (DashboardTransactionFilter.All, "All"),
+    //     (DashboardTransactionFilter.Income, "Income"),
+    //     (DashboardTransactionFilter.Expense, "Expenses")
+    // ];
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             await LoadCurrentUserNameAsync();
-            await LoadAccountsAsync();
+            // Temporarily hidden: account selector.
+            // await LoadAccountsAsync();
         }
         catch (Exception ex)
         {
@@ -277,31 +249,32 @@
         return trimmed;
     }
 
-    private async Task LoadAccountsAsync()
-    {
-        try
-        {
-            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
-            if (!accountsResult.Success)
-            {
-                Snackbar.Add($"Could not load accounts for filters: {accountsResult.Message}", Severity.Warning);
-                return;
-            }
-            if (accountsResult.Data is null)
-            {
-                Snackbar.Add("No accounts were returned for filters.", Severity.Warning);
-                return;
-            }
-
-            _accounts = accountsResult.Data
-                .OrderBy(a => a.Name)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error loading accounts for filters: {ex.Message}", Severity.Warning);
-        }
-    }
+    // Temporarily hidden: account selector loading.
+    // private async Task LoadAccountsAsync()
+    // {
+    //     try
+    //     {
+    //         var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
+    //         if (!accountsResult.Success)
+    //         {
+    //             Snackbar.Add($"Could not load accounts for filters: {accountsResult.Message}", Severity.Warning);
+    //             return;
+    //         }
+    //         if (accountsResult.Data is null)
+    //         {
+    //             Snackbar.Add("No accounts were returned for filters.", Severity.Warning);
+    //             return;
+    //         }
+    //
+    //         _accounts = accountsResult.Data
+    //             .OrderBy(a => a.Name)
+    //             .ToList();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Error loading accounts for filters: {ex.Message}", Severity.Warning);
+    //     }
+    // }
 
     private async Task LoadSavedFiltersAsync()
     {
@@ -315,8 +288,9 @@
             _selectedPeriod = TimePeriodFilter.Last30Days;
         }
 
-        _selectedTransactionFilter = saved.TransactionFilter;
-        _selectedAccountIds = saved.AccountIds?.ToArray() ?? Array.Empty<int>();
+        // Temporarily hidden: account and transaction filters.
+        // _selectedTransactionFilter = saved.TransactionFilter;
+        // _selectedAccountIds = saved.AccountIds?.ToArray() ?? Array.Empty<int>();
         _customFromDate = saved.FromDate;
         _customToDate = saved.ToDate;
 
@@ -336,34 +310,29 @@
 
         try
         {
-            if (!_accounts.Any())
-            {
-                SetEmptyDashboardData();
-                return;
-            }
-
             var filter = new DashboardFilterDto
             {
                 TimePeriod = _selectedPeriod,
                 FromDate = _selectedPeriod == TimePeriodFilter.Custom ? _customFromDate : null,
                 ToDate = _selectedPeriod == TimePeriodFilter.Custom ? _customToDate : null,
-                AccountIds = _selectedAccountIds.ToList(),
-                TransactionFilter = _selectedTransactionFilter
+                AccountIds = [],
+                TransactionFilter = DashboardTransactionFilter.All
             };
 
             var balanceTrendResult = await DashboardService.GetBalanceTrendAsync(filter);
             var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync(filter);
             var spendingTrendResult = await DashboardService.GetSpendingTrendAsync(filter);
             var categoryBreakdownResult = await DashboardService.GetCategoryBreakdownAsync(filter);
-            var cashFlowFilter = new DashboardFilterDto
-            {
-                TimePeriod = filter.TimePeriod,
-                FromDate = filter.FromDate,
-                ToDate = filter.ToDate,
-                AccountIds = filter.AccountIds,
-                TransactionFilter = DashboardTransactionFilter.All
-            };
-            var cashFlowResult = await DashboardService.GetCashFlowAsync(cashFlowFilter);
+            // Temporarily hidden: Cash Flow card.
+            // var cashFlowFilter = new DashboardFilterDto
+            // {
+            //     TimePeriod = filter.TimePeriod,
+            //     FromDate = filter.FromDate,
+            //     ToDate = filter.ToDate,
+            //     AccountIds = filter.AccountIds,
+            //     TransactionFilter = DashboardTransactionFilter.All
+            // };
+            // var cashFlowResult = await DashboardService.GetCashFlowAsync(cashFlowFilter);
             var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(filter, 6);
             if (!balanceTrendResult.Success)
             {
@@ -405,16 +374,17 @@
                 Snackbar.Add("No Category Breakdown data was returned.", Severity.Error);
                 return;
             }
-            if (!cashFlowResult.Success)
-            {
-                Snackbar.Add($"Error loading Cash Flow: {cashFlowResult.Message}", Severity.Error);
-                return;
-            }
-            if (cashFlowResult.Data is null)
-            {
-                Snackbar.Add("No Cash Flow data was returned.", Severity.Error);
-                return;
-            }
+            // Temporarily hidden: Cash Flow validations.
+            // if (!cashFlowResult.Success)
+            // {
+            //     Snackbar.Add($"Error loading Cash Flow: {cashFlowResult.Message}", Severity.Error);
+            //     return;
+            // }
+            // if (cashFlowResult.Data is null)
+            // {
+            //     Snackbar.Add("No Cash Flow data was returned.", Severity.Error);
+            //     return;
+            // }
             if (!recentTransactionsResult.Success)
             {
                 Snackbar.Add($"Error loading Recent Transactions: {recentTransactionsResult.Message}", Severity.Error);
@@ -429,7 +399,6 @@
             _budgetSummary = budgetSummaryResult.Data;
             _spendingTrend = spendingTrendResult.Data;
             _categoryBreakdown = categoryBreakdownResult.Data;
-            _cashFlow = cashFlowResult.Data;
             _recentTransactions = recentTransactionsResult.Data;
         }
         catch (Exception ex)
@@ -459,7 +428,6 @@
         _budgetSummary = new DashboardBudgetSummaryDto();
         _spendingTrend = new();
         _categoryBreakdown = new();
-        _cashFlow = new CashFlowDto();
         _recentTransactions = new();
     }
 
@@ -468,35 +436,41 @@
         await LoadDashboardData();
     }
 
-    private Task OnPeriodChanged(TimePeriodFilter period)
+    private async Task OnPeriodChanged(TimePeriodFilter period)
     {
         _selectedPeriod = period;
         if (_selectedPeriod != TimePeriodFilter.Custom)
         {
             _customFromDate = null;
             _customToDate = null;
+            await ApplyFiltersAsync();
         }
-
-        return Task.CompletedTask;
     }
 
-    private Task OnFromDateChanged(DateTime? date)
+    private async Task OnFromDateChanged(DateTime? date)
     {
         _customFromDate = date;
-        return Task.CompletedTask;
+        if (_selectedPeriod == TimePeriodFilter.Custom && _customFromDate.HasValue && _customToDate.HasValue)
+        {
+            await ApplyFiltersAsync();
+        }
     }
 
-    private Task OnToDateChanged(DateTime? date)
+    private async Task OnToDateChanged(DateTime? date)
     {
         _customToDate = date;
-        return Task.CompletedTask;
+        if (_selectedPeriod == TimePeriodFilter.Custom && _customFromDate.HasValue && _customToDate.HasValue)
+        {
+            await ApplyFiltersAsync();
+        }
     }
 
-    private Task OnSelectedAccountsChanged(IReadOnlyCollection<int> selectedValues)
-    {
-        _selectedAccountIds = selectedValues;
-        return Task.CompletedTask;
-    }
+    // Temporarily hidden: account selector callback.
+    // private Task OnSelectedAccountsChanged(IReadOnlyCollection<int> selectedValues)
+    // {
+    //     _selectedAccountIds = selectedValues;
+    //     return Task.CompletedTask;
+    // }
 
     private async Task ApplyFiltersAsync()
     {
@@ -517,12 +491,27 @@
             TimePeriod = _selectedPeriod,
             FromDate = _selectedPeriod == TimePeriodFilter.Custom ? _customFromDate : null,
             ToDate = _selectedPeriod == TimePeriodFilter.Custom ? _customToDate : null,
-            AccountIds = _selectedAccountIds.ToList(),
-            TransactionFilter = _selectedTransactionFilter
+            AccountIds = [],
+            TransactionFilter = DashboardTransactionFilter.All
         };
 
         await DashboardFilterState.SaveAsync(filterToSave);
         await LoadDashboardData();
+    }
+
+    private static string GetPeriodIcon(TimePeriodFilter period)
+    {
+        return period switch
+        {
+            TimePeriodFilter.AllTime => Icons.Material.Filled.AllInclusive,
+            TimePeriodFilter.Last30Days => Icons.Material.Filled.DateRange,
+            TimePeriodFilter.Last90Days => Icons.Material.Filled.EventNote,
+            TimePeriodFilter.ThisMonth => Icons.Material.Filled.CalendarMonth,
+            TimePeriodFilter.LastMonth => Icons.Material.Filled.History,
+            TimePeriodFilter.ThisYear => Icons.Material.Filled.CalendarToday,
+            TimePeriodFilter.Custom => Icons.Material.Filled.Tune,
+            _ => Icons.Material.Filled.Schedule
+        };
     }
 
 }
