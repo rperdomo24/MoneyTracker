@@ -125,15 +125,14 @@
 
     </MudAppBar>
 
-    <!-- LEFT DRAWER (Desktop/Tablet): SOLO ICONOS SIEMPRE -->
+    <!-- LEFT DRAWER (Desktop/Tablet): expanded menu -->
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
         <MudDrawer Open="true"
-                   Variant="DrawerVariant.Mini"
-                   MiniWidth="72px"
-                   Width="72px"
+                   Variant="DrawerVariant.Persistent"
+                   Width="260px"
                    ClipMode="DrawerClipMode.Always"
                    Elevation="2"
-                   Overlay="true"
+                   Overlay="false"
                    Class="drawer-custom">
 
             <!-- Header mini -->
@@ -336,19 +335,6 @@
         background: var(--mud-palette-surface);
     }
 
-    /* ✅ IMPORTANTE: ocultar texto del NavMenu para que quede SOLO ICONOS */
-    .mud-drawer .mud-nav-link-text,
-    .mud-drawer .mud-navmenu .mud-nav-link-text {
-        display: none !important;
-    }
-
-    /* Centrar items (se ve más “rail”) */
-    .mud-drawer .mud-nav-link {
-        justify-content: center;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
-
     .blazor-error-ui {
         position: fixed;
         top: 0;
@@ -440,6 +426,22 @@
         {
             PaletteLight = _lightPalette,
             PaletteDark = _darkPalette,
+            Typography = new Typography
+            {
+                Default = new DefaultTypography
+                {
+                    FontFamily = ["Poppins", "Segoe UI", "sans-serif"]
+                },
+                H1 = new H1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H2 = new H2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H3 = new H3Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H4 = new H4Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H5 = new H5Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H6 = new H6Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Body1 = new Body1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Body2 = new Body2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Button = new ButtonTypography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] }
+            },
             LayoutProperties = new LayoutProperties
             {
                 AppbarHeight = "80px"
@@ -550,55 +552,55 @@
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
 
-    private readonly PaletteLight _lightPalette = new()
-    {
-        Primary = "#3b3c3d",
-        Secondary = "#71c4ef",
-        Background = "#fffefb",
-        Surface = "#f5f4f1",
-        AppbarBackground = "#f5f4f1",
-        AppbarText = "#1d1c1c",
-        DrawerBackground = "#fffefb",
-        DrawerText = "#1d1c1c",
-        DrawerIcon = "#3b3c3d",
-        TextPrimary = "#1d1c1c",
-        TextSecondary = "#313d44",
-        ActionDefault = "#3b3c3d",
-        ActionDisabled = "#b6ccd8",
-        ActionDisabledBackground = "#d4eaf7",
-        Info = "#00668c",
-        Success = "#1fab89",
-        Warning = "#f39c12",
-        Error = "#e74c3c",
-        TableLines = "#cccbc8",
-        LinesDefault = "#cccbc8",
-        Divider = "#cccbc8"
-    };
+   private readonly PaletteLight _lightPalette = new()
+{
+    Primary = "#2143B5",          // Azul Cobalto (Logo)
+    Secondary = "#2A364E",        // Gris Slate Oscuro (Hierarchy)
+    Background = "#F4F7F6",       // Gris ultra claro para profundidad
+    Surface = "#FFFFFF",          // Blanco puro para tarjetas
+    AppbarBackground = "#FFFFFF",
+    AppbarText = "#2A364E",
+    DrawerBackground = "#FFFFFF",
+    DrawerText = "#2A364E",
+    DrawerIcon = "#2143B5",
+    TextPrimary = "#2A364E",      // Legibilidad máxima
+    TextSecondary = "#607186",    // Gris medio para labels
+    ActionDefault = "#2143B5",
+    ActionDisabled = "#B6CCD8",
+    ActionDisabledBackground = "#E0E6E9",
+    Info = "#2143B5",
+    Success = "#2BD48A",          // Verde Esmeralda (Logo)
+    Warning = "#F39C12",
+    Error = "#EF5350",            // Rojo suave para gastos
+    TableLines = "#E0E0E0",
+    LinesDefault = "#E0E0E0",
+    Divider = "#E0E0E0"
+};
 
-    private readonly PaletteDark _darkPalette = new()
-    {
-        Primary = "#0085ff",
-        Secondary = "#006fff",
-        Background = "#1E1E1E",
-        Surface = "#2d2d2d",
-        AppbarBackground = "#2d2d2d",
-        AppbarText = "#FFFFFF",
-        DrawerBackground = "#1E1E1E",
-        DrawerText = "#FFFFFF",
-        DrawerIcon = "#69b4ff",
-        TextPrimary = "#FFFFFF",
-        TextSecondary = "#9e9e9e",
-        ActionDefault = "#0085ff",
-        ActionDisabled = "#454545",
-        ActionDisabledBackground = "#2d2d2d",
-        Info = "#1e40af",
-        Success = "#3dcb6c",
-        Warning = "#ffb545",
-        Error = "#ff3f5f",
-        TableLines = "#454545",
-        LinesDefault = "#454545",
-        Divider = "#454545"
-    };
+   private readonly PaletteDark _darkPalette = new()
+{
+    Primary = "#2BD48A",          // Invertimos a Verde para resaltar en negro
+    Secondary = "#94A3B8",        // Gris azulado claro
+    Background = "#0D1117",       // Negro profundo estilo GitHub
+    Surface = "#161B22",          // Gris oscuro para tarjetas
+    AppbarBackground = "#161B22",
+    AppbarText = "#F4F7F6",
+    DrawerBackground = "#0D1117",
+    DrawerText = "#F4F7F6",
+    DrawerIcon = "#2BD48A",
+    TextPrimary = "#F4F7F6",
+    TextSecondary = "#94A3B8",
+    ActionDefault = "#2BD48A",
+    ActionDisabled = "#30363D",
+    ActionDisabledBackground = "#161B22",
+    Info = "#2143B5",
+    Success = "#2BD48A",
+    Warning = "#FFB545",
+    Error = "#FF3F5F",
+    TableLines = "#30363D",
+    LinesDefault = "#30363D",
+    Divider = "#30363D"
+};
 
     public string DarkLightModeButtonIcon => _isDarkMode
         ? Icons.Material.Rounded.LightMode
