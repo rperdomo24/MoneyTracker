@@ -5,10 +5,12 @@
 @using MoneyTracker.UI.Components.Shared.Drawer
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Components.Drawer
+@using MoneyTracker.UI.Services.Branding
 @inject ProtectedSessionStorage SessionStorage
 @inject AccountsDrawerState AccountsDrawer
 @inject IUserProfileService UserProfileService
 @inject IAccountService AccountService
+@inject IBrandingService BrandingService
 @inject NavigationManager Navigation
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
@@ -20,20 +22,21 @@
     <!-- Top AppBar -->
     <MudAppBar Elevation="2" Color="Color.Default" Fixed="true">
 
-        <!-- Solo icono (SIN toggle) -->
+        <!-- Desktop drawer toggle -->
         <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudIcon Icon="@Icons.Material.Filled.Menu" Class="mr-2" />
+            <MudIconButton Icon="@(_desktopNavCollapsed ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)"
+                           Color="Color.Inherit"
+                           Class="mr-1"
+                           OnClick="ToggleDesktopNavAsync" />
         </MudHidden>
 
-        <MudIcon Icon="@Icons.Material.Filled.AttachMoney"
-                 Size="Size.Medium"
-                 Class="mr-2" />
-
-        <!-- App name (Desktop/Tablet only) -->
-        <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudText Typo="Typo.h6" Class="font-weight-bold">
-                Money Tracker
-            </MudText>
+        <!-- Brand mark (Mobile) -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
+                      Alt="Money Tracker"
+                      Width="36"
+                      Height="36"
+                      Class="mr-2" />
         </MudHidden>
 
         <MudSpacer />
@@ -84,11 +87,37 @@
         </MudIconButton>
 
         <!-- User Menu -->
-        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
-                 Color="Color.Inherit"
+        <MudMenu Color="Color.Inherit"
                  Dense="true"
+                 @bind-Open="_profileMenuOpen"
                  AnchorOrigin="Origin.BottomRight"
                  TransformOrigin="Origin.TopRight">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           Class="text-none px-1"
+                           OnClick="OpenProfileMenu">
+                    <MudAvatar Size="Size.Small"
+                               Class="mr-2"
+                               Style="overflow: hidden; background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
+                        @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
+                        {
+                            <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+                        }
+                    </MudAvatar>
+
+                    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                        <MudText Typo="Typo.body2" Class="mr-1">@UserDisplayName</MudText>
+                    </MudHidden>
+
+                    <MudIcon Icon="@(_profileMenuOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+                </MudButton>
+            </ActivatorContent>
+
             <ChildContent>
 
                 <MudMenuItem Icon="@DarkLightModeButtonIcon" OnClick="@DarkModeToggle">
@@ -129,27 +158,29 @@
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
         <MudDrawer Open="true"
                    Variant="DrawerVariant.Persistent"
-                   Width="260px"
+                   Width="@(_desktopNavCollapsed ? "88px" : "260px")"
                    ClipMode="DrawerClipMode.Always"
                    Elevation="2"
                    Overlay="false"
-                   Class="drawer-custom">
+                   Class="@DesktopDrawerClass">
 
-            <!-- Header mini -->
-            <div class="pa-3 d-flex align-center justify-center"
-                 style="min-height: 80px; border-bottom: 1px solid var(--mud-palette-divider);">
-                <MudAvatar Size="Size.Medium"
-                           @onclick="@OpenUserSettings"
-                           Style="cursor: pointer; overflow: hidden; background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
-                    @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
-                    {
-                        <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
-                    }
-                    else
-                    {
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
-                    }
-                </MudAvatar>
+            <!-- Drawer header -->
+            <div class="pa-2 d-flex align-center justify-center"
+                 style="min-height: 72px; border-bottom: 1px solid var(--mud-palette-divider);">
+                @if (_desktopNavCollapsed)
+                {
+                    <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
+                              Alt="Money Tracker"
+                              Width="30"
+                              Height="30" />
+                }
+                else
+                {
+                    <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.HorizontalLogo, _isDarkMode)"
+                              Alt="Money Tracker"
+                              Width="140"
+                              Height="36" />
+                }
             </div>
 
             <!-- Navigation Menu -->
@@ -335,6 +366,23 @@
         background: var(--mud-palette-surface);
     }
 
+    .drawer-collapsed .mud-nav-link-text,
+    .drawer-collapsed .mud-nav-group-text,
+    .drawer-collapsed .mud-nav-group-expand-icon {
+        display: none !important;
+    }
+
+    .drawer-collapsed .mud-nav-link,
+    .drawer-collapsed .mud-nav-group {
+        justify-content: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .drawer-custom {
+        transition: width 0.2s ease;
+    }
+
     .blazor-error-ui {
         position: fixed;
         top: 0;
@@ -358,8 +406,11 @@
 @code {
     private const string SessionKey_IsDarkMode = "isDarkMode";
     private const string SessionKey_AccountsDrawerOpen = "accountsDrawerOpen";
+    private const string SessionKey_DesktopNavCollapsed = "desktopNavCollapsed";
 
     private bool _isDarkMode = true;
+    private bool _desktopNavCollapsed;
+    private bool _profileMenuOpen;
     private bool _showQuickBalance = true;
     private bool _quickBalanceLoaded;
     private decimal _quickBalanceAmount;
@@ -375,6 +426,10 @@
         get => AccountsDrawer.IsOpen;
         set => _ = SetAccountsDrawerOpenAsync(value);
     }
+
+    private string DesktopDrawerClass => _desktopNavCollapsed
+        ? "drawer-custom drawer-collapsed"
+        : "drawer-custom drawer-expanded";
 
     protected override void OnInitialized()
     {
@@ -400,12 +455,24 @@
     private Task ToggleAccountsDrawer()
         => AccountsDrawer.ToggleAsync();
 
+    private async Task ToggleDesktopNavAsync()
+    {
+        _desktopNavCollapsed = !_desktopNavCollapsed;
+        await SaveDesktopNavStateAsync();
+    }
+
     private async Task SetAccountsDrawerOpenAsync(bool open)
     {
         if (open)
             await AccountsDrawer.OpenAsync();
         else
             await AccountsDrawer.CloseAsync();
+    }
+
+    private Task OpenProfileMenu()
+    {
+        _profileMenuOpen = true;
+        return Task.CompletedTask;
     }
 
     public void Dispose()
@@ -470,6 +537,10 @@
                 if (drawerResult.Success)
                     await SetAccountsDrawerOpenAsync(drawerResult.Value);
 
+                var desktopNavResult = await SessionStorage.GetAsync<bool>(SessionKey_DesktopNavCollapsed);
+                if (desktopNavResult.Success)
+                    _desktopNavCollapsed = desktopNavResult.Value;
+
                 StateHasChanged();
             }
             catch (Exception ex)
@@ -488,6 +559,18 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving accounts drawer state: {ex.Message}");
+        }
+    }
+
+    private async Task SaveDesktopNavStateAsync()
+    {
+        try
+        {
+            await SessionStorage.SetAsync(SessionKey_DesktopNavCollapsed, _desktopNavCollapsed);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving desktop nav state: {ex.Message}");
         }
     }
 
