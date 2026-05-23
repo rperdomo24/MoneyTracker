@@ -17,5 +17,11 @@ namespace MoneyTracker.Application.Constants
         public const string NotesMaxLength = "The notes must not exceed 255 characters.";
         public const string TypeRequired = "A valid type must be selected.";
 
+
+        public const string AccountRequired = "Account is required.";
+        public const string SourceAccountRequired = "Source account is required.";
+        public const string DestinationAccountRequired = "Destination account is required.";
+        public const string SameAccountTransfer = "Cannot transfer to the same account.";
+        public const string DescriptionMaxLength = "The description must not exceed 500 characters.";
     }
 }

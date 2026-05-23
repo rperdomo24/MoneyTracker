@@ -1,0 +1,598 @@
+﻿@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Validators.Transaction
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Components.Pages.Categories
+@using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.Common.Extensions
+@inject ITransactionService TransactionService
+@inject IAccountService AccountService
+@inject ICategoryService CategoryService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
+<MudDrawer @bind-Open="@IsOpen"
+           Anchor="Anchor.Right"
+           Elevation="2"
+           Variant="@DrawerVariant.Temporary"
+           Width="400px">
+
+    @* HEADER *@
+    <MudDrawerHeader>
+        <MudStack Row="true"
+                  AlignItems="AlignItems.Center"
+                  Justify="Justify.SpaceBetween">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+
+                @if (_transactionWithPair?.Transaction == null)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Medium" />
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">Edit Transaction</MudText>
+                }
+                else
+                {
+                    <MudIcon Icon="@GetTransactionIcon()" Color="@GetTransactionColor()" Size="Size.Medium" />
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.h6" Class="font-weight-bold">@GetTitle()</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">@GetSubtitle()</MudText>
+                    </MudStack>
+                }
+
+            </MudStack>
+
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Color="Color.Default"
+                           OnClick="Close"
+                           Size="Size.Medium" />
+        </MudStack>
+    </MudDrawerHeader>
+
+    @* BODY *@
+    <MudDrawerContainer Class="pa-4">
+
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <MudText Class="mt-3">Loading...</MudText>
+            </MudStack>
+        }
+        else if (_transactionWithPair == null || _transactionWithPair.Transaction == null)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" Class="mb-3" />
+                <MudText Typo="Typo.h6">Transaction Not Found</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Close" Class="mt-3">
+                    Close
+                </MudButton>
+            </MudStack>
+        }
+        else
+        {
+            @* CHANGE ALERT *@
+            @if (HasChanges())
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-3">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.body2">@GetChanges().Count() unsaved change(s)</MudText>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ResetToOriginal">
+                            Reset
+                        </MudButton>
+                    </MudStack>
+                </MudAlert>
+            }
+
+            @* FORM *@
+            <MudForm @ref="_form">
+                <MudStack Spacing="3">
+
+                    @if (_isTransfer)
+                    {
+                        <MudTextField T="string"
+                                      Label="From Account"
+                                      Value="@GetFromAccountName()"
+                                      Variant="Variant.Outlined"
+                                      ReadOnly="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+                        <MudNumericField T="decimal"
+                                         Label="Amount"
+                                         @bind-Value="_transaction.Amount"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Min="0.01m"
+                                         Format="F2"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$"
+                                         HideSpinButtons="false" />
+
+                        <MudTextField T="string"
+                                      Label="To Account"
+                                      Value="@GetToAccountName()"
+                                      Variant="Variant.Outlined"
+                                      ReadOnly="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Lock" />
+
+                        <MudDatePicker Label="Date"
+                                       @bind-Date="_transactionDate"
+                                       Variant="Variant.Outlined"
+                                       Required="true"
+                                       MaxDate="DateTime.Today"
+                                       Editable="true"
+                                       DateFormat="MM/dd/yyyy"
+                                       AutoClose="true" />
+
+                        <MudTextField T="string"
+                                      Label="Description (Optional)"
+                                      @bind-Value="_transaction.Description"
+                                      Variant="Variant.Outlined"
+                                      Lines="2"
+                                      Counter="500"
+                                      MaxLength="500" />
+
+                        <MudAlert Severity="Severity.Info" Dense="true">
+                            <strong>Note:</strong> Editing this transfer will update both the outgoing and incoming transactions.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudTextField T="string"
+                                      Label="Name"
+                                      @bind-Value="_transaction.Name"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      Counter="100"
+                                      MaxLength="100"
+                                      Immediate="true" />
+
+                        <AccountSelector @bind-SelectedAccount="_selectedAccount"
+                                         Accounts="@(_accounts ?? new())"
+                                         Label="Account"
+                                         Required="true"
+                                         ShowBalance="false" />
+
+                        <MudNumericField T="decimal"
+                                         Label="Amount"
+                                         @bind-Value="_transaction.Amount"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Min="0.01m"
+                                         Format="F2"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="$"
+                                         HideSpinButtons="false" />
+
+                        <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                          Categories="@(_categories ?? new())"
+                                          FilterByType="@(_originalTransaction!.Category!.Type)"
+                                          OnAddCategory="CreateCategory"
+                                          ShowAddButton="true" />
+
+                        <MudDatePicker Label="Date"
+                                       @bind-Date="_transactionDate"
+                                       Variant="Variant.Outlined"
+                                       Required="true"
+                                       MaxDate="DateTime.Today"
+                                       Editable="true"
+                                       DateFormat="MM/dd/yyyy"
+                                       AutoClose="true" />
+
+                        <MudTextField T="string"
+                                      Label="Description (Optional)"
+                                      @bind-Value="_transaction.Description"
+                                      Variant="Variant.Outlined"
+                                      Lines="2"
+                                      Counter="500"
+                                      MaxLength="500" />
+                    }
+
+                </MudStack>
+            </MudForm>
+        }
+
+    </MudDrawerContainer>
+
+    @* FOOTER (no Cancel, only actions) *@
+    @if (!_loading && _transactionWithPair?.Transaction != null)
+    {
+        <MudPaper Elevation="0" Class="pa-4">
+            <MudStack Spacing="2">
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           OnClick="UpdateTransaction"
+                           Disabled="@(!IsFormValid() || !HasChanges() || _saving)">
+
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save Changes</span>
+                    }
+                </MudButton>
+
+                <MudButton Color="Color.Error"
+                           Variant="Variant.Outlined"
+                           FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           OnClick="ConfirmDelete">
+                    Delete @(_isTransfer ? "Transfer" : "Transaction")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+</MudDrawer>
+
+@code {
+    [Parameter] public int TransactionId { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback OnTransactionUpdated { get; set; }
+
+    private MudForm _form = default!;
+    private bool _loading = true;
+    private bool _saving = false;
+
+    // Transaction data
+    private TransactionWithPairDto? _transactionWithPair;
+    private TransactionDto? _originalTransaction;
+    private TransactionDto _transaction = new();
+
+    // Form fields
+    private DateTime? _transactionDate;
+    private CategoryDto? _selectedCategory;
+    private AccountDto? _selectedAccount;
+
+    // Data
+    private List<CategoryDto>? _categories;
+    private List<AccountDto>? _accounts;
+
+    // Flags
+    private bool _isTransfer = false;
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        CloseButton = true,
+        FullWidth = true,
+        MaxWidth = MaxWidth.Medium
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && TransactionId > 0 && (_originalTransaction == null || _originalTransaction.Id != TransactionId))
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var transactionResult = await TransactionService.GetByIdWithPairAsync(TransactionId);
+            if (!transactionResult.Success || transactionResult.Data == null)
+            {
+                Snackbar.Add("Transaction not found", Severity.Error);
+                return;
+            }
+
+            _transactionWithPair = transactionResult.Data;
+            _originalTransaction = _transactionWithPair.Transaction;
+            _isTransfer = _transactionWithPair.IsTransfer;
+
+            // Create working copy
+            _transaction = new TransactionDto
+            {
+                Id = _originalTransaction.Id,
+                Name = _originalTransaction.Name,
+                Description = _originalTransaction.Description,
+                Date = _originalTransaction.Date,
+                CategoryId = _originalTransaction.CategoryId,
+                AccountId = _originalTransaction.AccountId
+            };
+
+            _transaction.Amount = _originalTransaction.GetAbsoluteAmountss();
+            _originalTransaction.Amount = _originalTransaction.GetAbsoluteAmountss();
+
+            _transactionDate = _transaction.Date;
+
+            // Load categories (solo si NO es transfer)
+            if (!_isTransfer)
+            {
+                var categoriesResult = await CategoryService.GetAllAsync();
+                if (categoriesResult.Success)
+                {
+                    _categories = categoriesResult.Data?
+                        .Where(c => !c.IsSystem)
+                        .ToList() ?? new List<CategoryDto>();
+
+                    _selectedCategory = _categories.FirstOrDefault(c => c.Id == _transaction.CategoryId);
+                }
+            }
+
+            // Load accounts
+            var accountsResult = await AccountService.GetAllAsync();
+            if (accountsResult.Success)
+            {
+                _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
+                _selectedAccount = _accounts.FirstOrDefault(a => a.Id == _transaction.AccountId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private bool HasChanges()
+    {
+        if (_originalTransaction == null) return false;
+
+        return _transaction.Name != _originalTransaction.Name ||
+               _transaction.Amount != _originalTransaction.Amount ||
+               _transaction.Description != _originalTransaction.Description ||
+               _transactionDate != _originalTransaction.Date ||
+               (!_isTransfer && _selectedCategory?.Id != _originalTransaction.CategoryId) ||
+               (!_isTransfer && _selectedAccount?.Id != _originalTransaction.AccountId);
+    }
+
+    private List<ChangeItem> GetChanges()
+    {
+        var changes = new List<ChangeItem>();
+        if (_originalTransaction == null) return changes;
+
+        if (_transaction.Name != _originalTransaction.Name)
+            changes.Add(new("Name", _originalTransaction.Name, _transaction.Name));
+
+        if (_transaction.Amount != _originalTransaction.Amount)
+            changes.Add(new("Amount", _originalTransaction.Amount.ToString("C"), _transaction.Amount.ToString("C")));
+
+        if (_transactionDate != _originalTransaction.Date)
+            changes.Add(new("Date", _originalTransaction.Date.ToString("MMM dd, yyyy"), _transactionDate?.ToString("MMM dd, yyyy") ?? ""));
+
+        if (!_isTransfer && _selectedCategory?.Id != _originalTransaction.CategoryId)
+            changes.Add(new("Category", _originalTransaction.Category?.Name ?? "", _selectedCategory?.Name ?? ""));
+
+        if (_transaction.Description != _originalTransaction.Description)
+            changes.Add(new("Description",
+                string.IsNullOrWhiteSpace(_originalTransaction.Description) ? "(empty)" : _originalTransaction.Description,
+                string.IsNullOrWhiteSpace(_transaction.Description) ? "(empty)" : _transaction.Description));
+
+        return changes;
+    }
+
+    private void ResetToOriginal()
+    {
+        if (_originalTransaction == null) return;
+
+        _transaction.Name = _originalTransaction.Name;
+        _transaction.Amount = _originalTransaction.Amount;
+        _transaction.Description = _originalTransaction.Description;
+        _transactionDate = _originalTransaction.Date;
+        _selectedCategory = _categories?.FirstOrDefault(c => c.Id == _originalTransaction.CategoryId);
+        _selectedAccount = _accounts?.FirstOrDefault(a => a.Id == _originalTransaction.AccountId);
+
+        StateHasChanged();
+    }
+
+    private bool IsFormValid()
+    {
+        if (_isTransfer)
+        {
+            return _transaction.Amount > 0 && _transactionDate.HasValue;
+        }
+
+        return !string.IsNullOrWhiteSpace(_transaction.Name) &&
+               _transaction.Name.Length <= 100 &&
+               _transaction.Amount > 0 &&
+               _transactionDate.HasValue &&
+               _selectedCategory != null &&
+               _selectedAccount != null;
+    }
+
+    private async Task UpdateTransaction()
+    {
+        if (!IsFormValid() || !HasChanges() || _saving) return;
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_isTransfer)
+            {
+                var updateDto = new UpdateTransferDto
+                {
+                    TransactionId = TransactionId,
+                    Amount = _transaction.Amount,
+                    Date = _transactionDate!.Value,
+                    Description = _transaction.Description
+                };
+
+                var result = await TransactionService.UpdateTransferAsync(updateDto);
+
+                if (result.Success)
+                {
+                    AccountsDrawer.RequestRefresh();
+                    Snackbar.Add(result.Message ?? "Transfer updated successfully", Severity.Success);
+                    await OnTransactionUpdated.InvokeAsync();
+                    await Close();
+                }
+                else
+                {
+                    Snackbar.Add(result.Message ?? "Error updating transfer", Severity.Error);
+                }
+            }
+            else
+            {
+                // Regular transaction update
+                _transaction.Date = _transactionDate!.Value;
+                _transaction.CategoryId = _selectedCategory!.Id;
+                _transaction.AccountId = _selectedAccount!.Id;
+                _transaction.Category = _selectedCategory;
+
+                var result = await TransactionService.UpdateAsync(_transaction);
+
+                if (result.Success)
+                {
+                    AccountsDrawer.RequestRefresh();
+                    Snackbar.Add(result.Message ?? "Transaction updated successfully", Severity.Success);
+                    await OnTransactionUpdated.InvokeAsync();
+                    await Close();
+                }
+                else
+                {
+                    Snackbar.Add(result.Message ?? "Error updating transaction", Severity.Error);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        var transactionName = _isTransfer
+            ? $"transfer from {GetFromAccountName()} to {GetToAccountName()}"
+            : _transaction.Name;
+
+        var message = _isTransfer
+            ? "Are you sure you want to delete this transfer? This will delete both the outgoing and incoming transactions. This action cannot be undone."
+            : $"Are you sure you want to delete '{transactionName}'? This action cannot be undone.";
+
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Delete {(_isTransfer ? "Transfer" : "Transaction")}",
+            message,
+            yesText: "Delete",
+            cancelText: "Cancel",
+            options: new DialogOptions { CloseButton = true }) ?? false;
+
+        if (confirmed)
+        {
+            await DeleteTransaction();
+        }
+    }
+
+    private async Task DeleteTransaction()
+    {
+        try
+        {
+            OperationResult<bool> result;
+
+            if (_isTransfer)
+            {
+                result = await TransactionService.DeleteTransferAsync(TransactionId);
+            }
+            else
+            {
+                result = await TransactionService.DeleteAsync(TransactionId);
+            }
+
+            if (result.Success)
+            {
+                AccountsDrawer.RequestRefresh();
+                Snackbar.Add(result.Message ?? "Deleted successfully", Severity.Success);
+                await OnTransactionUpdated.InvokeAsync();
+                await Close();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error deleting", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CreateCategory()
+    {
+        var categoryType = _originalTransaction?.Category?.Type ?? CategoryTypeEnum.Expense;
+
+        var parameters = new DialogParameters
+        {
+            ["CategoryType"] = categoryType,
+            ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, LoadData)
+        };
+
+        await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters, _dialogOptions);
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+
+        // Reset state
+        _transactionWithPair = null;
+        _originalTransaction = null;
+        _transaction = new();
+        _selectedCategory = null;
+        _selectedAccount = null;
+
+        StateHasChanged();
+    }
+
+    private string GetTitle() => _isTransfer ? "Edit Transfer" : $"Edit {_originalTransaction?.Category?.Type}";
+    private string GetSubtitle() => _isTransfer ? "Update transfer details" : "Update transaction details";
+    private string GetTransactionIcon() => GetTransactionType().GetTransactionTypeIcon();
+    private Color GetTransactionColor() => GetTransactionType().GetTransactionTypeColor();
+
+    private TransactionTypeEnum GetTransactionType()
+    {
+        if (_isTransfer)
+        {
+            return TransactionTypeEnum.Transfer;
+        }
+
+        return _originalTransaction?.Category?.Type == CategoryTypeEnum.Income
+            ? TransactionTypeEnum.Income
+            : TransactionTypeEnum.Expense;
+    }
+
+    private string GetFromAccountName()
+    {
+        if (_transactionWithPair == null || _originalTransaction == null) return "Unknown";
+        if (_transactionWithPair.PairedTransaction == null) return "Unknown";
+        var fromTransaction = _originalTransaction.GetFromTransaction(_transactionWithPair.PairedTransaction);
+        return fromTransaction?.Account?.Name ?? "Unknown";
+    }
+
+    private string GetToAccountName()
+    {
+        if (_transactionWithPair == null || _originalTransaction == null) return "Unknown";
+        if (_transactionWithPair.PairedTransaction == null) return "Unknown";
+        var toTransaction = _originalTransaction.GetToTransaction(_transactionWithPair.PairedTransaction);
+        return toTransaction?.Account?.Name ?? "Unknown";
+    }
+
+    public record ChangeItem(string Field, string OldValue, string NewValue);
+}

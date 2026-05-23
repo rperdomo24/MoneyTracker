@@ -1,358 +1,204 @@
-﻿@using MoneyTracker.Application.DTOs.Dashboard
+@using MudBlazor
+@using ApexCharts
+@using MoneyTracker.Application.DTOs.Dashboard
+@using MoneyTracker.UI.Helpers
+@inject NavigationManager NavigationManager
 
-<MudCard Class="dashboard-card">
-    <MudCardHeader>
-        <CardHeaderContent>
-            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                <MudAvatar Color="Color.Warning" Size="Size.Medium">
-                    <MudIcon Icon="@Icons.Material.Filled.PieChart" />
-                </MudAvatar>
-                <MudText Typo="Typo.h6">Gastos por Categoría</MudText>
+<MudPaper Elevation="1" Class="pa-3 dashboard-card" Style="border-radius:16px;">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Expenses by Category</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    Spending breakdown for the selected period
+                </MudText>
             </MudStack>
-        </CardHeaderContent>
-        <CardHeaderActions>
-            <MudIconButton Icon="@Icons.Material.Filled.FilterList"
-                           Color="Color.Default"
-                           OnClick="ShowFilterOptions" />
-        </CardHeaderActions>
-    </MudCardHeader>
-    <MudCardContent>
-        @if (Data?.Any() == true)
+
+            <MudButton Variant="Variant.Text"
+                       Size="MudBlazor.Size.Small"
+                       StartIcon="@Icons.Material.Filled.ReceiptLong"
+                       OnClick="NavigateToBudgets">
+                View budgets
+            </MudButton>
+        </MudStack>
+
+        @if (_hasChartData)
         {
-            <MudStack Spacing="3">
-                @* MudChart Pie Chart *@
-                <div style="display: flex; justify-content: center;">
-                    <MudChart ChartType="ChartType.Pie" 
-                              InputData="@_chartData" 
-                              InputLabels="@_chartLabels"
-                              @bind-SelectedIndex="_selectedIndex"
-                              Width="240px" 
-                              Height="240px"
-                              ChartOptions="@_chartOptions" />
-                </div>
+            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                <ApexChart TItem="CategorySlicePoint" Options="_chartOptions" Height="180">
+                    <ApexPointSeries TItem="CategorySlicePoint"
+                                     Items="_chartPoints"
+                                     Name="Expenses"
+                                     SeriesType="SeriesType.Donut"
+                                     XValue="point => point.Name"
+                                     YValue="point => point.Amount" />
+                </ApexChart>
 
-                @if (_selectedIndex >= 0 && _selectedIndex < _chartLabels.Length)
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">Spent</MudText>
+                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                    @CurrencyHelper.FormatCurrency(_totalExpenses)
+                </MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @_totalTransactions transactions
+                </MudText>
+            </MudStack>
+
+            <MudStack Spacing="1">
+                @foreach (var item in _legendCategories)
                 {
-                    var selectedCategory = Data.FirstOrDefault(x => x.CategoryName == _chartLabels[_selectedIndex]);
-                    if (selectedCategory != null)
-                    {
-                        <MudAlert Severity="Severity.Warning" Variant="Variant.Text">
-                            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                                <div style="@($"width: 16px; height: 16px; border-radius: 50%; background-color: {selectedCategory.CategoryColor}")"></div>
-                                <div>
-                                    <MudText Typo="Typo.body2">
-                                        <strong>@selectedCategory.CategoryName:</strong> $@(selectedCategory.Amount) 
-                                        (@(selectedCategory.Percentage)%)
-                                    </MudText>
-                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                        @selectedCategory.TransactionCount transacciones • Promedio: $@(selectedCategory.AverageTransaction)
-                                    </MudText>
-                                </div>
-                            </MudStack>
-                        </MudAlert>
-                    }
-                }
-
-                <MudDivider />
-
-                @* Category List with Enhanced Info *@
-                <MudStack Spacing="2">
-                    @foreach (var category in Data.Take(5))
-                    {
-                        <MudPaper Elevation="0" 
-                                  Class="@($"pa-2 cursor-pointer {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "mud-elevation-2" : "")}")"
-                                  Style="@($"border-left: 4px solid {category.CategoryColor}; transition: all 0.2s ease; {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "transform: translateX(4px);" : "")}")"
-                                  @onclick="@(() => SelectCategory(category.CategoryName))">
-                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                                    <div style="@($"width: 12px; height: 12px; border-radius: 50%; background-color: {category.CategoryColor}")"></div>
-                                    <MudStack Spacing="0">
-                                        <MudText Typo="Typo.body2">@category.CategoryName</MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                            @category.TransactionCount transacciones • Promedio: $@(category.AverageTransaction)
-                                        </MudText>
-                                    </MudStack>
-                                </MudStack>
-                                <MudStack AlignItems="AlignItems.End" Spacing="0">
-                                    <MudText Typo="Typo.body2"
-                                             Class="mud-error-text"
-                                             Style="font-weight: 600;">
-                                        $@(category.Amount)
-                                    </MudText>
-                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                            @(category.Percentage)%
-                                        </MudText>
-                                        @if (category.Change != 0)
-                                        {
-                                            <MudChip T="string" Size="Size.Small" 
-                                                     Color="@(category.IsIncrease ? Color.Error : Color.Success)"
-                                                     Variant="Variant.Text"
-                                                     Class="pa-1"
-                                                     Style="height: 16px;">
-                                                <MudIcon Icon="@(category.IsIncrease ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)" 
-                                                         Size="Size.Small" />
-                                                @(Math.Abs(category.Change))%
-                                            </MudChip>
-                                        }
-                                    </MudStack>
-                                </MudStack>
-                            </MudStack>
-                        </MudPaper>
-                    }
-
-                    @if (Data.Count > 5)
-                    {
-                        <MudButton Variant="Variant.Text" 
-                                   Size="Size.Small" 
-                                   FullWidth="true"
-                                   StartIcon="@Icons.Material.Filled.ExpandMore"
-                                   OnClick="@(() => _showAllCategories = !_showAllCategories)">
-                            @(_showAllCategories ? "Mostrar menos" : $"Ver {Data.Count - 5} categorías más")
-                        </MudButton>
-
-                        @if (_showAllCategories)
-                        {
-                            <MudCollapse Expanded="_showAllCategories">
-                                <MudStack Spacing="2">
-                                    @foreach (var category in Data.Skip(5))
-                                    {
-                                        <MudPaper Elevation="0" 
-                                                  Class="@($"pa-2 cursor-pointer {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "mud-elevation-2" : "")}")"
-                                                  Style="@($"border-left: 4px solid {category.CategoryColor}; transition: all 0.2s ease; {(_selectedIndex == GetCategoryIndex(category.CategoryName) ? "transform: translateX(4px);" : "")}")"
-                                                  @onclick="@(() => SelectCategory(category.CategoryName))">
-                                            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                                                    <div style="@($"width: 12px; height: 12px; border-radius: 50%; background-color: {category.CategoryColor}")"></div>
-                                                    <MudStack Spacing="0">
-                                                        <MudText Typo="Typo.body2">@category.CategoryName</MudText>
-                                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                                            @category.TransactionCount trans. • $@(category.AverageTransaction) prom.
-                                                        </MudText>
-                                                    </MudStack>
-                                                </MudStack>
-                                                <MudStack AlignItems="AlignItems.End" Spacing="0">
-                                                    <MudText Typo="Typo.body2" Class="mud-error-text" Style="font-weight: 600;">
-                                                        $@(category.Amount)
-                                                    </MudText>
-                                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
-                                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                                            @(category.Percentage)%
-                                                        </MudText>
-                                                        @if (category.Change != 0)
-                                                        {
-                                                            <MudChip T="string" Size="Size.Small"
-                                                                     Color="@(category.IsIncrease ? Color.Error : Color.Success)"
-                                                                     Variant="Variant.Text"
-                                                                     Class="pa-1"
-                                                                     Style="height: 16px;">
-                                                                <MudIcon Icon="@(category.IsIncrease ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)" 
-                                                                         Size="Size.Small" />
-                                                                @(Math.Abs(category.Change))%
-                                                            </MudChip>
-                                                        }
-                                                    </MudStack>
-                                                </MudStack>
-                                            </MudStack>
-                                        </MudPaper>
-                                    }
-                                </MudStack>
-                            </MudCollapse>
-                        }
-                    }
-                </MudStack>
-
-                <MudDivider />
-
-                @* Summary Statistics *@
-                <MudGrid>
-                    <MudItem xs="6" sm="3">
-                        <MudAlert Severity="Severity.Error" Variant="Variant.Text" Class="pa-2">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.MonetizationOn" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Total Gastos</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    $@(Data.Sum(x => x.Amount))
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="pa-2">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Categoría Principal</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    @(Data.OrderByDescending(x => x.Amount).FirstOrDefault()?.CategoryName ?? "N/A")
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudAlert Severity="Severity.Warning" Variant="Variant.Text" Class="pa-2">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Total Transacciones</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    @(Data.Sum(x => x.TransactionCount))
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                    <MudItem xs="6" sm="3">
-                        <MudAlert Severity="Severity.Success" Variant="Variant.Text" Class="pa-2">
-                            <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" />
-                                <MudText Typo="Typo.caption">Gasto Promedio</MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight: 600;">
-                                    $@(GetOverallAverageTransaction())
-                                </MudText>
-                            </MudStack>
-                        </MudAlert>
-                    </MudItem>
-                </MudGrid>
-
-                @* Trend Alert *@
-                @if (GetBiggestChange() != null)
-                {
-                    var biggestChange = GetBiggestChange();
-                    <MudAlert Severity="@(biggestChange.Value.isIncrease ? Severity.Error : Severity.Success)" Variant="Variant.Text">
-                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@(biggestChange.Value.isIncrease ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)" />
-                            <div>
-                                <MudText Typo="Typo.body2">
-                                    <strong>Mayor cambio:</strong> @biggestChange.Value.categoryName
-                                    @(biggestChange.Value.isIncrease ? "aumentó" : "disminuyó") @(Math.Abs(biggestChange.Value.change))%
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    Comparado con el mes anterior
-                                </MudText>
-                            </div>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                              Class="category-row" @onclick="NavigateToBudgets">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudAvatar Size="MudBlazor.Size.Small" Style="@($"background-color:{item.CategoryColor};")" />
+                            <MudText Typo="Typo.body2">@item.CategoryName</MudText>
                         </MudStack>
-                    </MudAlert>
-                }
 
-                @* Action Buttons *@
-                <MudStack Row Justify="Justify.SpaceBetween">
-                    <MudButton Variant="Variant.Text"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.TrendingUp"
-                               OnClick="ViewCategoryTrends">
-                        Ver tendencias
-                    </MudButton>
-                    <MudButton Variant="Variant.Text"
-                               Size="Size.Small"
-                               StartIcon="@Icons.Material.Filled.Analytics"
-                               OnClick="ViewDetailedAnalysis">
-                        Análisis detallado
-                    </MudButton>
-                </MudStack>
+                        <MudStack AlignItems="AlignItems.End" Spacing="0">
+                            <MudText Typo="Typo.body2" Class="font-weight-medium">@CurrencyHelper.FormatCurrency(item.Amount)</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @($"{item.Percentage:N1}%")
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                }
             </MudStack>
         }
         else
         {
-            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
-                <MudIcon Icon="@Icons.Material.Filled.PieChart"
-                         Color="Color.Default"
-                         Size="Size.Large" />
-                <MudText Typo="Typo.body1" Align="Align.Center">
-                    No hay gastos registrados
-                </MudText>
-                <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
-                    Los gastos aparecerán aquí cuando agregues transacciones
-                </MudText>
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="pa-6">
+                <MudText Typo="Typo.h5" Style="opacity:0.6;">@CurrencyHelper.FormatCurrency(0)</MudText>
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.ReceiptLong"
+                           OnClick="NavigateToBudgets">
+                    View budgets
+                </MudButton>
             </MudStack>
         }
-    </MudCardContent>
-</MudCard>
+
+        <MudGrid Spacing="1">
+            <MudItem xs="12" sm="6">
+                <MudPaper Elevation="0" Class="pa-2" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Categories</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@_validCategories.Count</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6">
+                <MudPaper Elevation="0" Class="pa-2" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Average per transaction</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(_averageTransaction)</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+</MudPaper>
 
 <style>
-    .cursor-pointer {
+    .category-row {
         cursor: pointer;
+        border-radius: 10px;
+        padding: 6px 8px;
     }
 </style>
 
 @code {
     [Parameter] public List<CategoryBreakdownDto>? Data { get; set; }
 
-    private int _selectedIndex = -1;
-    private bool _showAllCategories = false;
-    private double[] _chartData = Array.Empty<double>();
-    private string[] _chartLabels = Array.Empty<string>();
-    private ChartOptions _chartOptions = new();
+    private bool _hasChartData;
+    private List<CategoryBreakdownDto> _validCategories = new();
+    private List<CategoryBreakdownDto> _legendCategories = new();
+    private ApexChartOptions<CategorySlicePoint> _chartOptions = BuildChartOptions(new List<string>());
+    private List<CategorySlicePoint> _chartPoints = new();
+    private decimal _totalExpenses;
+    private int _totalTransactions;
+    private decimal _averageTransaction;
 
     protected override void OnParametersSet()
     {
-        UpdateChartData();
-    }
+        _hasChartData = false;
+        _validCategories = Data?
+            .Where(x => x.Amount > 0)
+            .OrderByDescending(x => x.Amount)
+            .ToList() ?? new();
 
-    private void UpdateChartData()
-    {
-        if (Data?.Any() != true)
+        _totalExpenses = _validCategories.Sum(x => x.Amount);
+        _totalTransactions = _validCategories.Sum(x => x.TransactionCount);
+        _averageTransaction = _totalTransactions > 0
+            ? _totalExpenses / _totalTransactions
+            : 0;
+
+        if (!_validCategories.Any())
         {
-            _chartData = Array.Empty<double>();
-            _chartLabels = Array.Empty<string>();
+            _legendCategories = new();
+            _chartPoints = new();
+            _chartOptions = BuildChartOptions(new List<string>());
             return;
         }
 
-        // Tomar solo las categorías con montos > 0
-        var validCategories = Data.Where(x => x.Amount > 0).ToList();
-        
-        _chartData = validCategories.Select(x => (double)x.Amount).ToArray();
-        _chartLabels = validCategories.Select(x => x.CategoryName).ToArray();
-        
-        // Configurar colores del chart
-        _chartOptions = new ChartOptions
+        _legendCategories = BuildLegendCategories(_validCategories, 3);
+        _chartPoints = _legendCategories
+            .Select(x => new CategorySlicePoint
+            {
+                Name = x.CategoryName,
+                Amount = x.Amount
+            })
+            .ToList();
+        _chartOptions = BuildChartOptions(_legendCategories.Select(x => x.CategoryColor).ToList());
+        _hasChartData = _chartPoints.Any();
+    }
+
+    private void NavigateToBudgets()
+        => NavigationManager.NavigateTo("/budgets");
+
+    private static List<CategoryBreakdownDto> BuildLegendCategories(
+        List<CategoryBreakdownDto> source,
+        int topItems)
+    {
+        if (source.Count <= topItems)
+            return source;
+
+        var top = source.Take(topItems).ToList();
+        var others = source.Skip(topItems).ToList();
+        var othersAmount = others.Sum(x => x.Amount);
+        if (othersAmount <= 0)
+            return top;
+
+        var othersTxCount = others.Sum(x => x.TransactionCount);
+        var totalAmount = source.Sum(x => x.Amount);
+
+        top.Add(new CategoryBreakdownDto
         {
-            
-            ChartPalette = validCategories.Select(x => x.CategoryColor).ToArray()
+            CategoryId = 0,
+            CategoryName = "Other",
+            CategoryColor = "#9e9e9e",
+            Amount = othersAmount,
+            Percentage = totalAmount > 0 ? (othersAmount / totalAmount) * 100 : 0,
+            TransactionCount = othersTxCount,
+            AverageTransaction = othersTxCount > 0 ? othersAmount / othersTxCount : 0
+        });
+
+        return top;
+    }
+
+    private static ApexChartOptions<CategorySlicePoint> BuildChartOptions(List<string> colors)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations { Enabled = false }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = colors,
+            Legend = new Legend { Show = false }
         };
-    }
 
-    private void ShowFilterOptions()
+    private sealed class CategorySlicePoint
     {
-        // Show filter dialog - implementar según tus necesidades
+        public string Name { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
     }
 
-    private void ViewCategoryTrends()
-    {
-        // Navigate to category trends - implementar según tus necesidades  
-    }
-
-    private void ViewDetailedAnalysis()
-    {
-        // Navigate to detailed analysis - implementar según tus necesidades
-    }
-
-    private int GetCategoryIndex(string categoryName)
-    {
-        return Array.IndexOf(_chartLabels, categoryName);
-    }
-
-    private void SelectCategory(string categoryName)
-    {
-        _selectedIndex = GetCategoryIndex(categoryName);
-        StateHasChanged();
-    }
-
-    private decimal GetOverallAverageTransaction()
-    {
-        if (Data?.Any() != true) return 0;
-        
-        var totalAmount = Data.Sum(x => x.Amount);
-        var totalTransactions = Data.Sum(x => x.TransactionCount);
-        
-        return totalTransactions > 0 ? totalAmount / totalTransactions : 0;
-    }
-
-    private (string categoryName, decimal change, bool isIncrease)? GetBiggestChange()
-    {
-        if (Data?.Any() != true) return null;
-
-        var categoriesWithChange = Data.Where(x => x.Change != 0).ToList();
-        if (!categoriesWithChange.Any()) return null;
-
-        var biggestChange = categoriesWithChange.OrderByDescending(x => Math.Abs(x.Change)).First();
-        return (biggestChange.CategoryName, biggestChange.Change, biggestChange.IsIncrease);
-    }
 }

@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 using MoneyTracker.Application.DTOs.Transactions;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Filters;
 
 namespace MoneyTracker.Application.Validators.Transaction
 {

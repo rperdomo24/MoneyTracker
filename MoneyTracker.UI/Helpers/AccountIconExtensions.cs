@@ -1,4 +1,4 @@
-﻿using MoneyTracker.Domain.Enums;
+﻿using MoneyTracker.Domain.Enums.Account;
 using MudBlazor;
 
 namespace MoneyTracker.UI.Helpers
@@ -17,17 +17,6 @@ namespace MoneyTracker.UI.Helpers
                 AccountIcon.AttachMoney => Icons.Material.Filled.AttachMoney,
                 AccountIcon.Payments => Icons.Material.Filled.Payments,
                 _ => Icons.Material.Filled.AccountBalanceWallet
-            };
-        }
-
-        public static string ToLabel(this AccountIcon accountIcon)
-        {
-            return accountIcon switch
-            {
-                AccountIcon.Wallet => "Wallet",
-                AccountIcon.CreditCard => "Credit Card",
-                AccountIcon.Savings => "Savings",
-                _ => accountIcon.ToString()
             };
         }
     }

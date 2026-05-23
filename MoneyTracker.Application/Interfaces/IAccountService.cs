@@ -1,6 +1,6 @@
 ﻿using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
 
 namespace MoneyTracker.Application.Interfaces
 {
@@ -13,9 +13,8 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult> CreateAsync(AccountDto dto);
         Task<OperationResult> CreateWithInitialBalanceAsync(AccountDto dto, decimal initialBalance);
         Task<OperationResult> AdjustBalanceAsync(int accountId, decimal newBalance, string reason = "");
-        Task<OperationResult<decimal>> GetCurrentBalanceAsync(int accountId);
-
         Task<OperationResult<List<AccountDto>>> GetAccountsWithBalancesAsync();
         Task<OperationResult<bool>> HasAccountByType(AccountType accountType);
+        Task<OperationResult> SyncBalanceAsync(int accountId);
     }
 }

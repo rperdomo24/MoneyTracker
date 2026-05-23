@@ -1,0 +1,85 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Helpers
+
+<div style="display: flex; gap: 8px; width: 100%;">
+    <div style="flex: 1;">
+        <MudSelect T="CategoryDto?"
+                   Label="@Label"
+                   Value="@SelectedCategory"
+                   ValueChanged="@((CategoryDto? value) => OnSelectedCategoryChanged(value))"
+                   Variant="Variant.Outlined"
+                   Required="@Required"
+                   Disabled="@Disabled"
+                   Clearable="@Clearable"
+                   ToStringFunc="@(c => c?.Name ?? "")">
+
+            @if (ShowNoneOption)
+            {
+                <MudSelectItem T="CategoryDto?" Value="@(null as CategoryDto)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">@NoneText</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            }
+
+            @foreach (var category in FilteredCategories)
+            {
+                <MudSelectItem T="CategoryDto?" Value="@category">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudAvatar Size="Size.Small" Style="@($"background-color: {category.Color}; width: 28px; height: 28px;")">
+                            <MudIcon Icon="@category.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
+                        </MudAvatar>
+                        <MudText Typo="Typo.body2">@category.Name</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            }
+        </MudSelect>
+    </div>
+
+    @if (ShowAddButton)
+    {
+        <div style="padding-top: 16px;">
+            <MudIconButton Icon="@Icons.Material.Filled.Add"
+                           Color="Color.Primary"
+                           Variant="Variant.Outlined"
+                           Size="Size.Medium"
+                           OnClick="HandleAddCategory" />
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CategoryDto? SelectedCategory { get; set; }
+    [Parameter] public EventCallback<CategoryDto?> SelectedCategoryChanged { get; set; }
+    [Parameter] public List<CategoryDto> Categories { get; set; } = new();
+    [Parameter] public CategoryTypeEnum FilterByType { get; set; }
+    [Parameter] public string Label { get; set; } = "Category";
+    [Parameter] public bool Required { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public bool Clearable { get; set; } = false;
+
+    // ✅ Parent use-case
+    [Parameter] public bool ShowNoneOption { get; set; } = false;
+    [Parameter] public string NoneText { get; set; } = "None (Main Category)";
+
+    [Parameter] public bool ShowAddButton { get; set; } = true;
+    [Parameter] public EventCallback OnAddCategory { get; set; }
+
+    private List<CategoryDto> FilteredCategories => Categories
+        .Where(c => c.Type == FilterByType && !c.IsSystem)
+        .OrderBy(c => c.Name)
+        .ToList();
+
+    private async Task OnSelectedCategoryChanged(CategoryDto? value)
+    {
+        SelectedCategory = value;
+        await SelectedCategoryChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleAddCategory()
+    {
+        await OnAddCategory.InvokeAsync();
+    }
+}

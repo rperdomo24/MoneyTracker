@@ -1,11 +1,13 @@
-﻿using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
+using MoneyTracker.Domain.Interfaces;
 using System.ComponentModel.DataAnnotations;
 
 namespace MoneyTracker.Domain.Entities
 {
-    public class Account
+    public class Account : ITenantOwned
     {
         public int Id { get; set; }
+        public Guid TenantId { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -24,5 +26,7 @@ namespace MoneyTracker.Domain.Entities
         public string? Color { get; set; }
 
         public AccountType Type { get; set; }
+        public bool IsDeleted { get; set; }
+        public DateTime? DeletedAt { get; set; }
     }
 }

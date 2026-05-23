@@ -1,4 +1,5 @@
-﻿using MoneyTracker.Domain.Enums;
+﻿using MoneyTracker.Domain.Enums.Category;
+using MoneyTracker.Domain.Enums.Filters;
 
 namespace MoneyTracker.Application.DTOs.Transactions
 {
@@ -12,6 +13,9 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         public string SearchText { get; set; } = string.Empty;
         public int? CategoryId { get; set; }
-        public CategoryType? Type { get; set; }
+        public CategoryTypeEnum? Type { get; set; }
+
+        // Optional optimization for read-heavy dashboards where sort order is applied later.
+        public bool SkipSorting { get; set; }
     }
 }

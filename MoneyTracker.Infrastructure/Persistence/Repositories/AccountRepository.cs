@@ -1,19 +1,20 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories
 {
     public class AccountRepository : IAccountRepository
     {
-        private readonly MoneyTrackerDbContext _context;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<AccountRepository> _logger;
 
-        public AccountRepository(MoneyTrackerDbContext context, ILogger<AccountRepository> logger)
+        public AccountRepository(IServiceScopeFactory scopeFactory, ILogger<AccountRepository> logger)
         {
-            _context = context;
+            _scopeFactory = scopeFactory;
             _logger = logger;
         }
 
@@ -21,7 +22,13 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Accounts.ToListAsync();
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Accounts
+                    .AsNoTracking()
+                    .Where(a => !a.IsDeleted)
+                    .ToListAsync();
             }
             catch (Exception ex)
             {
@@ -34,7 +41,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Accounts.FindAsync(id);
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Accounts.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
             }
             catch (Exception ex)
             {
@@ -45,18 +55,19 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
         public async Task<bool> AddAsync(Account account)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                _context.Accounts.Add(account);
-                await _context.SaveChangesAsync();
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+                await using var transaction = await context.Database.BeginTransactionAsync();
+
+                context.Accounts.Add(account);
+                await context.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return true;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error adding account: {Name}", account.Name);
                 return false;
             }
@@ -64,18 +75,19 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
         public async Task<bool> UpdateAsync(Account account)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                _context.Accounts.Update(account);
-                await _context.SaveChangesAsync();
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+                await using var transaction = await context.Database.BeginTransactionAsync();
+
+                context.Accounts.Update(account);
+                await context.SaveChangesAsync();
                 await transaction.CommitAsync();
                 return true;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error updating account ID: {Id}", account.Id);
                 return false;
             }
@@ -83,15 +95,18 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
         public async Task<bool> DeleteAsync(int id)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                var acc = await _context.Accounts.FindAsync(id);
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+                await using var transaction = await context.Database.BeginTransactionAsync();
+
+                var acc = await context.Accounts.FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
                 if (acc != null)
                 {
-                    _context.Accounts.Remove(acc);
-                    await _context.SaveChangesAsync();
+                    acc.IsDeleted = true;
+                    acc.DeletedAt = DateTime.UtcNow;
+                    await context.SaveChangesAsync();
                 }
 
                 await transaction.CommitAsync();
@@ -99,7 +114,6 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error deleting account ID: {Id}", id);
                 return false;
             }
@@ -109,13 +123,22 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                IQueryable<Account> query = _context.Accounts;
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                IQueryable<Account> query = context.Accounts;
 
                 if (accountType != AccountType.None)
                 {
                     query = query
                         .AsNoTracking()
-                        .Where(a => a.Type == accountType);
+                        .Where(a => !a.IsDeleted && a.Type == accountType);
+                }
+                else
+                {
+                    query = query
+                        .AsNoTracking()
+                        .Where(a => !a.IsDeleted);
                 }
 
                 return await query.AnyAsync();

@@ -4,6 +4,7 @@ using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
+using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Application.Services
@@ -25,6 +26,21 @@ namespace MoneyTracker.Application.Services
         {
             var entities = await _repository.GetAllAsync();
             var result = entities.Select(e => e.MapToDto()).ToList();
+            return OperationResult<List<CategoryDto>>.Ok(result);
+        }
+
+        public async Task<OperationResult<List<CategoryDto>>> GetAllWithChildAsync(bool incluideSystem = true)
+        {
+            var entities = await _repository.GetAllAsync(includeChildren: true, incluideSystem: true);
+
+            if (!incluideSystem)
+            {
+                entities = entities.Where(x => x.Type != CategoryTypeEnum.Transfer).ToList();
+            }
+
+            var result = entities
+                .Select(e => e.MapToDto()).ToList();
+
             return OperationResult<List<CategoryDto>>.Ok(result);
         }
 

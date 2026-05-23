@@ -1,0 +1,173 @@
+﻿@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject IAccountService AccountService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.SyncAlt" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Adjust Balance</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudStack Spacing="3">
+            <!-- Account Info -->
+            <MudPaper Class="pa-3" Elevation="0" Style="border: 1px solid var(--mud-palette-divider);">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Style="@($"background-color: {AccountColor};")">
+                        <MudIcon Icon="@AccountIcon" Color="Color.Surface" />
+                    </MudAvatar>
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body1" Class="font-weight-medium">
+                            @AccountName
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                            Current: @FormatBalance(CurrentBalance)
+                        </MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+
+            <!-- New Balance Input -->
+            <MudNumericField Label="Set Balance To"
+                             @bind-Value="_newBalance"
+                             Variant="Variant.Outlined"
+                             Format="N2"
+                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                             Adornment="Adornment.Start"
+                             AdornmentText="$"
+                             Placeholder="0.00"
+                             Immediate="true" />
+
+            <!-- Preview -->
+            @if (_newBalance.HasValue)
+            {
+                var difference = _newBalance.Value - CurrentBalance;
+                if (difference != 0)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body2">Current Balance:</MudText>
+                                <MudText Typo="Typo.body2" Class="@GetBalanceClass(CurrentBalance)">
+                                    @FormatBalance(CurrentBalance)
+                                </MudText>
+                            </MudStack>
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body2">New Balance:</MudText>
+                                <MudText Typo="Typo.body2" Class="@GetBalanceClass(_newBalance.Value)">
+                                    @FormatBalance(_newBalance.Value)
+                                </MudText>
+                            </MudStack>
+                            <MudDivider />
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body2" Class="font-weight-bold">Transaction:</MudText>
+                                <MudText Typo="Typo.body2" Class="@($"font-weight-bold {(difference > 0 ? "text-success" : "text-error")}")">
+                                    @FormatBalanceWithSign(difference)
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudAlert>
+                }
+            }
+
+            <!-- Reason -->
+            <MudTextField Label="Reason (Optional)"
+                          @bind-Value="_reason"
+                          Variant="Variant.Outlined"
+                          Lines="2"
+                          Placeholder="e.g., Bank reconciliation, Found missing transaction"
+                          MaxLength="200" />
+        </MudStack>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">
+            Cancel
+        </MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Adjust"
+                   StartIcon="@Icons.Material.Filled.Check"
+                   Disabled="@(_isSubmitting || !_newBalance.HasValue || _newBalance.Value == CurrentBalance)">
+            @if (_isSubmitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Adjusting...</span>
+            }
+            else
+            {
+                <span>Adjust Balance</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public int AccountId { get; set; }
+    [Parameter] public string AccountName { get; set; } = string.Empty;
+    [Parameter] public string AccountIcon { get; set; } = string.Empty;
+    [Parameter] public string AccountColor { get; set; } = "#2196F3";
+    [Parameter] public decimal CurrentBalance { get; set; }
+    [Parameter] public EventCallback OnBalanceAdjusted { get; set; }
+
+    private decimal? _newBalance = null;
+    private string _reason = string.Empty;
+    private bool _isSubmitting = false;
+
+    protected override void OnInitialized()
+    {
+        _newBalance = CurrentBalance;
+    }
+
+    private async Task Adjust()
+    {
+        if (!_newBalance.HasValue || _newBalance.Value == CurrentBalance || _isSubmitting)
+            return;
+
+        _isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AccountService.AdjustBalanceAsync(AccountId, _newBalance.Value, _reason);
+            if (result.Success)
+            {
+                Snackbar.Add($"Balance adjusted successfully", Severity.Success);
+                await OnBalanceAdjusted.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to adjust balance", Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error adjusting balance", Severity.Error);
+        }
+        finally
+        {
+            AccountsDrawer.RequestRefresh();
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private static string FormatBalance(decimal balance)
+        => CurrencyHelper.FormatCurrency(balance);
+
+    private string FormatBalanceWithSign(decimal balance)
+    {
+        var sign = balance >= 0 ? "+" : "";
+        return $"{sign}{FormatBalance(balance)}";
+    }
+
+    private static string GetBalanceClass(decimal balance)
+        => CurrencyHelper.GetAmountClass(balance);
+}

@@ -1,4 +1,5 @@
-﻿using MoneyTracker.Domain.Enums;
+﻿using MoneyTracker.Application.Common.Extensions;
+using MoneyTracker.Domain.Enums.Transaction;
 
 namespace MoneyTracker.Application.DTOs.Transactions
 {
@@ -12,19 +13,59 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         public decimal Amount { get; set; }
 
-        public string? Description { get; set; }
+        public string Description { get; set; }
 
-        public int? CategoryId { get; set; }
+        public int CategoryId { get; set; }
 
-        public CategoryDto? Category { get; set; }
+        public int AccountId { get; set; }
 
-        public int? AccountId { get; set; }
-        public AccountDto Account { get; set; }
+        public PaymentMethodEnum? PaymentMethod { get; set; }
 
-        public TransactionType Type { get; set; }
+        // For transfers
+        public int? TransferPairId { get; set; }
+
+        public TransferTypeEnum? TransferType
+        {
+            get
+            {
+                if (TransferPairId.HasValue
+                    && (TransactionType is TransactionTypeEnum.Transfer
+                    || TransactionType is TransactionTypeEnum.CreditPayment))
+                {
+                    return this.IsOutgoingTransfer()
+                        ? TransferTypeEnum.Outgoing
+                        : TransferTypeEnum.Incoming;
+                }
+
+                return null;
+            }
+        }
+
+        public TransactionTypeEnum TransactionType
+        {
+            get
+            {
+                if (CategoryId <= 0)
+                {
+                    return TransactionTypeEnum.Expense;
+                }
+                else
+                {
+                    return this.GetDerivedType();
+                }
+            }
+        }
+
+        public TransactionStatus Status { get; set; }
+        public DateTime? ScheduledDate { get; set; }
+        public bool IsSystemGenerated { get; set; }
 
         public DateTime CreatedAt { get; set; }
 
         public DateTime UpdatedAt { get; set; }
+
+        public AccountDto Account { get; set; }
+        public CategoryDto? Category { get; set; }
+
     }
 }

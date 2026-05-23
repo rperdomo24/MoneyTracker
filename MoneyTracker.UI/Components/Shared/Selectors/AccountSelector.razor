@@ -1,0 +1,70 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Helpers
+
+<MudSelect T="AccountDto"
+           Label="@Label"
+           Value="@SelectedAccount"
+           ValueChanged="@((AccountDto value) => OnSelectedAccountChanged(value))"
+           Variant="Variant.Outlined"
+           Required="@Required"
+           Disabled="@Disabled"
+           Clearable="@Clearable"
+           ToStringFunc="@(a => a?.Name ?? "")">
+    @foreach (var account in FilteredAccounts)
+    {
+        <MudSelectItem Value="@account" @key="account.Id">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@account.Icon.ToIcon()"
+                         Style="@($"color: {account.Color};")"
+                         Size="Size.Small" />
+                <MudText Typo="Typo.body2">@account.Name</MudText>
+                @if (ShowBalance)
+                {
+                    <MudText Typo="Typo.caption" Style="opacity: 0.6; margin-left: auto;">
+                        @account.CurrentBalance.ToString("C")
+                    </MudText>
+                }
+            </MudStack>
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    [Parameter] public AccountDto? SelectedAccount { get; set; }
+    [Parameter] public EventCallback<AccountDto?> SelectedAccountChanged { get; set; }
+    [Parameter] public List<AccountDto> Accounts { get; set; } = new();
+    [Parameter] public int? ExcludeAccountId { get; set; }
+    [Parameter] public string Label { get; set; } = "Account";
+    [Parameter] public bool Required { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public bool Clearable { get; set; } = false;
+    [Parameter] public bool ShowBalance { get; set; } = false;
+    [Parameter] public AccountType? FilterByType { get; set; }
+
+    private List<AccountDto> FilteredAccounts
+    {
+        get
+        {
+            var filtered = Accounts.AsEnumerable();
+
+            if (ExcludeAccountId.HasValue)
+            {
+                filtered = filtered.Where(a => a.Id != ExcludeAccountId.Value);
+            }
+
+            if (FilterByType.HasValue)
+            {
+                filtered = filtered.Where(a => a.Type == FilterByType.Value);
+            }
+
+            return filtered.OrderBy(a => a.Name).ToList();
+        }
+    }
+
+    private async Task OnSelectedAccountChanged(AccountDto? value)
+    {
+        SelectedAccount = value;
+        await SelectedAccountChanged.InvokeAsync(value);
+    }
+}

@@ -1,58 +1,300 @@
-﻿@page "/settings"
-@using MudBlazor
+@page "/settings"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Options
+@using MoneyTracker.Application.DTOs.Auth
+@using MoneyTracker.Application.Constants.Configuration
+@using MoneyTracker.Application.Interfaces
+@inject IUserProfileService UserProfileService
+@inject IUserInvitationService UserInvitationService
+@inject NavigationManager Navigation
+@inject IOptions<ApplicationSettings> ApplicationOptions
+@inject ISnackbar Snackbar
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudText Typo="Typo.h5" Class="mb-4">Settings</MudText>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="pa-1 pa-sm-0 mt-4 mt-sm-6 mb-4 mb-sm-6">
+    <MudText Typo="Typo.h5" Class="mb-4">User Settings</MudText>
 
-    <MudExpansionPanels Elevation="1">
+    <MudPaper Class="pa-4 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Size="Size.Large" Color="Color.Primary" Style="overflow: hidden;">
+                @if (!string.IsNullOrWhiteSpace(_avatarDataUrl))
+                {
+                    <MudImage Src="@_avatarDataUrl" Alt="User avatar" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Person" />
+                }
+            </MudAvatar>
 
-        <!-- General -->
-        <MudExpansionPanel Text="General Settings">
-            <MudItem xs="12" sm="6">
-                <MudSelect T="string" Label="Preferred Currency" @bind-Value="selectedCurrency">
-                    @*  <MudSelectItem T="string" Value="USD">$ USD</MudSelectItem>
-                    <MudSelectItem T="string" Value="EUR">€ EUR</MudSelectItem>
-                    <MudSelectItem T="string" Value="BTC">₿ Bitcoin</MudSelectItem> *@
-                </MudSelect>
-            </MudItem>
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">@DisplayNameOrFallback</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">@_email</MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
 
-            <MudItem xs="12" sm="6">
-                <MudSelect T="string" Label="Language" @bind-Value="selectedLanguage">
-                    @*  <MudSelectItem T="string" Value="en">English</MudSelectItem>
-                    <MudSelectItem T="string" Value="es">Español</MudSelectItem> *@
-                </MudSelect>
-            </MudItem>
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Profile</MudText>
 
-            <MudSwitch T="bool" Label="Dark Mode" @bind-Checked="_isDark" Color="Color.Primary" />
-        </MudExpansionPanel>
+        <MudTextField @bind-Value="_displayName" Label="Display name" Variant="Variant.Outlined" />
+        <MudTextField Value="_email" Label="Email" Variant="Variant.Outlined" Class="mt-3" ReadOnly="true" />
 
-        <!-- Data & Sync -->
-        <MudExpansionPanel Text="Data & Sync">
-            <MudButton StartIcon="@Icons.Material.Filled.Backup" Variant="Variant.Text" Color="Color.Primary">Backup Data</MudButton>
-            <MudButton StartIcon="@Icons.Material.Filled.Restore" Variant="Variant.Text" Color="Color.Secondary">Restore Data</MudButton>
-            <MudButton StartIcon="@Icons.Material.Filled.FileDownload" Variant="Variant.Text">Export as Excel</MudButton>
-        </MudExpansionPanel>
+        <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center">
+            <InputFile OnChange="OnAvatarSelected" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       Disabled="_isBusy || string.IsNullOrWhiteSpace(_avatarDataUrl)"
+                       OnClick="RemoveAvatarAsync">
+                Remove photo
+            </MudButton>
+        </MudStack>
+        <MudText Typo="Typo.caption" Class="mt-2 d-block">Allowed: jpg, png, webp. Max size: 200KB.</MudText>
 
-        <!-- Security -->
-        <MudExpansionPanel Text="Security">
-            <MudButton StartIcon="@Icons.Material.Filled.LockReset" Variant="Variant.Text">Change PIN</MudButton>
-            <MudSwitch T="bool" Label="Enable Biometrics" Color="Color.Secondary" />
-        </MudExpansionPanel>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Class="mt-4"
+                   OnClick="SaveProfileAsync"
+                   Disabled="_isBusy">
+            Save profile
+        </MudButton>
+    </MudPaper>
 
-        <!-- About -->
-        <MudExpansionPanel Text="About">
-            <MudText Typo="Typo.body2">Version 1.0.0</MudText>
-            <MudText Typo="Typo.body2">© 2025 MoneyTracker</MudText>
-            <MudLink Href="/" Target="_blank">Contact Support</MudLink>
-        </MudExpansionPanel>
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Change password</MudText>
 
-    </MudExpansionPanels>
+        <MudTextField @bind-Value="_currentPassword"
+                      Label="Current password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password" />
+        <MudTextField @bind-Value="_newPassword"
+                      Label="New password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      Class="mt-3" />
+        <MudTextField @bind-Value="_confirmPassword"
+                      Label="Confirm new password"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Password"
+                      Class="mt-3" />
+
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Class="mt-4"
+                   OnClick="ChangePasswordAsync"
+                   Disabled="_isBusy">
+            Update password
+        </MudButton>
+    </MudPaper>
+
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Security</MudText>
+        <MudSwitch T="bool"
+                   Value="_twoFactorEnabled"
+                   ValueChanged="OnTwoFactorChanged"
+                   Label="Require OTP on sign in"
+                   Color="Color.Primary"
+                   Disabled="_isBusy" />
+        <MudText Typo="Typo.caption" Class="d-block mt-2">
+            If enabled, password login requires an OTP code sent to your email.
+        </MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Account info</MudText>
+        <MudText Typo="Typo.body2">Tenant: @_tenantId</MudText>
+        <MudText Typo="Typo.body2">2FA enabled: @(_twoFactorEnabled ? "Yes" : "No")</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Beta invitations</MudText>
+        <MudTextField @bind-Value="_inviteEmail"
+                      Label="Invite email"
+                      Variant="Variant.Outlined"
+                      Disabled="_isBusy" />
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   Class="mt-4"
+                   OnClick="SendInviteAsync"
+                   Disabled="_isBusy">
+            Send invitation
+        </MudButton>
+
+        @if (!string.IsNullOrWhiteSpace(_latestInviteLink))
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-4">
+                Latest invite link:
+                <MudLink Href="@_latestInviteLink" Target="_blank">@_latestInviteLink</MudLink>
+            </MudAlert>
+        }
+    </MudPaper>
 </MudContainer>
 
-
 @code {
-    private string selectedCurrency = "USD";
-    private string selectedLanguage = "en";
-    private bool _isDark = true;
+    private const int MaxAvatarSizeBytes = 200 * 1024;
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    };
+
+    private string? _displayName;
+    private string? _email;
+    private string _tenantId = "-";
+    private bool _twoFactorEnabled;
+    private string? _avatarDataUrl;
+
+    private string _currentPassword = string.Empty;
+    private string _newPassword = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private string _inviteEmail = string.Empty;
+    private string? _latestInviteLink;
+    private bool _isBusy;
+
+    private string DisplayNameOrFallback => string.IsNullOrWhiteSpace(_displayName) ? "User" : _displayName;
+    private string PublicBaseUrl => string.IsNullOrWhiteSpace(ApplicationOptions.Value.PublicBaseUrl)
+        ? Navigation.BaseUri.TrimEnd('/')
+        : ApplicationOptions.Value.PublicBaseUrl.TrimEnd('/');
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserAsync();
     }
 
+    private async Task LoadUserAsync()
+    {
+        var result = await UserProfileService.GetCurrentProfileAsync();
+        if (!result.Success || result.Data is null)
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+            return;
+        }
+
+        _displayName = result.Data.DisplayName;
+        _email = result.Data.Email;
+        _tenantId = result.Data.TenantId;
+        _twoFactorEnabled = result.Data.TwoFactorEnabled;
+        _avatarDataUrl = result.Data.AvatarDataUrl;
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _isBusy = true;
+        var result = await UserProfileService.UpdateDisplayNameAsync(_displayName);
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_currentPassword) ||
+            string.IsNullOrWhiteSpace(_newPassword) ||
+            string.IsNullOrWhiteSpace(_confirmPassword))
+        {
+            Snackbar.Add("All password fields are required.", Severity.Error);
+            return;
+        }
+
+        if (!string.Equals(_newPassword, _confirmPassword, StringComparison.Ordinal))
+        {
+            Snackbar.Add("New password and confirmation do not match.", Severity.Error);
+            return;
+        }
+
+        _isBusy = true;
+        var result = await UserProfileService.ChangePasswordAsync(_currentPassword, _newPassword);
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        if (result.Success)
+        {
+            _currentPassword = string.Empty;
+            _newPassword = string.Empty;
+            _confirmPassword = string.Empty;
+        }
+        _isBusy = false;
+    }
+
+    private async Task OnAvatarSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        if (file.Size > MaxAvatarSizeBytes)
+        {
+            Snackbar.Add("Avatar must be 200KB or less.", Severity.Error);
+            return;
+        }
+
+        if (!AllowedContentTypes.Contains(file.ContentType))
+        {
+            Snackbar.Add("Only jpg, png, and webp are allowed.", Severity.Error);
+            return;
+        }
+
+        _isBusy = true;
+        await using var stream = file.OpenReadStream(MaxAvatarSizeBytes);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+
+        var result = await UserProfileService.UpdateAvatarAsync(file.ContentType, ms.ToArray());
+        if (result.Success)
+        {
+            _avatarDataUrl = result.Data;
+        }
+
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+
+    private async Task RemoveAvatarAsync()
+    {
+        _isBusy = true;
+        var result = await UserProfileService.RemoveAvatarAsync();
+        if (result.Success)
+        {
+            _avatarDataUrl = null;
+        }
+
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+
+    private async Task OnTwoFactorChanged(bool enabled)
+    {
+        _isBusy = true;
+        var previous = _twoFactorEnabled;
+        _twoFactorEnabled = enabled;
+
+        var result = await UserProfileService.UpdateTwoFactorPreferenceAsync(enabled);
+        if (!result.Success)
+        {
+            _twoFactorEnabled = previous;
+        }
+
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+
+    private async Task SendInviteAsync()
+    {
+        _isBusy = true;
+
+        var result = await UserInvitationService.CreateOrResendAsync(new CreateUserInvitationDto
+        {
+            Email = _inviteEmail,
+            InviteUrlTemplate = $"{PublicBaseUrl}/invite/register?token={{token}}"
+        });
+
+        if (result.Success && result.Data is not null)
+        {
+            _latestInviteLink = result.Data.InviteUrl;
+            _inviteEmail = string.Empty;
+        }
+
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+}

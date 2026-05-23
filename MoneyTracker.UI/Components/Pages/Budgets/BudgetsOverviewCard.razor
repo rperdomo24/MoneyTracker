@@ -1,0 +1,313 @@
+@using ApexCharts
+@using MudBlazor
+@using MoneyTracker.Application.DTOs.Budgets
+@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Helpers.VM
+
+<MudPaper Elevation="1" Class="pa-4" Style="border-radius:16px;">
+    <MudStack Spacing="3">
+        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@MonthLabel</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                    @(IsExpenseTab ? "Expenses overview" : "Income overview")
+                </MudText>
+            </MudStack>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="MudBlazor.Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Size="MudBlazor.Size.Small"
+                       OnClick="OnAddBudget">
+                New budget
+            </MudButton>
+        </MudStack>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="6">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">@(IsExpenseTab ? "Spent" : "Earned")</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(Summary.TotalUsed)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Budgeted</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(Summary.TotalBudgeted)</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Remaining</MudText>
+                    <MudText Typo="Typo.h6"
+                             Class="font-weight-bold"
+                             Style="@(Summary.TotalRemaining < 0 ? "color: var(--mud-palette-error);" : "color: var(--mud-palette-success);")">
+                        @CurrencyHelper.FormatCurrency(Summary.TotalRemaining)
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="6">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Health</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudChip T="string" Size="MudBlazor.Size.Small" Variant="Variant.Filled" Color="@HealthChipColor">
+                            @HealthLabel
+                        </MudChip>
+                        <MudText Typo="Typo.body2" Style="opacity:0.75;">@StatusSummaryText</MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @if (BudgetedCategoryCount > 0)
+        {
+            <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                <MudStack Spacing="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Month progress</MudText>
+                        <MudText Typo="Typo.body2" Class="font-weight-medium">@($"{OverallProgressPercent}% used")</MudText>
+                    </MudStack>
+
+                    <MudProgressLinear Value="@OverallProgressPercent"
+                                       Color="@ProgressColor"
+                                       Size="MudBlazor.Size.Large" />
+
+                    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                        @if (NearLimitCount > 0)
+                        {
+                            <MudChip T="string"
+                                     Size="MudBlazor.Size.Small"
+                                     Variant="@(ActiveViewMode == 5 ? Variant.Filled : Variant.Outlined)"
+                                     Color="MudBlazor.Color.Warning"
+                                     OnClick="@(() => OnFilterModeSelected.InvokeAsync(5))">
+                                @($"{NearLimitCount} near limit")
+                            </MudChip>
+                        }
+
+                        @if (OverBudgetCount > 0)
+                        {
+                            <MudChip T="string"
+                                     Size="MudBlazor.Size.Small"
+                                     Variant="@(ActiveViewMode == 4 ? Variant.Filled : Variant.Outlined)"
+                                     Color="MudBlazor.Color.Error"
+                                     OnClick="@(() => OnFilterModeSelected.InvokeAsync(4))">
+                                @($"{OverBudgetCount} over budget")
+                            </MudChip>
+                        }
+
+                        @if (NoBudgetCount > 0)
+                        {
+                            <MudChip T="string"
+                                     Size="MudBlazor.Size.Small"
+                                     Variant="@(WithoutBudgetFilterActive ? Variant.Filled : Variant.Outlined)"
+                                     Color="@(WithoutBudgetFilterActive ? MudBlazor.Color.Primary : MudBlazor.Color.Default)"
+                                     OnClick="OnToggleWithoutBudgetFilter">
+                                @($"{NoBudgetCount} without budget")
+                            </MudChip>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_hasChartData)
+        {
+            <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Top categories</MudText>
+
+                    <ApexChart TItem="BudgetSlicePoint" @key="_chartRenderKey" Options="_chartOptions" Height="260" OnDataPointSelection="HandleDataPointSelection">
+                        <ApexPointSeries TItem="BudgetSlicePoint"
+                                         Items="_chartPoints"
+                                         Name="Budget"
+                                         SeriesType="SeriesType.Donut"
+                                         XValue="point => point.Name"
+                                         YValue="point => point.Used" />
+                    </ApexChart>
+
+                    <MudStack Spacing="1">
+                        @foreach (var s in _legendSlices)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudAvatar Size="MudBlazor.Size.Small" Style="@($"background-color:{s.Color};")" />
+                                    <MudButton Variant="Variant.Text"
+                                               Color="@(SelectedSliceKey == s.Key ? MudBlazor.Color.Primary : MudBlazor.Color.Default)"
+                                               Class="px-1"
+                                               OnClick="@(() => OnSliceSelected.InvokeAsync(s.Key))">
+                                        @s.Name
+                                    </MudButton>
+                                </MudStack>
+
+                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                    @($"{s.Percent}%")
+                                </MudText>
+                            </MudStack>
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="pa-6" Style="border-radius:12px; border:1px dashed var(--mud-palette-divider);">
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        No category activity yet for this month.
+                    </MudText>
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="MudBlazor.Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OnAddBudget">
+                        New budget
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter] public string MonthLabel { get; set; } = string.Empty;
+    [Parameter] public bool IsExpenseTab { get; set; }
+    [Parameter] public BudgetMonthlySummaryDto Summary { get; set; } = new();
+    [Parameter] public List<BudgetCategorySliceVm>? Slices { get; set; }
+    [Parameter] public List<BudgetListItemVm>? Items { get; set; }
+    [Parameter] public int ActiveViewMode { get; set; }
+    [Parameter] public string? SelectedSliceKey { get; set; }
+    [Parameter] public bool WithoutBudgetFilterActive { get; set; }
+    [Parameter] public EventCallback<int> OnFilterModeSelected { get; set; }
+    [Parameter] public EventCallback<string> OnSliceSelected { get; set; }
+    [Parameter] public EventCallback OnToggleWithoutBudgetFilter { get; set; }
+    [Parameter] public EventCallback OnAddBudget { get; set; }
+
+    private bool _hasChartData;
+    private ApexChartOptions<BudgetSlicePoint> _chartOptions = BuildChartOptions(new List<string>());
+    private List<BudgetSlicePoint> _chartPoints = new();
+    private List<BudgetCategorySliceVm> _legendSlices = new();
+    private string _chartRenderKey = "budget-chart-empty";
+
+    private List<BudgetListItemVm> ParentItems => Items?
+        .Where(x => x.ParentCategoryId is null)
+        .ToList() ?? new();
+
+    private int BudgetedCategoryCount => ParentItems.Count(x => x.HasBudget);
+    private int NearLimitCount => ParentItems.Count(x => x.IsNearLimit);
+    private int OverBudgetCount => ParentItems.Count(x => x.IsOverBudget);
+    private int NoBudgetCount => Items?.Count(x => !x.HasBudget && Math.Abs(x.Used) > 0.01m) ?? 0;
+
+    private int OverallProgressPercent => Summary.TotalBudgeted <= 0
+        ? 0
+        : (int)Math.Clamp(Math.Round((double)(Summary.TotalUsed / Summary.TotalBudgeted) * 100d), 0, 100);
+
+    private MudBlazor.Color ProgressColor => OverBudgetCount > 0
+        ? MudBlazor.Color.Error
+        : NearLimitCount > 0
+            ? MudBlazor.Color.Warning
+            : MudBlazor.Color.Success;
+
+    private MudBlazor.Color HealthChipColor => OverBudgetCount > 0
+        ? MudBlazor.Color.Error
+        : NearLimitCount > 0
+            ? MudBlazor.Color.Warning
+            : BudgetedCategoryCount > 0
+                ? MudBlazor.Color.Success
+                : MudBlazor.Color.Default;
+
+    private string HealthLabel => OverBudgetCount > 0
+        ? "Over budget"
+        : NearLimitCount > 0
+            ? "At risk"
+            : BudgetedCategoryCount > 0
+                ? "Healthy"
+                : "No budgets";
+
+    private string StatusSummaryText => OverBudgetCount > 0
+        ? "Some categories already need attention."
+        : NearLimitCount > 0
+            ? "A few categories are close to their limit."
+            : BudgetedCategoryCount > 0
+                ? "Your main categories are under control."
+                : "Create budgets to start tracking.";
+
+    protected override void OnParametersSet()
+    {
+        _hasChartData = false;
+        _chartPoints = new();
+        _legendSlices = new();
+        _chartOptions = BuildChartOptions(new List<string>());
+        _chartRenderKey = BuildChartRenderKey();
+
+        if (Slices?.Any() != true)
+            return;
+
+        var cleaned = Slices
+            .Where(x => x.Used > 0)
+            .ToList();
+
+        if (!cleaned.Any())
+            return;
+
+        _legendSlices = cleaned;
+        _chartPoints = cleaned
+            .Select(x => new BudgetSlicePoint
+            {
+                Key = x.Key,
+                Name = x.Name,
+                Used = x.Used
+            })
+            .ToList();
+
+        _chartOptions = BuildChartOptions(cleaned.Select(x => x.Color).ToList());
+        _chartRenderKey = BuildChartRenderKey(cleaned);
+        _hasChartData = true;
+    }
+
+    private string BuildChartRenderKey(List<BudgetCategorySliceVm>? slices = null)
+    {
+        var activeSlices = slices ?? Slices ?? new List<BudgetCategorySliceVm>();
+        var fingerprint = string.Join('|', activeSlices.Select(x => $"{x.CategoryId}:{x.Used:0.####}"));
+        return $"{MonthLabel}|{IsExpenseTab}|{Summary.TotalBudgeted:0.##}|{Summary.TotalUsed:0.##}|{fingerprint}";
+    }
+
+    private static ApexChartOptions<BudgetSlicePoint> BuildChartOptions(List<string> colors)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                Animations = new Animations
+                {
+                    Enabled = false
+                }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = colors,
+            Legend = new Legend { Show = false }
+        };
+
+    private sealed class BudgetSlicePoint
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public decimal Used { get; set; }
+    }
+
+    private Task HandleDataPointSelection(SelectedData<BudgetSlicePoint> selected)
+    {
+        if (selected?.DataPointIndex is null)
+            return Task.CompletedTask;
+
+        var index = selected.DataPointIndex;
+        if (index < 0 || index >= _legendSlices.Count)
+            return Task.CompletedTask;
+
+        return OnSliceSelected.InvokeAsync(_legendSlices[index].Key);
+    }
+}

@@ -1,0 +1,263 @@
+﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.TextImport
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Components.Pages.Categories
+@using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers.TextImport
+
+@inject ITextImportService TextImportService
+@inject ITransactionService TransactionService
+@inject IAccountService AccountService
+@inject ICategoryService CategoryService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.ContentPaste" Color="Color.Info" />
+            <MudText Typo="Typo.h6">Import from text</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudStack Spacing="3">
+
+                <MudTextField @bind-Value="_rawText"
+                              Label="Paste bank SMS/email"
+                              Variant="Variant.Outlined"
+                              Lines="6"
+                              FullWidth="true" />
+
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled"
+                               Disabled="@(string.IsNullOrWhiteSpace(_rawText) || _analyzing)"
+                               OnClick="AnalyzeAsync">
+                        Analyze
+                    </MudButton>
+
+                    <MudButton Variant="Variant.Text"
+                               Disabled="@(_analyzing || _saving)"
+                               OnClick="Clear">
+                        Clear
+                    </MudButton>
+                </MudStack>
+
+                @if (_item is not null)
+                {
+                    <MudPaper Class="pa-4" Outlined="true">
+                        <MudStack Spacing="2">
+
+                            <MudText Typo="Typo.subtitle1">@_item.Merchant</MudText>
+
+                            <MudSelect T="TransactionTypeEnum"
+                                       Label="Type"
+                                       Variant="Variant.Outlined"
+                                       @bind-Value="_item.Type">
+                                <MudSelectItem Value="TransactionTypeEnum.Expense">Expense</MudSelectItem>
+                                <MudSelectItem Value="TransactionTypeEnum.Income">Income</MudSelectItem>
+                            </MudSelect>
+
+                            <MudNumericField T="decimal"
+                                             Label="Amount"
+                                             Variant="Variant.Outlined"
+                                             @bind-Value="_item.Amount"
+                                             Min="0.01m"
+                                             Format="F2"
+                                             Adornment="Adornment.Start"
+                                             AdornmentText="$" />
+
+                            <MudDatePicker Label="Date"
+                                           Variant="Variant.Outlined"
+                                           Date="@_item.DateLocal.Date"
+                                           DateChanged="OnDateChanged"
+                                           MaxDate="DateTime.Today"
+                                           AutoClose="true" />
+
+                            <MudTextField Label="Description"
+                                          Variant="Variant.Outlined"
+                                          @bind-Value="_item.Description" />
+
+                            <!-- ACCOUNT SELECTOR -->
+                            <AccountSelector @bind-SelectedAccount="_selectedAccount"
+                                              Accounts="@_accounts"
+                                              Label="Account"
+                                              Required="true"
+                                              ShowBalance="true" />
+
+                            <!-- CATEGORY -->
+                            <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                              Categories="@_categories"
+                                              FilterByType="@(_item.Type == TransactionTypeEnum.Income 
+                                                    ? CategoryTypeEnum.Income 
+                                                    : CategoryTypeEnum.Expense)"
+                                              ShowAddButton="true" />
+
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">Close</MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(!CanSave())"
+                   OnClick="SaveAsync">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private bool _loading = true;
+    private bool _analyzing = false;
+    private bool _saving = false;
+
+    private string _rawText = string.Empty;
+    private ParsedTransactionSuggestionDto? _item;
+
+    private List<AccountDto> _accounts = new();
+    private List<CategoryDto> _categories = new();
+
+    private AccountDto? _selectedAccount;
+    private CategoryDto? _selectedCategory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var accountsResult = await AccountService.GetAllAsync();
+        if (accountsResult.Success && accountsResult.Data is not null)
+            _accounts = accountsResult.Data.ToList();
+
+        var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
+        if (categoriesResult.Success && categoriesResult.Data is not null)
+            _categories = categoriesResult.Data.ToList();
+
+        if (_accounts.Any())
+            _selectedAccount = _accounts.First();
+
+        _loading = false;
+    }
+
+    private async Task AnalyzeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_rawText)) return;
+
+        _analyzing = true;
+        StateHasChanged();
+
+        try
+        {
+            var normalized = TextImportNormalizer.NormalizeSingleItem(_rawText);
+            _rawText = normalized;
+
+            var result = await TextImportService.AnalyzeAsync(normalized);
+
+            if (!result.Success || result.Data?.Items.Any() != true)
+            {
+                Snackbar.Add(result.Message ?? "Unable to analyze text.", Severity.Error);
+                _item = null;
+                _selectedCategory = null;
+                return;
+            }
+
+            _item = result.Data.Items.First();
+
+            // If parser didn't provide a hint (or provided a wrong one), try extract from raw text
+            if (string.IsNullOrWhiteSpace(_item.AccountHint) ||
+                (_item.AccountHint.Length == 4 && (_item.AccountHint.StartsWith("19") || _item.AccountHint.StartsWith("20"))))
+            {
+                _item.AccountHint = AccountHintResolver.ExtractHintFromText(_item.RawText) ?? string.Empty;
+            }
+
+            // Auto match account using helper (based on last4 in account name)
+            var accountId = AccountHintResolver.ResolveAccountId(_item.AccountHint, _accounts);
+            if (accountId.HasValue)
+                _selectedAccount = _accounts.FirstOrDefault(x => x.Id == accountId.Value);
+
+            // Optional: keep a default if still null
+            if (_selectedAccount is null && _accounts.Any())
+                _selectedAccount = _accounts.First();
+
+            // Reset category because type/merchant changed
+            _selectedCategory = null;
+
+            Snackbar.Add("Text analyzed. Please review and save.", Severity.Success);
+        }
+        finally
+        {
+            _analyzing = false;
+            StateHasChanged();
+        }
+    }
+
+
+    private bool CanSave()
+        => _item is not null
+           && _item.Amount > 0
+           && _selectedAccount is not null
+           && _selectedCategory is not null;
+
+    private async Task SaveAsync()
+    {
+        if (_item is null || _selectedAccount is null || _selectedCategory is null)
+            return;
+
+        _saving = true;
+
+        var dto = new TransactionDto
+        {
+            Name = _item.Merchant ?? string.Empty,
+            Amount = _item.Amount,
+            Date = _item.DateLocal,
+            Description = _item.Description ?? string.Empty,
+            CategoryId = _selectedCategory.Id,
+            AccountId = _selectedAccount.Id
+        };
+
+        var result = await TransactionService.CreateAsync(dto);
+
+        if (result.Success)
+        {
+            Snackbar.Add("Transaction added", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+
+        _saving = false;
+    }
+
+    private void OnDateChanged(DateTime? date)
+    {
+        if (_item is null || date is null) return;
+
+        _item.DateLocal = new DateTime(date.Value.Year, date.Value.Month, date.Value.Day);
+    }
+
+    private void Clear()
+    {
+        _rawText = string.Empty;
+        _item = null;
+        _selectedCategory = null;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,67 @@
+@page "/confirm-email"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using MoneyTracker.Infrastructure.Persistence
+@inject UserManager<ApplicationUser> UserManager
+
+<MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Email confirmation</MudText>
+
+@if (_isLoading)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </MudStack>
+}
+else if (_succeeded)
+{
+    <MudAlert Severity="Severity.Success" Dense="true" Class="mt-4">
+        Email confirmed successfully. You can now <MudLink Href="/login">sign in</MudLink>.
+    </MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-4">
+        @(_error ?? "Invalid or expired confirmation link.")
+    </MudAlert>
+}
+
+@code {
+    [SupplyParameterFromQuery] public string? UserId { get; set; }
+    [SupplyParameterFromQuery] public string? Code { get; set; }
+
+    private bool _isLoading = true;
+    private bool _succeeded;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Guid.TryParse(UserId, out var userId) || string.IsNullOrWhiteSpace(Code))
+        {
+            _error = "Confirmation parameters are missing.";
+            _isLoading = false;
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            _error = "User not found.";
+            _isLoading = false;
+            return;
+        }
+
+        var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        var result = await UserManager.ConfirmEmailAsync(user, decodedToken);
+
+        _succeeded = result.Succeeded;
+        if (!result.Succeeded)
+        {
+            _error = string.Join(" ", result.Errors.Select(e => e.Description));
+        }
+
+        _isLoading = false;
+    }
+}

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Category;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
 {
@@ -9,78 +10,217 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories.Seeds
         public static void Seed(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Category>().HasData(
-            // Income
-            new Category
-            {
-                Id = 1,
-                Name = "Salary",
-                Icon = "attach_money",
-                Color = "#4CAF50",
-                Type = CategoryType.Income
-            },
-            new Category { Id = 2, Name = "Freelance", Icon = "work_outline", Color = "#66BB6A", Type = CategoryType.Income },
-            new Category { Id = 3, Name = "Investments", Icon = "trending_up", Color = "#81C784", Type = CategoryType.Income },
+                // ========================
+                // CATEGORÍAS DEL SISTEMA (IsSystem = true) - IDs 1-10
+                // ========================
+                new Category
+                {
+                    Id = 1,
+                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME,
+                    Icon = CategoryIcon.AccountBalanceWallet.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 2,
+                    Name = SystemCategoryNames.INITIAL_BALANCE_NAME,
+                    Icon = CategoryIcon.AccountBalanceWallet.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 3,
+                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME,
+                    Icon = CategoryIcon.CurrencyExchange.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 4,
+                    Name = SystemCategoryNames.BALANCE_ADJUSTMENT_NAME,
+                    Icon = CategoryIcon.CurrencyExchange.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = true,
+                },
 
-             new Category
-             {
-                 Id = 4,
-                 Name = "Initial Balance",
-                 Icon = "account_balance_wallet",
-                 Color = "#4CAF50", // Verde para Income
-                 Type = CategoryType.Income
-             },
+                // Transfer Categories (5-10) - AHORA CON TYPE = Transfer
+                new Category
+                {
+                    Id = 5,
+                    Name = SystemCategoryNames.TRANSFER_OUT_NAME,
+                    Icon = CategoryIcon.TrendingDown.ToString(),
+                    Color = "#FF9800",
+                    Type = CategoryTypeEnum.Transfer,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 6,
+                    Name = SystemCategoryNames.TRANSFER_IN_NAME,
+                    Icon = CategoryIcon.TrendingUp.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Transfer, 
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 7,
+                    Name = SystemCategoryNames.CREDIT_PAYMENT_NAME,
+                    Icon = CategoryIcon.CreditCard.ToString(),
+                    Color = "#2196F3",
+                    Type = CategoryTypeEnum.Transfer, 
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 8,
+                    Name = SystemCategoryNames.PAYMENT_RECEIVED_NAME,
+                    Icon = CategoryIcon.Payments.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Transfer,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 9,
+                    Name = SystemCategoryNames.CREDIT_ADVANCE_NAME,
+                    Icon = CategoryIcon.CreditScore.ToString(),
+                    Color = "#FF5722",
+                    Type = CategoryTypeEnum.Transfer,
+                    IsSystem = true,
+                },
+                new Category
+                {
+                    Id = 10,
+                    Name = SystemCategoryNames.ADVANCE_RECEIVED_NAME,
+                    Icon = CategoryIcon.Receipt.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Transfer, 
+                    IsSystem = true,
+                },
 
-            new Category
-            {
-                Id = 5,
-                Name = "Initial Balance",
-                Icon = "account_balance_wallet",
-                Color = "#F44336", // Rojo para Expense
-                Type = CategoryType.Expense
-            },
+                // ========================
+                // CATEGORÍAS DE USUARIO (IsSystem = false) - IDs 11+
+                // ========================
 
-            new Category
-            {
-                Id = 6,
-                Name = "Balance Adjustment",
-                Icon = "tune",
-                Color = "#4CAF50", // Verde para Income
-                Type = CategoryType.Income
-            },
-            new Category
-            {
-                Id = 7,
-                Name = "Balance Adjustment",
-                Icon = "tune",
-                Color = "#F44336", // Rojo para Expense
-                Type = CategoryType.Expense
-            },
+                new Category
+                {
+                    Id = 11,
+                    Name = "Salary",
+                    Icon = CategoryIcon.AttachMoney.ToString(),
+                    Color = "#4CAF50",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 12,
+                    Name = "Freelance",
+                    Icon = CategoryIcon.WorkOutline.ToString(),
+                    Color = "#66BB6A",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 13,
+                    Name = "Investments",
+                    Icon = CategoryIcon.TrendingUp.ToString(),
+                    Color = "#81C784",
+                    Type = CategoryTypeEnum.Income,
+                    IsSystem = false,
+                },
 
-            // Expense
-            new Category
-            {
-                Id = 10,
-                Name = "Food",
-                Icon = "restaurant",
-                Color = "#FF5722",
-                Type = CategoryType.Expense
-            },
-            new Category { Id = 11, Name = "Transport", Icon = "commute", Color = "#2196F3", Type = CategoryType.Expense },
-            new Category { Id = 12, Name = "Rent", Icon = "home", Color = "#3F51B5", Type = CategoryType.Expense },
-            new Category { Id = 13, Name = "Utilities", Icon = "bolt", Color = "#FFC107", Type = CategoryType.Expense },
-            new Category { Id = 14, Name = "Health", Icon = "local_hospital", Color = "#F44336", Type = CategoryType.Expense },
-            new Category { Id = 20, Name = "Entertainment", Icon = "sports_esports", Color = "#9C27B0", Type = CategoryType.Expense },
-            new Category { Id = 21, Name = "Shopping", Icon = "shopping_cart", Color = "#E91E63", Type = CategoryType.Expense },
-            new Category { Id = 22, Name = "Education", Icon = "school", Color = "#00BCD4", Type = CategoryType.Expense },
-            new Category
-            {
-                Id = 23,
-                Name = "Travel",
-                Icon = "flight_takeoff",
-                Color = "#FF9800",
-                Type = CategoryType.Expense
-            }
-        );
+                // Expense Categories (14-22)
+                new Category
+                {
+                    Id = 14,
+                    Name = "Food",
+                    Icon = CategoryIcon.Restaurant.ToString(),
+                    Color = "#FF5722",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 15,
+                    Name = "Transport",
+                    Icon = CategoryIcon.Commute.ToString(),
+                    Color = "#2196F3",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 16,
+                    Name = "Rent/Mortgage",
+                    Icon = CategoryIcon.Home.ToString(),
+                    Color = "#3F51B5",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 17,
+                    Name = "Utilities",
+                    Icon = CategoryIcon.Bolt.ToString(),
+                    Color = "#FFC107",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 18,
+                    Name = "Health",
+                    Icon = CategoryIcon.LocalHospital.ToString(),
+                    Color = "#F44336",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 19,
+                    Name = "Entertainment",
+                    Icon = CategoryIcon.SportsEsports.ToString(),
+                    Color = "#9C27B0",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 20,
+                    Name = "Shopping",
+                    Icon = CategoryIcon.ShoppingCart.ToString(),
+                    Color = "#E91E63",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 21,
+                    Name = "Education",
+                    Icon = CategoryIcon.School.ToString(),
+                    Color = "#00BCD4",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                },
+                new Category
+                {
+                    Id = 22,
+                    Name = "Travel",
+                    Icon = CategoryIcon.FlightTakeoff.ToString(),
+                    Color = "#FF9800",
+                    Type = CategoryTypeEnum.Expense,
+                    IsSystem = false,
+                }
+            );
         }
     }
 }

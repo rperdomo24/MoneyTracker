@@ -17,26 +17,26 @@
             @if (Data != null)
             {
                 <MudStack Spacing="2">
-                    <MudText Typo="Typo.h4" Class="@GetBalanceColorClass(Data.NetWorth)">
-                        @FormatCurrency(Data.NetWorth)
+                    <MudText Typo="Typo.h4" Class="@CurrencyHelper.GetAmountClass(Data.NetWorth)">
+                        @CurrencyHelper.FormatCurrency(Data.NetWorth)
                     </MudText>
 
                     <MudStack Row Justify="Justify.SpaceBetween">
                         <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            Activos: @FormatCurrency(Data.TotalAssets)
+                            Activos: @CurrencyHelper.FormatCurrency(Data.TotalAssets)
                         </MudText>
                         <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            Deudas: @FormatCurrency(Data.TotalLiabilities)
+                            Deudas: @CurrencyHelper.FormatCurrency(Data.TotalLiabilities)
                         </MudText>
                     </MudStack>
 
                     <MudDivider />
 
-                    <MudStack Row AlignItems=" AlignItems.Center" Spacing="2">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
                         <MudChip T="string" Color="@(Data.IsPositiveChange ? Color.Success : Color.Error)"
                                  Size="Size.Small"
                                  Icon="@(Data.IsPositiveChange ? Icons.Material.Filled.TrendingUp : Icons.Material.Filled.TrendingDown)">
-                            @FormatCurrency(Math.Abs(Data.MonthlyChange)) (@(Data.MonthlyChangePercentage)%)
+                            @CurrencyHelper.FormatCurrency(Math.Abs(Data.MonthlyChange)) (@(Data.MonthlyChangePercentage)%)
                         </MudChip>
                         <MudText Typo="Typo.body2" Class="mud-text-secondary">vs mes anterior</MudText>
                     </MudStack>
@@ -63,14 +63,4 @@
 
 @code {
     [Parameter] public DashboardSummaryDto? Data { get; set; }
-
-    private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
-
-    private string GetBalanceColorClass(decimal balance)
-    {
-        return balance >= 0 ? "mud-success-text" : "mud-error-text";
-    }
 }

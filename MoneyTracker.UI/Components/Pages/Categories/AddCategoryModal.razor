@@ -1,293 +1,182 @@
-﻿@using MoneyTracker.Application.DTOs
-@using MoneyTracker.Application.Interfaces
+﻿@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.Constants
-@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Application.Validators
-@using MoneyTracker.Domain.Enums
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared.Pickers
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 @inject ISnackbar Snackbar
 
 <MudDialog>
     <TitleContent>
-        <div class="d-flex align-center">
-            <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-3" Size="Size.Medium" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Medium" />
             <MudText Typo="Typo.h6">Create Category</MudText>
-        </div>
+        </MudStack>
     </TitleContent>
-    
+
     <DialogContent>
-        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
-            
-            @if (_category != null)
-            {
-                <!-- Preview Card -->
-                <MudPaper Class="pa-4 mb-4" Elevation="1" Style="@($"border-left: 4px solid {(_category.Color ?? "#6366f1")};")">
-                    <div class="d-flex align-center">
-                        <MudIcon Icon="@_category.Icon.ToIcon()" 
-                                Style="@($"color: {_category.Color ?? "#6366f1"};")" 
-                                Size="Size.Large" 
-                                Class="mr-3" />
-                        <div class="flex-grow-1">
-                            <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
-                                @(!string.IsNullOrEmpty(_category.Name) ? _category.Name : "Category Name")
-                            </MudText>
-                            <MudText Typo="Typo.body2" Class="text-muted">
-                                @(_selectedCategoryType?.GetDisplayName() ?? "Select category type")
-                                @if (_parentCategory != null)
-                                {
-                                    <span> • Subcategory of @_parentCategory.Name</span>
-                                }
-                            </MudText>
-                        </div>
-                        <MudChip T="string" Size="Size.Small" Color="@(_selectedCategoryType?.GetColor() ?? Color.Default)">
-                            @(_selectedCategoryType?.GetDisplayName() ?? "No Type")
-                        </MudChip>
-                    </div>
-                </MudPaper>
-
+        @if (_category != null)
+        {
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
                 <MudForm Model="@_category" @ref="_form" Validation="validationRules.ValidateValue">
-                    
-                    <!-- Basic Information Section -->
-                    <MudText Typo="Typo.subtitle2" Class="mb-3 font-weight-medium">
-                        <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-2" />
-                        Basic Information
-                    </MudText>
-                    
-                    <MudGrid Class="mb-4">
-                        <MudItem xs="12">
-                            <MudTextField Label="Category Name"
-                                          @bind-Value="_category.Name"
-                                          For="@(() => _category.Name)"
-                                          Variant="Variant.Outlined"
-                                          Required="true"
-                                          Immediate="true"
-                                          HelperText="Enter a descriptive name for your category"
-                                          Placeholder="e.g., Groceries, Salary, Entertainment" />
-                        </MudItem>
-                        
-                        @if (_parentCategory == null)
-                        {
-                            <MudItem xs="12" md="6">
-                                <MudSelect T="CategoryType?"
-                                           Label="Category Type"
-                                           @bind-Value="_selectedCategoryType"
-                                           @bind-Value:after="OnCategoryTypeChanged"
-                                           Variant="Variant.Outlined"
-                                           Required="true"
-                                           HelperText="Choose if this tracks income or expenses"
-                                           Disabled="@(_predefinedType.HasValue)"
-                                           Placeholder="Select category type">
-                                    @foreach (var type in Enum.GetValues<CategoryType>())
-                                    {
-                                        <MudSelectItem Value="@((CategoryType?)type)">
-                                            <div class="d-flex align-center">
-                                                <MudIcon Icon="@type.GetIcon()" Class="mr-2" Size="Size.Small" />
-                                                @type.GetDisplayName()
-                                            </div>
-                                        </MudSelectItem>
-                                    }
-                                </MudSelect>
-                            </MudItem>
-                            
-                            <MudItem xs="12" md="6">
-                                <MudSelect T="CategoryDto"
-                                           Label="Parent Category"
-                                           @bind-Value="_selectedParent"
-                                           @bind-Value:after="OnParentChanged"
-                                           Variant="Variant.Outlined"
-                                           Clearable="false"
-                                           HelperText="Create as subcategory or leave as main category"
-                                           Placeholder="Select parent category">
-                                    <MudSelectItem Value="@((CategoryDto?)null)">
-                                        <div class="d-flex align-center">
-                                            <MudIcon Icon="@Icons.Material.Filled.Clear" Class="mr-2" Size="Size.Small" />
-                                            <strong>None</strong> - Main Category
-                                        </div>
-                                    </MudSelectItem>
-                                    @foreach (var parentOption in _availableParents.Where(p => _selectedCategoryType == null || p.Type == _selectedCategoryType))
-                                    {
-                                        <MudSelectItem Value="@parentOption">
-                                            <div class="d-flex align-center">
-                                                <MudAvatar Size="Size.Small" 
-                                                          Style="@($"background-color: {parentOption.Color}; margin-right: 8px;")">
-                                                    <MudIcon Icon="@parentOption.Icon.ToIcon()" 
-                                                            Color="Color.Surface" 
-                                                            Size="Size.Small" />
-                                                </MudAvatar>
-                                                @parentOption.Name
-                                            </div>
-                                        </MudSelectItem>
-                                    }
-                                </MudSelect>
-                            </MudItem>
-                        }
-                        else
-                        {
-                            <MudItem xs="12">
-                                <MudAlert Severity="Severity.Info" Class="mb-2">
-                                    <div class="d-flex align-center">
-                                        <MudAvatar Size="Size.Small" 
-                                                  Style="@($"background-color: {_parentCategory.Color}; margin-right: 12px;")">
-                                            <MudIcon Icon="@_parentCategory.Icon.ToIcon()" 
-                                                    Color="Color.Surface" 
-                                                    Size="Size.Small" />
-                                        </MudAvatar>
-                                        <div>
-                                            <MudText Typo="Typo.body2">
-                                                <strong>Creating subcategory under:</strong> @_parentCategory.Name
-                                            </MudText>
-                                            <MudText Typo="Typo.caption" Class="text-muted">
-                                                Type will be inherited: @_parentCategory.Type.GetDisplayName()
-                                            </MudText>
-                                        </div>
-                                    </div>
-                                </MudAlert>
-                            </MudItem>
-                        }
-                    </MudGrid>
 
-                    <!-- Appearance Section -->
-                    <MudText Typo="Typo.subtitle2" Class="mb-3 font-weight-medium">
-                        <MudIcon Icon="@Icons.Material.Filled.Palette" Size="Size.Small" Class="mr-2" />
-                        Appearance
-                    </MudText>
-                    
-                    <MudGrid Class="mb-4">
-                        <MudItem xs="12" md="6">
-                            <MudSelect T="CategoryIcon"
-                                       Label="Icon"
-                                       @bind-Value="_category.Icon"
-                                       Variant="Variant.Outlined"
-                                       For="@(() => _category.Icon)"
-                                       HelperText="Choose an icon to represent this category">
-                                @foreach (var icon in GetAvailableIcons())
+                    <!-- Preview Card -->
+                    <MudPaper Class="pa-4 mb-4" Elevation="1" Style="background-color: var(--mud-palette-background-grey);">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                            <MudAvatar Size="Size.Large"
+                                       Style="@($"background-color: {_category.Color}; width: 80px; height: 80px;")">
+                                <MudIcon Icon="@_category.Icon.ToIcon()"
+                                         Color="Color.Surface"
+                                         Style="font-size: 2.5rem;" />
+                            </MudAvatar>
+
+                            <MudStack Spacing="1" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.h5">
+                                    @(!string.IsNullOrWhiteSpace(_category.Name) ? _category.Name : "Category Name")
+                                </MudText>
+
+                                <MudChip T="string" Size="Size.Small" Color="@_category.Type.GetColor()">
+                                    @_category.Type.GetDisplayName()
+                                </MudChip>
+
+                                @if (_selectedParent != null)
                                 {
-                                    <MudSelectItem Value="@icon">
-                                        <div class="d-flex align-center">
-                                            <MudIcon Icon="@icon.ToIcon()"
-                                                    Style="@($"color: {_category.Color ?? "#6366f1"};")"
-                                                    Class="mr-2" 
-                                                    Size="Size.Small" />
-                                            @icon.ToString()
-                                        </div>
-                                    </MudSelectItem>
+                                    <MudText Typo="Typo.caption" Style="opacity: 0.7;">
+                                        Subcategory of @_selectedParent.Name
+                                    </MudText>
                                 }
-                            </MudSelect>
-                        </MudItem>
-                        
-                        <MudItem xs="12" md="6">
-                            <div class="d-flex align-center" style="height: 100%;">
-                                <div style="flex: 1;">
-                                    <MudColorPicker Label="Category Color"
-                                                   ColorPickerMode="ColorPickerMode.HEX"
-                                                   Editable="true"
-                                                   ColorPickerView="ColorPickerView.Grid"
-                                                   PickerVariant="PickerVariant.Dialog"
-                                                   Placeholder="Select Color"
-                                                   HelperText="Choose a color to identify this category"
-                                                   @bind-Text="@_category.Color" />
-                                </div>
-                                <div class="ml-4 text-center">
-                                    <MudText Typo="Typo.caption" Class="mb-2">Preview</MudText>
-                                    <MudIcon Icon="@_category.Icon.ToIcon()" 
-                                            Style="@($"color: {_category.Color ?? "#6366f1"};")" 
-                                            Size="Size.Large" />
-                                </div>
-                            </div>
-                        </MudItem>
-                    </MudGrid>
-                </MudForm>
-            }
-        </MudContainer>
-    </DialogContent>
-    
-    <DialogActions>
-        <div class="d-flex justify-space-between align-center" style="width: 100%;">
-            <MudText Typo="Typo.caption" Class="text-muted">
-                @if (_isSaving)
-                {
-                    <span>Saving category...</span>
-                }
-                else if (_form?.IsValid == false)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
-                    <span>Please fix the errors above</span>
-                }
-                else if (!string.IsNullOrWhiteSpace(_category?.Name) && _selectedCategoryType.HasValue)
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" Color="Color.Success" />
-                    <span>Ready to save</span>
-                }
-                else
-                {
-                    <span>Fill in the category details</span>
-                }
-            </MudText>
-            
-            <div>
-                <MudButton Color="Color.Default" 
-                          Variant="Variant.Text" 
-                          OnClick="Cancel"
-                          Class="mr-2">
-                    Cancel
-                </MudButton>
-                <MudButton Color="Color.Primary" 
-                          Variant="Variant.Filled" 
-                          OnClick="Save"
-                          StartIcon="@Icons.Material.Filled.Save"
-                          Disabled="@(_isSaving || string.IsNullOrWhiteSpace(_category?.Name) || !_selectedCategoryType.HasValue)">
-                    @if (_isSaving)
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+
+                    <!-- Category Name -->
+                    <MudTextField Label="Category Name"
+                                  @bind-Value="_category.Name"
+                                  For="@(() => _category.Name)"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  Immediate="true"
+                                  Class="mb-4"
+                                  Placeholder="e.g., Groceries, Salary" />
+
+                    <!-- Parent Selector -->
+                    @if (_parentCategory == null)
                     {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <span>Creating...</span>
+                        <CategorySelector @bind-SelectedCategory="_selectedParent"
+                                          Categories="@_availableParents"
+                                          FilterByType="@_category.Type"
+                                          Label="Parent Category (Optional)"
+                                          Required="false"
+                                          Clearable="true"
+                                          ShowNoneOption="true"
+                                          NoneText="None (Main Category)"
+                                          ShowAddButton="false" />
                     }
                     else
                     {
-                        <span>Create Category </span>
+                        <MudAlert Severity="Severity.Info" Class="mb-4">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Small" Style="@($"background-color: {_parentCategory.Color};")">
+                                    <MudIcon Icon="@_parentCategory.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
+                                </MudAvatar>
+                                <div>
+                                    <MudText Typo="Typo.body2">
+                                        <strong>Subcategory of:</strong> @_parentCategory.Name
+                                    </MudText>
+                                </div>
+                            </MudStack>
+                        </MudAlert>
                     }
-                </MudButton>
-            </div>
-        </div>
+
+                    <!-- Color Picker -->
+                    <ColorPicker @bind-SelectedColor="_category.Color"
+                                 Label="Color"
+                                 AllowCustomColor="true"
+                                 Class="mb-4" />
+
+                    <!-- Icon Picker -->
+                    <IconPicker @bind-SelectedIcon="_category.Icon"
+                                Label="Icon" />
+
+                </MudForm>
+            </MudContainer>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">
+            Cancel
+        </MudButton>
+
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Save"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@(_isSaving || string.IsNullOrWhiteSpace(_category?.Name))">
+
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Creating...</span>
+            }
+            else
+            {
+                <span>Create</span>
+            }
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
+
     [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
-    [Parameter] public CategoryType? CategoryType { get; set; }
+
+    [Parameter] public CategoryTypeEnum? CategoryType { get; set; }
     [Parameter] public int? ParentId { get; set; }
     [Parameter] public EventCallback OnCategoryUpdated { get; set; }
 
     private readonly CategoryValidator validationRules = new();
+
     private CategoryDto _category = new();
-    private CategoryDto? _parentCategory = null;
-    private CategoryDto? _selectedParent = null;
-    private CategoryType? _selectedCategoryType = null;
-    private CategoryType? _predefinedType = null;
+    private CategoryDto? _selectedParent;
+    private CategoryDto? _parentCategory;
+
+    private List<CategoryDto> _allCategories = new();
     private List<CategoryDto> _availableParents = new();
+
     private MudForm _form = null!;
     private bool _isSaving = false;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadAvailableParents();
+        await LoadCategories();
         InitializeCategory();
+
+        if (ParentId.HasValue && ParentId.Value > 0)
+            LoadParentFromParameter();
     }
 
-    private async Task LoadAvailableParents()
+    private async Task LoadCategories()
     {
         try
         {
-            var result = await CategoryService.GetAllAsync();
+            var result = await CategoryService.GetAllWithChildAsync(false);
+
             if (result.Success && result.Data != null)
             {
-                // Only show categories that can be parents (no parent themselves)
-                _availableParents = result.Data
-                    .Where(c => c.ParentId == null)
+                _allCategories = result.Data.ToList();
+
+                _availableParents = _allCategories
+                    .Where(c => c.ParentId == null && !c.IsSystem)
+                    .OrderBy(c => c.Name)
                     .ToList();
             }
         }
-        catch (Exception ex)
+        catch
         {
             Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
         }
@@ -297,81 +186,29 @@
     {
         _category = new CategoryDto
         {
-            Color = GetRandomColor(),
-            Icon = CategoryIcon.LocalCafe
+            Color = "#ef4444",
+            Icon = CategoryIcon.LocalCafe,
+            Type = CategoryType ?? CategoryTypeEnum.Expense
         };
-
-        // Handle predefined type from parameter
-        if (CategoryType.HasValue)
-        {
-            _selectedCategoryType = CategoryType.Value;
-            _category.Type = CategoryType.Value;
-            _predefinedType = CategoryType.Value;
-        }
-
-        // Handle parent category
-        if (ParentId.HasValue)
-        {
-            _parentCategory = _availableParents.FirstOrDefault(c => c.Id == ParentId.Value);
-            if (_parentCategory != null)
-            {
-                _selectedParent = _parentCategory;
-                _category.ParentId = ParentId.Value;
-                _selectedCategoryType = _parentCategory.Type;
-                _category.Type = _parentCategory.Type;
-                _predefinedType = _parentCategory.Type;
-            }
-        }
     }
 
-    private void OnCategoryTypeChanged()
+    private void LoadParentFromParameter()
     {
-        if (_selectedCategoryType.HasValue)
-        {
-            _category.Type = _selectedCategoryType.Value;
-            
-            // Reset parent if it doesn't match the new category type
-            if (_selectedParent != null && _selectedParent.Type != _selectedCategoryType.Value)
-            {
-                _selectedParent = null;
-                _category.ParentId = null;
-            }
-        }
-        StateHasChanged();
-    }
+        _parentCategory = _allCategories.FirstOrDefault(c => c.Id == ParentId);
 
-    private void OnParentChanged()
-    {
-        if (_selectedParent != null)
+        if (_parentCategory != null)
         {
-            _category.ParentId = _selectedParent.Id;
-            _selectedCategoryType = _selectedParent.Type;
-            _category.Type = _selectedParent.Type;
-            _predefinedType = _selectedParent.Type;
+            _selectedParent = _parentCategory;
+            _category.ParentId = _parentCategory.Id;
+            _category.Type = _parentCategory.Type;
         }
-        else
-        {
-            _category.ParentId = null;
-            // Only keep predefined type if it came from CategoryType parameter
-            if (ParentId.HasValue)
-            {
-                _predefinedType = null;
-            }
-            
-            // If no CategoryType parameter was provided, allow free selection
-            if (!CategoryType.HasValue)
-            {
-                _predefinedType = null;
-            }
-        }
-        StateHasChanged();
     }
 
     private void Cancel() => MudDialog?.Close(DialogResult.Cancel());
 
     private async Task Save()
     {
-        if (_isSaving || string.IsNullOrWhiteSpace(_category?.Name) || !_selectedCategoryType.HasValue) 
+        if (_isSaving || string.IsNullOrWhiteSpace(_category?.Name))
             return;
 
         _isSaving = true;
@@ -379,9 +216,6 @@
 
         try
         {
-            // Ensure the category type is set from the selected value
-            _category.Type = _selectedCategoryType.Value;
-            
             await _form.Validate();
 
             if (!_form.IsValid)
@@ -390,7 +224,11 @@
                 return;
             }
 
+            // ✅ Sync ParentId from selector
+            _category.ParentId = _selectedParent?.Id;
+
             var result = await CategoryService.CreateAsync(_category);
+
             if (result.Success)
             {
                 Snackbar.Add(OperationMessages.Created, Severity.Success);
@@ -402,7 +240,7 @@
                 Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
             }
         }
-        catch (Exception ex)
+        catch
         {
             Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
         }
@@ -411,23 +249,5 @@
             _isSaving = false;
             StateHasChanged();
         }
-    }
-
-    private IEnumerable<CategoryIcon> GetAvailableIcons()
-    {
-        // You can filter icons based on category type if needed
-        return Enum.GetValues<CategoryIcon>();
-    }
-
-    private string GetRandomColor()
-    {
-        var colors = new[]
-        {
-            "#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#f97316",
-            "#f59e0b", "#eab308", "#84cc16", "#22c55e", "#10b981",
-            "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1"
-        };
-        var random = new Random();
-        return colors[random.Next(colors.Length)];
     }
 }

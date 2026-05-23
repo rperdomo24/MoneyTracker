@@ -21,9 +21,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
+                    .AsNoTracking()
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
-                    .AsNoTracking() 
+                    .Include(c => c.Children)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -33,12 +34,43 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task<List<Category>> GetAllAsync(bool includeChildren, bool incluideSystem)
+        {
+            try
+            {
+                IQueryable<Category> query = _context.Categories
+                    .AsNoTracking()
+                    .Where(c => !c.IsDeleted);
+
+                if (!incluideSystem)
+                    query = query.Where(c => !c.IsSystem);
+
+                // Para budgets NO necesitas Include.
+                // Si lo querés conservar para otras pantallas, ok:
+                if (includeChildren)
+                    query = query.Include(c => c.Children);
+
+                query = query
+                    .OrderBy(c => c.Type)
+                    .ThenBy(c => c.ParentId)   // ayuda cuando lo agrupas por parent
+                    .ThenBy(c => c.Name);
+
+                return await query.ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all categories.");
+                return new();
+            }
+        }
+
+
         public async Task<List<Category>> GetAllWithSubcategoriesAsync()
         {
             try
             {
                 return await _context.Categories
-                    .Include(c => c.Subcategories)
+                    .Include(c => c.Children)
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
                     .AsNoTracking()
@@ -56,7 +88,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             try
             {
                 return await _context.Categories
-                    .Include(c => c.Subcategories)
+                    .Include(c => c.Children)
                     .FirstOrDefaultAsync(c => c.Id == id);
             }
             catch (Exception ex)

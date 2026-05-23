@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.Domain.Enums
+@using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Helpers
 
 
@@ -15,10 +16,10 @@
         </CardHeaderContent>
     </MudCardHeader>
     <MudCardContent>
-        @if (Data.Any() == true)
+        @if (TopAccounts.Count > 0)
         {
             <MudList T="string" Dense="true">
-                @foreach (var account in Data.Take(4))
+                @foreach (var account in TopAccounts)
                 {
                     <MudListItem T="string">
                         <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
@@ -28,9 +29,11 @@
                                     <MudIcon Icon="@account.Icon.ToIcon()" />
                                 </MudAvatar>
                                 <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2" Style="font-weight: 500;">
+                                    <MudLink Href="@GetAccountDetailsUrl(account.AccountId)"
+                                             Typo="Typo.body2"
+                                             Underline="Underline.Hover">
                                         @account.AccountName
-                                    </MudText>
+                                    </MudLink>
                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
                                         @GetLastActivityText(account.LastActivity)
                                     </MudText>
@@ -38,9 +41,9 @@
                             </MudStack>
                             <MudStack AlignItems="AlignItems.End" Spacing="0">
                                 <MudText Typo="Typo.body2" 
-                                        Class="@GetBalanceColorClass(account.CurrentBalance)"
+                                        Class="@CurrencyHelper.GetAmountClass(account.CurrentBalance)"
                                         Style="font-weight: 600;">
-                                    @FormatCurrency(account.CurrentBalance)
+                                    @CurrencyHelper.FormatCurrency(account.CurrentBalance)
                                 </MudText>
                                 <MudStack Row AlignItems="AlignItems.Center" Spacing="1" >
                                     <MudChip T="string" Size="Size.Small" 
@@ -58,22 +61,12 @@
                             </MudStack>
                         </MudStack>
                     </MudListItem>
-                    @if (account != Data.Take(4).Last())
+                    @if (account != TopAccounts.Last())
                     {
                         <MudDivider />
                     }
                 }
             </MudList>
-            
-            @if (Data.Count > 4)
-            {
-                <MudDivider Class="my-3" />
-                <MudButton Variant="Variant.Text" 
-                          FullWidth="true" 
-                          OnClick="ViewAllAccounts">
-                    Ver todas las cuentas (+@(Data.Count - 4))
-                </MudButton>
-            }
         }
         else
         {
@@ -97,16 +90,9 @@
 @code {
 
     [Parameter] public List<AccountActivityDto>? Data { get; set; }
-
-    private string FormatCurrency(decimal amount)
-    {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
-    }
-
-    private string GetBalanceColorClass(decimal balance)
-    {
-        return balance >= 0 ? "mud-success-text" : "mud-error-text";
-    }
+    private List<AccountActivityDto> TopAccounts => (Data ?? [])
+        .Take(4)
+        .ToList();
 
     private Color GetActivityColor(string activityLevel)
     {
@@ -130,11 +116,7 @@
         };
     }
 
-  
-    private void ViewAllAccounts()
-    {
-        // Navigate to accounts page
-    }
+    private static string GetAccountDetailsUrl(int accountId) => $"/accounts/{accountId}";
 
     private string GetLastActivityText(DateTime? lastActivity)
     {

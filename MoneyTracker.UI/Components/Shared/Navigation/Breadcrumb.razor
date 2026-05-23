@@ -1,0 +1,58 @@
+﻿@* Breadcrumb Component with Icon Support *@
+<MudHidden Breakpoint="Breakpoint.SmAndUp">
+
+    @if (Items?.Any() == true)
+    {
+        var current = Items.Last();
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            @if (!string.IsNullOrEmpty(current.Icon))
+            {
+                <MudIcon Icon="@current.Icon" Size="Size.Small" />
+            }
+
+            <MudText Typo="Typo.h6">
+                @current.Text
+            </MudText>
+        </MudStack>
+    }
+
+</MudHidden>
+
+<MudHidden Breakpoint="Breakpoint.Xs">
+
+    <MudBreadcrumbs Items="@Items">
+        <ItemTemplate Context="item">
+            @if (item.Disabled)
+            {
+                <div class="d-flex align-center ga-1">
+                    @if (!string.IsNullOrEmpty(item.Icon))
+                    {
+                        <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                    }
+                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                        @item.Text
+                    </MudText>
+                </div>
+            }
+            else
+            {
+                <MudLink Href="@item.Href"
+                         Typo="Typo.body2"
+                         Class="d-flex align-center ga-1">
+                    @if (!string.IsNullOrEmpty(item.Icon))
+                    {
+                        <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                    }
+                    <span>@item.Text</span>
+                </MudLink>
+            }
+        </ItemTemplate>
+    </MudBreadcrumbs>
+
+</MudHidden>
+
+@code {
+    [Parameter]
+    public List<BreadcrumbItem> Items { get; set; } = new();
+}

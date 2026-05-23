@@ -1,101 +1,179 @@
-﻿@using MoneyTracker.Application.DTOs.Dashboard
+@using ApexCharts
+@using MoneyTracker.Application.DTOs.Dashboard
 @using MoneyTracker.UI.Helpers
 
 <MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="MudBlazor.Color.Secondary" Size="MudBlazor.Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountTree" />
+                </MudAvatar>
+                <MudText Typo="Typo.h6">Cash Flow by Category</MudText>
+            </MudStack>
+        </CardHeaderContent>
+    </MudCardHeader>
+
     <MudCardContent>
-        <MudStack Spacing="3">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems=" AlignItems.Center">
-                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                    <MudAvatar Color="Color.Secondary" Size="Size.Medium">
-                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" />
-                    </MudAvatar>
-                    <MudText Typo="Typo.h6">Flujo de Efectivo (Junio)</MudText>
+        @if (_points.Any())
+        {
+            <MudStack Spacing="2">
+                <ApexChart TItem="CashFlowPoint" Options="_chartOptions" Height="280">
+                    <ApexPointSeries TItem="CashFlowPoint"
+                                     Items="_points"
+                                     Name="Income"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="p => p.Category"
+                                     YValue="p => p.Income" />
+                    <ApexPointSeries TItem="CashFlowPoint"
+                                     Items="_points"
+                                     Name="Expenses"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="p => p.Category"
+                                     YValue="p => p.Expenses" />
+                </ApexChart>
+
+                <MudStack Row Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Class="mud-success-text">
+                        Income: @CurrencyHelper.FormatCurrency(_totalIncome)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="mud-error-text">
+                        Expenses: @CurrencyHelper.FormatCurrency(_totalExpenses)
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(_net)">
+                        Net: @CurrencyHelper.FormatCurrency(_net)
+                    </MudText>
                 </MudStack>
             </MudStack>
-
-            @if (Data != null)
-            {
-                <MudStack Spacing="2">
-                    <MudGrid>
-                        <MudItem xs="6">
-                            <MudStack Spacing="1">
-                                <MudText Typo="Typo.h5" Class="mud-success-text">
-                                    @FormatCurrency(Data.TotalIncome)
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Ingresos</MudText>
-                            </MudStack>
-                        </MudItem>
-                        <MudItem xs="6">
-                            <MudStack Spacing="1">
-                                <MudText Typo="Typo.h5" Class="mud-error-text">
-                                    -@FormatCurrency(Data.TotalExpenses)
-                                </MudText>
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Gastos</MudText>
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-
-                    <MudDivider />
-
-                    <MudStack Spacing="1">
-                        <MudText Typo="Typo.h6" Class="@GetBalanceColorClass(Data.NetCashFlow)">
-                            Flujo Neto: @FormatCurrency(Data.NetCashFlow)
-                        </MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            Promedio diario: -@FormatCurrency(Data.DailyBurnRate)
-                        </MudText>
-                    </MudStack>
-
-                    <MudProgressLinear Value="@GetMonthProgress()"
-                                       Color="Color.Primary"
-                                       Size="Size.Medium"
-                                       Class="my-2" />
-
-                    <MudStack Row Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @Data.DaysLeftInMonth días restantes
-                        </MudText>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @Data.DaysElapsed/@Data.DaysInMonth días
-                        </MudText>
-                    </MudStack>
-
-                    @if (Math.Abs(Data.ProjectedMonthEnd - Data.NetCashFlow) > 100)
-                    {
-                        <MudAlert Severity="@(Data.ProjectedMonthEnd < 0 ? Severity.Warning : Severity.Info)" Dense="true">
-                            Al ritmo actual: @FormatCurrency(Data.ProjectedMonthEnd) al fin de mes
-                        </MudAlert>
-                    }
-                </MudStack>
-            }
-            else
-            {
-                <MudStack Spacing="2">
-                    <MudSkeleton Height="40px" />
-                    <MudSkeleton Height="20px" />
-                    <MudSkeleton Height="20px" />
-                </MudStack>
-            }
-        </MudStack>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Not enough data to build the cash flow chart for this range.
+            </MudAlert>
+        }
     </MudCardContent>
 </MudCard>
 
 @code {
     [Parameter] public CashFlowDto? Data { get; set; }
+    [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
 
-    private string FormatCurrency(decimal amount)
+    private readonly List<CashFlowPoint> _points = new();
+    private ApexChartOptions<CashFlowPoint> _chartOptions = new();
+    private decimal _totalIncome;
+    private decimal _totalExpenses;
+    private decimal _net;
+
+    protected override void OnParametersSet()
     {
-        return amount < 0 ? $"-${Math.Abs(amount):N2}" : $"${amount:N2}";
+        _points.Clear();
+        _totalIncome = 0;
+        _totalExpenses = 0;
+        _net = 0;
+
+        if (Data is null)
+        {
+            _chartOptions = BuildOptions(IsDarkMode);
+            return;
+        }
+
+        _totalIncome = Data.TotalIncome;
+        _totalExpenses = Data.TotalExpenses;
+        _net = Data.NetCashFlow;
+
+        var income = GetTopCategories(Data.IncomeByCategory, 5, "Other Income");
+        var expenses = GetTopCategories(Data.ExpenseByCategory, 5, "Other Expenses");
+
+        var merged = new Dictionary<string, CashFlowPoint>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in income)
+        {
+            if (!merged.TryGetValue(item.CategoryName, out var point))
+            {
+                point = new CashFlowPoint { Category = item.CategoryName };
+                merged[item.CategoryName] = point;
+            }
+
+            point.Income += Math.Abs(item.Amount);
+        }
+
+        foreach (var item in expenses)
+        {
+            if (!merged.TryGetValue(item.CategoryName, out var point))
+            {
+                point = new CashFlowPoint { Category = item.CategoryName };
+                merged[item.CategoryName] = point;
+            }
+
+            point.Expenses += Math.Abs(item.Amount);
+        }
+
+        _points.AddRange(
+            merged.Values
+                .OrderByDescending(x => x.Income + x.Expenses)
+                .Take(8));
+
+        _chartOptions = BuildOptions(IsDarkMode);
     }
 
-    private string GetBalanceColorClass(decimal balance)
+    private static List<CashFlowCategoryDto> GetTopCategories(
+        List<CashFlowCategoryDto> categories,
+        int maxItems,
+        string otherName)
     {
-        return balance >= 0 ? "mud-success-text" : "mud-error-text";
+        if (categories.Count <= maxItems)
+            return categories;
+
+        var top = categories.Take(maxItems).ToList();
+        var otherAmount = categories.Skip(maxItems).Sum(x => x.Amount);
+
+        if (otherAmount > 0)
+        {
+            top.Add(new CashFlowCategoryDto
+            {
+                CategoryName = otherName,
+                Amount = otherAmount
+            });
+        }
+
+        return top;
     }
 
-    private double GetMonthProgress()
+    private static ApexChartOptions<CashFlowPoint> BuildOptions(bool isDarkMode)
+        => new()
+        {
+            Chart = new Chart
+            {
+                Type = ApexCharts.ChartType.Bar,
+                Toolbar = new Toolbar { Show = false },
+                Background = "transparent"
+            },
+            Theme = new Theme
+            {
+                Mode = isDarkMode ? Mode.Dark : Mode.Light
+            },
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    Horizontal = true,
+                    BorderRadius = 4
+                }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Colors = new List<string> { "#2ecc71", "#e74c3c" },
+            Legend = new Legend
+            {
+                Show = true,
+                Position = LegendPosition.Top
+            }
+        };
+
+    private sealed class CashFlowPoint
     {
-        if (Data == null || Data.DaysInMonth == 0) return 0;
-        return ((double)Data.DaysElapsed / Data.DaysInMonth) * 100;
+        public string Category { get; set; } = string.Empty;
+        public decimal Income { get; set; }
+        public decimal Expenses { get; set; }
     }
 }

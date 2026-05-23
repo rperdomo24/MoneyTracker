@@ -1,7 +1,17 @@
 ﻿@using System.Reflection
 @inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Components.Shared.Drawer
+@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Components.Drawer
+@using MoneyTracker.UI.Services.Branding
 @inject ProtectedSessionStorage SessionStorage
+@inject AccountsDrawerState AccountsDrawer
+@inject IUserProfileService UserProfileService
+@inject IAccountService AccountService
+@inject IBrandingService BrandingService
+@inject NavigationManager Navigation
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
@@ -9,121 +19,188 @@
 <MudPopoverProvider />
 
 <MudLayout>
-    <!-- Enhanced Top AppBar -->
+    <!-- Top AppBar -->
     <MudAppBar Elevation="2" Color="Color.Default" Fixed="true">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" 
-                       Color="Color.Inherit" 
-                       Edge="Edge.Start" 
-                       OnClick="@DrawerToggle"
-                       Title="Toggle Menu" />
-        
-        <div class="d-flex align-center">
-            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" 
-                     Size="Size.Medium" 
-                     Class="mr-2" />
-            <MudText Typo="Typo.h6" Class="font-weight-bold">
-                Money Tracker
-            </MudText>
-        </div>
-        
-        <MudSpacer />
-        
-        <!-- Header Actions -->
-        <div class="d-flex align-center">
-            <!-- Quick Balance Display (Optional) -->
-            @if (_showQuickBalance)
-            {
-                <MudChip T="string" Size="Size.Small" 
-                         Color="Color.Success" 
-                         Icon="@Icons.Material.Filled.AccountBalance"
-                         Class="mr-3">
-                    $12,345.67
-                </MudChip>
-            }
-            
-            <!-- Notifications -->
-            <MudIconButton Icon="@Icons.Material.Filled.Notifications" 
+
+        <!-- Desktop drawer toggle -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            <MudIconButton Icon="@(_desktopNavCollapsed ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)"
                            Color="Color.Inherit"
                            Class="mr-1"
-                           Title="Notifications">
-                <MudBadge Content="3" 
-                          Color="Color.Error" 
-                          Overlap="true" 
-                          Bordered="true">
-                </MudBadge>
-            </MudIconButton>
-            
-            <!-- Theme Toggle -->
-            <MudTooltip Text="@(_isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")">
-                <MudIconButton Icon="@DarkLightModeButtonIcon" 
-                               Color="Color.Inherit" 
-                               OnClick="@DarkModeToggle" />
-            </MudTooltip>
-            
-            <!-- User Menu -->
-            <MudMenu Icon="@Icons.Material.Filled.AccountCircle" 
-                     Color="Color.Inherit"
-                     Direction="Origin.BottomRight"
-                     OffsetY="true"
-                     Dense="true">
-                <MudMenuItem Icon="@Icons.Material.Filled.Person">Profile</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.Settings">Settings</MudMenuItem>
+                           OnClick="ToggleDesktopNavAsync" />
+        </MudHidden>
+
+        <!-- Brand mark (Mobile) -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
+                      Alt="Money Tracker"
+                      Width="36"
+                      Height="36"
+                      Class="mr-2" />
+        </MudHidden>
+
+        <MudSpacer />
+
+        <!-- Desktop/Tablet: Net Worth -->
+        <MudHidden Breakpoint="Breakpoint.SmAndDown">
+            @if (_showQuickBalance && _quickBalanceLoaded)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="@_quickBalanceColor"
+                         Class="mr-3">
+                    @CurrencyHelper.FormatCurrency(_quickBalanceAmount)
+                </MudChip>
+            }
+        </MudHidden>
+
+        <!-- Mobile: Net Worth compact chip -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            @if (_showQuickBalance && _quickBalanceLoaded)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Variant="Variant.Outlined"
+                         Color="@_quickBalanceColor"
+                         Class="mr-2">
+                    @CurrencyHelper.FormatCurrency(_quickBalanceAmount)
+                </MudChip>
+            }
+        </MudHidden>
+
+        <!-- Accounts Drawer toggle (ALL pages, from layout) -->
+        <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                       Color="Color.Inherit"
+                       Class="mr-1"
+                       OnClick="ToggleAccountsDrawer" />
+
+        <!-- Notifications -->
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications"
+                       Color="Color.Inherit"
+                       Class="mr-1"
+                       title="Notifications">
+            <MudBadge Content="3"
+                      Color="Color.Error"
+                      Overlap="true"
+                      Bordered="true">
+            </MudBadge>
+        </MudIconButton>
+
+        <!-- User Menu -->
+        <MudMenu Color="Color.Inherit"
+                 Dense="true"
+                 @bind-Open="_profileMenuOpen"
+                 AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           Class="text-none px-1"
+                           OnClick="OpenProfileMenu">
+                    <MudAvatar Size="Size.Small"
+                               Class="mr-2"
+                               Style="overflow: hidden; background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
+                        @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
+                        {
+                            <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+                        }
+                    </MudAvatar>
+
+                    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                        <MudText Typo="Typo.body2" Class="mr-1">@UserDisplayName</MudText>
+                    </MudHidden>
+
+                    <MudIcon Icon="@(_profileMenuOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+                </MudButton>
+            </ActivatorContent>
+
+            <ChildContent>
+
+                <MudMenuItem Icon="@DarkLightModeButtonIcon" OnClick="@DarkModeToggle">
+                    @(_isDarkMode ? "Light mode" : "Dark mode")
+                </MudMenuItem>
+
                 <MudDivider />
-                <MudMenuItem Icon="@Icons.Material.Filled.Help">Help & Support</MudMenuItem>
-                <MudMenuItem Icon="@Icons.Material.Filled.Logout">Sign Out</MudMenuItem>
-            </MudMenu>
-        </div>
+
+                <MudMenuItem Href="/settings" Icon="@Icons.Material.Filled.Settings">
+                    Settings
+                </MudMenuItem>
+
+                <MudMenuItem Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">
+                    Accounts
+                </MudMenuItem>
+
+                <MudMenuItem Href="/categories" Icon="@Icons.Material.Filled.Category">
+                    Categories
+                </MudMenuItem>
+
+                <MudDivider />
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Help">
+                    Help & Support
+                </MudMenuItem>
+
+                <MudMenuItem Href="/auth/logout" Icon="@Icons.Material.Filled.Logout">
+                    Sign Out
+                </MudMenuItem>
+
+            </ChildContent>
+        </MudMenu>
+
+
     </MudAppBar>
 
-    <!-- Enhanced Side Drawer -->
-    <MudDrawer @bind-Open="_drawerOpen" 
-               ClipMode="DrawerClipMode.Always" 
-               Variant="DrawerVariant.Responsive" 
-               Elevation="2" 
-               Class="drawer-custom">
-        
-        <!-- Drawer Header -->
-        <div class="pa-4 d-flex align-center" style="min-height: 64px; border-bottom: 1px solid var(--mud-palette-divider);">
-            <MudAvatar Size="Size.Medium" 
-                       Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));"
-                       Class="mr-3">
-                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
-            </MudAvatar>
-            <div class="flex-grow-1" style="min-width: 0;">
-                <MudText Typo="Typo.subtitle2" Class="font-weight-medium">
-                    John Doe
-                </MudText>
-                <MudText Typo="Typo.caption" Class="text-truncate">
-                    john.doe@example.com
-                </MudText>
+    <!-- LEFT DRAWER (Desktop/Tablet): expanded menu -->
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudDrawer Open="true"
+                   Variant="DrawerVariant.Persistent"
+                   Width="@(_desktopNavCollapsed ? "88px" : "260px")"
+                   ClipMode="DrawerClipMode.Always"
+                   Elevation="2"
+                   Overlay="false"
+                   Class="@DesktopDrawerClass">
+
+            <!-- Drawer header -->
+            <div class="pa-2 d-flex align-center justify-center"
+                 style="min-height: 72px; border-bottom: 1px solid var(--mud-palette-divider);">
+                @if (_desktopNavCollapsed)
+                {
+                    <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
+                              Alt="Money Tracker"
+                              Width="30"
+                              Height="30" />
+                }
+                else
+                {
+                    <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.HorizontalLogo, _isDarkMode)"
+                              Alt="Money Tracker"
+                              Width="140"
+                              Height="36" />
+                }
             </div>
-        </div>
-        
-        <!-- Navigation Menu -->
-        <NavMenu />
-        
-        <!-- Drawer Footer -->
-        <div class="mt-auto pa-3" style="border-top: 1px solid var(--mud-palette-divider);">
-            <MudStack Spacing="2">
-                <!-- Quick Stats -->
-                <MudPaper Class="pa-2" Elevation="0" Style="background: var(--mud-palette-action-disabled-background);">
-                    <MudText Typo="Typo.caption" Class="text-muted">Total Balance</MudText>
-                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">$12,345.67</MudText>
-                </MudPaper>
-                
-                <!-- App Info -->
-                <MudText Typo="Typo.caption" Align="Align.Center" Class="text-muted">
+
+            <!-- Navigation Menu -->
+            <NavMenu />
+
+            <!-- Footer mini -->
+            <div class="mt-auto pa-2 d-flex justify-center"
+                 style="border-top: 1px solid var(--mud-palette-divider);">
+                <MudText Typo="Typo.caption" Class="text-muted">
                     v@(GetAppVersion())
                 </MudText>
-            </MudStack>
-        </div>
-    </MudDrawer>
+            </div>
 
-    <!-- Main Content Area -->
+        </MudDrawer>
+    </MudHidden>
+
+    <!-- MAIN CONTENT -->
     <MudMainContent Class="main-content-custom">
-        <!-- Content Container -->
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-6">
-            <!-- Breadcrumb Navigation (Optional) -->
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
+
             @if (_showBreadcrumbs)
             {
                 <MudBreadcrumbs Items="_breadcrumbItems" Class="mb-4">
@@ -138,30 +215,33 @@
                     </ItemTemplate>
                 </MudBreadcrumbs>
             }
-            
-            <!-- Page Content -->
+
             <div class="page-content">
-                @Body
+                <CascadingValue Name="IsDarkMode" Value="_isDarkMode">
+                    @Body
+                </CascadingValue>
             </div>
         </MudContainer>
 
-        <!-- Enhanced Footer -->
+        <!-- Footer -->
         <footer class="footer-custom mt-auto">
             <MudDivider />
             <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
-                <MudGrid AlignItems="Center">
+                <MudGrid Justify="Justify.Center">
                     <MudItem xs="12" md="6">
                         <MudText Typo="Typo.caption" Class="text-muted">
                             <MudIcon Icon="@Icons.Material.Filled.Copyright" Size="Size.Small" Class="mr-1" />
                             Money Tracker © @DateTime.Now.Year - All rights reserved
                         </MudText>
                     </MudItem>
+
                     <MudItem xs="12" md="6" Class="text-right">
                         <MudStack Row Spacing="3" Justify="Justify.FlexEnd" Class="d-none d-md-flex">
                             <MudLink Href="/privacy" Typo="Typo.caption" Class="text-muted">Privacy</MudLink>
                             <MudLink Href="/terms" Typo="Typo.caption" Class="text-muted">Terms</MudLink>
                             <MudLink Href="/support" Typo="Typo.caption" Class="text-muted">Support</MudLink>
                         </MudStack>
+
                         <MudText Typo="Typo.caption" Class="text-muted d-block d-md-none">
                             v@(GetAppVersion())
                         </MudText>
@@ -170,9 +250,75 @@
             </MudContainer>
         </footer>
     </MudMainContent>
+
+    <!-- MOBILE BOTTOM NAV (only mobile) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudAppBar Bottom="true" Fixed="true" Elevation="8" Color="Color.Surface">
+
+            <MudIconButton Icon="@Icons.Material.Filled.AccountBalanceWallet"
+                           Color="Color.Inherit"
+                           Href="/accounts"
+                           title="accounts" />
+
+            <MudSpacer />
+
+            <MudIconButton Icon="@Icons.Material.Filled.Dashboard"
+                           Color="Color.Inherit"
+                           Href="/"
+                           title="Home" />
+
+            <MudSpacer />
+
+            <MudIconButton Icon="@Icons.Material.Filled.ListAlt"
+                           Color="Color.Inherit"
+                           Href="/transactions"
+                           title="Transactions" />
+
+            <MudSpacer />
+
+            <MudIconButton Icon="@Icons.Material.Filled.PieChart"
+                           Color="Color.Inherit"
+                           Href="/budgets"
+                           title="Budgets" />
+        </MudAppBar>
+    </MudHidden>
+
+    <!-- ✅ ACCOUNTS DRAWER (Mobile: modal con overlay) -->
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudDrawer Anchor="Anchor.End"
+                   Variant="DrawerVariant.Temporary"
+                   Elevation="6"
+                   OverlayAutoClose="true"
+                   Overlay="false"
+                   Width="400px"
+                   @bind-Open="AccountsDrawerOpen">
+
+            <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
+                                 OnClose="CloseAccountsDrawer"
+                                 @key="AccountsDrawerOpen" />
+        </MudDrawer>
+    </MudHidden>
+
+    <!-- ✅ ACCOUNTS DRAWER (Desktop/Tablet: persistent SIN overlay) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudDrawer Anchor="Anchor.End"
+                   Variant="DrawerVariant.Persistent"
+                   ClipMode="DrawerClipMode.Always"
+                   Elevation="2"
+                   Width="420px"
+                   Overlay="true"
+                   OverlayAutoClose="false"
+                   @bind-Open="AccountsDrawerOpen">
+
+            <AccountsQuickDrawer IsOpen="AccountsDrawerOpen"
+                                 OnClose="CloseAccountsDrawer"
+                                 @key="AccountsDrawerOpen" />
+        </MudDrawer>
+    </MudHidden>
+
 </MudLayout>
 
-<!-- Enhanced Blazor Error UI -->
+<!-- Blazor Error UI -->
 <div id="blazor-error-ui" class="blazor-error-ui">
     <div class="error-content">
         <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
@@ -184,15 +330,15 @@
                 </div>
             </div>
             <div class="mt-3">
-                <MudButton Variant="Variant.Outlined" 
-                           Color="Color.Surface" 
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Surface"
                            StartIcon="@Icons.Material.Filled.Refresh"
-                           OnClick="() => { }" 
+                           OnClick="() => { }"
                            Class="reload mr-2">
                     Reload Page
                 </MudButton>
-                <MudButton Variant="Variant.Text" 
-                           Color="Color.Surface" 
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Surface"
                            StartIcon="@Icons.Material.Filled.Close"
                            Class="dismiss">
                     Dismiss
@@ -203,27 +349,40 @@
 </div>
 
 <style>
-    .drawer-custom {
-        display: flex;
-        flex-direction: column;
-    }
-    
     .main-content-custom {
+        background: var(--mud-palette-background);
         display: flex;
         flex-direction: column;
         min-height: 100vh;
     }
-    
+
     .page-content {
         flex: 1;
         min-height: calc(100vh - 200px);
     }
-    
+
     .footer-custom {
         margin-top: auto;
         background: var(--mud-palette-surface);
     }
-    
+
+    .drawer-collapsed .mud-nav-link-text,
+    .drawer-collapsed .mud-nav-group-text,
+    .drawer-collapsed .mud-nav-group-expand-icon {
+        display: none !important;
+    }
+
+    .drawer-collapsed .mud-nav-link,
+    .drawer-collapsed .mud-nav-group {
+        justify-content: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .drawer-custom {
+        transition: width 0.2s ease;
+    }
+
     .blazor-error-ui {
         position: fixed;
         top: 0;
@@ -237,21 +396,90 @@
         justify-content: center;
         padding: 2rem;
     }
-    
-    .blazor-error-ui .error-content {
-        max-width: 500px;
-        width: 100%;
-    }
-  
+
+        .blazor-error-ui .error-content {
+            max-width: 500px;
+            width: 100%;
+        }
 </style>
 
 @code {
-    private bool _drawerOpen = true;
+    private const string SessionKey_IsDarkMode = "isDarkMode";
+    private const string SessionKey_AccountsDrawerOpen = "accountsDrawerOpen";
+    private const string SessionKey_DesktopNavCollapsed = "desktopNavCollapsed";
+
     private bool _isDarkMode = true;
+    private bool _desktopNavCollapsed;
+    private bool _profileMenuOpen;
     private bool _showQuickBalance = true;
+    private bool _quickBalanceLoaded;
+    private decimal _quickBalanceAmount;
+    private Color _quickBalanceColor = Color.Info;
     private bool _showBreadcrumbs = false;
     private MudTheme? _theme;
     private bool _initialized = false;
+    private string? _userDisplayName;
+    private string? _userAvatarDataUrl;
+
+    private bool AccountsDrawerOpen
+    {
+        get => AccountsDrawer.IsOpen;
+        set => _ = SetAccountsDrawerOpenAsync(value);
+    }
+
+    private string DesktopDrawerClass => _desktopNavCollapsed
+        ? "drawer-custom drawer-collapsed"
+        : "drawer-custom drawer-expanded";
+
+    protected override void OnInitialized()
+    {
+        AccountsDrawer.OnChange += AccountsDrawerChanged;
+        AccountsDrawer.OnRefreshRequested += AccountsRefreshRequested;
+    }
+
+    private async void AccountsDrawerChanged()
+    {
+        await SaveAccountsDrawerStateAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void AccountsRefreshRequested()
+    {
+        await LoadQuickBalanceAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task CloseAccountsDrawer()
+        => AccountsDrawer.CloseAsync();
+
+    private Task ToggleAccountsDrawer()
+        => AccountsDrawer.ToggleAsync();
+
+    private async Task ToggleDesktopNavAsync()
+    {
+        _desktopNavCollapsed = !_desktopNavCollapsed;
+        await SaveDesktopNavStateAsync();
+    }
+
+    private async Task SetAccountsDrawerOpenAsync(bool open)
+    {
+        if (open)
+            await AccountsDrawer.OpenAsync();
+        else
+            await AccountsDrawer.CloseAsync();
+    }
+
+    private Task OpenProfileMenu()
+    {
+        _profileMenuOpen = true;
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        AccountsDrawer.OnChange -= AccountsDrawerChanged;
+        AccountsDrawer.OnRefreshRequested -= AccountsRefreshRequested;
+    }
 
     private List<BreadcrumbItem> _breadcrumbItems = new()
     {
@@ -265,13 +493,33 @@
         {
             PaletteLight = _lightPalette,
             PaletteDark = _darkPalette,
+            Typography = new Typography
+            {
+                Default = new DefaultTypography
+                {
+                    FontFamily = ["Poppins", "Segoe UI", "sans-serif"]
+                },
+                H1 = new H1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H2 = new H2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H3 = new H3Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H4 = new H4Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H5 = new H5Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H6 = new H6Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Body1 = new Body1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Body2 = new Body2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Button = new ButtonTypography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] }
+            },
             LayoutProperties = new LayoutProperties
             {
-                AppbarHeight = "64px",
-                DrawerWidthLeft = "280px"
+                AppbarHeight = "80px"
             },
         };
+
+        await LoadCurrentUserProfileAsync();
+        await LoadQuickBalanceAsync();
     }
+
+    private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "Profile" : _userDisplayName;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -281,12 +529,19 @@
 
             try
             {
-                var result = await SessionStorage.GetAsync<bool>("isDarkMode");
-                if (result.Success)
-                {
-                    _isDarkMode = result.Value;
-                    StateHasChanged();
-                }
+                var themeResult = await SessionStorage.GetAsync<bool>(SessionKey_IsDarkMode);
+                if (themeResult.Success)
+                    _isDarkMode = themeResult.Value;
+
+                var drawerResult = await SessionStorage.GetAsync<bool>(SessionKey_AccountsDrawerOpen);
+                if (drawerResult.Success)
+                    await SetAccountsDrawerOpenAsync(drawerResult.Value);
+
+                var desktopNavResult = await SessionStorage.GetAsync<bool>(SessionKey_DesktopNavCollapsed);
+                if (desktopNavResult.Success)
+                    _desktopNavCollapsed = desktopNavResult.Value;
+
+                StateHasChanged();
             }
             catch (Exception ex)
             {
@@ -295,21 +550,84 @@
         }
     }
 
+    private async Task SaveAccountsDrawerStateAsync()
+    {
+        try
+        {
+            await SessionStorage.SetAsync(SessionKey_AccountsDrawerOpen, AccountsDrawer.IsOpen);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving accounts drawer state: {ex.Message}");
+        }
+    }
+
+    private async Task SaveDesktopNavStateAsync()
+    {
+        try
+        {
+            await SessionStorage.SetAsync(SessionKey_DesktopNavCollapsed, _desktopNavCollapsed);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving desktop nav state: {ex.Message}");
+        }
+    }
+
     private async void DarkModeToggle()
     {
         _isDarkMode = !_isDarkMode;
+
         try
         {
-            await SessionStorage.SetAsync("isDarkMode", _isDarkMode);
+            await SessionStorage.SetAsync(SessionKey_IsDarkMode, _isDarkMode);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving theme preference: {ex.Message}");
         }
+
         StateHasChanged();
     }
 
-    private void DrawerToggle() => _drawerOpen = !_drawerOpen;
+    private void OpenUserSettings()
+        => Navigation.NavigateTo("/settings");
+
+    private async Task LoadCurrentUserProfileAsync()
+    {
+        var result = await UserProfileService.GetCurrentProfileAsync();
+        if (!result.Success || result.Data is null)
+        {
+            return;
+        }
+
+        _userDisplayName = string.IsNullOrWhiteSpace(result.Data.DisplayName) ? result.Data.Email : result.Data.DisplayName;
+        _userAvatarDataUrl = result.Data.AvatarDataUrl;
+    }
+
+    private async Task LoadQuickBalanceAsync()
+    {
+        try
+        {
+            var result = await AccountService.GetAccountsWithBalancesAsync();
+            _quickBalanceAmount = (result.Success && result.Data is not null)
+                ? result.Data.Sum(a => a.CurrentBalance)
+                : 0m;
+        }
+        catch
+        {
+            _quickBalanceAmount = 0m;
+        }
+
+        _quickBalanceColor = CurrencyHelper.GetAmountColor(_quickBalanceAmount) switch
+        {
+            Color.Error => Color.Error,
+            Color.Default => Color.Info,
+            _ => Color.Success
+        };
+
+        _quickBalanceLoaded = true;
+    }
 
     private string GetAppVersion()
     {
@@ -317,55 +635,55 @@
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
 
-    private readonly PaletteLight _lightPalette = new()
-    {
-        Primary = "#3b3c3d",
-        Secondary = "#71c4ef",
-        Background = "#fffefb",
-        Surface = "#f5f4f1",
-        AppbarBackground = "#f5f4f1",
-        AppbarText = "#1d1c1c",
-        DrawerBackground = "#fffefb",
-        DrawerText = "#1d1c1c",
-        DrawerIcon = "#3b3c3d",
-        TextPrimary = "#1d1c1c",
-        TextSecondary = "#313d44",
-        ActionDefault = "#3b3c3d",
-        ActionDisabled = "#b6ccd8",
-        ActionDisabledBackground = "#d4eaf7",
-        Info = "#00668c",
-        Success = "#1fab89",
-        Warning = "#f39c12",
-        Error = "#e74c3c",
-        TableLines = "#cccbc8",
-        LinesDefault = "#cccbc8",
-        Divider = "#cccbc8"
-    };
+   private readonly PaletteLight _lightPalette = new()
+{
+    Primary = "#2143B5",          // Azul Cobalto (Logo)
+    Secondary = "#2A364E",        // Gris Slate Oscuro (Hierarchy)
+    Background = "#F4F7F6",       // Gris ultra claro para profundidad
+    Surface = "#FFFFFF",          // Blanco puro para tarjetas
+    AppbarBackground = "#FFFFFF",
+    AppbarText = "#2A364E",
+    DrawerBackground = "#FFFFFF",
+    DrawerText = "#2A364E",
+    DrawerIcon = "#2143B5",
+    TextPrimary = "#2A364E",      // Legibilidad máxima
+    TextSecondary = "#607186",    // Gris medio para labels
+    ActionDefault = "#2143B5",
+    ActionDisabled = "#B6CCD8",
+    ActionDisabledBackground = "#E0E6E9",
+    Info = "#2143B5",
+    Success = "#2BD48A",          // Verde Esmeralda (Logo)
+    Warning = "#F39C12",
+    Error = "#EF5350",            // Rojo suave para gastos
+    TableLines = "#E0E0E0",
+    LinesDefault = "#E0E0E0",
+    Divider = "#E0E0E0"
+};
 
-    private readonly PaletteDark _darkPalette = new()
-    {
-        Primary = "#0085ff",
-        Secondary = "#006fff",
-        Background = "#1E1E1E",
-        Surface = "#2d2d2d",
-        AppbarBackground = "#2d2d2d",
-        AppbarText = "#FFFFFF",
-        DrawerBackground = "#1E1E1E",
-        DrawerText = "#FFFFFF",
-        DrawerIcon = "#69b4ff",
-        TextPrimary = "#FFFFFF",
-        TextSecondary = "#9e9e9e",
-        ActionDefault = "#0085ff",
-        ActionDisabled = "#454545",
-        ActionDisabledBackground = "#2d2d2d",
-        Info = "#e1ffff",
-        Success = "#3dcb6c",
-        Warning = "#ffb545",
-        Error = "#ff3f5f",
-        TableLines = "#454545",
-        LinesDefault = "#454545",
-        Divider = "#454545"
-    };
+   private readonly PaletteDark _darkPalette = new()
+{
+    Primary = "#2BD48A",          // Invertimos a Verde para resaltar en negro
+    Secondary = "#94A3B8",        // Gris azulado claro
+    Background = "#0D1117",       // Negro profundo estilo GitHub
+    Surface = "#161B22",          // Gris oscuro para tarjetas
+    AppbarBackground = "#161B22",
+    AppbarText = "#F4F7F6",
+    DrawerBackground = "#0D1117",
+    DrawerText = "#F4F7F6",
+    DrawerIcon = "#2BD48A",
+    TextPrimary = "#F4F7F6",
+    TextSecondary = "#94A3B8",
+    ActionDefault = "#2BD48A",
+    ActionDisabled = "#30363D",
+    ActionDisabledBackground = "#161B22",
+    Info = "#2143B5",
+    Success = "#2BD48A",
+    Warning = "#FFB545",
+    Error = "#FF3F5F",
+    TableLines = "#30363D",
+    LinesDefault = "#30363D",
+    Divider = "#30363D"
+};
 
     public string DarkLightModeButtonIcon => _isDarkMode
         ? Icons.Material.Rounded.LightMode

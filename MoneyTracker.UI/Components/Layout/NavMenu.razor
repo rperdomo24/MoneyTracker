@@ -1,16 +1,18 @@
 ﻿<MudNavMenu>
 
     <!-- Dashboard -->
-    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Dashboard">Overview</MudNavLink>
-@*     <MudNavLink Href="/calendar" Icon="@Icons.Material.Filled.CalendarToday">Calendar</MudNavLink>
+    <MudNavLink Href="/" Icon="@Icons.Material.Filled.Dashboard">Home</MudNavLink>
+    <MudNavLink Href="/transactions" Icon="@Icons.Material.Filled.ListAlt">Transactions</MudNavLink>
     <MudNavLink Href="/budgets" Icon="@Icons.Material.Filled.PieChart">Budgets</MudNavLink>
-    *@
 
+@*     <MudNavLink Href="/calendar" Icon="@Icons.Material.Filled.CalendarToday">Calendar</MudNavLink>
+*@
     <!-- Management -->
-    <MudNavGroup Title="Management" Icon="@Icons.Material.Filled.ManageAccounts">
+    <MudNavGroup Title="Settings" Icon="@Icons.Material.Filled.Settings">
         <MudNavLink Href="/accounts" Icon="@Icons.Material.Filled.AccountBalanceWallet">Accounts</MudNavLink>
         <MudNavLink Href="/categories" Icon="@Icons.Material.Filled.Category">Categories</MudNavLink>
-        <MudNavLink Href="/transactions" Icon="@Icons.Material.Filled.ListAlt">Transactions</MudNavLink>
+        <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Person">My Profile</MudNavLink>
+        <MudNavLink Href="/logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
     </MudNavGroup>
 
     <!-- Settings -->

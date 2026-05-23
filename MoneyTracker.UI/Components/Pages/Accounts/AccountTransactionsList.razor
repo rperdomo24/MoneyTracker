@@ -1,0 +1,321 @@
+﻿@* Components/Pages/Accounts/AccountTransactionList.razor *@
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Components.Pages.Transactions
+@using MoneyTracker.UI.Components.Shared
+@using MoneyTracker.UI.Components.Shared.Navigation
+@using MoneyTracker.UI.Components.Shared.Selection
+@using MoneyTracker.UI.Helpers
+@inject ITransactionService TransactionService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<TransactionListBase GroupedTransactions="@_groupedTransactions"
+                     Loading="@_loading"
+                     ShowAccounts="false"
+                     HasActiveFilters="@_hasActiveFilters"
+                     EmptyStateMessage="Start by adding your first transaction for this account"
+                     TotalTransactions="@_totalTransactions"
+                     CurrentPage="@_currentPage"
+                     TotalPages="@_totalPages"
+                     RowsPerPage="@_rowsPerPage"
+                     PageSizeOptions="@(new List<int> { 5, 10, 25, 50, 100 })"
+                     SelectedTransactionIds="@_selectedTransactionIds"
+                     SelectedTransactionIdsChanged="@OnSelectedTransactionsChanged"
+                     AllTransactions="@_allTransactionsUnfiltered"
+                     OnEdit="EditTransaction"
+                     OnDuplicate="DuplicateTransaction"
+                     OnDelete="DeleteTransaction"
+                     OnClearFilters="OnClearFilters"
+                     OnDeleteSelected="DeleteSelectedTransactions"
+                     OnPageChanged="HandlePageChanged"
+                     OnRowsPerPageChanged="HandleRowsPerPageChanged" />
+
+<SelectionActionBar SelectedCount="@_selectedTransactionIds.Count"
+                    OnClearSelection="ClearSelection"
+                    OnDeleteSelected="DeleteSelectedTransactions" />
+
+<UpdateTransactionDrawer @bind-IsOpen="_drawerOpen"
+                         TransactionId="@_selectedTransactionId"
+                         OnTransactionUpdated="OnTransactionUpdatedHandler" />
+
+@code {
+    [Parameter] public int AccountId { get; set; }
+    [Parameter] public TransactionFilterDto Filter { get; set; } = new();
+    [Parameter] public EventCallback OnTransactionChanged { get; set; }
+    [Parameter] public EventCallback OnClearFilters { get; set; }
+    [Parameter] public EventCallback OnLoaded { get; set; }
+
+    private bool _loading = true;
+    private bool _hasActiveFilters = false;
+
+    private List<TransactionGroupDto> _groupedTransactions = new();
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private int _rowsPerPage = 10;
+    private int _totalTransactions = 0;
+
+    private TransactionSummaryDto? _transactionSummary;
+    private List<TransactionDto>? _allTransactionsUnfiltered;
+
+    private HashSet<int> _selectedTransactionIds = new();
+    private bool _drawerOpen = false;
+    private int _selectedTransactionId = 0;
+
+    private int _lastAccountId;
+    private string _lastFilterKey = string.Empty;
+
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AccountId <= 0) return;
+
+        var currentKey = BuildFilterKey(AccountId, Filter);
+
+        // Reload if account changes OR filter changes
+        var mustReload = AccountId != _lastAccountId || !string.Equals(currentKey, _lastFilterKey, StringComparison.Ordinal);
+
+        if (!mustReload) return;
+
+        // If filters changed (not just account), reset to first page
+        if (_lastAccountId == AccountId && _lastFilterKey != string.Empty && _lastFilterKey != currentKey)
+            _currentPage = 1;
+
+        _lastAccountId = AccountId;
+        _lastFilterKey = currentKey;
+
+        await LoadTransactions();
+    }
+
+    private async Task LoadTransactions()
+    {
+        _loading = true;
+        _selectedTransactionIds.Clear();
+        StateHasChanged();
+
+        // Cancel previous in-flight request
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        try
+        {
+            var requestFilter = new TransactionFilterDto
+            {
+                SearchText = Filter.SearchText,
+                TimePeriod = Filter.TimePeriod,
+                Type = Filter.Type,
+                CategoryId = Filter.CategoryId,
+                AccountIds = new List<int> { AccountId }
+            };
+
+            // If your service supports cancellation, pass ct there.
+            // If not, still keep ct to avoid applying stale results.
+            var result = await TransactionService.GetFilteredAsync(requestFilter);
+
+            if (ct.IsCancellationRequested) return;
+
+            if (result.Success && result.Data != null)
+            {
+                _transactionSummary = result.Data;
+                _allTransactionsUnfiltered = _transactionSummary.Transactions?.ToList() ?? new();
+
+                if (_transactionSummary.Transactions != null)
+                {
+                    _transactionSummary.Transactions = TransactionGroupingHelper
+                        .FilterForDisplay(_transactionSummary.Transactions, requestFilter);
+                }
+
+                _hasActiveFilters = HasActiveFilters(requestFilter);
+                GroupTransactions();
+            }
+            else
+            {
+                _transactionSummary = new TransactionSummaryDto();
+                _allTransactionsUnfiltered = new();
+                _groupedTransactions = new();
+                _totalPages = 1;
+                _totalTransactions = 0;
+            }
+        }
+        catch
+        {
+            if (!ct.IsCancellationRequested)
+                Snackbar.Add("Error loading transactions", Severity.Error);
+
+            _transactionSummary = new TransactionSummaryDto();
+            _allTransactionsUnfiltered = new();
+            _groupedTransactions = new();
+            _totalPages = 1;
+            _totalTransactions = 0;
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _loading = false;
+                StateHasChanged();
+                await OnLoaded.InvokeAsync();
+            }
+        }
+    }
+
+    private void GroupTransactions()
+    {
+        if (_transactionSummary?.Transactions == null)
+        {
+            _groupedTransactions = new();
+            _totalPages = 1;
+            _totalTransactions = 0;
+            return;
+        }
+
+        var (groups, totalPages, totalCount) = TransactionGroupingHelper.GroupAndPaginateTransactions(
+            _transactionSummary.Transactions, _currentPage, _rowsPerPage);
+
+        _groupedTransactions = groups;
+        _totalPages = totalPages;
+        _totalTransactions = totalCount;
+    }
+
+    private void OnSelectedTransactionsChanged(HashSet<int> selectedIds)
+    {
+        _selectedTransactionIds = selectedIds;
+        StateHasChanged();
+    }
+
+    private Task HandlePageChanged(int page)
+    {
+        _currentPage = page;
+        GroupTransactions();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleRowsPerPageChanged(int newSize)
+    {
+        _rowsPerPage = newSize;
+        _currentPage = 1;
+        GroupTransactions();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void EditTransaction(TransactionDto tx)
+    {
+        _selectedTransactionId = tx.Id;
+        _drawerOpen = true;
+    }
+
+    private async Task DuplicateTransaction(TransactionDto tx)
+    {
+        try
+        {
+            var result = await TransactionService.DuplicateTransactionAsync(tx.Id);
+            if (result.Success)
+            {
+                AccountsDrawer.RequestRefresh();
+                Snackbar.Add("Transaction duplicated", Severity.Success);
+                await LoadTransactions();
+                await OnTransactionChanged.InvokeAsync();
+            }
+            else Snackbar.Add("Error duplicating", Severity.Error);
+        }
+        catch (Exception ex) { Snackbar.Add($"Error: {ex.Message}", Severity.Error); }
+    }
+
+    private async Task DeleteTransaction(TransactionDto tx)
+    {
+        var isTransfer = tx.TransferPairId.HasValue;
+        var message = isTransfer
+            ? "Delete this transfer? This will delete both transactions."
+            : $"Delete '{tx.Name}'?";
+
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
+            $"Delete {(isTransfer ? "Transfer" : "Transaction")}",
+            message, yesText: "Delete", cancelText: "Cancel") ?? false;
+
+        if (!confirmed) return;
+
+        var result = isTransfer
+            ? await TransactionService.DeleteTransferAsync(tx.Id)
+            : await TransactionService.DeleteAsync(tx.Id);
+
+        if (result.Success)
+        {
+            AccountsDrawer.RequestRefresh();
+            await LoadTransactions();
+            Snackbar.Add("Deleted", Severity.Success);
+            await OnTransactionChanged.InvokeAsync();
+        }
+        else Snackbar.Add("Error deleting", Severity.Error);
+    }
+
+    private async Task DeleteSelectedTransactions()
+    {
+        if (_selectedTransactionIds.Count == 0) return;
+
+        bool confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete Transactions",
+            $"Delete {_selectedTransactionIds.Count} transaction(s)?",
+            yesText: "Delete", cancelText: "Cancel") ?? false;
+
+        if (!confirmed) return;
+
+        int successCount = 0;
+
+        foreach (var id in _selectedTransactionIds.ToList())
+        {
+            var tx = _transactionSummary?.Transactions?.FirstOrDefault(t => t.Id == id);
+            if (tx == null) continue;
+
+            var result = tx.TransferPairId.HasValue
+                ? await TransactionService.DeleteTransferAsync(id)
+                : await TransactionService.DeleteAsync(id);
+
+            if (result.Success) successCount++;
+        }
+
+        if (successCount > 0)
+        {
+            AccountsDrawer.RequestRefresh();
+            Snackbar.Add($"{successCount} deleted", Severity.Success);
+            await LoadTransactions();
+            _selectedTransactionIds.Clear();
+            await OnTransactionChanged.InvokeAsync();
+        }
+    }
+
+    private void ClearSelection()
+    {
+        _selectedTransactionIds.Clear();
+        StateHasChanged();
+    }
+
+    private async Task OnTransactionUpdatedHandler()
+    {
+        await LoadTransactions();
+        await OnTransactionChanged.InvokeAsync();
+    }
+
+    private bool HasActiveFilters(TransactionFilterDto filter)
+        => filter.TimePeriod != TimePeriodFilter.Last30Days ||
+           !string.IsNullOrWhiteSpace(filter.SearchText) ||
+           filter.CategoryId.HasValue ||
+           filter.Type.HasValue;
+
+    private static string BuildFilterKey(int accountId, TransactionFilterDto filter)
+    {
+        // String key: stable & simple
+        return $"{accountId}|{filter.TimePeriod}|{filter.FromDate:yyyyMMdd}|{filter.ToDate:yyyyMMdd}|{filter.Type?.ToString() ?? ""}|{filter.CategoryId?.ToString() ?? ""}|{(filter.SearchText ?? "").Trim()}";
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

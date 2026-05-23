@@ -1,5 +1,5 @@
 ﻿using MoneyTracker.Domain.Entities;
-using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
 
 namespace MoneyTracker.Domain.Interfaces
 {

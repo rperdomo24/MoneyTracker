@@ -2,6 +2,8 @@
 {
     public class ApplicationSettings
     {
+        public bool EnablePublicRegistration { get; set; }
+        public string PublicBaseUrl { get; set; } = string.Empty;
         public string DefaultTimeZone { get; set; } = "America/New_York";
         public string DateFormat { get; set; } = "yyyy-MM-dd";
         public string DateTimeFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";

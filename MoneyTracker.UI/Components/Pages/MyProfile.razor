@@ -1,0 +1,14 @@
+@page "/my-profile"
+@inject NavigationManager Navigation
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo("/settings", false);
+    }
+}

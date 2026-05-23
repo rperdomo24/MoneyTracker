@@ -1,0 +1,126 @@
+@page "/register"
+@attribute [AllowAnonymous]
+@layout Layout.AuthLayout
+@using Microsoft.Extensions.Options
+@using MoneyTracker.Application.Constants.Configuration
+@inject IOptions<ApplicationSettings> ApplicationOptions
+
+@if (ApplicationOptions.Value.EnablePublicRegistration)
+{
+    <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Create account</MudText>
+    <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-4">Create your MoneyTracker access.</MudText>
+
+    <form method="post" action="/auth/register">
+        <AntiforgeryToken />
+
+        <MudTextField @bind-Value="_displayName"
+                      Label="Display name (optional)"
+                      Variant="Variant.Outlined"
+                      FullWidth="true" />
+
+        <MudTextField @bind-Value="_email"
+                      Label="Email"
+                      Variant="Variant.Outlined"
+                      InputType="InputType.Email"
+                      FullWidth="true"
+                      Class="mt-3" />
+
+        <MudTextField @bind-Value="_password"
+                      Label="Password"
+                      Variant="Variant.Outlined"
+                      InputType="@PasswordInputType"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@PasswordAdornmentIcon"
+                      OnAdornmentClick="TogglePasswordVisibility"
+                      FullWidth="true"
+                      Class="mt-3" />
+
+        <MudTextField @bind-Value="_confirmPassword"
+                      Label="Confirm password"
+                      Variant="Variant.Outlined"
+                      InputType="@ConfirmPasswordInputType"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@ConfirmPasswordAdornmentIcon"
+                      OnAdornmentClick="ToggleConfirmPasswordVisibility"
+                      FullWidth="true"
+                      Class="mt-3" />
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@Error</MudAlert>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Info))
+        {
+            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">@Info</MudAlert>
+        }
+
+        <input type="hidden" name="displayName" value="@_displayName" />
+        <input type="hidden" name="email" value="@_email" />
+        <input type="hidden" name="password" value="@_password" />
+        <input type="hidden" name="confirmPassword" value="@_confirmPassword" />
+
+        <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" FullWidth="true" Class="mt-4">
+            Create account
+        </MudButton>
+    </form>
+}
+else
+{
+    <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Closed beta</MudText>
+    <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-2">
+        Public registration is disabled while beta access is managed by invitation.
+    </MudText>
+    <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-2">
+        If you already have an invite link, open it to finish your registration.
+    </MudText>
+}
+
+<MudText Typo="Typo.body2" Align="Align.Center" Class="mt-4">
+    Already have an account? <MudLink Href="/login">Sign in</MudLink>
+</MudText>
+
+@code {
+    [SupplyParameterFromQuery] public string? DisplayName { get; set; }
+    [SupplyParameterFromQuery] public string? Email { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Info { get; set; }
+
+    private string _displayName = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private bool _showPassword;
+    private bool _showConfirmPassword;
+    private InputType PasswordInputType => _showPassword ? InputType.Text : InputType.Password;
+    private InputType ConfirmPasswordInputType => _showConfirmPassword ? InputType.Text : InputType.Password;
+    private string PasswordAdornmentIcon => _showPassword
+        ? Icons.Material.Filled.VisibilityOff
+        : Icons.Material.Filled.Visibility;
+    private string ConfirmPasswordAdornmentIcon => _showConfirmPassword
+        ? Icons.Material.Filled.VisibilityOff
+        : Icons.Material.Filled.Visibility;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrWhiteSpace(DisplayName))
+        {
+            _displayName = DisplayName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(Email))
+        {
+            _email = Email;
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        _showConfirmPassword = !_showConfirmPassword;
+    }
+}
