@@ -93,6 +93,7 @@
 
 @code {
     [Parameter] public List<BalanceTrendDto>? Data { get; set; }
+    [Parameter] public string PeriodLabel { get; set; } = string.Empty;
     [CascadingParameter(Name = "IsDarkMode")] public bool IsDarkMode { get; set; }
 
     private readonly List<BalancePoint> _chartData = new();
@@ -138,7 +139,9 @@
 
         _startDateLabel = sorted.First().Date.ToString("dd MMM yyyy");
         _endDateLabel = sorted.Last().Date.ToString("dd MMM yyyy");
-        _periodLabel = $"{Math.Max(1, (sorted.Last().Date - sorted.First().Date).Days + 1)}D";
+        _periodLabel = string.IsNullOrWhiteSpace(PeriodLabel)
+            ? $"{Math.Max(1, (sorted.Last().Date - sorted.First().Date).Days + 1)}D"
+            : PeriodLabel;
 
         _chartOptions = BuildOptions(IsDarkMode, _endValue < 0);
     }

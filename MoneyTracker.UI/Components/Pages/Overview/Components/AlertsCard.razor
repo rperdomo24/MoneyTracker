@@ -1,4 +1,5 @@
 ﻿@using MoneyTracker.Application.DTOs.Dashboard
+@inject NavigationManager NavigationManager
 
 <MudCard Class="dashboard-card">
     <MudCardContent>
@@ -112,7 +113,5 @@
     }
 
     private void ShowAllAlerts()
-    {
-        // Implementation to show all alerts dialog
-    }
+        => NavigationManager.NavigateTo("/accounts");
 }

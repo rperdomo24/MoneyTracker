@@ -1,0 +1,108 @@
+@using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.UI.Helpers
+@inject NavigationManager NavigationManager
+
+<MudCard Class="dashboard-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Tertiary" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.Flag" />
+                </MudAvatar>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Savings Goals</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @_activeGoals.Count active @(_activeGoals.Count == 1 ? "goal" : "goals")
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudButton Variant="Variant.Text"
+                       Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Flag"
+                       OnClick="@(() => NavigationManager.NavigateTo("/goals"))">
+                View all
+            </MudButton>
+        </CardHeaderActions>
+    </MudCardHeader>
+
+    <MudCardContent>
+        @if (_activeGoals.Any())
+        {
+            <MudStack Spacing="3">
+                @foreach (var goal in _activeGoals.Take(3))
+                {
+                    <MudStack Spacing="1">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="min-width:0;">
+                                <div style="@($"width:10px;height:10px;border-radius:50%;background:{goal.Color};flex-shrink:0;")"></div>
+                                <MudText Typo="Typo.body2" Class="text-truncate">@goal.Name</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="white-space:nowrap;">
+                                @CurrencyHelper.FormatCurrency(goal.CurrentAmount) / @CurrencyHelper.FormatCurrency(goal.TargetAmount)
+                            </MudText>
+                        </MudStack>
+
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressLinear Value="@goal.ProgressPercent"
+                                               Color="Color.Tertiary"
+                                               Size="Size.Small"
+                                               Style="@($"--mud-palette-tertiary:{goal.Color};")"
+                                               Class="flex-1" />
+                            <MudText Typo="Typo.caption" Style="@($"color:{goal.Color};font-weight:600;min-width:36px;text-align:right;")">
+                                @goal.ProgressPercent%
+                            </MudText>
+                        </MudStack>
+
+                        @if (goal.TargetDate.HasValue)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Target: @goal.TargetDate.Value.ToString("MMM yyyy")
+                                @if (goal.TargetDate.Value > DateTime.Today)
+                                {
+                                    var daysLeft = (goal.TargetDate.Value - DateTime.Today).Days;
+                                    <span> &mdash; @daysLeft days left</span>
+                                }
+                            </MudText>
+                        }
+                    </MudStack>
+                }
+
+                @if (_activeGoals.Count > 3)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary" Align="Align.Center">
+                        +@(_activeGoals.Count - 3) more goals
+                    </MudText>
+                }
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.Flag" Size="Size.Large" Color="Color.Default" />
+                <MudText Typo="Typo.body2" Class="mud-text-secondary" Align="Align.Center">No active goals</MudText>
+                <MudButton Variant="Variant.Text"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => NavigationManager.NavigateTo("/goals"))">
+                    Create a goal
+                </MudButton>
+            </MudStack>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter] public List<SavingsGoalDto>? Data { get; set; }
+
+    private List<SavingsGoalDto> _activeGoals = new();
+
+    protected override void OnParametersSet()
+    {
+        _activeGoals = Data?
+            .Where(g => !g.IsCompleted)
+            .OrderBy(g => g.ProgressPercent)
+            .ToList() ?? new();
+    }
+}

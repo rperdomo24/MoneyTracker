@@ -9,9 +9,11 @@
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.DTOs.Goals
 @using System.Threading
 @inject IDashboardService DashboardService
 @inject IDashboardFilterStateService DashboardFilterState
+@inject ISavingsGoalService GoalService
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
@@ -77,17 +79,18 @@
         @if (_isLoading)
         {
             @* KPI skeletons *@
-            <MudItem xs="12" sm="4"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
-            <MudItem xs="12" sm="4"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
-            <MudItem xs="12" sm="4"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
+            <MudItem xs="6" sm="3"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
+            <MudItem xs="6" sm="3"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
+            <MudItem xs="6" sm="3"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
+            <MudItem xs="6" sm="3"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
             <MudItem xs="12">
                 <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="380px" />
             </MudItem>
         }
         else
         {
-            @* KPI strip *@
-            <MudItem xs="12" sm="4">
+            @* KPI strip — 4 cards, 2-per-row on mobile, 4-in-a-row on sm+ *@
+            <MudItem xs="6" sm="3">
                 <MudPaper Class="pa-3 kpi-card" Elevation="0">
                     <MudStack Spacing="0">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
@@ -101,7 +104,7 @@
                 </MudPaper>
             </MudItem>
 
-            <MudItem xs="12" sm="4">
+            <MudItem xs="6" sm="3">
                 <MudPaper Class="pa-3 kpi-card" Elevation="0">
                     <MudStack Spacing="0">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
@@ -115,7 +118,7 @@
                 </MudPaper>
             </MudItem>
 
-            <MudItem xs="12" sm="4">
+            <MudItem xs="6" sm="3">
                 <MudPaper Class="pa-3 kpi-card" Elevation="0">
                     <MudStack Spacing="0">
                         <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
@@ -131,22 +134,50 @@
                 </MudPaper>
             </MudItem>
 
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-3 kpi-card" Elevation="0">
+                    <MudStack Spacing="0">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Savings" Color="Color.Info" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Savings Rate</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.h6"
+                                 Class="@(_savingsRate >= 20 ? "mud-success-text" : _savingsRate > 0 ? "mud-warning-text" : "mud-error-text")"
+                                 Style="font-weight:600;">
+                            @(_savingsRate.ToString("N1"))%
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            @* Alerts — full width, only visible when there are active alerts *@
+            @if (_alerts.Any(a => a.Type != "Healthy"))
+            {
+                <MudItem xs="12">
+                    <AlertsCard Data="_alerts" />
+                </MudItem>
+            }
+
             @* Main row: Net Worth hero + Category breakdown *@
             <MudItem xs="12" md="8">
-                <BalanceTrendCard Data="_balanceTrend" />
+                <BalanceTrendCard Data="_balanceTrend" PeriodLabel="@_selectedPeriodLabel" />
             </MudItem>
 
             <MudItem xs="12" md="4">
                 <CategoryBreakdownCard Data="_categoryBreakdown" />
             </MudItem>
 
-            @* Secondary row: Recent transactions + Budget *@
-            <MudItem xs="12" md="6">
+            @* Secondary row: Recent transactions + Budget + Goals *@
+            <MudItem xs="12" md="4">
                 <RecentTransactionsCard Data="_recentTransactions" />
             </MudItem>
 
-            <MudItem xs="12" md="6">
+            <MudItem xs="12" md="4">
                 <BudgetSummaryCard Data="_budgetSummary" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <GoalsSummaryCard Data="_goals" />
             </MudItem>
         }
     </MudGrid>
@@ -176,10 +207,11 @@
     private bool _isLoading = true;
     private List<BalanceTrendDto> _balanceTrend = new();
     private DashboardBudgetSummaryDto _budgetSummary = new();
-    private List<DashboardSpendingTrendDto> _spendingTrend = new();
     private List<CategoryBreakdownDto> _categoryBreakdown = new();
     private List<RecentTransactionDto> _recentTransactions = new();
     private CashFlowDto? _cashFlow;
+    private List<FinancialAlertDto> _alerts = new();
+    private List<SavingsGoalDto> _goals = new();
     private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
     private DateTime? _customFromDate;
     private DateTime? _customToDate;
@@ -187,6 +219,13 @@
     private readonly SemaphoreSlim _loadLock = new(1, 1);
 
     private string UserDisplayName => string.IsNullOrWhiteSpace(_userDisplayName) ? "User" : _userDisplayName;
+
+    private decimal _savingsRate => _cashFlow is { TotalIncome: > 0 }
+        ? ((_cashFlow.TotalIncome - _cashFlow.TotalExpenses) / _cashFlow.TotalIncome) * 100m
+        : 0m;
+
+    private string _selectedPeriodLabel =>
+        _periodOptions.FirstOrDefault(x => x.Value == _selectedPeriod).Label ?? "Period";
     private static readonly List<(TimePeriodFilter Value, string Label)> _periodOptions =
     [
         (TimePeriodFilter.AllTime, "All time"),
@@ -354,10 +393,11 @@
 
             var balanceTrendResult = await DashboardService.GetBalanceTrendAsync(filter);
             var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync(filter);
-            var spendingTrendResult = await DashboardService.GetSpendingTrendAsync(filter);
             var categoryBreakdownResult = await DashboardService.GetCategoryBreakdownAsync(filter);
             var cashFlowResult = await DashboardService.GetCashFlowAsync(filter);
             var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(filter, 6);
+            var alertsResult = await DashboardService.GetAlertsAsync();
+            var goalsResult = await GoalService.GetAllAsync();
             if (!balanceTrendResult.Success)
             {
                 Snackbar.Add($"Error loading Net Worth Trend: {balanceTrendResult.Message}", Severity.Error);
@@ -376,16 +416,6 @@
             if (budgetSummaryResult.Data is null)
             {
                 Snackbar.Add("No Budget Summary data was returned.", Severity.Error);
-                return;
-            }
-            if (!spendingTrendResult.Success)
-            {
-                Snackbar.Add($"Error loading Spending Trend: {spendingTrendResult.Message}", Severity.Error);
-                return;
-            }
-            if (spendingTrendResult.Data is null)
-            {
-                Snackbar.Add("No Spending Trend data was returned.", Severity.Error);
                 return;
             }
             if (!categoryBreakdownResult.Success)
@@ -410,10 +440,11 @@
             }
             _balanceTrend = balanceTrendResult.Data;
             _budgetSummary = budgetSummaryResult.Data;
-            _spendingTrend = spendingTrendResult.Data;
             _categoryBreakdown = categoryBreakdownResult.Data;
             _recentTransactions = recentTransactionsResult.Data;
             _cashFlow = cashFlowResult.Data;
+            _alerts = alertsResult.Success ? (alertsResult.Data ?? []) : [];
+            _goals = goalsResult.Success ? (goalsResult.Data ?? []) : [];
         }
         catch (Exception ex)
         {
@@ -440,10 +471,11 @@
     {
         _balanceTrend = new();
         _budgetSummary = new DashboardBudgetSummaryDto();
-        _spendingTrend = new();
         _categoryBreakdown = new();
         _recentTransactions = new();
         _cashFlow = null;
+        _alerts = new();
+        _goals = new();
     }
 
     private async Task RefreshDashboard()
