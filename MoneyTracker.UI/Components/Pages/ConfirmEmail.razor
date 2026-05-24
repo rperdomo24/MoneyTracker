@@ -1,11 +1,8 @@
 @page "/confirm-email"
 @attribute [AllowAnonymous]
 @layout Layout.AuthLayout
-@using System.Text
-@using Microsoft.AspNetCore.Identity
-@using Microsoft.AspNetCore.WebUtilities
-@using MoneyTracker.Infrastructure.Persistence
-@inject UserManager<ApplicationUser> UserManager
+@using MoneyTracker.Application.Interfaces
+@inject IEmailConfirmationService EmailConfirmationService
 
 <MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Email confirmation</MudText>
 
@@ -38,30 +35,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Guid.TryParse(UserId, out var userId) || string.IsNullOrWhiteSpace(Code))
-        {
-            _error = "Confirmation parameters are missing.";
-            _isLoading = false;
-            return;
-        }
-
-        var user = await UserManager.FindByIdAsync(userId.ToString());
-        if (user is null)
-        {
-            _error = "User not found.";
-            _isLoading = false;
-            return;
-        }
-
-        var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
-        var result = await UserManager.ConfirmEmailAsync(user, decodedToken);
-
-        _succeeded = result.Succeeded;
-        if (!result.Succeeded)
-        {
-            _error = string.Join(" ", result.Errors.Select(e => e.Description));
-        }
-
+        var result = await EmailConfirmationService.ConfirmEmailAsync(UserId, Code);
+        _succeeded = result.Success;
+        if (!result.Success)
+            _error = result.Message;
         _isLoading = false;
     }
 }

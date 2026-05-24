@@ -1,10 +1,9 @@
-﻿using FluentValidation;
+using FluentValidation;
 using MoneyTracker.Application.Constants;
 using MoneyTracker.Application.DTOs;
 
-namespace MoneyTracker.Application.Validators
+namespace MoneyTracker.Application.Validators.Accounts
 {
-
     public class AccountValidator : AbstractValidator<AccountDto>
     {
         public AccountValidator()
@@ -47,4 +46,3 @@ namespace MoneyTracker.Application.Validators
         };
     }
 }
-

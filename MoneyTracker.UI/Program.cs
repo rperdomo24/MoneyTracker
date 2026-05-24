@@ -13,9 +13,10 @@ using MoneyTracker.Application.DTOs.Budgets;
 using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
-using MoneyTracker.Application.Validators;
+using MoneyTracker.Application.Validators.Accounts;
 using MoneyTracker.Application.Validators.Budgets;
 using MoneyTracker.Application.Validators.Auth;
+using MoneyTracker.Application.Validators.Categories;
 using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
@@ -160,7 +161,6 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ICategoryService, CategoryService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<IUserInvitationService, UserInvitationService>();
-            builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
             builder.Services.AddScoped<IValidator<CreateTransferDto>, CreateTransferValidator>();
             builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
             builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
@@ -170,6 +170,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<CategoryDto>, CategoryValidator>();
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
             builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
+            builder.Services.AddScoped<IValidator<TransactionFilterDto>, TransactionFilterValidator>();
             builder.Services.AddScoped<IDashboardService, DashboardService>();
 
             builder.Services.AddScoped<IBudgetRepository, BudgetRepository>();
@@ -180,6 +181,12 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ITextImportService, TextImportService>();
             builder.Services.AddScoped<IUserProfileService, UserProfileService>();
             builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
+            builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
+            builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
+            builder.Services.AddScoped<ILoginService, LoginService>();
+            builder.Services.AddScoped<ILoginOtpService, LoginOtpService>();
+            builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+            builder.Services.AddScoped<ISignOutService, SignOutService>();
             builder.Services.AddScoped<AccountsDrawerState>();
             builder.Services.AddScoped<AccountsRefreshBus>();
 
