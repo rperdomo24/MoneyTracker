@@ -95,7 +95,6 @@
     protected override void OnParametersSet()
     {
         _items = Data?
-            .Where(x => x.Type != TransactionTypeEnum.Transfer)
             .OrderByDescending(x => x.Date)
             .Take(6)
             .ToList() ?? new List<RecentTransactionDto>();

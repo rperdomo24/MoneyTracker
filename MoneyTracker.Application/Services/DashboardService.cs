@@ -313,7 +313,7 @@ namespace MoneyTracker.Application.Services
                 {
                     DashboardTransactionFilter.Income => ((CategoryTypeEnum?)CategoryTypeEnum.Income, false),
                     DashboardTransactionFilter.Expense => ((CategoryTypeEnum?)CategoryTypeEnum.Expense, false),
-                    _ => ((CategoryTypeEnum?)null, true)
+                    _ => ((CategoryTypeEnum?)null, !normalizedFilter.ExcludeTransfers)
                 };
 
                 var recentEntries = await _transactionRepository.GetRecentDashboardEntriesAsync(
