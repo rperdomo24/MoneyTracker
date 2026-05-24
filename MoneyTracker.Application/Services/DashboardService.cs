@@ -1650,7 +1650,8 @@ namespace MoneyTracker.Application.Services
                 FromDate = original.FromDate,
                 ToDate = original.ToDate,
                 TransactionFilter = original.TransactionFilter,
-                AccountIds = original.AccountIds?.ToList() ?? new List<int>()
+                AccountIds = original.AccountIds?.ToList() ?? new List<int>(),
+                ExcludeTransfers = original.ExcludeTransfers
             };
 
             var (rangeStart, rangeEnd) = ResolveRangeLocal(clone, now);
