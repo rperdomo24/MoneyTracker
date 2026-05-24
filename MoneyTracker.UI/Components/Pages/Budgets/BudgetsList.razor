@@ -22,6 +22,11 @@
     }
     else
     {
+        var tableChildrenByParent = Items!
+            .Where(x => x.ParentCategoryId is not null)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         <MudSimpleTable Hover="true" Dense="true" Style="overflow-x:auto;">
             <thead>
                 <tr>
@@ -37,10 +42,16 @@
             <tbody>
                 @foreach (var (item, depth) in GetFlatItems())
                 {
-                    var color = GetBudgetColor(item);
-                    var progress = GetProgressValue(item);
-                    var progressLabel = GetProgressLabel(item);
-                    var remaining = item.Amount - item.Used;
+                    var rowChildren = depth == 0
+                        ? tableChildrenByParent.GetValueOrDefault(item.CategoryId)
+                        : null;
+                    var color = GetBudgetColor(item, rowChildren);
+                    var progress = GetProgressValue(item, rowChildren);
+                    var progressLabel = GetProgressLabel(item, rowChildren);
+                    var displayBudget = GetDisplayBudget(item, rowChildren);
+                    var displayUsed = GetDisplayUsed(item, rowChildren);
+                    var remaining = displayBudget - displayUsed;
+                    var isGroupOnly = IsGroupOnly(item, rowChildren);
                     <tr>
                         <td>
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1"
@@ -61,16 +72,16 @@
                         </td>
                         <td style="text-align:right;">
                             <MudText Typo="Typo.body2">
-                                @(item.HasBudget ? CurrencyHelper.FormatCurrency(item.Amount) : "—")
+                                @(item.HasBudget || isGroupOnly ? CurrencyHelper.FormatCurrency(displayBudget) : "—")
                             </MudText>
                         </td>
                         <td style="text-align:right;">
-                            <MudText Typo="Typo.body2" Color="@(item.IsOverBudget ? Color.Error : Color.Default)">
-                                @CurrencyHelper.FormatCurrency(item.Used)
+                            <MudText Typo="Typo.body2" Color="@(remaining < 0 && (item.HasBudget || isGroupOnly) ? Color.Error : Color.Default)">
+                                @CurrencyHelper.FormatCurrency(displayUsed)
                             </MudText>
                         </td>
                         <td style="text-align:right;">
-                            @if (item.HasBudget)
+                            @if (item.HasBudget || isGroupOnly)
                             {
                                 <MudText Typo="Typo.body2"
                                          Color="@(remaining < 0 ? Color.Error : Color.Success)">
@@ -90,7 +101,7 @@
                         </td>
                         <td style="text-align:center;">
                             <MudChip T="string" Size="Size.Small" Color="@color">
-                                @GetHealthLabel(item)
+                                @GetHealthLabel(item, rowChildren)
                             </MudChip>
                         </td>
                         <td>

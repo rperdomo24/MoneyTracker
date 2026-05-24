@@ -1378,8 +1378,9 @@ namespace MoneyTracker.Application.Services
                     return;
                 }
 
-                var budgetedChildren = GetBudgetOverviewItems(children)
-                    .Where(x => x.BudgetAmount > 0)
+                var budgetedChildren = children
+                    .Where(x => x.Budget.Amount > 0)
+                    .Select(MapBudgetOverviewItem)
                     .ToList();
 
                 if (budgetedChildren.Count > 0)
@@ -1399,7 +1400,7 @@ namespace MoneyTracker.Application.Services
                         RemainingAmount = groupedBudget - groupedUsed,
                         ProgressPercent = groupedProgress,
                         IsOverBudget = groupedUsed > groupedBudget,
-                        IsNearLimit = groupedBudget > 0 && groupedUsed <= groupedBudget && groupedProgress >= 80,
+                        IsNearLimit = groupedBudget > 0 && groupedUsed <= groupedBudget && groupedProgress >= 60,
                         IsGroupOnly = true
                     });
 
@@ -1430,7 +1431,7 @@ namespace MoneyTracker.Application.Services
                 RemainingAmount = item.Budget.Amount - usedAmount,
                 ProgressPercent = progress,
                 IsOverBudget = item.Budget.Amount > 0 && usedAmount > item.Budget.Amount,
-                IsNearLimit = item.Budget.Amount > 0 && usedAmount <= item.Budget.Amount && progress >= 80,
+                IsNearLimit = item.Budget.Amount > 0 && usedAmount <= item.Budget.Amount && progress >= 60,
                 IsGroupOnly = false
             };
         }
