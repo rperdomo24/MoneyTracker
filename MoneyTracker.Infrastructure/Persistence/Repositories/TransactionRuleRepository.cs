@@ -172,5 +172,26 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 throw;
             }
         }
+
+        public async Task UpdateOrdersAsync(IEnumerable<(int Id, int Order)> orders)
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                foreach (var (id, order) in orders)
+                {
+                    var entity = await _context.TransactionRules.FindAsync(id);
+                    if (entity is null) continue;
+                    entity.Order = order;
+                    entity.UpdatedAt = now;
+                }
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating rule orders.");
+                throw;
+            }
+        }
     }
 }

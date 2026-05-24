@@ -210,6 +210,21 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult> ReorderAsync(List<int> orderedIds)
+        {
+            try
+            {
+                var orders = orderedIds.Select((id, index) => (Id: id, Order: index + 1));
+                await _ruleRepository.UpdateOrdersAsync(orders);
+                return OperationResult.Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reordering rules.");
+                return OperationResult.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
         private async Task<OperationResult<int>> ApplyRulesToTransactions(
             List<TransactionRule> rules,
             List<Transaction> transactions)

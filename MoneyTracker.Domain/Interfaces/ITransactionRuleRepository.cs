@@ -11,5 +11,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task UpdateAsync(TransactionRule rule);
         Task SoftDeleteAsync(int id);
         Task ToggleEnabledAsync(int id, bool enabled);
+        Task UpdateOrdersAsync(IEnumerable<(int Id, int Order)> orders);
     }
 }

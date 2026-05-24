@@ -14,5 +14,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<int>> ApplyRulesAsync();
         Task<OperationResult<int>> ApplyRuleAsync(int ruleId);
         Task ApplyRulesToNewTransactionAsync(int transactionId);
+        Task<OperationResult> ReorderAsync(List<int> orderedIds);
     }
 }

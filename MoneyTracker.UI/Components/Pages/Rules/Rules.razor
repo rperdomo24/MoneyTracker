@@ -104,6 +104,20 @@
                             </MudStack>
 
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudStack Spacing="0">
+                                    <MudTooltip Text="Move up (higher priority)">
+                                        <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
+                                                       Size="Size.Small"
+                                                       Disabled="@(_rules.IndexOf(rule) == 0)"
+                                                       OnClick="@(() => MoveRuleAsync(rule, -1))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Move down (lower priority)">
+                                        <MudIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
+                                                       Size="Size.Small"
+                                                       Disabled="@(_rules.IndexOf(rule) == _rules.Count - 1)"
+                                                       OnClick="@(() => MoveRuleAsync(rule, +1))" />
+                                    </MudTooltip>
+                                </MudStack>
                                 <MudTooltip Text="Run this rule now">
                                     <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small"
                                                    Color="Color.Secondary"
@@ -240,6 +254,23 @@
             Snackbar.Add(result.Message ?? "Error applying rules", Severity.Error);
 
         StateHasChanged();
+    }
+
+    private async Task MoveRuleAsync(TransactionRuleDto rule, int direction)
+    {
+        var idx = _rules.IndexOf(rule);
+        var swapIdx = idx + direction;
+        if (swapIdx < 0 || swapIdx >= _rules.Count) return;
+
+        _rules.RemoveAt(idx);
+        _rules.Insert(swapIdx, rule);
+
+        var result = await RuleService.ReorderAsync(_rules.Select(r => r.Id).ToList());
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Error saving order", Severity.Error);
+            await LoadAsync();
+        }
     }
 
     private async Task ConfirmDeleteAsync(TransactionRuleDto rule)
