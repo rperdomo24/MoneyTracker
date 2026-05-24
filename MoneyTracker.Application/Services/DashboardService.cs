@@ -282,8 +282,7 @@ namespace MoneyTracker.Application.Services
                     fromUtc,
                     toUtc,
                     normalizedFilter.AccountIds ?? new List<int>(),
-                    CategoryTypeEnum.Expense,
-                    top: 6);
+                    CategoryTypeEnum.Expense);
                 var breakdown = BuildCategoryBreakdown(aggregates);
                 return OperationResult<List<CategoryBreakdownDto>>.Ok(breakdown, "Category breakdown retrieved successfully");
             }
