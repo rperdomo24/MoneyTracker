@@ -412,8 +412,8 @@ namespace MoneyTracker.Application.Services
                         }
                     }
 
-                    // Low balance alerts for non-credit accounts
-                    if (account.Type != AccountType.Credit && account.CurrentBalance < 500 && account.CurrentBalance > 0)
+                    // Low balance alerts for checking/cash accounts only — savings accounts are excluded
+                    if (account.Type != AccountType.Credit && account.Type != AccountType.Savings && account.CurrentBalance < 500 && account.CurrentBalance > 0)
                     {
                         alerts.Add(new FinancialAlertDto
                         {
