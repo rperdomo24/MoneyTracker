@@ -1,0 +1,119 @@
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
+@using MoneyTracker.Application.DTOs.Rules
+@using MoneyTracker.Domain.Enums.Rules
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+
+    <!-- Field -->
+    <MudSelect T="RuleConditionField" Value="Condition.Field"
+               Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
+               ValueChanged="OnFieldChanged">
+        <MudSelectItem Value="RuleConditionField.Name">Transaction name</MudSelectItem>
+        <MudSelectItem Value="RuleConditionField.Amount">Amount</MudSelectItem>
+        <MudSelectItem Value="RuleConditionField.Category">Category</MudSelectItem>
+        <MudSelectItem Value="RuleConditionField.Merchant">Merchant</MudSelectItem>
+    </MudSelect>
+
+    <!-- Operator -->
+    <MudSelect T="RuleConditionOperator" @bind-Value="Condition.Operator"
+               Variant="Variant.Outlined" Dense="true" Style="min-width:140px;">
+        @foreach (var op in GetOperatorsForField(Condition.Field))
+        {
+            <MudSelectItem Value="op">@GetOperatorLabel(op)</MudSelectItem>
+        }
+    </MudSelect>
+
+    <!-- Value -->
+    @if (Condition.Field == RuleConditionField.Category)
+    {
+        <MudSelect T="string" @bind-Value="Condition.Value"
+                   Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
+                   Placeholder="Select category">
+            @foreach (var cat in Categories)
+            {
+                <MudSelectItem Value="@cat.Id.ToString()">@cat.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+    else if (Condition.Field == RuleConditionField.Merchant)
+    {
+        <MudSelect T="string" @bind-Value="Condition.Value"
+                   Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
+                   Placeholder="Select merchant">
+            @foreach (var m in Merchants)
+            {
+                <MudSelectItem Value="@m.Id.ToString()">@m.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+    else if (Condition.Field == RuleConditionField.Amount)
+    {
+        <MudTextField @bind-Value="Condition.Value"
+                      Variant="Variant.Outlined" Dense="true" Style="min-width:120px;"
+                      Placeholder="0.00" InputType="InputType.Number" />
+    }
+    else
+    {
+        <MudTextField @bind-Value="Condition.Value"
+                      Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
+                      Placeholder="Value" />
+    }
+
+    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                   Color="Color.Error" OnClick="OnRemove" />
+</MudStack>
+
+@code {
+    [Parameter] public TransactionRuleConditionDto Condition { get; set; } = default!;
+    [Parameter] public List<MerchantDto> Merchants { get; set; } = new();
+    [Parameter] public List<CategoryDto> Categories { get; set; } = new();
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    private void OnFieldChanged(RuleConditionField field)
+    {
+        Condition.Field = field;
+        Condition.Value = string.Empty;
+
+        Condition.Operator = field switch
+        {
+            RuleConditionField.Amount => RuleConditionOperator.GreaterThan,
+            RuleConditionField.Category or RuleConditionField.Merchant => RuleConditionOperator.Equals,
+            _ => RuleConditionOperator.Contains
+        };
+    }
+
+    private static IEnumerable<RuleConditionOperator> GetOperatorsForField(RuleConditionField field) =>
+        field switch
+        {
+            RuleConditionField.Name => new[]
+            {
+                RuleConditionOperator.Contains,
+                RuleConditionOperator.Equals,
+                RuleConditionOperator.StartsWith,
+                RuleConditionOperator.EndsWith
+            },
+            RuleConditionField.Amount => new[]
+            {
+                RuleConditionOperator.GreaterThan,
+                RuleConditionOperator.LessThan,
+                RuleConditionOperator.Equals,
+                RuleConditionOperator.GreaterThanOrEqual,
+                RuleConditionOperator.LessThanOrEqual
+            },
+            _ => new[] { RuleConditionOperator.Equals }
+        };
+
+    private static string GetOperatorLabel(RuleConditionOperator op) => op switch
+    {
+        RuleConditionOperator.Contains => "Contains",
+        RuleConditionOperator.Equals => "Equal to",
+        RuleConditionOperator.StartsWith => "Starts with",
+        RuleConditionOperator.EndsWith => "Ends with",
+        RuleConditionOperator.GreaterThan => "Greater than",
+        RuleConditionOperator.LessThan => "Less than",
+        RuleConditionOperator.GreaterThanOrEqual => "≥",
+        RuleConditionOperator.LessThanOrEqual => "≤",
+        _ => op.ToString()
+    };
+}

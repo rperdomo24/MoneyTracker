@@ -26,6 +26,7 @@ namespace MoneyTracker.Application.Services
         private readonly ITimeRangeService _timeRangeService;
         private readonly ICategoryService _categoryService;
         private readonly ISystemCategoryResolver _systemCategoryResolver;
+        private readonly ITransactionRuleService _ruleService;
 
         public TransactionService(
             ITransactionRepository repository,
@@ -37,7 +38,8 @@ namespace MoneyTracker.Application.Services
             ITimeRangeService timeRangeService,
             ICategoryRepository categoryRepository,
             ICategoryService categoryService,
-            ISystemCategoryResolver systemCategoryResolver)
+            ISystemCategoryResolver systemCategoryResolver,
+            ITransactionRuleService ruleService)
         {
             _repository = repository;
             _accountRepository = accountRepository;
@@ -48,6 +50,7 @@ namespace MoneyTracker.Application.Services
             _timeRangeService = timeRangeService;
             _categoryService = categoryService;
             _systemCategoryResolver = systemCategoryResolver;
+            _ruleService = ruleService;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -132,6 +135,8 @@ namespace MoneyTracker.Application.Services
                 var balanceResult = await UpdateAccountBalanceOnlyAsync(transaction.AccountId, transaction.Amount);
                 if (!balanceResult.Success)
                     return OperationResult<bool>.Fail(balanceResult.Message ?? "Error updating account balance");
+
+                await _ruleService.ApplyRulesToNewTransactionAsync(transaction.Id);
 
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }

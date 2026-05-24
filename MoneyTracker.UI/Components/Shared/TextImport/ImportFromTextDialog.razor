@@ -1,4 +1,5 @@
 ﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.TextImport
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
@@ -12,6 +13,7 @@
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
+@inject IMerchantService MerchantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -97,10 +99,22 @@
                             <!-- CATEGORY -->
                             <CategorySelector @bind-SelectedCategory="_selectedCategory"
                                               Categories="@_categories"
-                                              FilterByType="@(_item.Type == TransactionTypeEnum.Income 
-                                                    ? CategoryTypeEnum.Income 
+                                              FilterByType="@(_item.Type == TransactionTypeEnum.Income
+                                                    ? CategoryTypeEnum.Income
                                                     : CategoryTypeEnum.Expense)"
                                               ShowAddButton="true" />
+
+                            <!-- MERCHANT -->
+                            <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
+                                       Label="Merchant (Optional)"
+                                       Variant="Variant.Outlined"
+                                       Clearable="true"
+                                       ToStringFunc="@(m => m?.Name ?? string.Empty)">
+                                @foreach (var m in _merchants)
+                                {
+                                    <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
+                                }
+                            </MudSelect>
 
                         </MudStack>
                     </MudPaper>
@@ -133,9 +147,11 @@
 
     private List<AccountDto> _accounts = new();
     private List<CategoryDto> _categories = new();
+    private List<MerchantDto> _merchants = new();
 
     private AccountDto? _selectedAccount;
     private CategoryDto? _selectedCategory;
+    private MerchantDto? _selectedMerchant;
 
     protected override async Task OnInitializedAsync()
     {
@@ -151,6 +167,10 @@
         var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
         if (categoriesResult.Success && categoriesResult.Data is not null)
             _categories = categoriesResult.Data.ToList();
+
+        var merchantsResult = await MerchantService.GetAllAsync();
+        if (merchantsResult.Success && merchantsResult.Data is not null)
+            _merchants = merchantsResult.Data;
 
         if (_accounts.Any())
             _selectedAccount = _accounts.First();
@@ -198,6 +218,11 @@
             if (_selectedAccount is null && _accounts.Any())
                 _selectedAccount = _accounts.First();
 
+            // Auto-match merchant by name
+            _selectedMerchant = !string.IsNullOrWhiteSpace(_item.Merchant)
+                ? _merchants.FirstOrDefault(m => m.Name.Equals(_item.Merchant, StringComparison.OrdinalIgnoreCase))
+                : null;
+
             // Reset category because type/merchant changed
             _selectedCategory = null;
 
@@ -231,7 +256,8 @@
             Date = _item.DateLocal,
             Description = _item.Description ?? string.Empty,
             CategoryId = _selectedCategory.Id,
-            AccountId = _selectedAccount.Id
+            AccountId = _selectedAccount.Id,
+            MerchantId = _selectedMerchant?.Id
         };
 
         var result = await TransactionService.CreateAsync(dto);
@@ -257,6 +283,7 @@
         _rawText = string.Empty;
         _item = null;
         _selectedCategory = null;
+        _selectedMerchant = null;
     }
 
     private void Cancel() => MudDialog.Cancel();

@@ -17,5 +17,7 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         // Optional optimization for read-heavy dashboards where sort order is applied later.
         public bool SkipSorting { get; set; }
+
+        public int RowsPerPage { get; set; } = 10;
     }
 }

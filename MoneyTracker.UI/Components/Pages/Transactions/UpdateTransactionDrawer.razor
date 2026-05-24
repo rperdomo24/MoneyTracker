@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Application.Validators.Transaction
@@ -12,6 +13,7 @@
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
+@inject IMerchantService MerchantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -175,6 +177,17 @@
                                           OnAddCategory="CreateCategory"
                                           ShowAddButton="true" />
 
+                        <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
+                                   Label="Merchant (Optional)"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   ToStringFunc="@(m => m?.Name ?? string.Empty)">
+                            @foreach (var m in (_merchants ?? new()))
+                            {
+                                <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
                         <MudDatePicker Label="Date"
                                        @bind-Date="_transactionDate"
                                        Variant="Variant.Outlined"
@@ -254,10 +267,12 @@
     private DateTime? _transactionDate;
     private CategoryDto? _selectedCategory;
     private AccountDto? _selectedAccount;
+    private MerchantDto? _selectedMerchant;
 
     // Data
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
+    private List<MerchantDto>? _merchants;
 
     // Flags
     private bool _isTransfer = false;
@@ -303,7 +318,8 @@
                 Description = _originalTransaction.Description,
                 Date = _originalTransaction.Date,
                 CategoryId = _originalTransaction.CategoryId,
-                AccountId = _originalTransaction.AccountId
+                AccountId = _originalTransaction.AccountId,
+                MerchantId = _originalTransaction.MerchantId
             };
 
             _transaction.Amount = _originalTransaction.GetAbsoluteAmountss();
@@ -332,6 +348,14 @@
                 _accounts = accountsResult.Data?.ToList() ?? new List<AccountDto>();
                 _selectedAccount = _accounts.FirstOrDefault(a => a.Id == _transaction.AccountId);
             }
+
+            // Load merchants
+            var merchantsResult = await MerchantService.GetAllAsync();
+            if (merchantsResult.Success)
+            {
+                _merchants = merchantsResult.Data ?? new();
+                _selectedMerchant = _merchants.FirstOrDefault(m => m.Id == _transaction.MerchantId);
+            }
         }
         catch (Exception ex)
         {
@@ -353,7 +377,8 @@
                _transaction.Description != _originalTransaction.Description ||
                _transactionDate != _originalTransaction.Date ||
                (!_isTransfer && _selectedCategory?.Id != _originalTransaction.CategoryId) ||
-               (!_isTransfer && _selectedAccount?.Id != _originalTransaction.AccountId);
+               (!_isTransfer && _selectedAccount?.Id != _originalTransaction.AccountId) ||
+               (!_isTransfer && _selectedMerchant?.Id != _originalTransaction.MerchantId);
     }
 
     private List<ChangeItem> GetChanges()
@@ -378,6 +403,11 @@
                 string.IsNullOrWhiteSpace(_originalTransaction.Description) ? "(empty)" : _originalTransaction.Description,
                 string.IsNullOrWhiteSpace(_transaction.Description) ? "(empty)" : _transaction.Description));
 
+        if (!_isTransfer && _selectedMerchant?.Id != _originalTransaction.MerchantId)
+            changes.Add(new("Merchant",
+                _originalTransaction.MerchantName ?? "(none)",
+                _selectedMerchant?.Name ?? "(none)"));
+
         return changes;
     }
 
@@ -391,6 +421,7 @@
         _transactionDate = _originalTransaction.Date;
         _selectedCategory = _categories?.FirstOrDefault(c => c.Id == _originalTransaction.CategoryId);
         _selectedAccount = _accounts?.FirstOrDefault(a => a.Id == _originalTransaction.AccountId);
+        _selectedMerchant = _merchants?.FirstOrDefault(m => m.Id == _originalTransaction.MerchantId);
 
         StateHasChanged();
     }
@@ -449,6 +480,7 @@
                 _transaction.Date = _transactionDate!.Value;
                 _transaction.CategoryId = _selectedCategory!.Id;
                 _transaction.AccountId = _selectedAccount!.Id;
+                _transaction.MerchantId = _selectedMerchant?.Id;
                 _transaction.Category = _selectedCategory;
 
                 var result = await TransactionService.UpdateAsync(_transaction);
@@ -557,6 +589,7 @@
         _transaction = new();
         _selectedCategory = null;
         _selectedAccount = null;
+        _selectedMerchant = null;
 
         StateHasChanged();
     }

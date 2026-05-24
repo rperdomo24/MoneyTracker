@@ -1,0 +1,282 @@
+@page "/rules"
+@using MoneyTracker.Application.DTOs.Rules
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Rules
+@inject ITransactionRuleService RuleService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Rules - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-1 pa-sm-6">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h5" Class="font-weight-bold">Rules</MudText>
+            <MudText Typo="Typo.body2" Style="opacity:.7;">
+                Automatically set merchant, category, or name on matching transactions.
+            </MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="RunAllRulesAsync"
+                       Disabled="@_running">
+                @if (_running)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ml-2">Running...</MudText>
+                }
+                else
+                {
+                    <span>Run all rules</span>
+                }
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddModal">
+                Create rule
+            </MudButton>
+        </MudStack>
+    </MudStack>
+
+    <MudPaper Elevation="2">
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Class="mt-4">Loading rules...</MudText>
+            </MudStack>
+        }
+        else if (!_rules.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Spacing="4" Style="padding: 64px 0;">
+                    <MudIcon Icon="@Icons.Material.Filled.Rule" Size="Size.Large"
+                             Color="Color.Default" Style="font-size: 4rem;" />
+                    <MudText Typo="Typo.h6">No rules yet</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Default" Align="Align.Center" Style="max-width: 380px;">
+                        Rules apply actions (set merchant, category, or name) when conditions match.
+                        Click <strong>Create rule</strong> to get started.
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudList T="TransactionRuleDto" Dense="true">
+                @foreach (var rule in _rules)
+                {
+                    <MudDivider />
+                    <MudListItem T="TransactionRuleDto">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%" Class="py-1">
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="3" Style="flex:1;min-width:0;">
+                                <MudSwitch T="bool" Value="rule.IsEnabled" Color="Color.Primary"
+                                           ValueChanged="@((bool v) => ToggleEnabledAsync(rule, v))" />
+                                <div Style="flex:1;min-width:0;">
+                                    <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                        @(string.IsNullOrWhiteSpace(rule.Name) ? GetRuleSummary(rule) : rule.Name)
+                                    </MudText>
+                                    @if (!string.IsNullOrWhiteSpace(rule.Name))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:.6;">
+                                            @GetRuleSummary(rule)
+                                        </MudText>
+                                    }
+                                    <MudStack Row="true" Spacing="1" Class="mt-1" Wrap="Wrap.Wrap">
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                            @rule.Conditions.Count condition(s)
+                                        </MudChip>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                                            @rule.Actions.Count action(s)
+                                        </MudChip>
+                                        @if (!rule.ApplyToHistorical && rule.ApplyFromDate.HasValue)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined">
+                                                From @rule.ApplyFromDate.Value.ToString("MM/dd/yyyy")
+                                            </MudChip>
+                                        }
+                                    </MudStack>
+                                </div>
+                            </MudStack>
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudTooltip Text="Run this rule now">
+                                    <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small"
+                                                   Color="Color.Secondary"
+                                                   OnClick="@(() => RunRuleAsync(rule))" />
+                                </MudTooltip>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Dense="true">
+                                    <MudMenuItem OnClick="@(() => OpenEditModal(rule))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                            <MudText>Edit</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="@(() => ConfirmDeleteAsync(rule))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" />
+                                            <MudText Color="Color.Error">Delete</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </MudStack>
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<TransactionRuleDto> _rules = new();
+    private bool _loading = true;
+    private bool _running = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var result = await RuleService.GetAllAsync();
+        _rules = result.Success && result.Data != null ? result.Data : new();
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task OpenAddModal()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            [nameof(RuleEditorModal.RuleService)] = RuleService,
+            [nameof(RuleEditorModal.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+        await DialogService.ShowAsync<RuleEditorModal>("New Rule", parameters, options);
+    }
+
+    private async Task OpenEditModal(TransactionRuleDto rule)
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            [nameof(RuleEditorModal.Rule)] = rule,
+            [nameof(RuleEditorModal.RuleService)] = RuleService,
+            [nameof(RuleEditorModal.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+        await DialogService.ShowAsync<RuleEditorModal>("Edit Rule", parameters, options);
+    }
+
+    private async Task ToggleEnabledAsync(TransactionRuleDto rule, bool enabled)
+    {
+        var result = await RuleService.ToggleEnabledAsync(rule.Id, enabled);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Error updating rule", Severity.Error);
+            rule.IsEnabled = !enabled; // revert
+        }
+    }
+
+    private async Task RunRuleAsync(TransactionRuleDto rule)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Run rule",
+            $"Apply \"{(string.IsNullOrWhiteSpace(rule.Name) ? "this rule" : rule.Name)}\" to matching transactions now?",
+            yesText: "Run", cancelText: "Cancel");
+
+        if (confirmed != true) return;
+
+        _running = true;
+        StateHasChanged();
+
+        var result = await RuleService.ApplyRuleAsync(rule.Id);
+        _running = false;
+
+        if (result.Success)
+            Snackbar.Add(result.Message ?? "Rule applied", Severity.Success);
+        else
+            Snackbar.Add(result.Message ?? "Error applying rule", Severity.Error);
+
+        StateHasChanged();
+    }
+
+    private async Task RunAllRulesAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Run all rules",
+            "Apply all enabled rules to matching transactions? This may update many records.",
+            yesText: "Run", cancelText: "Cancel");
+
+        if (confirmed != true) return;
+
+        _running = true;
+        StateHasChanged();
+
+        var result = await RuleService.ApplyRulesAsync();
+        _running = false;
+
+        if (result.Success)
+            Snackbar.Add(result.Message ?? "Rules applied", Severity.Success);
+        else
+            Snackbar.Add(result.Message ?? "Error applying rules", Severity.Error);
+
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDeleteAsync(TransactionRuleDto rule)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete rule",
+            $"Delete \"{(string.IsNullOrWhiteSpace(rule.Name) ? "this rule" : rule.Name)}\"?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirmed == true)
+        {
+            var result = await RuleService.DeleteAsync(rule.Id);
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Rule deleted", Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error deleting rule", Severity.Error);
+            }
+        }
+    }
+
+    private static string GetRuleSummary(TransactionRuleDto rule)
+    {
+        var condParts = rule.Conditions.Select(c =>
+        {
+            var field = c.Field switch
+            {
+                RuleConditionField.Name => "name",
+                RuleConditionField.Amount => "amount",
+                RuleConditionField.Category => "category",
+                RuleConditionField.Merchant => "merchant",
+                _ => c.Field.ToString()
+            };
+            return $"{field} {c.Operator.ToString().ToLower()} \"{c.Value}\"";
+        });
+
+        var actionParts = rule.Actions.Select(a => a.ActionType switch
+        {
+            RuleActionType.SetMerchant => "set merchant",
+            RuleActionType.SetCategory => "set category",
+            RuleActionType.SetName => "set name",
+            _ => a.ActionType.ToString()
+        });
+
+        var ifPart = string.Join(" AND ", condParts);
+        var thenPart = string.Join(", ", actionParts);
+
+        return $"IF {ifPart} → {thenPart}";
+    }
+}

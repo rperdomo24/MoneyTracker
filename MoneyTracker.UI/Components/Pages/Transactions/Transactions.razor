@@ -220,7 +220,11 @@
 
         var saved = await TransactionFilterState.GetAsync();
         if (saved != null)
+        {
             _filterDto = saved;
+            if (saved.RowsPerPage > 0)
+                _rowsPerPage = saved.RowsPerPage;
+        }
 
         UpdateFilterStates();
 
@@ -366,13 +370,14 @@
         return Task.CompletedTask;
     }
 
-    private Task HandleRowsPerPageChanged(int newSize)
+    private async Task HandleRowsPerPageChanged(int newSize)
     {
         _rowsPerPage = newSize;
+        _filterDto.RowsPerPage = newSize;
         _currentPage = 1;
+        await TransactionFilterState.SaveAsync(_filterDto);
         GroupTransactions();
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private void EditTransaction(TransactionDto transaction)

@@ -350,6 +350,8 @@
 
     private string GetDisplayName()
     {
-        return Transaction.Name;
+        return !string.IsNullOrWhiteSpace(Transaction.MerchantName)
+            ? Transaction.MerchantName
+            : Transaction.Name;
     }
 }

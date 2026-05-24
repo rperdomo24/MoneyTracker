@@ -33,6 +33,9 @@ namespace MoneyTracker.Domain.Entities
         public DateTime? ScheduledDate { get; set; }
         public bool IsSystemGenerated { get; set; } = false;
 
+        public int? MerchantId { get; set; }
+        public Merchant? Merchant { get; set; }
+
         // For transfers
         public int? TransferPairId { get; set; }
 

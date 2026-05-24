@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.Common.Extensions
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
@@ -10,6 +11,7 @@
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
+@inject IMerchantService MerchantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -133,6 +135,17 @@
                                           OnAddCategory="CreateCategory"
                                           ShowAddButton="true" />
 
+                        <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
+                                   Label="Merchant (Optional)"
+                                   Variant="Variant.Outlined"
+                                   Clearable="true"
+                                   ToStringFunc="@(m => m?.Name ?? string.Empty)">
+                            @foreach (var m in (_merchants ?? new()))
+                            {
+                                <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+
                         <MudDatePicker Label="Date"
                                        @bind-Date="_transactionDate"
                                        Variant="Variant.Outlined"
@@ -220,6 +233,7 @@
     private string _transactionName = string.Empty;
     private CategoryDto? _selectedCategory;
     private AccountDto? _selectedAccount;
+    private MerchantDto? _selectedMerchant;
 
     // Transfer fields
     private AccountDto? _fromAccount;
@@ -228,6 +242,7 @@
     // Data
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
+    private List<MerchantDto>? _merchants;
 
     private readonly DialogOptions _dialogOptions = new()
     {
@@ -268,6 +283,10 @@
                     _selectedAccount = _accounts.First();
                 }
             }
+
+            var merchantsResult = await MerchantService.GetAllAsync();
+            if (merchantsResult.Success)
+                _merchants = merchantsResult.Data ?? new();
         }
         catch (Exception ex)
         {
@@ -402,7 +421,8 @@
                 Date = _transactionDate!.Value,
                 Description = _description?.Trim() ?? string.Empty,
                 CategoryId = _selectedCategory!.Id,
-                AccountId = _selectedAccount.Id
+                AccountId = _selectedAccount.Id,
+                MerchantId = _selectedMerchant?.Id
             };
 
             var result = await TransactionService.CreateAsync(transactionDto);
@@ -448,6 +468,7 @@
         _transactionName = string.Empty;
         _amount = 0;
         _description = null;
+        _selectedMerchant = null;
         // _selectedCategory = null;
         _selectedAccount = PreselectedAccountId.HasValue
             ? _accounts?.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)

@@ -35,6 +35,7 @@ public class TransactionRepository : ITransactionRepository
             return await context.Transaction
                 .Include(e => e.Category)
                 .Include(e => e.Account)
+                .Include(e => e.Merchant)
                 .ToListAsync();
         }
         catch (Exception ex)
@@ -54,6 +55,7 @@ public class TransactionRepository : ITransactionRepository
             return await context.Transaction
                 .Include(e => e.Category)
                 .Include(e => e.Account)
+                .Include(e => e.Merchant)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
         catch (Exception ex)
@@ -137,6 +139,7 @@ public class TransactionRepository : ITransactionRepository
                 .AsNoTracking()
                 .Include(e => e.Category)
                 .Include(e => e.Account)
+                .Include(e => e.Merchant)
                 .AsQueryable();
 
             query = ApplyDateFilter(query, fromDate, toDate);

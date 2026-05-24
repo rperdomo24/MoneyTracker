@@ -1,0 +1,66 @@
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
+@using MoneyTracker.Application.DTOs.Rules
+@using MoneyTracker.Domain.Enums.Rules
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+
+    <!-- Action type -->
+    <MudSelect T="RuleActionType" Value="Action.ActionType"
+               Variant="Variant.Outlined" Dense="true" Style="min-width:180px;"
+               ValueChanged="OnActionTypeChanged">
+        <MudSelectItem Value="RuleActionType.SetMerchant">Set merchant</MudSelectItem>
+        <MudSelectItem Value="RuleActionType.SetCategory">Set category</MudSelectItem>
+        <MudSelectItem Value="RuleActionType.SetName">Set transaction name</MudSelectItem>
+    </MudSelect>
+
+    <MudText Typo="Typo.body2" Style="opacity:.6">TO</MudText>
+
+    <!-- Value based on action type -->
+    @if (Action.ActionType == RuleActionType.SetMerchant)
+    {
+        <MudSelect T="int?" @bind-Value="Action.MerchantId"
+                   Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
+                   Placeholder="Select merchant">
+            @foreach (var m in Merchants)
+            {
+                <MudSelectItem T="int?" Value="@((int?)m.Id)">@m.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+    else if (Action.ActionType == RuleActionType.SetCategory)
+    {
+        <MudSelect T="int?" @bind-Value="Action.CategoryId"
+                   Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
+                   Placeholder="Select category">
+            @foreach (var cat in Categories)
+            {
+                <MudSelectItem T="int?" Value="@((int?)cat.Id)">@cat.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
+    else
+    {
+        <MudTextField @bind-Value="Action.StringValue"
+                      Variant="Variant.Outlined" Dense="true" Style="min-width:200px;"
+                      Placeholder="New name" MaxLength="100" />
+    }
+
+    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                   Color="Color.Error" OnClick="OnRemove" />
+</MudStack>
+
+@code {
+    [Parameter] public TransactionRuleActionDto Action { get; set; } = default!;
+    [Parameter] public List<MerchantDto> Merchants { get; set; } = new();
+    [Parameter] public List<CategoryDto> Categories { get; set; } = new();
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    private void OnActionTypeChanged(RuleActionType t)
+    {
+        Action.ActionType = t;
+        Action.MerchantId = null;
+        Action.CategoryId = null;
+        Action.StringValue = null;
+    }
+}

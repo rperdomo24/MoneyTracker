@@ -1,0 +1,145 @@
+@page "/merchants"
+@using MoneyTracker.Application.DTOs.Merchants
+@using MoneyTracker.Application.Interfaces
+@inject IMerchantService MerchantService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Merchants - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-1 pa-sm-6">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.h5" Class="font-weight-bold">Merchants</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenAddModal">
+            New merchant
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Elevation="2">
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Class="mt-4">Loading merchants...</MudText>
+            </MudStack>
+        }
+        else if (!_merchants.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Spacing="4" Style="padding: 64px 0;">
+                    <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Large"
+                             Color="Color.Default" Style="font-size: 4rem;" />
+                    <MudText Typo="Typo.h6">No merchants yet</MudText>
+                    <MudText Typo="Typo.body1" Color="Color.Default" Align="Align.Center" Style="max-width: 350px;">
+                        Merchants let you normalize transaction names and power Rules.
+                        Click <strong>New merchant</strong> to create your first one.
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        }
+        else
+        {
+            <MudList T="MerchantDto">
+                <MudListSubheader>
+                    <MudText Typo="Typo.overline">MERCHANTS &middot; @_merchants.Count</MudText>
+                </MudListSubheader>
+
+                @foreach (var merchant in _merchants)
+                {
+                    <MudDivider />
+                    <MudListItem T="MerchantDto">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                <MudAvatar Color="Color.Primary" Size="Size.Small">
+                                    @merchant.Name[0]
+                                </MudAvatar>
+                                <MudText Typo="Typo.body1" Class="font-weight-medium">@merchant.Name.ToUpper()</MudText>
+                            </MudStack>
+                            <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Dense="true">
+                                <MudMenuItem OnClick="@(() => OpenEditModal(merchant))">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                        <MudText>Edit</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(() => ConfirmDeleteAsync(merchant))">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" />
+                                        <MudText Color="Color.Error">Delete</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                            </MudMenu>
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<MerchantDto> _merchants = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var result = await MerchantService.GetAllAsync();
+        _merchants = result.Success && result.Data != null ? result.Data : new();
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task OpenAddModal()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            [nameof(AddMerchantModal.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+        await DialogService.ShowAsync<AddMerchantModal>("New Merchant", parameters, options);
+    }
+
+    private async Task OpenEditModal(MerchantDto merchant)
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            [nameof(UpdateMerchantModal.Merchant)] = merchant,
+            [nameof(UpdateMerchantModal.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+        await DialogService.ShowAsync<UpdateMerchantModal>("Edit Merchant", parameters, options);
+    }
+
+    private async Task ConfirmDeleteAsync(MerchantDto merchant)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete merchant",
+            $"Delete \"{merchant.Name}\"? This won't affect existing transactions.",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirmed == true)
+        {
+            var result = await MerchantService.DeleteAsync(merchant.Id);
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Merchant deleted", Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error deleting merchant", Severity.Error);
+            }
+        }
+    }
+}

@@ -19,6 +19,9 @@ namespace MoneyTracker.Application.DTOs.Transactions
 
         public int AccountId { get; set; }
 
+        public int? MerchantId { get; set; }
+        public string? MerchantName { get; set; }
+
         public PaymentMethodEnum? PaymentMethod { get; set; }
 
         // For transfers
