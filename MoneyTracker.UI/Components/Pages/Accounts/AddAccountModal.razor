@@ -101,6 +101,22 @@
                                      Placeholder="0.00" />
                 }
 
+                <!-- Bank & Card Details -->
+                <MudTextField Label="Bank Name (optional)"
+                              @bind-Value="_account.BankName"
+                              For="@(() => _account.BankName)"
+                              Variant="Variant.Outlined"
+                              Class="mb-4"
+                              Placeholder="e.g., BAC Credomatic, Banco Cuscatlán" />
+
+                <MudTextField Label="Card Display Name (optional)"
+                              @bind-Value="_account.CardDisplayName"
+                              For="@(() => _account.CardDisplayName)"
+                              Variant="Variant.Outlined"
+                              Class="mb-4"
+                              HelperText="Friendly name used in reports, e.g. BAC AMEX LifeMiles Avianca Black"
+                              Placeholder="e.g., BAC AMEX LifeMiles" />
+
                 <!-- Color Picker -->
                 <ColorPicker @bind-SelectedColor="_account.Color"
                              Label="Color"

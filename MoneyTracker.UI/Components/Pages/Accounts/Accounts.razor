@@ -156,10 +156,17 @@
 
                                     <!-- Middle (dominant) -->
                                     <MudStack Spacing="0">
-                                        <MudText Typo="Typo.body1"
-                                                 Class="font-weight-medium text-nowrap">
-                                            @account.Name
-                                        </MudText>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudText Typo="Typo.body1" Class="font-weight-medium text-nowrap">
+                                                @account.Name
+                                            </MudText>
+                                            @if (NeedsBankWarning(account))
+                                            {
+                                                <MudTooltip Text="Bank/card details missing — view account to complete">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                                </MudTooltip>
+                                            }
+                                        </MudStack>
 
                                         <MudText Typo="Typo.caption"
                                                  Style="opacity: 0.7; white-space: nowrap;">
@@ -219,9 +226,17 @@
                                         </MudAvatar>
 
                                         <MudStack Spacing="0">
-                                            <MudText Typo="Typo.body1" Class="font-weight-medium">
-                                                @account.Name
-                                            </MudText>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                                    @account.Name
+                                                </MudText>
+                                                @if (NeedsBankWarning(account))
+                                                {
+                                                    <MudTooltip Text="Bank/card details missing — view account to complete">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                                    </MudTooltip>
+                                                }
+                                            </MudStack>
                                             <MudText Typo="Typo.caption" Style="opacity: 0.7;">
                                                 @account.Type.ToString()
                                             </MudText>
@@ -407,6 +422,9 @@
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Small });
     }
+
+    private static bool NeedsBankWarning(AccountDto account)
+        => account.Type != AccountType.Cash && string.IsNullOrEmpty(account.BankName);
 
     private async Task ConfirmSyncBalance(AccountDto account)
     {

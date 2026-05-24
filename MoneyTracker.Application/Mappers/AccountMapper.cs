@@ -17,7 +17,9 @@ namespace MoneyTracker.Application.Mappers
                 Notes = entity.Notes,
                 Icon = Enum.TryParse<AccountIcon>(entity.Icon, out var parsedIcon) ? parsedIcon : AccountIcon.Wallet,
                 Color = entity.Color,
-                Type = entity.Type
+                Type = entity.Type,
+                BankName = entity.BankName,
+                CardDisplayName = entity.CardDisplayName
             };
         }
 
@@ -32,7 +34,9 @@ namespace MoneyTracker.Application.Mappers
                 Notes = dto.Notes,
                 Icon = dto.Icon.ToString(),
                 Color = dto.Color,
-                Type = dto.Type
+                Type = dto.Type,
+                BankName = dto.BankName,
+                CardDisplayName = dto.CardDisplayName
             };
         }
 
@@ -45,6 +49,8 @@ namespace MoneyTracker.Application.Mappers
             entity.Icon = dto.Icon.ToString();
             entity.Color = dto.Color;
             entity.Type = dto.Type;
+            entity.BankName = dto.BankName;
+            entity.CardDisplayName = dto.CardDisplayName;
         }
     }
 }

@@ -149,6 +149,38 @@
                                  Align="Align.Center">
                             @_account.Type.ToLabel()
                         </MudText>
+                        @if (!string.IsNullOrEmpty(_account.BankName))
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Style="opacity:0.6;" />
+                                <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.BankName</MudText>
+                            </MudStack>
+                        }
+                        else if (NeedsBankName)
+                        {
+                            <MudTooltip Text="Bank name not set — edit account to improve reports">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">Bank not set</MudText>
+                                </MudStack>
+                            </MudTooltip>
+                        }
+                        @if (!string.IsNullOrEmpty(_account.CardDisplayName))
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Style="opacity:0.6;" />
+                                <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.CardDisplayName</MudText>
+                            </MudStack>
+                        }
+                        else if (NeedsCardDisplayName)
+                        {
+                            <MudTooltip Text="Card display name not set — edit account to improve reports">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">Card name not set</MudText>
+                                </MudStack>
+                            </MudTooltip>
+                        }
                     </MudStack>
 
                     <MudText Typo="Typo.h3"
@@ -199,6 +231,38 @@
                             <MudText Typo="Typo.body2" Style="opacity: 0.7; white-space: nowrap;">
                                 @_account.Type.ToLabel()
                             </MudText>
+                            @if (!string.IsNullOrEmpty(_account.BankName))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Style="opacity:0.6;" />
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.BankName</MudText>
+                                </MudStack>
+                            }
+                            else if (NeedsBankName)
+                            {
+                                <MudTooltip Text="Bank name not set — edit account to improve reports">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                        <MudText Typo="Typo.caption" Color="Color.Warning">Bank not set</MudText>
+                                    </MudStack>
+                                </MudTooltip>
+                            }
+                            @if (!string.IsNullOrEmpty(_account.CardDisplayName))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Style="opacity:0.6;" />
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.CardDisplayName</MudText>
+                                </MudStack>
+                            }
+                            else if (NeedsCardDisplayName)
+                            {
+                                <MudTooltip Text="Card display name not set — edit account to improve reports">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                        <MudText Typo="Typo.caption" Color="Color.Warning">Card name not set</MudText>
+                                    </MudStack>
+                                </MudTooltip>
+                            }
                         </MudStack>
                     </MudStack>
 
@@ -600,6 +664,9 @@
 
     private bool IsDebtAccount()
         => _account?.Type == AccountType.Credit;
+
+    private bool NeedsBankName => _account?.Type is not AccountType.Cash;
+    private bool NeedsCardDisplayName => _account?.Type is AccountType.Credit or AccountType.Bank or AccountType.Checking or AccountType.Savings;
 }
 
 

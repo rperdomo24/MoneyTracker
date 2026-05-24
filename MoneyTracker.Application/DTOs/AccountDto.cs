@@ -25,6 +25,12 @@ namespace MoneyTracker.Application.DTOs
 
         public AccountType Type { get; set; }
 
+        [MaxLength(100)]
+        public string? BankName { get; set; }
+
+        [MaxLength(150)]
+        public string? CardDisplayName { get; set; }
+
 
         // View Model properties
         public decimal AvailableCredit => Type == AccountType.Credit

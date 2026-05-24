@@ -35,6 +35,14 @@ namespace MoneyTracker.Application.Validators.Accounts
             RuleFor(x => x.Notes)
                 .MaximumLength(255).WithMessage(string.Format(ValidationMessages.MaxLength, 255))
                 .When(x => !string.IsNullOrWhiteSpace(x.Notes));
+
+            RuleFor(x => x.BankName)
+                .MaximumLength(100).WithMessage(string.Format(ValidationMessages.MaxLength, 100))
+                .When(x => !string.IsNullOrWhiteSpace(x.BankName));
+
+            RuleFor(x => x.CardDisplayName)
+                .MaximumLength(150).WithMessage(string.Format(ValidationMessages.MaxLength, 150))
+                .When(x => !string.IsNullOrWhiteSpace(x.CardDisplayName));
         }
 
         public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>
