@@ -38,9 +38,15 @@
                                 @GetDisplayName()
                             </MudText>
 
-                            <MudText Typo="Typo.caption" Class="text-truncate" Style="opacity:0.7;">
-                                @Transaction.Category?.Name
-                            </MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="min-width:0;">
+                                @if (!string.IsNullOrWhiteSpace(Transaction.MerchantName))
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Style="font-size:0.75rem;opacity:0.6;" />
+                                }
+                                <MudText Typo="Typo.caption" Class="text-truncate" Style="opacity:0.7;">
+                                    @Transaction.Category?.Name
+                                </MudText>
+                            </MudStack>
                         </MudStack>
 
                     </MudStack>
@@ -158,6 +164,11 @@
                                   Spacing="1"
                                   AlignItems="AlignItems.Center"
                                   Style="min-width:0;">
+
+                            @if (!string.IsNullOrWhiteSpace(Transaction.MerchantName))
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" Style="font-size:0.75rem;opacity:0.6;" />
+                            }
 
                             <MudText Typo="Typo.caption"
                                      Class="text-truncate"

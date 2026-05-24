@@ -218,10 +218,18 @@
             if (_selectedAccount is null && _accounts.Any())
                 _selectedAccount = _accounts.First();
 
-            // Auto-match merchant by name
-            _selectedMerchant = !string.IsNullOrWhiteSpace(_item.Merchant)
-                ? _merchants.FirstOrDefault(m => m.Name.Equals(_item.Merchant, StringComparison.OrdinalIgnoreCase))
-                : null;
+            // Auto-match merchant: exact first, then contains
+            if (!string.IsNullOrWhiteSpace(_item.Merchant))
+            {
+                _selectedMerchant =
+                    _merchants.FirstOrDefault(m => m.Name.Equals(_item.Merchant, StringComparison.OrdinalIgnoreCase))
+                    ?? _merchants.FirstOrDefault(m => m.Name.Contains(_item.Merchant, StringComparison.OrdinalIgnoreCase))
+                    ?? _merchants.FirstOrDefault(m => _item.Merchant.Contains(m.Name, StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                _selectedMerchant = null;
+            }
 
             // Reset category because type/merchant changed
             _selectedCategory = null;
@@ -266,6 +274,10 @@
         {
             Snackbar.Add("Transaction added", Severity.Success);
             MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error saving transaction.", Severity.Error);
         }
 
         _saving = false;

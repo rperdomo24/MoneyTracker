@@ -177,16 +177,14 @@
                                           OnAddCategory="CreateCategory"
                                           ShowAddButton="true" />
 
-                        <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
-                                   Label="Merchant (Optional)"
-                                   Variant="Variant.Outlined"
-                                   Clearable="true"
-                                   ToStringFunc="@(m => m?.Name ?? string.Empty)">
-                            @foreach (var m in (_merchants ?? new()))
-                            {
-                                <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
-                            }
-                        </MudSelect>
+                        <MudAutocomplete T="MerchantDto?"
+                                         Label="Merchant (Optional)"
+                                         @bind-Value="_selectedMerchant"
+                                         Variant="Variant.Outlined"
+                                         Clearable="true"
+                                         SearchFunc="SearchMerchants"
+                                         ToStringFunc="@(m => m?.Name ?? string.Empty)"
+                                         Placeholder="Type to search..." />
 
                         <MudDatePicker Label="Date"
                                        @bind-Date="_transactionDate"
@@ -625,6 +623,16 @@
         if (_transactionWithPair.PairedTransaction == null) return "Unknown";
         var toTransaction = _originalTransaction.GetToTransaction(_transactionWithPair.PairedTransaction);
         return toTransaction?.Account?.Name ?? "Unknown";
+    }
+
+    private Task<IEnumerable<MerchantDto?>> SearchMerchants(string? text, CancellationToken _)
+    {
+        var list = _merchants ?? new();
+        if (string.IsNullOrWhiteSpace(text))
+            return Task.FromResult<IEnumerable<MerchantDto?>>(list);
+
+        return Task.FromResult<IEnumerable<MerchantDto?>>(
+            list.Where(m => m.Name.Contains(text, StringComparison.OrdinalIgnoreCase)));
     }
 
     public record ChangeItem(string Field, string OldValue, string NewValue);
