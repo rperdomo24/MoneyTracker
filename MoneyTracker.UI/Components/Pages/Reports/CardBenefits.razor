@@ -1,0 +1,180 @@
+@page "/reports/card-benefits"
+@using MoneyTracker.Application.DTOs.CardBenefits
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.CardBenefits
+@using MoneyTracker.UI.Helpers
+@inject ICardBenefitService CardBenefitService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Card Benefits - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-1 pa-sm-6">
+
+    <!-- Header -->
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.h5" Class="font-weight-bold">Card Benefit Rules</MudText>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenAddDialog">
+            Add Rule
+        </MudButton>
+    </MudStack>
+
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Define which benefits each card offers by category or merchant. The report engine uses these rules to calculate earned benefits and detect missed opportunities.
+    </MudText>
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        </MudStack>
+    }
+    else if (!_benefits.Any())
+    {
+        <MudPaper Class="pa-8" Elevation="1">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6">No benefit rules defined</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                    Add rules to let the system track which card to use for the best benefits.
+                </MudText>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="OpenAddDialog"
+                           StartIcon="@Icons.Material.Filled.Add">
+                    Add First Rule
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudDataGrid T="CardBenefitDto"
+                     Items="@_benefits"
+                     Filterable="true"
+                     SortMode="SortMode.Multiple"
+                     Elevation="1">
+            <Columns>
+                <PropertyColumn Property="x => x.AccountName" Title="Card" />
+                <PropertyColumn Property="x => x.Name" Title="Rule Name" />
+                <TemplateColumn Title="Benefit Type">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@GetBenefitColor(context.Item.BenefitType)">
+                            @context.Item.BenefitType
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Rate">
+                    <CellTemplate>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">
+                            @context.Item.BenefitRateFormatted
+                        </MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Monthly Cap">
+                    <CellTemplate>
+                        @if (context.Item.MaxMonthlyCap.HasValue)
+                        {
+                            <MudText Typo="Typo.body2">@context.Item.MaxMonthlyCap.Value.ToString("C2")</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">No cap</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.MerchantPattern" Title="Merchant Pattern" />
+                <TemplateColumn Title="Status">
+                    <CellTemplate>
+                        <MudChip T="string" Size="Size.Small" Color="@(context.Item.IsActive ? Color.Success : Color.Default)">
+                            @(context.Item.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <MudStack Row="true" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Color="Color.Primary"
+                                           OnClick="@(() => OpenEditDialog(context.Item))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => DeleteBenefit(context.Item))" />
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
+    }
+</MudContainer>
+
+@code {
+    private List<CardBenefitDto> _benefits = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        var result = await CardBenefitService.GetAllAsync();
+        if (result.Success)
+            _benefits = result.Data ?? new();
+        _loading = false;
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters<CardBenefitDialog>
+        {
+            { x => x.OnSaved, EventCallback.Factory.Create(this, LoadData) }
+        };
+        await DialogService.ShowAsync<CardBenefitDialog>("Add Benefit Rule", parameters, options);
+    }
+
+    private async Task OpenEditDialog(CardBenefitDto benefit)
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters<CardBenefitDialog>
+        {
+            { x => x.ExistingBenefit, benefit },
+            { x => x.OnSaved, EventCallback.Factory.Create(this, LoadData) }
+        };
+        await DialogService.ShowAsync<CardBenefitDialog>("Edit Benefit Rule", parameters, options);
+    }
+
+    private async Task DeleteBenefit(CardBenefitDto benefit)
+    {
+        bool confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Delete Rule",
+            $"Delete '{benefit.Name}'? This action cannot be undone.",
+            confirmText: "Delete",
+            color: Color.Error);
+
+        if (!confirmed) return;
+
+        var result = await CardBenefitService.DeleteAsync(benefit.Id);
+        if (result.Success)
+        {
+            Snackbar.Add("Rule deleted", Severity.Success);
+            await LoadData();
+        }
+        else
+        {
+            Snackbar.Add(result.Message, Severity.Error);
+        }
+    }
+
+    private static Color GetBenefitColor(BenefitType type) => type switch
+    {
+        BenefitType.Cashback => Color.Success,
+        BenefitType.Points => Color.Primary,
+        BenefitType.Miles => Color.Info,
+        BenefitType.Discount => Color.Warning,
+        _ => Color.Default
+    };
+}
