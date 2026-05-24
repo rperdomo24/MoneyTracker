@@ -32,6 +32,11 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
         public DbSet<AuthAuditLog> AuthAuditLogs => Set<AuthAuditLog>();
         public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
+        public DbSet<CardBenefit> CardBenefits => Set<CardBenefit>();
+        public DbSet<Merchant> Merchants => Set<Merchant>();
+        public DbSet<TransactionRule> TransactionRules => Set<TransactionRule>();
+        public DbSet<TransactionRuleCondition> TransactionRuleConditions => Set<TransactionRuleCondition>();
+        public DbSet<TransactionRuleAction> TransactionRuleActions => Set<TransactionRuleAction>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -188,6 +193,69 @@ namespace MoneyTracker.Infrastructure.Persistence
             modelBuilder.Entity<Budget>()
                 .Property(b => b.UpdatedAt)
                 .HasDefaultValueSql("now()");
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasOne(e => e.Account)
+                .WithMany()
+                .HasForeignKey(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasOne(e => e.Category)
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Merchant
+            modelBuilder.Entity<Merchant>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<Merchant>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            // Transaction → Merchant FK
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.Merchant)
+                .WithMany()
+                .HasForeignKey(t => t.MerchantId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // TransactionRule
+            modelBuilder.Entity<TransactionRule>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<TransactionRule>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<TransactionRule>()
+                .HasMany(r => r.Conditions)
+                .WithOne(c => c.Rule)
+                .HasForeignKey(c => c.RuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TransactionRule>()
+                .HasMany(r => r.Actions)
+                .WithOne(a => a.Rule)
+                .HasForeignKey(a => a.RuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TransactionRuleAction>()
+                .HasOne(a => a.Merchant)
+                .WithMany()
+                .HasForeignKey(a => a.MerchantId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<TransactionRuleAction>()
+                .HasOne(a => a.Category)
+                .WithMany()
+                .HasForeignKey(a => a.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
         public override int SaveChanges()

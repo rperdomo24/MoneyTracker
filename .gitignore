@@ -387,3 +387,7 @@ terraform/terraform.tfstate
 .env
 .env.*
 !.env.example
+
+# Local secrets
+appsettings.Development.json
+appsettings.*.json

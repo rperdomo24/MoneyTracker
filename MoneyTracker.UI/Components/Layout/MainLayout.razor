@@ -218,7 +218,23 @@
 
             <div class="page-content">
                 <CascadingValue Name="IsDarkMode" Value="_isDarkMode">
-                    @Body
+                    <ErrorBoundary @ref="_errorBoundary">
+                        <ChildContent>
+                            @Body
+                        </ChildContent>
+                        <ErrorContent>
+                            <MudPaper Class="ma-4 pa-6" Elevation="1">
+                                <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" />
+                                    <MudText Typo="Typo.h6">Something went wrong</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">An unexpected error occurred on this page.</MudText>
+                                    <MudButton Variant="Variant.Outlined" OnClick="@(() => _errorBoundary?.Recover())">
+                                        Try again
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        </ErrorContent>
+                    </ErrorBoundary>
                 </CascadingValue>
             </div>
         </MudContainer>
@@ -408,6 +424,7 @@
     private const string SessionKey_AccountsDrawerOpen = "accountsDrawerOpen";
     private const string SessionKey_DesktopNavCollapsed = "desktopNavCollapsed";
 
+    private ErrorBoundary? _errorBoundary;
     private bool _isDarkMode = true;
     private bool _desktopNavCollapsed;
     private bool _profileMenuOpen;

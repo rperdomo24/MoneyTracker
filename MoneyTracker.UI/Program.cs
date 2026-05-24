@@ -17,6 +17,8 @@ using MoneyTracker.Application.Validators.Accounts;
 using MoneyTracker.Application.Validators.Budgets;
 using MoneyTracker.Application.Validators.Auth;
 using MoneyTracker.Application.Validators.Categories;
+using MoneyTracker.Application.DTOs.CardBenefits;
+using MoneyTracker.Application.Validators.CardBenefits;
 using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
@@ -148,6 +150,8 @@ namespace MoneyTracker.UI
                 options.KnownProxies.Clear();
             });
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+            builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAiSettings"));
+            builder.Services.Configure<GoogleAiSettings>(builder.Configuration.GetSection("GoogleAiSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
             builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
             builder.Services.AddScoped<IAuthAuditService, AuthAuditService>();
@@ -177,6 +181,15 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IBudgetService, BudgetService>();
             builder.Services.AddScoped<IValidator<CreateBudgetDto>, CreateBudgetValidator>();
             builder.Services.AddScoped<IValidator<UpdateBudgetDto>, UpdateBudgetValidator>();
+
+            builder.Services.AddScoped<ICardBenefitRepository, CardBenefitRepository>();
+            builder.Services.AddScoped<ICardBenefitService, CardBenefitService>();
+            builder.Services.AddScoped<IMerchantRepository, MerchantRepository>();
+            builder.Services.AddScoped<IMerchantService, MerchantService>();
+            builder.Services.AddScoped<ITransactionRuleRepository, TransactionRuleRepository>();
+            builder.Services.AddScoped<ITransactionRuleService, TransactionRuleService>();
+            builder.Services.AddScoped<IReportService, ReportService>();
+            builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
             builder.Services.AddScoped<ITextImportService, TextImportService>();
             builder.Services.AddScoped<IUserProfileService, UserProfileService>();

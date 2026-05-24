@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MoneyTracker.Infrastructure.Persistence;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MoneyTracker.Infrastructure.Migrations
 {
     [DbContext(typeof(MoneyTrackerDbContext))]
-    partial class MoneyTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260524012531_AddCardBenefitsAndAccountBankName")]
+    partial class AddCardBenefitsAndAccountBankName
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -166,10 +169,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Property<string>("BankName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<string>("CardDisplayName")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("Color")
                         .HasMaxLength(10)
@@ -533,41 +532,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.ToTable("ErrorLogs");
                 });
 
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.Merchant", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("Merchants");
-                });
-
             modelBuilder.Entity("MoneyTracker.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("TenantId")
@@ -629,9 +593,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Property<bool>("IsSystemGenerated")
                         .HasColumnType("boolean");
 
-                    b.Property<int?>("MerchantId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -660,8 +621,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.HasIndex("AccountId");
 
                     b.HasIndex("CategoryId");
-
-                    b.HasIndex("MerchantId");
 
                     b.HasIndex("TenantId");
 
@@ -714,116 +673,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.HasIndex("TransactionId");
 
                     b.ToTable("TransactionAttachments");
-                });
-
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionRule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("ApplyFromDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("ApplyToHistorical")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("TransactionRules");
-                });
-
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionRuleAction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ActionType")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("CategoryId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("MerchantId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RuleId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("StringValue")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("MerchantId");
-
-                    b.HasIndex("RuleId");
-
-                    b.ToTable("TransactionRuleActions");
-                });
-
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionRuleCondition", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("Field")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Operator")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RuleId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RuleId");
-
-                    b.ToTable("TransactionRuleConditions");
                 });
 
             modelBuilder.Entity("MoneyTracker.Domain.Entities.UserAvatar", b =>
@@ -1182,16 +1031,9 @@ namespace MoneyTracker.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull)
                         .IsRequired();
 
-                    b.HasOne("MoneyTracker.Domain.Entities.Merchant", "Merchant")
-                        .WithMany()
-                        .HasForeignKey("MerchantId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Account");
 
                     b.Navigation("Category");
-
-                    b.Navigation("Merchant");
                 });
 
             modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionAttachment", b =>
@@ -1203,42 +1045,6 @@ namespace MoneyTracker.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Transaction");
-                });
-
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionRuleAction", b =>
-                {
-                    b.HasOne("MoneyTracker.Domain.Entities.Category", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("MoneyTracker.Domain.Entities.Merchant", "Merchant")
-                        .WithMany()
-                        .HasForeignKey("MerchantId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("MoneyTracker.Domain.Entities.TransactionRule", "Rule")
-                        .WithMany("Actions")
-                        .HasForeignKey("RuleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Category");
-
-                    b.Navigation("Merchant");
-
-                    b.Navigation("Rule");
-                });
-
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionRuleCondition", b =>
-                {
-                    b.HasOne("MoneyTracker.Domain.Entities.TransactionRule", "Rule")
-                        .WithMany("Conditions")
-                        .HasForeignKey("RuleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Rule");
                 });
 
             modelBuilder.Entity("MoneyTracker.Domain.Entities.UserAvatar", b =>
@@ -1262,13 +1068,6 @@ namespace MoneyTracker.Infrastructure.Migrations
             modelBuilder.Entity("MoneyTracker.Domain.Entities.Transaction", b =>
                 {
                     b.Navigation("Attachments");
-                });
-
-            modelBuilder.Entity("MoneyTracker.Domain.Entities.TransactionRule", b =>
-                {
-                    b.Navigation("Actions");
-
-                    b.Navigation("Conditions");
                 });
 
             modelBuilder.Entity("MoneyTracker.Infrastructure.Persistence.ApplicationUser", b =>
