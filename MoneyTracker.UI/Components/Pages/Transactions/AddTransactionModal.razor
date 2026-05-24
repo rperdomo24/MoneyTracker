@@ -8,10 +8,12 @@
 @using MoneyTracker.UI.Components.Pages.Categories
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.DTOs.Goals
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
 @inject IMerchantService MerchantService
+@inject ISavingsGoalService GoalService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -163,6 +165,55 @@
                                       Placeholder="Add additional details..." />
                     }
 
+                    @* ========== SAVINGS GOAL LINK ========== *@
+                    @if (_transactionType != TransactionTypeEnum.Transfer && _activeGoals.Any())
+                    {
+                        <MudDivider Class="my-2" />
+                        <MudCheckBox @bind-Value="_linkToGoal"
+                                     @bind-Value:after="OnLinkToGoalChanged"
+                                     Color="Color.Success"
+                                     Dense="true">
+                            <MudText Typo="Typo.body2">Count toward a savings goal</MudText>
+                        </MudCheckBox>
+
+                        @if (_linkToGoal)
+                        {
+                            <MudSelect T="int?"
+                                       Label="Savings Goal"
+                                       @bind-Value="_selectedGoalId"
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       Clearable="true"
+                                       Class="mt-2">
+                                @foreach (var g in _activeGoals)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)g.Id)">
+                                        <div class="d-flex align-center gap-2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                                     Size="Size.Small"
+                                                     Style="@($"color:{g.Color}; font-size:10px;")" />
+                                            @g.Name
+                                            <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
+                                                (@g.ProgressPercent%)
+                                            </MudText>
+                                        </div>
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudNumericField Label="Contribution amount"
+                                             @bind-Value="_goalContributionAmount"
+                                             Variant="Variant.Outlined"
+                                             Dense="true"
+                                             Min="0.01m"
+                                             Format="N2"
+                                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                             Adornment="Adornment.Start"
+                                             AdornmentText="$"
+                                             Class="mt-2" />
+                        }
+                        <MudDivider Class="my-2" />
+                    }
+
                     @* ========== QUICK ADD MODE ========== *@
                     <MudCheckBox @bind-Value="_quickAddMode"
                                  Color="Color.Primary"
@@ -241,6 +292,12 @@
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
     private List<MerchantDto>? _merchants;
+    private List<SavingsGoalDto> _activeGoals = new();
+
+    // Goal link
+    private bool _linkToGoal = false;
+    private int? _selectedGoalId;
+    private decimal _goalContributionAmount = 0;
 
     private readonly DialogOptions _dialogOptions = new()
     {
@@ -285,6 +342,10 @@
             var merchantsResult = await MerchantService.GetAllAsync();
             if (merchantsResult.Success)
                 _merchants = merchantsResult.Data ?? new();
+
+            var goalsResult = await GoalService.GetAllAsync();
+            if (goalsResult.Success && goalsResult.Data is not null)
+                _activeGoals = goalsResult.Data.Where(g => !g.IsCompleted).ToList();
         }
         catch (Exception ex)
         {
@@ -315,6 +376,17 @@
                _amount > 0 &&
                _transactionDate.HasValue &&
                _selectedCategory != null;
+    }
+
+    private void OnLinkToGoalChanged()
+    {
+        if (_linkToGoal)
+            _goalContributionAmount = _amount;
+        else
+        {
+            _selectedGoalId = null;
+            _goalContributionAmount = 0;
+        }
     }
 
     private void OnFromAccountChanged(AccountDto? value)
@@ -428,6 +500,21 @@
             if (result.Success)
             {
                 Snackbar.Add($"{_transactionType} added successfully", Severity.Success);
+
+                if (_linkToGoal && _selectedGoalId.HasValue && _goalContributionAmount > 0)
+                {
+                    var contribution = new SavingsContributionDto
+                    {
+                        GoalId = _selectedGoalId.Value,
+                        Amount = _goalContributionAmount,
+                        Date = _transactionDate!.Value,
+                        Notes = $"From transaction: {_transactionName}"
+                    };
+                    var goalResult = await GoalService.AddContributionAsync(contribution);
+                    if (!goalResult.Success)
+                        Snackbar.Add("Transaction saved but failed to link to goal.", Severity.Warning);
+                }
+
                 await OnTransactionAdded.InvokeAsync();
 
                 if (!_quickAddMode)
@@ -467,6 +554,9 @@
         _amount = 0;
         _description = null;
         _selectedMerchant = null;
+        _linkToGoal = false;
+        _selectedGoalId = null;
+        _goalContributionAmount = 0;
         // _selectedCategory = null;
         _selectedAccount = PreselectedAccountId.HasValue
             ? _accounts?.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)

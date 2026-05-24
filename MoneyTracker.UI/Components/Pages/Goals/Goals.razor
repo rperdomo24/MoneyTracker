@@ -78,6 +78,13 @@
                 var daysRemaining = goal.TargetDate.HasValue
                     ? (goal.TargetDate.Value.Date - DateTime.Today).Days
                     : (int?)null;
+                var amountRemaining = goal.TargetAmount - goal.CurrentAmount;
+                decimal? monthlyPace = null;
+                if (goal.TargetDate.HasValue && amountRemaining > 0 && daysRemaining > 0)
+                {
+                    var months = (decimal)daysRemaining.Value / 30m;
+                    monthlyPace = months > 0 ? Math.Ceiling(amountRemaining / months) : null;
+                }
 
                 <MudItem xs="12" sm="6" lg="4">
                     <MudCard Outlined="true" Elevation="1" Style="@($"border-left: 4px solid {goal.Color}; height: 100%;")">
@@ -146,6 +153,22 @@
                                 </MudStack>
                             }
 
+                            <!-- Remaining + pace -->
+                            @if (!goal.IsCompleted && amountRemaining > 0)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">
+                                        <strong>@CurrencyHelper.FormatCurrency(amountRemaining)</strong> remaining
+                                    </MudText>
+                                    @if (monthlyPace.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                                            ~@CurrencyHelper.FormatCurrency(monthlyPace.Value)/mo needed
+                                        </MudText>
+                                    }
+                                </MudStack>
+                            }
+
                             <!-- Notes -->
                             @if (!string.IsNullOrWhiteSpace(goal.Notes))
                             {
@@ -163,6 +186,13 @@
                                                Color="Color.Primary"
                                                Size="Size.Small"
                                                OnClick="@(() => OpenAddContributionDialog(goal))" />
+                            </MudTooltip>
+                            <MudTooltip Text="View contributions history">
+                                <MudIconButton Icon="@Icons.Material.Filled.History"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               Disabled="@(!goal.Contributions.Any())"
+                                               OnClick="@(() => OpenContributionsHistory(goal))" />
                             </MudTooltip>
                             <MudTooltip Text="Edit">
                                 <MudIconButton Icon="@Icons.Material.Filled.Edit"
@@ -255,6 +285,17 @@
             [nameof(GoalEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadGoals)
         };
         await DialogService.ShowAsync<GoalEditorDialog>("Edit Goal", parameters, _dialogOptions);
+    }
+
+    private async Task OpenContributionsHistory(SavingsGoalDto goal)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(GoalContributionsDialog.Goal)] = goal,
+            [nameof(GoalContributionsDialog.GoalService)] = GoalService,
+            [nameof(GoalContributionsDialog.OnChanged)] = EventCallback.Factory.Create(this, LoadGoals)
+        };
+        await DialogService.ShowAsync<GoalContributionsDialog>("Contributions", parameters, _dialogOptions);
     }
 
     private async Task OpenAddContributionDialog(SavingsGoalDto goal)

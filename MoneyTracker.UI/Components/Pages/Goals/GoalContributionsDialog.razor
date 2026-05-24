@@ -1,0 +1,93 @@
+@using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">@(Goal?.Name ?? "Goal") — Contributions</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (Goal is null || !Goal.Contributions.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-6" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Savings" Style="font-size:3rem; opacity:0.3;" />
+                <MudText Typo="Typo.body2" Style="opacity:0.6;">No contributions yet.</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="1">
+                <!-- Summary row -->
+                <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-2">
+                    <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                        @Goal.Contributions.Count contribution(s)
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="font-weight-bold">
+                        Total: @CurrencyHelper.FormatCurrency(Goal.Contributions.Sum(c => c.Amount))
+                    </MudText>
+                </MudStack>
+
+                @foreach (var c in Goal.Contributions.OrderByDescending(x => x.Date))
+                {
+                    <MudPaper Elevation="0" Class="pa-3" Style="border: 1px solid var(--mud-palette-divider); border-radius: 8px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                    @CurrencyHelper.FormatCurrency(c.Amount)
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                                    @c.Date.ToString("MMM d, yyyy")
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(c.Notes))
+                                {
+                                    <MudText Typo="Typo.caption" Style="opacity:0.5; font-style:italic;">
+                                        @c.Notes
+                                    </MudText>
+                                }
+                            </MudStack>
+                            <MudTooltip Text="Delete contribution">
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="@(() => DeleteContribution(c))" />
+                            </MudTooltip>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public SavingsGoalDto? Goal { get; set; }
+    [Parameter] public ISavingsGoalService GoalService { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private async Task DeleteContribution(SavingsContributionDto c)
+    {
+        var result = await GoalService.DeleteContributionAsync(c.Id);
+        if (result.Success)
+        {
+            Goal!.Contributions.Remove(c);
+            await OnChanged.InvokeAsync();
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error deleting contribution", Severity.Error);
+        }
+    }
+
+    private void Close() => MudDialog.Close();
+}
