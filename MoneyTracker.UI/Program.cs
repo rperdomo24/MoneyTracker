@@ -194,7 +194,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
-            builder.Services.AddScoped<ITextImportService, TextImportService>();
+            builder.Services.AddHttpClient<ITextImportService, AiTextImportService>();
             builder.Services.AddScoped<IUserProfileService, UserProfileService>();
             builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
             builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();

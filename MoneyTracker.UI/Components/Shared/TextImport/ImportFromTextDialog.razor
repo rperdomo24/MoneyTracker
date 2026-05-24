@@ -35,10 +35,11 @@
             <MudStack Spacing="3">
 
                 <MudTextField @bind-Value="_rawText"
-                              Label="Paste bank SMS/email"
+                              Label="Paste bank SMS / email or describe the transaction"
                               Variant="Variant.Outlined"
                               Lines="6"
-                              FullWidth="true" />
+                              FullWidth="true"
+                              HelperText="e.g. 'gasto de $12 en BAC' or paste a bank SMS" />
 
                 <MudStack Row="true" Spacing="2">
                     <MudButton Variant="Variant.Filled"
