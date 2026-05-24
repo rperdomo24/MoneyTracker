@@ -384,7 +384,7 @@ namespace MoneyTracker.Application.Services
         private static List<ReportMerchantSummaryDto> BuildMerchantSummary(List<Transaction> expenses)
         {
             return expenses
-                .GroupBy(t => t.Name)
+                .GroupBy(t => t.Merchant?.Name ?? t.Name)
                 .Select(g => new ReportMerchantSummaryDto
                 {
                     MerchantName = g.Key,
