@@ -1,0 +1,316 @@
+@page "/goals"
+@using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject ISavingsGoalService GoalService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Savings Goals - Money Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-1 pa-sm-6">
+
+    <!-- Header (Mobile) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudStack Spacing="3" Class="mb-4">
+            <MudText Typo="Typo.h5" Class="font-weight-bold">Savings Goals</MudText>
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog"
+                       FullWidth="true"
+                       Size="Size.Large">
+                Add Goal
+            </MudButton>
+        </MudStack>
+    </MudHidden>
+
+    <!-- Header (Tablet/Desktop) -->
+    <MudHidden Breakpoint="Breakpoint.Xs">
+        <MudStack Row="true"
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-4">
+            <MudText Typo="Typo.h5" Class="font-weight-bold">Savings Goals</MudText>
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
+                Add Goal
+            </MudButton>
+        </MudStack>
+    </MudHidden>
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Class="mt-4">Loading goals...</MudText>
+        </MudStack>
+    }
+    else if (!_goals.Any())
+    {
+        <MudPaper Class="pa-6 pa-sm-8" Elevation="1">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Savings"
+                         Size="Size.Large"
+                         Style="font-size: 4rem; opacity: 0.3;" />
+                <MudText Typo="Typo.h6">No savings goals yet</MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center">
+                    Start tracking your financial goals by adding your first one.
+                </MudText>
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenAddDialog"
+                           FullWidth="true"
+                           Size="Size.Large">
+                    Add Your First Goal
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+            @foreach (var goal in _goals)
+            {
+                var daysRemaining = goal.TargetDate.HasValue
+                    ? (goal.TargetDate.Value.Date - DateTime.Today).Days
+                    : (int?)null;
+
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudCard Outlined="true" Elevation="1" Style="@($"border-left: 4px solid {goal.Color}; height: 100%;")">
+                        <MudCardContent>
+                            <!-- Title row -->
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                             Size="Size.Small"
+                                             Style="@($"color: {goal.Color};")" />
+                                    <MudText Typo="Typo.h6" Class="font-weight-medium" Style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">
+                                        @goal.Name
+                                    </MudText>
+                                </MudStack>
+                                @if (goal.IsCompleted)
+                                {
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">
+                                        Done
+                                    </MudChip>
+                                }
+                            </MudStack>
+
+                            <!-- Progress -->
+                            <MudStack Spacing="1" Class="mb-3">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.body2">
+                                        @CurrencyHelper.FormatCurrency(goal.CurrentAmount)
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
+                                            / @CurrencyHelper.FormatCurrency(goal.TargetAmount)
+                                        </MudText>
+                                    </MudText>
+                                    <MudText Typo="Typo.body2" Class="font-weight-bold" Style="@($"color:{goal.Color}")">
+                                        @goal.ProgressPercent%
+                                    </MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="@((double)goal.ProgressPercent)"
+                                                   Color="Color.Primary"
+                                                   Rounded="true"
+                                                   Size="Size.Medium"
+                                                   Style="@($"--mud-palette-primary: {goal.Color};")" />
+                            </MudStack>
+
+                            <!-- Target date -->
+                            @if (goal.TargetDate.HasValue)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="opacity:0.6;" />
+                                    <MudText Typo="Typo.caption">
+                                        @goal.TargetDate.Value.ToString("MMM d, yyyy")
+                                    </MudText>
+                                    @if (daysRemaining.HasValue)
+                                    {
+                                        @if (daysRemaining.Value < 0)
+                                        {
+                                            <MudChip T="string" Color="Color.Error" Size="Size.Small">Overdue</MudChip>
+                                        }
+                                        else if (daysRemaining.Value == 0)
+                                        {
+                                            <MudChip T="string" Color="Color.Warning" Size="Size.Small">Today</MudChip>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Style="opacity:0.6;">(@daysRemaining days left)</MudText>
+                                        }
+                                    }
+                                </MudStack>
+                            }
+
+                            <!-- Notes -->
+                            @if (!string.IsNullOrWhiteSpace(goal.Notes))
+                            {
+                                <MudText Typo="Typo.caption"
+                                         Style="opacity:0.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;"
+                                         Class="mb-2">
+                                    @goal.Notes
+                                </MudText>
+                            }
+                        </MudCardContent>
+
+                        <MudCardActions>
+                            <MudTooltip Text="Add Contribution">
+                                <MudIconButton Icon="@Icons.Material.Filled.AddCircle"
+                                               Color="Color.Primary"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenAddContributionDialog(goal))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Edit">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenEditDialog(goal))" />
+                            </MudTooltip>
+                            <MudTooltip Text="@(goal.IsCompleted ? "Mark Incomplete" : "Mark Complete")">
+                                <MudIconButton Icon="@(goal.IsCompleted ? Icons.Material.Filled.Unpublished : Icons.Material.Filled.CheckCircle)"
+                                               Color="@(goal.IsCompleted ? Color.Default : Color.Success)"
+                                               Size="Size.Small"
+                                               OnClick="@(() => ToggleComplete(goal))" />
+                            </MudTooltip>
+                            <MudSpacer />
+                            <MudTooltip Text="Delete">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DeleteGoal(goal))" />
+                            </MudTooltip>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+
+</MudContainer>
+
+@code {
+    private List<SavingsGoalDto> _goals = new();
+    private bool _loading = true;
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        CloseButton = true,
+        FullWidth = true,
+        MaxWidth = MaxWidth.Small,
+        CloseOnEscapeKey = true
+    };
+
+    protected override async Task OnInitializedAsync()
+        => await LoadGoals();
+
+    private async Task LoadGoals()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await GoalService.GetAllAsync();
+            if (result.Success && result.Data is not null)
+                _goals = result.Data;
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to load goals.", Severity.Error);
+                _goals.Clear();
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error loading goals.", Severity.Error);
+            _goals.Clear();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(GoalEditorDialog.Goal)] = null,
+            [nameof(GoalEditorDialog.GoalService)] = GoalService,
+            [nameof(GoalEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadGoals)
+        };
+        await DialogService.ShowAsync<GoalEditorDialog>("Add Goal", parameters, _dialogOptions);
+    }
+
+    private async Task OpenEditDialog(SavingsGoalDto goal)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(GoalEditorDialog.Goal)] = goal,
+            [nameof(GoalEditorDialog.GoalService)] = GoalService,
+            [nameof(GoalEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadGoals)
+        };
+        await DialogService.ShowAsync<GoalEditorDialog>("Edit Goal", parameters, _dialogOptions);
+    }
+
+    private async Task OpenAddContributionDialog(SavingsGoalDto goal)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(AddContributionDialog.Goal)] = goal,
+            [nameof(AddContributionDialog.GoalService)] = GoalService,
+            [nameof(AddContributionDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadGoals)
+        };
+        await DialogService.ShowAsync<AddContributionDialog>("Add Contribution", parameters, _dialogOptions);
+    }
+
+    private async Task ToggleComplete(SavingsGoalDto goal)
+    {
+        try
+        {
+            var result = await GoalService.ToggleCompletedAsync(goal.Id);
+            if (result.Success)
+            {
+                Snackbar.Add(goal.IsCompleted ? "Marked as incomplete." : "Marked as complete!", Severity.Success);
+                await LoadGoals();
+            }
+            else
+                Snackbar.Add(result.Message ?? "Failed to update goal.", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Error updating goal.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteGoal(SavingsGoalDto goal)
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Delete Goal",
+            $"Delete '{goal.Name}'? This cannot be undone.",
+            confirmText: "Delete",
+            color: Color.Error);
+
+        if (!confirmed) return;
+
+        try
+        {
+            var result = await GoalService.DeleteAsync(goal.Id);
+            if (result.Success)
+            {
+                Snackbar.Add($"'{goal.Name}' deleted.", Severity.Success);
+                await LoadGoals();
+            }
+            else
+                Snackbar.Add(result.Message ?? "Failed to delete goal.", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Error deleting goal.", Severity.Error);
+        }
+    }
+}

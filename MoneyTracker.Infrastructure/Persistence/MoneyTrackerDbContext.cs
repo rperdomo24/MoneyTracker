@@ -37,6 +37,8 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<TransactionRule> TransactionRules => Set<TransactionRule>();
         public DbSet<TransactionRuleCondition> TransactionRuleConditions => Set<TransactionRuleCondition>();
         public DbSet<TransactionRuleAction> TransactionRuleActions => Set<TransactionRuleAction>();
+        public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
+        public DbSet<SavingsContribution> SavingsContributions => Set<SavingsContribution>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -256,6 +258,33 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .WithMany()
                 .HasForeignKey(a => a.CategoryId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // SavingsGoal
+            modelBuilder.Entity<SavingsGoal>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<SavingsGoal>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<SavingsGoal>()
+                .Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<SavingsGoal>()
+                .Property(e => e.TargetAmount)
+                .HasColumnType("numeric(12,2)");
+
+            // SavingsContribution
+            modelBuilder.Entity<SavingsContribution>()
+                .HasOne(c => c.Goal)
+                .WithMany(g => g.Contributions)
+                .HasForeignKey(c => c.GoalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SavingsContribution>()
+                .Property(c => c.Amount)
+                .HasColumnType("numeric(12,2)");
         }
 
         public override int SaveChanges()

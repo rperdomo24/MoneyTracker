@@ -1,0 +1,153 @@
+@using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.Application.Interfaces
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@(Goal is null ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">@(Goal is null ? "Add Goal" : "Edit Goal")</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="pa-0">
+            <MudTextField Label="Name"
+                          @bind-Value="_model.Name"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          Immediate="true"
+                          Class="mb-4"
+                          Placeholder="e.g., Emergency Fund, Vacation" />
+
+            <MudNumericField Label="Target Amount"
+                             @bind-Value="_model.TargetAmount"
+                             Variant="Variant.Outlined"
+                             Min="0.01m"
+                             Format="N2"
+                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                             Adornment="Adornment.Start"
+                             AdornmentText="$"
+                             Class="mb-4"
+                             Placeholder="0.00" />
+
+            <MudDatePicker Label="Target Date (optional)"
+                           @bind-Date="_targetDate"
+                           Variant="Variant.Outlined"
+                           MinDate="@DateTime.Today"
+                           Class="mb-4"
+                           Clearable="true" />
+
+            <MudTextField Label="Color (hex)"
+                          @bind-Value="_model.Color"
+                          Variant="Variant.Outlined"
+                          Class="mb-4"
+                          Placeholder="#6366f1"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Circle"
+                          AdornmentColor="Color.Default" />
+
+            <MudTextField Label="Notes (optional)"
+                          @bind-Value="_model.Notes"
+                          Variant="Variant.Outlined"
+                          Lines="3"
+                          Class="mb-2"
+                          Placeholder="Optional notes about this goal" />
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Save"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@(_isSaving || string.IsNullOrWhiteSpace(_model.Name))">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>@(Goal is null ? "Create" : "Save")</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public SavingsGoalDto? Goal { get; set; }
+    [Parameter] public ISavingsGoalService GoalService { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private SavingsGoalDto _model = new();
+    private DateTime? _targetDate;
+    private bool _isSaving = false;
+
+    protected override void OnInitialized()
+    {
+        if (Goal is not null)
+        {
+            _model = new SavingsGoalDto
+            {
+                Id = Goal.Id,
+                Name = Goal.Name,
+                TargetAmount = Goal.TargetAmount,
+                TargetDate = Goal.TargetDate,
+                Color = Goal.Color,
+                Notes = Goal.Notes,
+                IsCompleted = Goal.IsCompleted
+            };
+            _targetDate = Goal.TargetDate;
+        }
+        else
+        {
+            _model.Color = "#6366f1";
+        }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Name)) return;
+        if (_model.TargetAmount <= 0)
+        {
+            Snackbar.Add("Target amount must be greater than 0.", Severity.Warning);
+            return;
+        }
+
+        _model.TargetDate = _targetDate;
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = Goal is null
+                ? await GoalService.CreateAsync(_model)
+                : await GoalService.UpdateAsync(_model);
+
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Saved successfully.", Severity.Success);
+                await OnSaved.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to save goal.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -189,6 +189,8 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IMerchantService, MerchantService>();
             builder.Services.AddScoped<ITransactionRuleRepository, TransactionRuleRepository>();
             builder.Services.AddScoped<ITransactionRuleService, TransactionRuleService>();
+            builder.Services.AddScoped<ISavingsGoalRepository, SavingsGoalRepository>();
+            builder.Services.AddScoped<ISavingsGoalService, SavingsGoalService>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
