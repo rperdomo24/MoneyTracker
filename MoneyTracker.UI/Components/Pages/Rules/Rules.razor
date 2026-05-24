@@ -1,8 +1,12 @@
 @page "/rules"
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.Rules
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Rules
 @inject ITransactionRuleService RuleService
+@inject ICategoryService CategoryService
+@inject IMerchantService MerchantService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -130,6 +134,8 @@
 
 @code {
     private List<TransactionRuleDto> _rules = new();
+    private List<CategoryDto> _categories = new();
+    private List<MerchantDto> _merchants = new();
     private bool _loading = true;
     private bool _running = false;
 
@@ -143,8 +149,15 @@
         _loading = true;
         StateHasChanged();
 
-        var result = await RuleService.GetAllAsync();
-        _rules = result.Success && result.Data != null ? result.Data : new();
+        var (rulesResult, categoriesResult, merchantsResult) = (
+            await RuleService.GetAllAsync(),
+            await CategoryService.GetAllAsync(),
+            await MerchantService.GetAllAsync()
+        );
+
+        _rules = rulesResult.Success && rulesResult.Data != null ? rulesResult.Data : new();
+        _categories = categoriesResult.Success && categoriesResult.Data != null ? categoriesResult.Data.ToList() : new();
+        _merchants = merchantsResult.Success && merchantsResult.Data != null ? merchantsResult.Data : new();
 
         _loading = false;
         StateHasChanged();
@@ -251,7 +264,7 @@
         }
     }
 
-    private static string GetRuleSummary(TransactionRuleDto rule)
+    private string GetRuleSummary(TransactionRuleDto rule)
     {
         var condParts = rule.Conditions.Select(c =>
         {
@@ -263,14 +276,24 @@
                 RuleConditionField.Merchant => "merchant",
                 _ => c.Field.ToString()
             };
-            return $"{field} {c.Operator.ToString().ToLower()} \"{c.Value}\"";
+
+            string displayValue = c.Field switch
+            {
+                RuleConditionField.Category when int.TryParse(c.Value, out var catId)
+                    => _categories.FirstOrDefault(x => x.Id == catId)?.Name ?? c.Value,
+                RuleConditionField.Merchant when int.TryParse(c.Value, out var mId)
+                    => _merchants.FirstOrDefault(x => x.Id == mId)?.Name ?? c.Value,
+                _ => c.Value
+            };
+
+            return $"{field} {c.Operator.ToString().ToLower()} \"{displayValue}\"";
         });
 
         var actionParts = rule.Actions.Select(a => a.ActionType switch
         {
-            RuleActionType.SetMerchant => "set merchant",
-            RuleActionType.SetCategory => "set category",
-            RuleActionType.SetName => "set name",
+            RuleActionType.SetMerchant => $"set merchant → {a.MerchantName ?? a.MerchantId?.ToString() ?? "?"}",
+            RuleActionType.SetCategory => $"set category → {a.CategoryName ?? a.CategoryId?.ToString() ?? "?"}",
+            RuleActionType.SetName => $"set name → \"{a.StringValue}\"",
             _ => a.ActionType.ToString()
         });
 
