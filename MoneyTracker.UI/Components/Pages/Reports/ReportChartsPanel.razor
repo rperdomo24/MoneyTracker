@@ -1,0 +1,99 @@
+@using ApexCharts
+@using MoneyTracker.Application.DTOs.Reports
+
+@if (CategorySummary.Any() || Summary.TotalIncome > 0 || Summary.TotalExpenses > 0)
+{
+    <MudGrid Spacing="3" Class="@Class">
+        @if (CategorySummary.Any())
+        {
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-3">Expenses by Category</MudText>
+                    <ApexChart TItem="ChartPoint" Options="_donutOptions" Height="220">
+                        <ApexPointSeries TItem="ChartPoint"
+                                         Items="@_categoryPoints"
+                                         Name="Expenses"
+                                         SeriesType="SeriesType.Donut"
+                                         XValue="x => x.Label"
+                                         YValue="x => x.Amount" />
+                    </ApexChart>
+                </MudPaper>
+            </MudItem>
+        }
+        <MudItem xs="12" md="@(CategorySummary.Any() ? 6 : 12)">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-3">Income vs Expenses</MudText>
+                <ApexChart TItem="ChartPoint" Options="_barOptions" Height="220">
+                    <ApexPointSeries TItem="ChartPoint"
+                                     Items="@_summaryPoints"
+                                     Name="Amount"
+                                     SeriesType="SeriesType.Bar"
+                                     XValue="x => x.Label"
+                                     YValue="x => x.Amount" />
+                </ApexChart>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public List<ReportCategorySummaryDto> CategorySummary { get; set; } = new();
+    [Parameter] public ReportSummaryDto Summary { get; set; } = new();
+    [Parameter] public string? Class { get; set; }
+
+    private List<ChartPoint> _categoryPoints = new();
+    private List<ChartPoint> _summaryPoints = new();
+    private ApexChartOptions<ChartPoint> _donutOptions = new();
+    private ApexChartOptions<ChartPoint> _barOptions = new();
+
+    protected override void OnParametersSet()
+    {
+        var top7 = CategorySummary.Take(7).ToList();
+        var rest = CategorySummary.Skip(7).ToList();
+        _categoryPoints = top7.Select(c => new ChartPoint(c.CategoryName, c.TotalSpent)).ToList();
+        if (rest.Any())
+            _categoryPoints.Add(new ChartPoint("Other", rest.Sum(c => c.TotalSpent)));
+
+        _summaryPoints = new List<ChartPoint>
+        {
+            new("Income", Summary.TotalIncome),
+            new("Expenses", Summary.TotalExpenses)
+        };
+
+        _donutOptions = new ApexChartOptions<ChartPoint>
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Animations = new Animations { Enabled = false }
+            },
+            DataLabels = new DataLabels { Enabled = false },
+            Legend = new Legend { Show = true, Position = LegendPosition.Bottom }
+        };
+
+        _barOptions = new ApexChartOptions<ChartPoint>
+        {
+            Chart = new Chart
+            {
+                Background = "transparent",
+                Toolbar = new Toolbar { Show = false },
+                Animations = new Animations { Enabled = false }
+            },
+            Colors = new List<string> { "#4CAF50", "#F44336" },
+            DataLabels = new DataLabels { Enabled = true },
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    Distributed = true,
+                    BorderRadius = 6,
+                    DataLabels = new PlotOptionsBarDataLabels { Position = BarDataLabelPosition.Top }
+                }
+            },
+            Legend = new Legend { Show = false }
+        };
+    }
+
+    private sealed record ChartPoint(string Label, decimal Amount);
+}

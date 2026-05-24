@@ -1,0 +1,454 @@
+@page "/reports/monthly"
+@using MoneyTracker.Application.DTOs.Reports
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Transaction
+@using System.Text
+@inject IReportService ReportService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Monthly Report - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-1 pa-sm-6">
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudText Typo="Typo.h5" Class="font-weight-bold">Monthly Report</MudText>
+
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Secondary"
+                           OnClick="PrevMonth" />
+
+            <MudText Typo="Typo.subtitle1" Class="font-weight-medium" Style="min-width: 160px; text-align: center;">
+                @MonthLabel
+            </MudText>
+
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Secondary"
+                           OnClick="NextMonth"
+                           Disabled="@IsCurrentMonth" />
+        </MudStack>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Class="mt-4">Generating report...</MudText>
+        </MudStack>
+    }
+    else if (_report is null)
+    {
+        <MudPaper Class="pa-8" Elevation="1">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Assessment" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6">No data for @MonthLabel</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudText Typo="Typo.h6" Class="mb-3 font-weight-bold">@_report.MonthName — Summary</MudText>
+        <MudGrid Spacing="3" Class="mb-6">
+            <MudItem xs="6" sm="4" md="2">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Income</MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Success">@_report.Summary.TotalIncome.ToString("C2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Expenses</MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Error">@_report.Summary.TotalExpenses.ToString("C2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Balance</MudText>
+                    <MudText Typo="Typo.h6" Color="@(_report.Summary.FinalBalance >= 0 ? Color.Success : Color.Error)">
+                        @_report.Summary.FinalBalance.ToString("C2")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Card Payments</MudText>
+                    <MudText Typo="Typo.h6">@_report.Summary.TotalCard.ToString("C2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Cash Payments</MudText>
+                    <MudText Typo="Typo.h6">@_report.Summary.TotalCash.ToString("C2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Transactions</MudText>
+                    <MudText Typo="Typo.h6">@_report.Summary.TransactionCount</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <ReportChartsPanel CategorySummary="@_report.CategorySummary"
+                           Summary="@_report.Summary"
+                           Class="mb-6" />
+
+        <MudPaper Elevation="1" Class="mb-6">
+            <MudTabs Elevation="0">
+                <MudTabPanel Text="By Category" Icon="@Icons.Material.Filled.Category">
+                    <div class="pa-4">
+                    @if (!_report.CategorySummary.Any())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No expense transactions this month.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                            Click a row to filter the transactions table below.
+                        </MudText>
+                        <MudSimpleTable Hover="true" Dense="true">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Total Spent</th>
+                                    <th>Transactions</th>
+                                    <th>% of Expenses</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cat in _report.CategorySummary)
+                                {
+                                    var isActive = _filterIsCategory && _activeFilterLabel == cat.CategoryName;
+                                    var pct = _report.Summary.TotalExpenses > 0
+                                        ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
+                                        : 0m;
+                                    <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
+                                        @onclick="() => SetCategoryFilter(cat.CategoryName)">
+                                        <td>
+                                            @if (isActive)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small"
+                                                         Color="Color.Primary" Class="mr-1" Style="vertical-align:middle;" />
+                                            }
+                                            @cat.CategoryName
+                                        </td>
+                                        <td>@cat.TotalSpent.ToString("C2")</td>
+                                        <td>@cat.TransactionCount</td>
+                                        <td>@pct.ToString("F1")%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                    </div>
+                </MudTabPanel>
+
+                <MudTabPanel Text="By Card" Icon="@Icons.Material.Filled.CreditCard">
+                    <div class="pa-4">
+                    @if (!_report.CardSummary.Any())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">No card transactions this month.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                            Click a row to see what was purchased with that card below.
+                        </MudText>
+                        <MudSimpleTable Hover="true" Dense="true">
+                            <thead>
+                                <tr>
+                                    <th>Card</th>
+                                    <th>Bank</th>
+                                    <th>Total Spent</th>
+                                    <th>Biggest Category</th>
+                                    <th>Est. Benefit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var card in _report.CardSummary)
+                                {
+                                    var isActive = !_filterIsCategory && _activeFilterLabel == card.CardName;
+                                    var topCat = GetTopCategoryForCard(card.CardName);
+                                    <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
+                                        @onclick="() => SetCardFilter(card.CardName)">
+                                        <td>
+                                            @if (isActive)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small"
+                                                         Color="Color.Primary" Class="mr-1" Style="vertical-align:middle;" />
+                                            }
+                                            @card.CardName
+                                        </td>
+                                        <td>@(card.BankName ?? "—")</td>
+                                        <td>@card.TotalSpent.ToString("C2")</td>
+                                        <td>@(topCat ?? "—")</td>
+                                        <td>
+                                            @if (card.EstimatedBenefit > 0)
+                                            {
+                                                <MudText Color="Color.Success">@card.EstimatedBenefit.ToString("C2")</MudText>
+                                            }
+                                            else
+                                            {
+                                                <MudText Color="Color.Secondary">—</MudText>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                    </div>
+                </MudTabPanel>
+            </MudTabs>
+        </MudPaper>
+
+        @if (_report.Recommendations.Any())
+        {
+            <MudText Typo="Typo.h6" Class="mb-3 font-weight-bold">Recommendations</MudText>
+            <MudGrid Spacing="2" Class="mb-6">
+                @foreach (var rec in _report.Recommendations)
+                {
+                    <MudItem xs="12" md="6">
+                        <MudAlert Severity="@GetRecommendationSeverity(rec.Type)" Dense="true">
+                            <MudText Typo="Typo.body2">@rec.Message</MudText>
+                            @if (rec.EstimatedLoss.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Class="mt-1">
+                                    Missed benefit: @rec.EstimatedLoss.Value.ToString("C2")
+                                </MudText>
+                            }
+                        </MudAlert>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+
+        <MudPaper Class="pa-4 mb-6" Elevation="1">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold">AI Analysis</MudText>
+                </MudStack>
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Psychology"
+                           OnClick="RequestAiAnalysis"
+                           Disabled="@_aiLoading">
+                    @if (_aiLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Analyzing...</span>
+                    }
+                    else
+                    {
+                        <span>Analyze with AI</span>
+                    }
+                </MudButton>
+            </MudStack>
+
+            @if (!string.IsNullOrWhiteSpace(_report.AiAnalysis))
+            {
+                <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@_report.AiAnalysis</MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Click "Analyze with AI" to get personalized recommendations based on this month's data.
+                </MudText>
+            }
+        </MudPaper>
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                    @(_activeFilterLabel is not null ? $"Transactions — {_activeFilterLabel}" : "All Transactions")
+                </MudText>
+                @if (_activeFilterLabel is not null)
+                {
+                    <MudChip T="string" Color="Color.Primary" Size="Size.Small"
+                             OnClose="@(_ => ClearFilter())">
+                        @_activeFilterLabel
+                    </MudChip>
+                }
+            </MudStack>
+            <MudButton StartIcon="@Icons.Material.Filled.Download"
+                       Size="Size.Small"
+                       Variant="Variant.Outlined"
+                       OnClick="ExportCsv">
+                Export CSV
+            </MudButton>
+        </MudStack>
+
+        <MudDataGrid T="ReportTransactionDto"
+                     Items="@FilteredTransactions"
+                     Filterable="true"
+                     SortMode="SortMode.Multiple"
+                     Dense="true"
+                     Elevation="1">
+            <Columns>
+                <PropertyColumn Property="x => x.Date" Title="Date" Format="MM/dd/yyyy" />
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <PropertyColumn Property="x => x.CategoryName" Title="Category" />
+                <TemplateColumn Title="Amount" SortBy="@(x => x.Amount)">
+                    <CellTemplate>
+                        <MudText Typo="Typo.body2"
+                                 Color="@(context.Item.IsExpense ? Color.Error : Color.Success)">
+                            @context.Item.Amount.ToString("C2")
+                        </MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Payment">
+                    <CellTemplate>
+                        <MudText Typo="Typo.caption">@(context.Item.PaymentMethod?.ToString() ?? "—")</MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.CardName" Title="Card" />
+                <PropertyColumn Property="x => x.AccountName" Title="Account" />
+                <PropertyColumn Property="x => x.BankName" Title="Bank" />
+                <PropertyColumn Property="x => x.Description" Title="Notes" />
+            </Columns>
+        </MudDataGrid>
+    }
+</MudContainer>
+
+@code {
+    private MonthlyReportFilterDto _filter = new()
+    {
+        Year = DateTime.Today.Year,
+        Month = DateTime.Today.Month
+    };
+
+    private MonthlyReportDto? _report;
+    private bool _loading;
+    private bool _aiLoading;
+
+    private string? _activeFilterLabel;
+    private bool _filterIsCategory;
+
+    private string MonthLabel =>
+        new DateTime(_filter.Year, _filter.Month, 1).ToString("MMMM yyyy");
+
+    private bool IsCurrentMonth =>
+        _filter.Year == DateTime.Today.Year && _filter.Month == DateTime.Today.Month;
+
+    private IEnumerable<ReportTransactionDto> FilteredTransactions
+    {
+        get
+        {
+            if (_report is null) return [];
+            if (_activeFilterLabel is null) return _report.Transactions;
+            return _filterIsCategory
+                ? _report.Transactions.Where(t => t.CategoryName == _activeFilterLabel)
+                : _report.Transactions.Where(t => t.CardName == _activeFilterLabel);
+        }
+    }
+
+    protected override async Task OnInitializedAsync() => await LoadReport();
+
+    private async Task LoadReport()
+    {
+        _loading = true;
+        _report = null;
+        _activeFilterLabel = null;
+        StateHasChanged();
+
+        var result = await ReportService.GetMonthlyReportAsync(_filter);
+        if (result.Success)
+            _report = result.Data;
+        else
+            Snackbar.Add(result.Message, Severity.Error);
+
+        _loading = false;
+    }
+
+    private async Task RequestAiAnalysis()
+    {
+        if (_report is null) return;
+        _aiLoading = true;
+        StateHasChanged();
+
+        var result = await ReportService.GetAiAnalysisAsync(_report);
+        if (result.Success)
+            _report.AiAnalysis = result.Data;
+        else
+            Snackbar.Add(result.Message, Severity.Warning);
+
+        _aiLoading = false;
+    }
+
+    private async Task PrevMonth()
+    {
+        var d = new DateTime(_filter.Year, _filter.Month, 1).AddMonths(-1);
+        _filter = new MonthlyReportFilterDto { Year = d.Year, Month = d.Month };
+        await LoadReport();
+    }
+
+    private async Task NextMonth()
+    {
+        var d = new DateTime(_filter.Year, _filter.Month, 1).AddMonths(1);
+        _filter = new MonthlyReportFilterDto { Year = d.Year, Month = d.Month };
+        await LoadReport();
+    }
+
+    private void SetCategoryFilter(string categoryName)
+    {
+        if (_filterIsCategory && _activeFilterLabel == categoryName)
+        {
+            ClearFilter();
+            return;
+        }
+        _activeFilterLabel = categoryName;
+        _filterIsCategory = true;
+    }
+
+    private void SetCardFilter(string accountName)
+    {
+        if (!_filterIsCategory && _activeFilterLabel == accountName)
+        {
+            ClearFilter();
+            return;
+        }
+        _activeFilterLabel = accountName;
+        _filterIsCategory = false;
+    }
+
+    private void ClearFilter() => _activeFilterLabel = null;
+
+    private string? GetTopCategoryForCard(string cardName) =>
+        _report?.Transactions
+            .Where(t => t.CardName == cardName && t.IsExpense)
+            .GroupBy(t => t.CategoryName)
+            .OrderByDescending(g => g.Sum(t => Math.Abs(t.Amount)))
+            .FirstOrDefault()?.Key;
+
+    private async Task ExportCsv()
+    {
+        if (_report is null) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Date,Name,Merchant,Category,Amount,CardName,PaymentMethod,Account,Bank,Notes");
+        foreach (var t in FilteredTransactions)
+        {
+            sb.AppendLine($"{t.Date:yyyy-MM-dd},{Esc(t.Name)},{Esc(t.Merchant)},{Esc(t.CategoryName)},{t.Amount},{Esc(t.CardName)},{t.PaymentMethod?.ToString() ?? string.Empty},{Esc(t.AccountName)},{Esc(t.BankName ?? string.Empty)},{Esc(t.Description ?? string.Empty)}");
+        }
+
+        var filename = _activeFilterLabel is not null
+            ? $"report_{_filter.Year}_{_filter.Month:00}_{_activeFilterLabel}.csv"
+            : $"report_{_filter.Year}_{_filter.Month:00}.csv";
+
+        await JS.InvokeVoidAsync("downloadTextFile", filename, sb.ToString());
+    }
+
+    private static string Esc(string s) => "\"" + s.Replace("\"", "\"\"") + "\"";
+
+    private static Severity GetRecommendationSeverity(RecommendationType type) => type switch
+    {
+        RecommendationType.WrongCardUsed => Severity.Warning,
+        RecommendationType.MissedBenefit => Severity.Warning,
+        RecommendationType.TopSpendingCategory => Severity.Info,
+        RecommendationType.HighCashUsage => Severity.Info,
+        _ => Severity.Normal
+    };
+
+}
