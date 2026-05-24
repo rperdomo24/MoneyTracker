@@ -29,6 +29,7 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ICategoryRepository> _categoryRepo = new();
         private readonly Mock<ICategoryService> _categoryService = new();
         private readonly Mock<ISystemCategoryResolver> _systemCategoryResolver = new();
+        private readonly Mock<ITransactionRuleService> _ruleService = new();
 
         private TransactionService CreateService()
             => new(
@@ -41,7 +42,8 @@ namespace MoneyTracker.Tests.Services
                 _timeRange.Object,
                 _categoryRepo.Object,
                 _categoryService.Object,
-                _systemCategoryResolver.Object);
+                _systemCategoryResolver.Object,
+                _ruleService.Object);
 
         [Fact]
         public async Task CreateAsync_WhenValidationFails_ReturnsValidationMessage()

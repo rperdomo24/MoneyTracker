@@ -93,6 +93,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetOverviewWidgetsAsync_WhenSuccess_UsesSingleDashboardQueryAndBuildsWidgets()
         {
+            var svc = CreateService();
+
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
                 .Returns((DateTime d) => d);
             _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
@@ -139,7 +141,6 @@ namespace MoneyTracker.Tests.Services
                 .Setup(x => x.GetMonthlyWithUsageAsync(It.IsAny<int>(), It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
-            var svc = CreateService();
             var result = await svc.GetOverviewWidgetsAsync(new DashboardFilterDto
             {
                 TimePeriod = TimePeriodFilter.ThisMonth
@@ -289,6 +290,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetCashFlowAsync_WhenSuccess_CalculatesTotalsAndBurnRate()
         {
+            var svc = CreateService();
+
             // Use a fixed local date so monthly burn-rate fields are deterministic.
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(new DateTime(2026, 3, 10, 12, 0, 0));
             _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
@@ -302,7 +305,6 @@ namespace MoneyTracker.Tests.Services
                     new() { CategoryType = CategoryTypeEnum.Income, CategoryId = 1, CategoryName = "Salary", Amount = 1000m, TransactionCount = 1 },
                     new() { CategoryType = CategoryTypeEnum.Expense, CategoryId = 2, CategoryName = "Food", Amount = 300m, TransactionCount = 1 }
                 });
-            var svc = CreateService();
 
             var result = await svc.GetCashFlowAsync(TimePeriodFilter.ThisMonth);
 
@@ -335,6 +337,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetBalanceTrendAsync_WhenSuccess_ReturnsTrendRange()
         {
+            var svc = CreateService();
+
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(new DateTime(2026, 3, 5));
             _timeZoneService.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>()))
                 .Returns((DateTime d) => d);
@@ -355,7 +359,6 @@ namespace MoneyTracker.Tests.Services
                     new() { Date = new DateTime(2026, 1, 15), Amount = 50m, CategoryType = CategoryTypeEnum.Income },
                     new() { Date = new DateTime(2026, 2, 10), Amount = 10m, CategoryType = CategoryTypeEnum.Expense }
                 });
-            var svc = CreateService();
 
             var result = await svc.GetBalanceTrendAsync(4);
 
@@ -546,6 +549,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetOverviewAsync_WhenTransactionsIncludeTransfer_ExcludesTransferFromGlobalStats()
         {
+            var svc = CreateService();
+
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
                 .Returns(new DateTime(2026, 3, 10, 12, 0, 0));
 
@@ -596,8 +601,6 @@ namespace MoneyTracker.Tests.Services
                         }
                     }
                 }));
-
-            var svc = CreateService();
 
             var result = await svc.GetOverviewAsync(new DashboardFilterDto
             {
@@ -655,6 +658,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetOverviewAsync_WhenBudgetDataExists_ReturnsBudgetMonthlySummary()
         {
+            var svc = CreateService();
+
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
                 .Returns(new DateTime(2026, 3, 10, 12, 0, 0));
 
@@ -689,7 +694,6 @@ namespace MoneyTracker.Tests.Services
                     }
                 }));
 
-            var svc = CreateService();
             var result = await svc.GetOverviewAsync(new DashboardFilterDto
             {
                 TimePeriod = TimePeriodFilter.Last30Days
@@ -712,6 +716,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetBudgetSummaryAsync_WhenParentHasNoBudgetButChildrenDo_GroupsChildrenIntoDashboardSummary()
         {
+            var svc = CreateService();
+
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>()))
                 .Returns(new DateTime(2026, 3, 10, 12, 0, 0));
 
@@ -739,7 +745,6 @@ namespace MoneyTracker.Tests.Services
                     }
                 }));
 
-            var svc = CreateService();
             var result = await svc.GetBudgetSummaryAsync(new DashboardFilterDto
             {
                 TimePeriod = TimePeriodFilter.ThisMonth
@@ -759,6 +764,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetOverviewAsync_WhenAllTimeSelected_CapsRangeToLast730Days()
         {
+            var svc = CreateService();
+
             var now = new DateTime(2026, 3, 10, 12, 0, 0);
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(now);
 
@@ -779,7 +786,6 @@ namespace MoneyTracker.Tests.Services
                 .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
-            var svc = CreateService();
             var result = await svc.GetOverviewAsync(new DashboardFilterDto
             {
                 TimePeriod = TimePeriodFilter.AllTime
@@ -797,6 +803,8 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task GetOverviewAsync_WhenTransactionsContainOutOfRangeExpenses_SpendingTrendUsesOnlySelectedRange()
         {
+            var svc = CreateService();
+
             var now = new DateTime(2026, 3, 10, 12, 0, 0);
             _timeZoneService.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns(now);
 
@@ -839,7 +847,6 @@ namespace MoneyTracker.Tests.Services
                 .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
-            var svc = CreateService();
             var result = await svc.GetOverviewAsync(new DashboardFilterDto
             {
                 TimePeriod = TimePeriodFilter.ThisMonth
