@@ -11,6 +11,8 @@ namespace MoneyTracker.Application.Constants
         public const string RelatedAccountBalanceSyncError = "Error syncing related account balances";
         public const string AccountBalanceAdjusted = "Balance adjusted by {0}{1:C2}";
         public const string AccountSynced = "Account balance synced successfully";
+        public const string AllAccountsSynced = "All {0} account balance(s) synced successfully";
+        public const string AllAccountsSyncedPartial = "{0} account(s) synced. Failed: {1}";
 
         public const string DashboardOverviewError = "Error retrieving dashboard overview.";
         public const string DashboardWidgetsError = "Error retrieving dashboard widgets.";

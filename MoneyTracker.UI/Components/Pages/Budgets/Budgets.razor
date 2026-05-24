@@ -211,7 +211,8 @@
                                      EmptyMessage="No expense budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
-                                     OnViewTransactions="HandleViewTransactions" />
+                                     OnViewTransactions="HandleViewTransactions"
+                                     OnAddBudget="HandleAddBudget" />
                     </MudTabPanel>
 
                     <MudTabPanel Text="Income" Icon="@Icons.Material.Filled.TrendingUp">
@@ -221,7 +222,8 @@
                                      EmptyMessage="No income budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
-                                     OnViewTransactions="HandleViewTransactions" />
+                                     OnViewTransactions="HandleViewTransactions"
+                                     OnAddBudget="HandleAddBudget" />
                     </MudTabPanel>
                 </MudTabs>
             </MudHidden>
@@ -243,7 +245,8 @@
                                      EmptyMessage="No expense budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
-                                     OnViewTransactions="HandleViewTransactions" />
+                                     OnViewTransactions="HandleViewTransactions"
+                                     OnAddBudget="HandleAddBudget" />
                     </MudTabPanel>
 
                     <MudTabPanel Icon="@Icons.Material.Filled.TrendingUp">
@@ -253,7 +256,8 @@
                                      EmptyMessage="No income budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
-                                     OnViewTransactions="HandleViewTransactions" />
+                                     OnViewTransactions="HandleViewTransactions"
+                                     OnAddBudget="HandleAddBudget" />
                     </MudTabPanel>
 
                 </MudTabs>
@@ -278,7 +282,7 @@
 
     private bool _loading = true;
     private bool _copying = false;
-    private bool _tableView = true;
+    private bool _tableView = false;
     private int _activeTabIndex = 0;
 
     private int _year;
@@ -946,7 +950,13 @@
         {
             var result = await BudgetService.CopyMonthAsync(_year, _month, nextDate.Year, nextDate.Month);
             if (result.Success)
-                Snackbar.Add(result.Message ?? "Budgets copied", Severity.Success);
+            {
+                var count = result.Data;
+                var msg = count == 0
+                    ? $"No new budgets to copy to {nextLabel} (all already exist)."
+                    : $"{count} budget{(count == 1 ? "" : "s")} copied to {nextLabel}.";
+                Snackbar.Add(msg, Severity.Success);
+            }
             else
                 Snackbar.Add(result.Message ?? "Error copying budgets", Severity.Error);
         }
@@ -994,6 +1004,11 @@
     {
         var type = _activeTabIndex == 0 ? CategoryTypeEnum.Expense : CategoryTypeEnum.Income;
         await OpenAddBudgetModal(type);
+    }
+
+    private async Task HandleAddBudget(BudgetListItemVm item)
+    {
+        await OpenAddBudgetModal(item.CategoryType, item.CategoryId);
     }
 
     private async Task OpenAddBudgetModal(CategoryTypeEnum type, int categoryId = 0)

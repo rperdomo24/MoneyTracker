@@ -24,6 +24,9 @@
 
             public static string AccountsPanel(string userKey)
                 => $"mt:{userKey}:panels:accounts:is_open";
+
+            public static string Categories(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:categories";
         }
     }
 }

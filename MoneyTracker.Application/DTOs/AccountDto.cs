@@ -1,6 +1,5 @@
 ﻿using MoneyTracker.Domain.Enums.Account;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MoneyTracker.Application.DTOs
 {
@@ -40,6 +39,5 @@ namespace MoneyTracker.Application.DTOs
         public bool IsOverLimit => Type == AccountType.Credit
             && Math.Abs(CurrentBalance) > CreditLimit;
 
-        public string FormattedBalance => CurrentBalance.ToString("C2");
     }
 }

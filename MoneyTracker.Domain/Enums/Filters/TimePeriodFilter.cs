@@ -8,7 +8,9 @@
         ThisYear = 3,
         Custom = 4,
         Last7Days = 5,      
-        Last30Days = 6,     
+        Last30Days = 6,
         Last90Days = 7,
+        Q1ThisMonth = 8,
+        Q2ThisMonth = 9,
     }
 }

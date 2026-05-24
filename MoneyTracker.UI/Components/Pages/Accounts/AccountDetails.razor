@@ -187,7 +187,7 @@
                              Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
                              Align="Align.Center"
                              Style="white-space: nowrap;">
-                        @_account.FormattedBalance
+                        @CurrencyHelper.FormatCurrency(_account.CurrentBalance)
                     </MudText>
 
                     @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
@@ -270,7 +270,7 @@
                         <MudText Typo="Typo.h4"
                                  Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
                                  Style="white-space: nowrap;">
-                            @_account.FormattedBalance
+                            @CurrencyHelper.FormatCurrency(_account.CurrentBalance)
                         </MudText>
 
                         @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)

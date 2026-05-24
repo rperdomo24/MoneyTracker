@@ -1,4 +1,4 @@
-﻿@page "/categories"
+@page "/categories"
 @using MoneyTracker.Application.Common
 @using MoneyTracker.Application.Constants
 @using MoneyTracker.Application.DTOs
@@ -6,9 +6,11 @@
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Filters.Interface
 @inject ICategoryService CategoryService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject ICategoryFilterStateService CategoryFilterState
 
 <PageTitle>Categories - MoneyTracker</PageTitle>
 
@@ -17,19 +19,48 @@
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
         <Breadcrumb Items="@_breadcrumbItems" />
 
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="CreateCategory">
-            Add Category
-        </MudButton>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudTooltip Text="Panel view">
+                <MudIconButton Icon="@Icons.Material.Filled.ViewAgenda"
+                               Color="@(_viewMode == 0 ? Color.Primary : Color.Default)"
+                               Variant="@(_viewMode == 0 ? Variant.Filled : Variant.Outlined)"
+                               Size="Size.Small"
+                               OnClick="@(() => SetViewMode(0))" />
+            </MudTooltip>
+            <MudTooltip Text="Table view">
+                <MudIconButton Icon="@Icons.Material.Filled.TableRows"
+                               Color="@(_viewMode == 1 ? Color.Primary : Color.Default)"
+                               Variant="@(_viewMode == 1 ? Variant.Filled : Variant.Outlined)"
+                               Size="Size.Small"
+                               OnClick="@(() => SetViewMode(1))" />
+            </MudTooltip>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="CreateCategory">
+                Add Category
+            </MudButton>
+        </MudStack>
     </MudStack>
 
-    <!-- Categories List -->
+    <!-- Search -->
+    <MudTextField T="string"
+                  Value="@_searchText"
+                  ValueChanged="@OnSearchChanged"
+                  Placeholder="Search categories..."
+                  Variant="Variant.Outlined"
+                  Margin="Margin.Dense"
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Clearable="true"
+                  Immediate="true"
+                  Class="mb-4" />
+
+    <!-- Categories Content -->
     <MudPaper Elevation="2">
         @if (_loading)
         {
-            <!-- Loading State -->
             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
                 <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
                 <MudText Class="mt-4">Loading categories...</MudText>
@@ -37,7 +68,6 @@
         }
         else if (!_categories.Any())
         {
-            <!-- Empty State -->
             <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
                 <MudStack AlignItems="AlignItems.Center" Spacing="4" Style="padding: 64px 0;">
                     <MudIcon Icon="@Icons.Material.Filled.Category"
@@ -45,224 +75,312 @@
                              Color="Color.Default"
                              Style="font-size: 4rem;" />
 
-                    <MudText Typo="Typo.h6">
-                        No categories yet
-                    </MudText>
+                    <MudText Typo="Typo.h6">No categories yet</MudText>
 
                     <MudText Typo="Typo.body1"
                              Color="Color.Default"
                              Align="Align.Center"
                              Style="max-width: 350px;">
                         Click the
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Color="Color.Primary"
-                                 Icon="@Icons.Material.Filled.Add">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.Add">
                             Add Category
                         </MudChip>
                         button to create your first category
                     </MudText>
 
-                    <MudIcon Icon="@Icons.Material.Filled.SouthEast"
-                             Size="Size.Large"
-                             Color="Color.Primary" />
+                    <MudIcon Icon="@Icons.Material.Filled.SouthEast" Size="Size.Large" Color="Color.Primary" />
                 </MudStack>
             </MudStack>
         }
         else
         {
-            var groupedCategories = _categories.GroupByType().ToList();
+            var filteredCategories = string.IsNullOrWhiteSpace(_searchText)
+                ? _categories
+                : _categories.Where(c =>
+                    c.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                    c.Children.Any(ch => ch.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
 
-            <!-- Categories List by Type -->
-            @for (var i = 0; i < groupedCategories.Count; i++)
+            @if (_viewMode == 1)
             {
-                var group = groupedCategories[i];
-                var showDivider = i < groupedCategories.Count - 1;
+                <!-- Table View -->
+                var flatRows = BuildFlatRows(filteredCategories);
 
-                <div Class="pa-4" Style="@(showDivider ? "border-bottom: 1px solid var(--mud-palette-divider);" : "")">
-                    <!-- Group Header -->
-                    <MudStack Row="true"
-                              Justify="Justify.SpaceBetween"
-                              AlignItems="AlignItems.Center"
-                              Class="mb-3">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@group.Key.GetIcon()"
-                                     Color="@group.Key.GetColor()"
-                                     Size="Size.Medium" />
-                            <MudText Typo="Typo.h6" Class="font-weight-medium">
-                                @group.Key.GetDisplayName()
-                            </MudText>
-                            <MudChip T="string"
-                                     Size="Size.Small"
-                                     Color="@group.Key.GetColor()">
-                                @group.Where(c => c.ParentId == null).Count()
-                            </MudChip>
-                        </MudStack>
-
-                        <MudButton Variant="Variant.Text"
-                                   Color="Color.Primary"
-                                   StartIcon="@Icons.Material.Filled.Add"
-                                   Size="Size.Small"
-                                   OnClick="@(() => CreateCategoryWithType(group.Key))">
-                            Add
-                        </MudButton>
-                    </MudStack>
-
-                    <!-- Categories List Items (SOLO PARENTS) -->
-                    @foreach (var category in group.Where(c => c.ParentId == null))
-                    {
-                        @if (category.Children.Any())
+                <MudSimpleTable Hover="true" Dense="true" Style="overflow-x:auto;" Elevation="0">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Type</th>
+                            <th>Parent</th>
+                            <th style="text-align:center;">Subcategories</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in flatRows)
                         {
-                            <!-- Category WITH Subcategories (Expandible) -->
-                            <MudExpansionPanels Elevation="0"
-                                                Class="mb-2"
-                                                Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
-                                <MudExpansionPanel Expanded="true">
-                                    <TitleContent>
-                                        <MudStack Row="true"
-                                                  AlignItems="AlignItems.Center"
-                                                  Justify="Justify.SpaceBetween"
-                                                  Style="width: 100%;">
-
-                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                                <MudAvatar Size="Size.Medium"
-                                                           Style="@($"background-color: {category.Color};")">
-                                                    <MudIcon Icon="@category.Icon.ToIcon()"
-                                                             Color="Color.Surface"
-                                                             Size="Size.Small" />
-                                                </MudAvatar>
-
-                                                <MudStack Spacing="0">
-                                                    <MudText Typo="Typo.body1" Class="font-weight-medium">
-                                                        @category.Name
-                                                    </MudText>
-
-                                                    <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.7;">
-                                                        @category.Children.Count subcategories
-                                                    </MudText>
-                                                </MudStack>
-                                            </MudStack>
-
-                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                            <tr>
+                                <td>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                              Style="@(row.IsChild ? "padding-left: 32px;" : "")">
+                                        @if (row.IsChild)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight"
                                                      Size="Size.Small"
-                                                     Dense="true"
-                                                     AnchorOrigin="Origin.BottomRight"
-                                                     TransformOrigin="Origin.TopRight"
-                                                     @onclick:stopPropagation="true">
-                                                <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                             OnClick="@(() => EditCategory(category.Id))">
-                                                    Edit
-                                                </MudMenuItem>
-                                                <MudMenuItem Icon="@Icons.Material.Filled.Add"
-                                                             OnClick="@(() => CreateSubcategory(category.Id))">
-                                                    Add Subcategory
-                                                </MudMenuItem>
-                                                <MudDivider />
-                                                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                             OnClick="@(() => DeleteCategory(category.Id))">
-                                                    <MudText Color="Color.Error">Delete</MudText>
-                                                </MudMenuItem>
-                                            </MudMenu>
-                                        </MudStack>
-                                    </TitleContent>
-
-                                    <ChildContent>
-                                        <!-- Subcategories -->
-                                        <div style="margin-left: 60px; padding-top: 8px;">
-                                            @foreach (var subcategory in category.Children)
-                                            {
-                                                <MudPaper Elevation="0"
-                                                          Class="px-4 py-2 mb-2"
-                                                          Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px; background-color: var(--mud-palette-background-grey);">
-                                                    <MudStack Row="true"
-                                                              AlignItems="AlignItems.Center"
-                                                              Justify="Justify.SpaceBetween">
-
-                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                                            <MudAvatar Size="Size.Small"
-                                                                       Style="@($"background-color: {subcategory.Color};")">
-                                                                <MudIcon Icon="@subcategory.Icon.ToIcon()"
-                                                                         Color="Color.Surface"
-                                                                         Size="Size.Small" />
-                                                            </MudAvatar>
-
-                                                            <MudText Typo="Typo.body2">
-                                                                @subcategory.Name
-                                                            </MudText>
-                                                        </MudStack>
-
-                                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                                                 Size="Size.Small"
-                                                                 Dense="true"
-                                                                 AnchorOrigin="Origin.BottomRight"
-                                                                 TransformOrigin="Origin.TopRight">
-                                                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                                         OnClick="@(() => EditCategory(subcategory.Id))">
-                                                                Edit
-                                                            </MudMenuItem>
-                                                            <MudDivider />
-                                                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                                         OnClick="@(() => DeleteCategory(subcategory.Id))">
-                                                                <MudText Color="Color.Error">Delete</MudText>
-                                                            </MudMenuItem>
-                                                        </MudMenu>
-                                                    </MudStack>
-                                                </MudPaper>
-                                            }
-                                        </div>
-                                    </ChildContent>
-                                </MudExpansionPanel>
-                            </MudExpansionPanels>
-                        }
-                        else
-                        {
-                            <!-- Category WITHOUT Subcategories (Regular Item) -->
-                            <MudPaper Elevation="0"
-                                      Class="px-4 py-3 mb-2"
-                                      Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
-                                <MudStack Row="true"
-                                          AlignItems="AlignItems.Center"
-                                          Justify="Justify.SpaceBetween">
-
-                                    <!-- Left: Avatar + Name -->
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                        <MudAvatar Size="Size.Medium"
-                                                   Style="@($"background-color: {category.Color};")">
-                                            <MudIcon Icon="@category.Icon.ToIcon()"
+                                                     Color="Color.Default"
+                                                     Style="opacity:0.5;" />
+                                        }
+                                        <MudAvatar Size="@(row.IsChild ? Size.Small : Size.Medium)"
+                                                   Style="@($"background-color: {row.Category.Color};")">
+                                            <MudIcon Icon="@row.Category.Icon.ToIcon()"
                                                      Color="Color.Surface"
                                                      Size="Size.Small" />
                                         </MudAvatar>
-
-                                        <MudText Typo="Typo.body1" Class="font-weight-medium">
-                                            @category.Name
+                                        <MudText Typo="@(row.IsChild ? Typo.body2 : Typo.body1)"
+                                                 Class="@(row.IsChild ? "" : "font-weight-medium")">
+                                            @row.Category.Name
                                         </MudText>
                                     </MudStack>
-
-                                    <!-- Right: Actions Menu -->
+                                </td>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="@row.Category.Type.GetColor()">
+                                        @row.Category.Type.GetDisplayName()
+                                    </MudChip>
+                                </td>
+                                <td>
+                                    @if (row.ParentName is not null)
+                                    {
+                                        <MudText Typo="Typo.body2">@row.ParentName</MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:0.4;">—</MudText>
+                                    }
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (!row.IsChild && row.Category.Children.Any())
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default">
+                                            @row.Category.Children.Count
+                                        </MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:0.4;">—</MudText>
+                                    }
+                                </td>
+                                <td style="text-align:right;">
                                     <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                              Size="Size.Small"
                                              Dense="true"
                                              AnchorOrigin="Origin.BottomRight"
                                              TransformOrigin="Origin.TopRight">
                                         <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                     OnClick="@(() => EditCategory(category.Id))">
+                                                     OnClick="@(() => EditCategory(row.Category.Id))">
                                             Edit
                                         </MudMenuItem>
-                                        <MudMenuItem Icon="@Icons.Material.Filled.Add"
-                                                     OnClick="@(() => CreateSubcategory(category.Id))">
-                                            Add Subcategory
-                                        </MudMenuItem>
+                                        @if (!row.IsChild)
+                                        {
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Add"
+                                                         OnClick="@(() => CreateSubcategory(row.Category.Id))">
+                                                Add Subcategory
+                                            </MudMenuItem>
+                                        }
                                         <MudDivider />
                                         <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                     OnClick="@(() => DeleteCategory(category.Id))">
+                                                     OnClick="@(() => DeleteCategory(row.Category.Id))">
                                             <MudText Color="Color.Error">Delete</MudText>
                                         </MudMenuItem>
                                     </MudMenu>
-                                </MudStack>
-                            </MudPaper>
+                                </td>
+                            </tr>
                         }
-                    }
-                </div>
+                    </tbody>
+                </MudSimpleTable>
+            }
+            else
+            {
+                <!-- Panel View -->
+                var groupedCategories = filteredCategories.GroupByType().ToList();
+
+                @for (var i = 0; i < groupedCategories.Count; i++)
+                {
+                    var group = groupedCategories[i];
+                    var showDivider = i < groupedCategories.Count - 1;
+
+                    <div Class="pa-4" Style="@(showDivider ? "border-bottom: 1px solid var(--mud-palette-divider);" : "")">
+                        <!-- Group Header -->
+                        <MudStack Row="true"
+                                  Justify="Justify.SpaceBetween"
+                                  AlignItems="AlignItems.Center"
+                                  Class="mb-3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@group.Key.GetIcon()"
+                                         Color="@group.Key.GetColor()"
+                                         Size="Size.Medium" />
+                                <MudText Typo="Typo.h6" Class="font-weight-medium">
+                                    @group.Key.GetDisplayName()
+                                </MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@group.Key.GetColor()">
+                                    @{
+                                        var parentCount = group.Where(c => c.ParentId == null).Count();
+                                        var childCount = group.Where(c => c.ParentId == null).Sum(c => c.Children.Count);
+                                        var chipLabel = childCount > 0 ? $"{parentCount} ({parentCount + childCount} total)" : $"{parentCount}";
+                                    }
+                                    @chipLabel
+                                </MudChip>
+                            </MudStack>
+
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       Size="Size.Small"
+                                       OnClick="@(() => CreateCategoryWithType(group.Key))">
+                                Add
+                            </MudButton>
+                        </MudStack>
+
+                        @foreach (var category in group.Where(c => c.ParentId == null))
+                        {
+                            @if (category.Children.Any())
+                            {
+                                <MudExpansionPanels Elevation="0"
+                                                    Class="mb-2"
+                                                    Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
+                                    <MudExpansionPanel Expanded="false">
+                                        <TitleContent>
+                                            <MudStack Row="true"
+                                                      AlignItems="AlignItems.Center"
+                                                      Justify="Justify.SpaceBetween"
+                                                      Style="width: 100%;">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                                    <MudAvatar Size="Size.Medium"
+                                                               Style="@($"background-color: {category.Color};")">
+                                                        <MudIcon Icon="@category.Icon.ToIcon()"
+                                                                 Color="Color.Surface"
+                                                                 Size="Size.Small" />
+                                                    </MudAvatar>
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                                            @category.Name
+                                                        </MudText>
+                                                        <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.7;">
+                                                            @category.Children.Count subcategories
+                                                        </MudText>
+                                                    </MudStack>
+                                                </MudStack>
+
+                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                         Size="Size.Small"
+                                                         Dense="true"
+                                                         AnchorOrigin="Origin.BottomRight"
+                                                         TransformOrigin="Origin.TopRight"
+                                                         @onclick:stopPropagation="true">
+                                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                                 OnClick="@(() => EditCategory(category.Id))">
+                                                        Edit
+                                                    </MudMenuItem>
+                                                    <MudMenuItem Icon="@Icons.Material.Filled.Add"
+                                                                 OnClick="@(() => CreateSubcategory(category.Id))">
+                                                        Add Subcategory
+                                                    </MudMenuItem>
+                                                    <MudDivider />
+                                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                                 OnClick="@(() => DeleteCategory(category.Id))">
+                                                        <MudText Color="Color.Error">Delete</MudText>
+                                                    </MudMenuItem>
+                                                </MudMenu>
+                                            </MudStack>
+                                        </TitleContent>
+
+                                        <ChildContent>
+                                            <div style="margin-left: 60px; padding-top: 8px;">
+                                                @foreach (var subcategory in category.Children)
+                                                {
+                                                    <MudPaper Elevation="0"
+                                                              Class="px-4 py-2 mb-2"
+                                                              Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px; background-color: var(--mud-palette-background-grey);">
+                                                        <MudStack Row="true"
+                                                                  AlignItems="AlignItems.Center"
+                                                                  Justify="Justify.SpaceBetween">
+                                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                                                <MudAvatar Size="Size.Small"
+                                                                           Style="@($"background-color: {subcategory.Color};")">
+                                                                    <MudIcon Icon="@subcategory.Icon.ToIcon()"
+                                                                             Color="Color.Surface"
+                                                                             Size="Size.Small" />
+                                                                </MudAvatar>
+                                                                <MudText Typo="Typo.body2">@subcategory.Name</MudText>
+                                                            </MudStack>
+
+                                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                                     Size="Size.Small"
+                                                                     Dense="true"
+                                                                     AnchorOrigin="Origin.BottomRight"
+                                                                     TransformOrigin="Origin.TopRight">
+                                                                <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                                             OnClick="@(() => EditCategory(subcategory.Id))">
+                                                                    Edit
+                                                                </MudMenuItem>
+                                                                <MudDivider />
+                                                                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                                             OnClick="@(() => DeleteCategory(subcategory.Id))">
+                                                                    <MudText Color="Color.Error">Delete</MudText>
+                                                                </MudMenuItem>
+                                                            </MudMenu>
+                                                        </MudStack>
+                                                    </MudPaper>
+                                                }
+                                            </div>
+                                        </ChildContent>
+                                    </MudExpansionPanel>
+                                </MudExpansionPanels>
+                            }
+                            else
+                            {
+                                <MudPaper Elevation="0"
+                                          Class="px-4 py-3 mb-2"
+                                          Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
+                                    <MudStack Row="true"
+                                              AlignItems="AlignItems.Center"
+                                              Justify="Justify.SpaceBetween">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                            <MudAvatar Size="Size.Medium"
+                                                       Style="@($"background-color: {category.Color};")">
+                                                <MudIcon Icon="@category.Icon.ToIcon()"
+                                                         Color="Color.Surface"
+                                                         Size="Size.Small" />
+                                            </MudAvatar>
+                                            <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                                @category.Name
+                                            </MudText>
+                                        </MudStack>
+
+                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                 Size="Size.Small"
+                                                 Dense="true"
+                                                 AnchorOrigin="Origin.BottomRight"
+                                                 TransformOrigin="Origin.TopRight">
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                         OnClick="@(() => EditCategory(category.Id))">
+                                                Edit
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Add"
+                                                         OnClick="@(() => CreateSubcategory(category.Id))">
+                                                Add Subcategory
+                                            </MudMenuItem>
+                                            <MudDivider />
+                                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                         OnClick="@(() => DeleteCategory(category.Id))">
+                                                <MudText Color="Color.Error">Delete</MudText>
+                                            </MudMenuItem>
+                                        </MudMenu>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        }
+                    </div>
+                }
             }
         }
     </MudPaper>
@@ -275,6 +393,9 @@
 @code {
     private List<CategoryDto> _categories = new();
     private bool _loading = true;
+    private string _searchText = string.Empty;
+    private int _viewMode = 0;
+    private bool _stateLoaded = false;
 
     private bool _editDrawerOpen = false;
     private int _selectedCategoryId = 0;
@@ -293,9 +414,68 @@
         CloseOnEscapeKey = true
     };
 
+    private record FlatCategoryRow(CategoryDto Category, bool IsChild, string? ParentName);
+
+    private List<FlatCategoryRow> BuildFlatRows(List<CategoryDto> categories)
+    {
+        var rows = new List<FlatCategoryRow>();
+        var parents = categories.Where(c => c.ParentId == null).OrderBy(c => c.Type).ThenBy(c => c.Name);
+        foreach (var parent in parents)
+        {
+            rows.Add(new FlatCategoryRow(parent, false, null));
+            foreach (var child in parent.Children.OrderBy(c => c.Name))
+                rows.Add(new FlatCategoryRow(child, true, parent.Name));
+        }
+        return rows;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadCategories();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_stateLoaded)
+        {
+            _stateLoaded = true;
+            try
+            {
+                var state = await CategoryFilterState.GetAsync();
+                if (state is not null)
+                {
+                    _viewMode = state.ViewMode;
+                    _searchText = state.SearchText ?? string.Empty;
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task SetViewMode(int mode)
+    {
+        _viewMode = mode;
+        await SaveStateAsync();
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _searchText = value;
+        await SaveStateAsync();
+    }
+
+    private async Task SaveStateAsync()
+    {
+        try
+        {
+            await CategoryFilterState.SaveAsync(new CategoryViewStateDto
+            {
+                ViewMode = _viewMode,
+                SearchText = _searchText
+            });
+        }
+        catch { }
     }
 
     private async Task LoadCategories()
@@ -366,12 +546,20 @@
 
     private async Task DeleteCategory(int id)
     {
-        var category = _categories.FirstOrDefault(c => c.Id == id);
+        var category = _categories.FirstOrDefault(c => c.Id == id)
+                    ?? _categories.SelectMany(c => c.Children).FirstOrDefault(c => c.Id == id);
         if (category == null) return;
+
+        var hasChildren = category.Children?.Count > 0;
+        var warningLines = new System.Text.StringBuilder();
+        warningLines.AppendLine($"Are you sure you want to delete '{category.Name}'?");
+        if (hasChildren)
+            warningLines.AppendLine($"\n⚠ This category has {category.Children!.Count} subcategories that will also be deleted.");
+        warningLines.AppendLine("\nAny transactions assigned to this category will lose their category reference. This action cannot be undone.");
 
         bool confirmed = await DialogService.ShowConfirmDialogAsync(
             "Delete Category",
-            $"Are you sure you want to delete '{category.Name}'? This action cannot be undone.",
+            warningLines.ToString(),
             "Delete",
             Color.Error
         );

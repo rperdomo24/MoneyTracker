@@ -261,6 +261,32 @@ namespace MoneyTracker.Application.Services
             return OperationResult.Ok(ServiceMessages.AccountSynced);
         }
 
+        public async Task<OperationResult<int>> SyncAllBalancesAsync()
+        {
+            try
+            {
+                var accounts = await _repository.GetAllAsync();
+                var failed = new List<string>();
+                int synced = 0;
+                foreach (var account in accounts)
+                {
+                    var balanceResult = await GetCurrentBalanceAsync(account.Id);
+                    if (!balanceResult.Success) { failed.Add(account.Name); continue; }
+                    account.Balance = balanceResult.Data;
+                    var updated = await _repository.UpdateAsync(account);
+                    if (updated) synced++; else failed.Add(account.Name);
+                }
+                var message = failed.Count == 0
+                    ? string.Format(ServiceMessages.AllAccountsSynced, synced)
+                    : string.Format(ServiceMessages.AllAccountsSyncedPartial, synced, string.Join(", ", failed));
+                return OperationResult<int>.Ok(synced, message);
+            }
+            catch (Exception ex)
+            {
+                return await FailWithLoggedExceptionAsync<int>(ex, OperationMessages.UnexpectedError, "Error syncing all account balances.");
+            }
+        }
+
         private async Task<OperationResult> FailWithLoggedExceptionAsync(Exception ex, string failMessage, string logContext)
         {
             _logger?.LogError(ex, logContext);

@@ -267,5 +267,60 @@ namespace MoneyTracker.Tests.Services
             result.Data.Should().BeTrue();
             result.Message.Should().Be("Accounts found");
         }
+
+        [Fact]
+        public async Task SyncAllBalancesAsync_WhenAllSucceed_ReturnsSyncedCount()
+        {
+            var accounts = new List<Account>
+            {
+                new Account { Id = 1, Name = "Checking", TenantId = Guid.NewGuid() },
+                new Account { Id = 2, Name = "Savings", TenantId = Guid.NewGuid() }
+            };
+            _accountRepo.Setup(x => x.GetAllAsync()).ReturnsAsync(accounts);
+            _transactionService.Setup(x => x.GetAccountBalanceAsync(It.IsAny<int>()))
+                .ReturnsAsync(OperationResult<decimal>.Ok(100m));
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            var service = CreateService();
+
+            var result = await service.SyncAllBalancesAsync();
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().Be(2);
+        }
+
+        [Fact]
+        public async Task SyncAllBalancesAsync_WhenOneBalanceCalculationFails_StillSyncsOthers()
+        {
+            var accounts = new List<Account>
+            {
+                new Account { Id = 1, Name = "Checking", TenantId = Guid.NewGuid() },
+                new Account { Id = 2, Name = "Savings", TenantId = Guid.NewGuid() }
+            };
+            _accountRepo.Setup(x => x.GetAllAsync()).ReturnsAsync(accounts);
+            _transactionService.Setup(x => x.GetAccountBalanceAsync(1))
+                .ReturnsAsync(OperationResult<decimal>.Fail("Error"));
+            _transactionService.Setup(x => x.GetAccountBalanceAsync(2))
+                .ReturnsAsync(OperationResult<decimal>.Ok(50m));
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            var service = CreateService();
+
+            var result = await service.SyncAllBalancesAsync();
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().Be(1);
+            result.Message.Should().Contain("Checking");
+        }
+
+        [Fact]
+        public async Task SyncAllBalancesAsync_WhenNoAccounts_ReturnsZero()
+        {
+            _accountRepo.Setup(x => x.GetAllAsync()).ReturnsAsync(new List<Account>());
+            var service = CreateService();
+
+            var result = await service.SyncAllBalancesAsync();
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().Be(0);
+        }
     }
 }

@@ -109,6 +109,12 @@
                                 <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(item))">
                                     <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" Size="Size.Small" /> Transactions
                                 </MudMenuItem>
+                                @if (!item.HasBudget && OnAddBudget.HasDelegate)
+                                {
+                                    <MudMenuItem OnClick="@(() => OnAddBudget.InvokeAsync(item))">
+                                        <MudIcon Icon="@Icons.Material.Filled.Savings" Class="mr-2" Size="Size.Small" /> Add Budget
+                                    </MudMenuItem>
+                                }
                                 <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(item))">
                                     <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" Size="Size.Small" /> Edit
                                 </MudMenuItem>
@@ -120,6 +126,34 @@
                     </tr>
                 }
             </tbody>
+            <tfoot>
+                @{
+                    var totalBudget = Items!
+                        .Where(x => x.ParentCategoryId is null)
+                        .Sum(x => GetDisplayBudget(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId)));
+                    var totalUsed = Items!
+                        .Where(x => x.ParentCategoryId is null)
+                        .Sum(x => GetDisplayUsed(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId)));
+                    var totalRemaining = totalBudget - totalUsed;
+                }
+                <tr style="border-top: 2px solid var(--mud-palette-divider); font-weight: bold;">
+                    <td><MudText Typo="Typo.body2" Class="font-weight-bold">Total</MudText></td>
+                    <td style="text-align:right;">
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(totalBudget)</MudText>
+                    </td>
+                    <td style="text-align:right;">
+                        <MudText Typo="Typo.body2" Class="font-weight-bold" Color="@(totalRemaining < 0 ? Color.Error : Color.Default)">
+                            @CurrencyHelper.FormatCurrency(totalUsed)
+                        </MudText>
+                    </td>
+                    <td style="text-align:right;">
+                        <MudText Typo="Typo.body2" Class="font-weight-bold" Color="@(totalRemaining < 0 ? Color.Error : Color.Success)">
+                            @CurrencyHelper.FormatCurrency(totalRemaining)
+                        </MudText>
+                    </td>
+                    <td colspan="3"></td>
+                </tr>
+            </tfoot>
         </MudSimpleTable>
     }
 }
@@ -235,6 +269,12 @@ else
                                 <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(parent))">
                                     <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" /> View transactions
                                 </MudMenuItem>
+                                @if (!parent.HasBudget && OnAddBudget.HasDelegate)
+                                {
+                                    <MudMenuItem OnClick="@(() => OnAddBudget.InvokeAsync(parent))">
+                                        <MudIcon Icon="@Icons.Material.Filled.Savings" Class="mr-2" /> Add Budget
+                                    </MudMenuItem>
+                                }
                                 <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(parent))">
                                     <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" /> Edit
                                 </MudMenuItem>
@@ -412,8 +452,27 @@ else
     [Parameter] public EventCallback<BudgetListItemVm> OnEdit { get; set; }
     [Parameter] public EventCallback<BudgetListItemVm> OnDelete { get; set; }
     [Parameter] public EventCallback<BudgetListItemVm> OnViewTransactions { get; set; }
+    [Parameter] public EventCallback<BudgetListItemVm> OnAddBudget { get; set; }
 
     private readonly HashSet<int> _expandedParents = new();
+
+    protected override void OnParametersSet()
+    {
+        if (Items is null) return;
+
+        var childrenByParent = Items
+            .Where(x => x.ParentCategoryId is not null)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var parent in Items.Where(x => x.ParentCategoryId is null))
+        {
+            if (!childrenByParent.TryGetValue(parent.CategoryId, out var children)) continue;
+            var hasProblematicChild = children.Any(c => c.IsOverBudget || c.IsNearLimit);
+            if (hasProblematicChild)
+                _expandedParents.Add(parent.CategoryId);
+        }
+    }
 
     private IEnumerable<(BudgetListItemVm Item, int Depth)> GetFlatItems()
     {

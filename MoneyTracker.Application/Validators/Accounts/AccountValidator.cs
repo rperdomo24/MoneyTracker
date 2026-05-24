@@ -1,6 +1,7 @@
 using FluentValidation;
 using MoneyTracker.Application.Constants;
 using MoneyTracker.Application.DTOs;
+using MoneyTracker.Domain.Enums.Account;
 
 namespace MoneyTracker.Application.Validators.Accounts
 {
@@ -14,6 +15,7 @@ namespace MoneyTracker.Application.Validators.Accounts
 
             RuleFor(a => a.CurrentBalance)
                 .GreaterThanOrEqualTo(0)
+                .When(a => a.Type != AccountType.Credit)
                 .WithMessage(ValidationMessages.AmountNotNegative);
 
             RuleFor(a => a.CreditLimit)

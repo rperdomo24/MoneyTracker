@@ -14,7 +14,9 @@
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
+@using System.Text
 @inject ITransactionFilterStateService TransactionFilterState
+@inject IJSRuntime JS
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
@@ -99,6 +101,14 @@
                             </MudChip>
                         }
                     </MudButton>
+
+                    <MudTooltip Text="Export visible transactions to CSV">
+                        <MudIconButton Icon="@Icons.Material.Filled.Download"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Disabled="@(_transactionSummary?.Transactions is null or { Count: 0 })"
+                                       OnClick="ExportCsvAsync" />
+                    </MudTooltip>
 
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
@@ -534,4 +544,37 @@
     }
 
     private async Task OnTransactionChanged() => await LoadTransactionsAsync();
+
+    private async Task ExportCsvAsync()
+    {
+        var transactions = _transactionSummary?.Transactions;
+        if (transactions is null || transactions.Count == 0) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Date,Name,Merchant,Amount,Type,Category,Account,Description");
+
+        foreach (var t in transactions)
+        {
+            var date = t.Date.ToString("yyyy-MM-dd");
+            var name = CsvEscape(t.Name);
+            var merchant = CsvEscape(t.MerchantName ?? "");
+            var amount = t.Amount.ToString("F2");
+            var type = t.TransactionType.ToString();
+            var category = CsvEscape(t.Category?.Name ?? "");
+            var account = CsvEscape(t.Account?.Name ?? "");
+            var description = CsvEscape(t.Description ?? "");
+            sb.AppendLine($"{date},{name},{merchant},{amount},{type},{category},{account},{description}");
+        }
+
+        var filename = $"transactions_{DateTime.Today:yyyy-MM-dd}.csv";
+        await JS.InvokeVoidAsync("downloadTextFile", filename, sb.ToString());
+    }
+
+    private static string CsvEscape(string value)
+    {
+        const char q = '"';
+        if (!value.Contains(',') && !value.Contains(q) && !value.Contains('\n'))
+            return value;
+        return q + value.Replace(q.ToString(), q.ToString() + q.ToString()) + q;
+    }
 }

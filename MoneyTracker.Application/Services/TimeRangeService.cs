@@ -48,6 +48,17 @@ namespace MoneyTracker.Application.Services
                 TimePeriodFilter.ThisMonth => GetMonthRangeUtc(userToday),
                 TimePeriodFilter.ThisYear => GetYearRangeUtc(userToday.Year),
 
+                TimePeriodFilter.Q1ThisMonth => (
+                    _timeZoneService.ConvertToUtc(new DateTime(userToday.Year, userToday.Month, 1)),
+                    _timeZoneService.ConvertToUtc(new DateTime(userToday.Year, userToday.Month, 15, 23, 59, 59))
+                ),
+
+                TimePeriodFilter.Q2ThisMonth => (
+                    _timeZoneService.ConvertToUtc(new DateTime(userToday.Year, userToday.Month, 16)),
+                    _timeZoneService.ConvertToUtc(new DateTime(userToday.Year, userToday.Month,
+                        DateTime.DaysInMonth(userToday.Year, userToday.Month), 23, 59, 59))
+                ),
+
                 TimePeriodFilter.AllTime => (null, null),
                 _ => (null, null)
             };

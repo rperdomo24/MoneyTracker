@@ -80,6 +80,36 @@
     }
     else
     {
+        <!-- Net Worth Summary -->
+        <MudPaper Class="pa-4 pa-sm-5 mb-4" Elevation="1">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Style="opacity:0.7;">Net Worth</MudText>
+                    <MudText Typo="Typo.h5" Class="@($"font-weight-bold {GetBalanceClass(NetWorth)}")">
+                        @FormatBalance(NetWorth)
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                        Assets @FormatBalance(TotalAssets) — Liabilities @FormatBalance(TotalLiabilities)
+                    </MudText>
+                </MudStack>
+
+                <MudTooltip Text="Recalculates balance for ALL accounts by summing their transactions">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.Sync"
+                               Size="Size.Small"
+                               OnClick="ConfirmSyncAllBalances"
+                               Disabled="@_syncingAll">
+                        @if (_syncingAll)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                        }
+                        Sync All Balances
+                    </MudButton>
+                </MudTooltip>
+            </MudStack>
+        </MudPaper>
+
         @foreach (var group in _accountGroups)
         {
             var groupTotal = group.Sum(a => a.CurrentBalance);
@@ -170,14 +200,27 @@
 
                                         <MudText Typo="Typo.caption"
                                                  Style="opacity: 0.7; white-space: nowrap;">
-                                            @account.Type.ToString()
+                                            @account.Type.ToLabel()
                                         </MudText>
 
                                         <MudText Typo="Typo.h6"
                                                  Class="@GetBalanceClass(account.CurrentBalance)"
                                                  Style="white-space: nowrap;">
-                                            @account.FormattedBalance
+                                            @CurrencyHelper.FormatCurrency(account.CurrentBalance)
                                         </MudText>
+
+                                        @if (account.Type == AccountType.Credit && account.CreditLimit > 0)
+                                        {
+                                            var used = (double)(Math.Abs(account.CurrentBalance) / account.CreditLimit) * 100d;
+                                            var usedClamped = Math.Clamp(used, 0d, 100d);
+                                            var limitColor = used >= 90 ? Color.Error : used >= 70 ? Color.Warning : Color.Success;
+                                            <MudStack Spacing="0" Style="min-width:80px;">
+                                                <MudProgressLinear Value="@usedClamped" Color="@limitColor" Size="Size.Small" />
+                                                <MudText Typo="Typo.caption" Style="opacity:0.7;">
+                                                    @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
+                                                </MudText>
+                                            </MudStack>
+                                        }
                                     </MudStack>
 
                                     <!-- Right -->
@@ -238,15 +281,29 @@
                                                 }
                                             </MudStack>
                                             <MudText Typo="Typo.caption" Style="opacity: 0.7;">
-                                                @account.Type.ToString()
+                                                @account.Type.ToLabel()
                                             </MudText>
                                         </MudStack>
                                     </MudStack>
 
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                        <MudText Typo="Typo.h6" Class="@GetBalanceClass(account.CurrentBalance)">
-                                            @account.FormattedBalance
-                                        </MudText>
+                                        <MudStack Spacing="0" AlignItems="AlignItems.End">
+                                            <MudText Typo="Typo.h6" Class="@GetBalanceClass(account.CurrentBalance)">
+                                                @CurrencyHelper.FormatCurrency(account.CurrentBalance)
+                                            </MudText>
+                                            @if (account.Type == AccountType.Credit && account.CreditLimit > 0)
+                                            {
+                                                var used = (double)(Math.Abs(account.CurrentBalance) / account.CreditLimit) * 100d;
+                                                var usedClamped = Math.Clamp(used, 0d, 100d);
+                                                var limitColor = used >= 90 ? Color.Error : used >= 70 ? Color.Warning : Color.Success;
+                                                <MudStack Spacing="0" Style="min-width:120px;">
+                                                    <MudProgressLinear Value="@usedClamped" Color="@limitColor" Size="Size.Small" />
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.7; text-align:right;">
+                                                        @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
+                                                    </MudText>
+                                                </MudStack>
+                                            }
+                                        </MudStack>
 
                                         <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                                  Size="Size.Small"
@@ -293,6 +350,11 @@
 @code {
     private List<AccountDto> _accounts = new();
     private bool _loading = true;
+    private bool _syncingAll = false;
+
+    private decimal TotalAssets => _accounts.Where(a => a.Type != AccountType.Credit).Sum(a => a.CurrentBalance);
+    private decimal TotalLiabilities => _accounts.Where(a => a.Type == AccountType.Credit).Sum(a => Math.Abs(a.CurrentBalance));
+    private decimal NetWorth => TotalAssets - TotalLiabilities;
     private IEnumerable<IGrouping<AccountType, AccountDto>> _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
 
     private readonly List<BreadcrumbItem> _breadcrumbItems = new()
@@ -323,7 +385,17 @@
             if (result.Success && result.Data is not null)
             {
                 _accounts = result.Data;
-                _accountGroups = _accounts.GroupBy(a => a.Type).OrderBy(g => g.Key);
+                _accountGroups = _accounts.GroupBy(a => a.Type)
+                    .OrderBy(g => g.Key switch
+                    {
+                        AccountType.Bank      => 0,
+                        AccountType.Checking  => 1,
+                        AccountType.Savings   => 2,
+                        AccountType.Credit    => 3,
+                        AccountType.Investment=> 4,
+                        AccountType.Cash      => 5,
+                        _                    => 6
+                    });
             }
             else
             {
@@ -425,6 +497,41 @@
 
     private static bool NeedsBankWarning(AccountDto account)
         => account.Type != AccountType.Cash && string.IsNullOrEmpty(account.BankName);
+
+    private async Task ConfirmSyncAllBalances()
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Sync All Balances",
+            "Recalculates the balance of ALL accounts by summing their transactions. This overwrites stored balances. Continue?",
+            confirmText: "Sync All");
+
+        if (!confirmed) return;
+
+        _syncingAll = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AccountService.SyncAllBalancesAsync();
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "All balances synced", Severity.Success);
+                await LoadAccounts();
+                AccountsDrawer.RequestRefresh();
+            }
+            else
+                Snackbar.Add(result.Message ?? "Error syncing balances", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Error syncing balances", Severity.Error);
+        }
+        finally
+        {
+            _syncingAll = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task ConfirmSyncBalance(AccountDto account)
     {

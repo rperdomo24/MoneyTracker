@@ -16,5 +16,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<List<AccountDto>>> GetAccountsWithBalancesAsync();
         Task<OperationResult<bool>> HasAccountByType(AccountType accountType);
         Task<OperationResult> SyncBalanceAsync(int accountId);
+        Task<OperationResult<int>> SyncAllBalancesAsync();
     }
 }
