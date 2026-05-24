@@ -1,5 +1,6 @@
 ﻿@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Goals
 @using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
@@ -14,6 +15,7 @@
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
 @inject IMerchantService MerchantService
+@inject ISavingsGoalService GoalService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -202,6 +204,55 @@
                                       Lines="2"
                                       Counter="500"
                                       MaxLength="500" />
+
+                        @* ========== SAVINGS GOAL LINK ========== *@
+                        @if (_activeGoals.Any())
+                        {
+                            <MudDivider Class="my-2" />
+                            <MudCheckBox @bind-Value="_linkToGoal"
+                                         @bind-Value:after="OnLinkToGoalChanged"
+                                         Color="Color.Success"
+                                         Dense="true">
+                                <MudText Typo="Typo.body2">Count toward a savings goal</MudText>
+                            </MudCheckBox>
+
+                            @if (_linkToGoal)
+                            {
+                                <MudSelect T="int?"
+                                           Label="Savings Goal"
+                                           @bind-Value="_selectedGoalId"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Clearable="true"
+                                           Class="mt-2">
+                                    @foreach (var g in _activeGoals)
+                                    {
+                                        <MudSelectItem T="int?" Value="@((int?)g.Id)">
+                                            <div class="d-flex align-center gap-2">
+                                                <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                                         Size="Size.Small"
+                                                         Style="@($"color:{g.Color}; font-size:10px;")" />
+                                                @g.Name
+                                                <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
+                                                    (@g.ProgressPercent%)
+                                                </MudText>
+                                            </div>
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                                <MudNumericField Label="Contribution amount"
+                                                 @bind-Value="_goalContributionAmount"
+                                                 Variant="Variant.Outlined"
+                                                 Dense="true"
+                                                 Min="0.01m"
+                                                 Format="N2"
+                                                 Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                                 Adornment="Adornment.Start"
+                                                 AdornmentText="$"
+                                                 Class="mt-2" />
+                            }
+                            <MudDivider Class="my-2" />
+                        }
                     }
 
                 </MudStack>
@@ -271,6 +322,12 @@
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _accounts;
     private List<MerchantDto>? _merchants;
+    private List<SavingsGoalDto> _activeGoals = new();
+
+    // Goal link
+    private bool _linkToGoal = false;
+    private int? _selectedGoalId;
+    private decimal _goalContributionAmount = 0;
 
     // Flags
     private bool _isTransfer = false;
@@ -354,6 +411,11 @@
                 _merchants = merchantsResult.Data ?? new();
                 _selectedMerchant = _merchants.FirstOrDefault(m => m.Id == _transaction.MerchantId);
             }
+
+            // Load active goals
+            var goalsResult = await GoalService.GetAllAsync();
+            if (goalsResult.Success && goalsResult.Data is not null)
+                _activeGoals = goalsResult.Data.Where(g => !g.IsCompleted).ToList();
         }
         catch (Exception ex)
         {
@@ -439,6 +501,17 @@
                _selectedAccount != null;
     }
 
+    private void OnLinkToGoalChanged()
+    {
+        if (_linkToGoal)
+            _goalContributionAmount = _transaction.Amount;
+        else
+        {
+            _selectedGoalId = null;
+            _goalContributionAmount = 0;
+        }
+    }
+
     private async Task UpdateTransaction()
     {
         if (!IsFormValid() || !HasChanges() || _saving) return;
@@ -485,6 +558,20 @@
 
                 if (result.Success)
                 {
+                    if (_linkToGoal && _selectedGoalId.HasValue && _goalContributionAmount > 0)
+                    {
+                        var contribution = new SavingsContributionDto
+                        {
+                            GoalId = _selectedGoalId.Value,
+                            Amount = _goalContributionAmount,
+                            Date = _transaction.Date,
+                            Notes = $"From transaction: {_transaction.Name}"
+                        };
+                        var goalResult = await GoalService.AddContributionAsync(contribution);
+                        if (!goalResult.Success)
+                            Snackbar.Add("Transaction saved but failed to link to goal.", Severity.Warning);
+                    }
+
                     AccountsDrawer.RequestRefresh();
                     Snackbar.Add(result.Message ?? "Transaction updated successfully", Severity.Success);
                     await OnTransactionUpdated.InvokeAsync();
