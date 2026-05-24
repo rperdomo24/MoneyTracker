@@ -53,6 +53,21 @@
                                @bind-Value="_onlyWithActivity"
                                @bind-Value:after="OnOnlyWithActivityChanged"
                                Label="Active categories only" />
+
+                    <MudTooltip Text="Copy all budgets from this month to next month (skips already existing)">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.ContentCopy"
+                                   Size="Size.Small"
+                                   OnClick="CopyToNextMonthAsync"
+                                   Disabled="@_copying">
+                            @if (_copying)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            }
+                            Copy to next month
+                        </MudButton>
+                    </MudTooltip>
                 </MudStack>
             </MudItem>
         </MudHidden>
@@ -76,10 +91,19 @@
                                        OnClick="NextMonth" />
                     </MudStack>
 
-                    <MudSwitch T="bool"
-                               Color="Color.Secondary"
-                               @bind-Value="_onlyWithActivity"
-                               @bind-Value:after="OnOnlyWithActivityChanged" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
+                                       Color="Color.Secondary"
+                                       Size="Size.Small"
+                                       Title="Copy to next month"
+                                       OnClick="CopyToNextMonthAsync"
+                                       Disabled="@_copying" />
+
+                        <MudSwitch T="bool"
+                                   Color="Color.Secondary"
+                                   @bind-Value="_onlyWithActivity"
+                                   @bind-Value:after="OnOnlyWithActivityChanged" />
+                    </MudStack>
                 </MudStack>
 
                 <MudText Typo="Typo.caption" Style="opacity:0.75;" Class="mt-1">
@@ -94,12 +118,20 @@
         <MudStack Spacing="2">
             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                 <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Filters</MudText>
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Secondary"
-                           StartIcon="@(_listExpanded ? Icons.Material.Filled.ViewSidebar : Icons.Material.Filled.TableRows)"
-                           OnClick="ToggleListExpanded">
-                    @(_listExpanded ? "Show overview" : "Expand list")
-                </MudButton>
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                    <MudTooltip Text="@(_tableView ? "Switch to card view" : "Switch to table view")">
+                        <MudIconButton Icon="@(_tableView ? Icons.Material.Filled.ViewAgenda : Icons.Material.Filled.TableRows)"
+                                       Color="Color.Secondary"
+                                       Size="Size.Small"
+                                       OnClick="ToggleTableView" />
+                    </MudTooltip>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Secondary"
+                               StartIcon="@(_listExpanded ? Icons.Material.Filled.ViewSidebar : Icons.Material.Filled.ViewSidebar)"
+                               OnClick="ToggleListExpanded">
+                        @(_listExpanded ? "Show overview" : "Expand list")
+                    </MudButton>
+                </MudStack>
             </MudStack>
 
             <MudTextField T="string"
@@ -175,6 +207,7 @@
                     <MudTabPanel Text="Expenses" Icon="@Icons.Material.Filled.TrendingDown">
                         <BudgetsList Items="@_expenseBudgets"
                                      Loading="@_loading"
+                                     TableView="@_tableView"
                                      EmptyMessage="No expense budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -184,6 +217,7 @@
                     <MudTabPanel Text="Income" Icon="@Icons.Material.Filled.TrendingUp">
                         <BudgetsList Items="@_incomeBudgets"
                                      Loading="@_loading"
+                                     TableView="@_tableView"
                                      EmptyMessage="No income budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -205,6 +239,7 @@
                     <MudTabPanel Icon="@Icons.Material.Filled.TrendingDown">
                         <BudgetsList Items="@_expenseBudgets"
                                      Loading="@_loading"
+                                     TableView="@_tableView"
                                      EmptyMessage="No expense budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -214,6 +249,7 @@
                     <MudTabPanel Icon="@Icons.Material.Filled.TrendingUp">
                         <BudgetsList Items="@_incomeBudgets"
                                      Loading="@_loading"
+                                     TableView="@_tableView"
                                      EmptyMessage="No income budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -241,6 +277,8 @@
     }
 
     private bool _loading = true;
+    private bool _copying = false;
+    private bool _tableView = true;
     private int _activeTabIndex = 0;
 
     private int _year;
@@ -253,7 +291,7 @@
 
     // Default OFF so new categories and children are visible without activity.
     private bool _onlyWithActivity = false;
-    private BudgetViewMode _viewMode = BudgetViewMode.All;
+    private BudgetViewMode _viewMode = BudgetViewMode.Budgeted;
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();
@@ -360,6 +398,8 @@
         _listExpanded = !_listExpanded;
         await PersistStateAsync();
     }
+
+    private void ToggleTableView() => _tableView = !_tableView;
 
     private async Task OnSliceSelectedAsync(string sliceKey)
     {
@@ -855,6 +895,7 @@
         CategoryType = x.CategoryType,
         Amount = x.Budget.Amount,
         Used = x.Used,
+        DirectUsed = x.DirectUsed,
         IncludeChildren = x.Budget.IncludeChildren,
         RolloverEnabled = x.Budget.RolloverEnabled,
         RolloverMode = x.Budget.RolloverMode,
@@ -882,6 +923,42 @@
             ViewMode = (int)_viewMode,
             ListExpanded = _listExpanded
         });
+    }
+
+    private async Task CopyToNextMonthAsync()
+    {
+        if (_copying) return;
+
+        var nextDate = new DateTime(_year, _month, 1).AddMonths(1);
+        var nextLabel = nextDate.ToString("MMMM yyyy");
+
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Copy budgets",
+            $"Copy all budgets from {_currentMonthLabel} to {nextLabel}? Existing budgets in {nextLabel} will be skipped.",
+            confirmText: "Copy");
+
+        if (!confirmed) return;
+
+        _copying = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await BudgetService.CopyMonthAsync(_year, _month, nextDate.Year, nextDate.Month);
+            if (result.Success)
+                Snackbar.Add(result.Message ?? "Budgets copied", Severity.Success);
+            else
+                Snackbar.Add(result.Message ?? "Error copying budgets", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _copying = false;
+            StateHasChanged();
+        }
     }
 
     private async Task PrevMonth()

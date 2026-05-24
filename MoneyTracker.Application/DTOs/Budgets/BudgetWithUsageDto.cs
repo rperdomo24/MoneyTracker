@@ -10,6 +10,7 @@ namespace MoneyTracker.Application.DTOs.Budgets
         public CategoryDto Category { get; set; } = new();
 
         public decimal Used { get; set; }
+        public decimal DirectUsed { get; set; }
         public decimal Remaining => Budget.Amount - Used;
 
         public int ProgressPercent

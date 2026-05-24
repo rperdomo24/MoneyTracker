@@ -20,6 +20,7 @@ namespace MoneyTracker.UI.Helpers.VM
         public RolloverMode RolloverMode { get; set; }
         public decimal Amount { get; set; }
         public decimal Used { get; set; }
+        public decimal DirectUsed { get; set; }
         public decimal Remaining => Amount - Used;
         public bool HasBudget => Amount > 0;
         public bool IsOverBudget => HasBudget && Remaining < 0;
@@ -47,9 +48,8 @@ namespace MoneyTracker.UI.Helpers.VM
             get
             {
                 if (Amount <= 0) return 0;
-
                 var pct = (int)Math.Round((double)(Used / Amount) * 100d);
-                return Math.Clamp(pct, 0, 100);
+                return Math.Max(0, pct);
             }
         }
     }

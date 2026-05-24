@@ -1,5 +1,119 @@
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
+@using Color = MudBlazor.Color
+@using Size = MudBlazor.Size
+
+@if (TableView)
+{
+    @if (Loading)
+    {
+        <MudStack Class="pa-6" AlignItems="AlignItems.Center" Justify="Justify.Center">
+            <MudProgressCircular Indeterminate="true" />
+        </MudStack>
+    }
+    else if (Items?.Any() != true)
+    {
+        <MudPaper Class="pa-6" Elevation="0">
+            <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Filled.Wallet" Size="Size.Large" />
+                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">@EmptyMessage</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudSimpleTable Hover="true" Dense="true" Style="overflow-x:auto;">
+            <thead>
+                <tr>
+                    <th style="min-width:180px;">Category</th>
+                    <th style="text-align:right;">Budget</th>
+                    <th style="text-align:right;">Used</th>
+                    <th style="text-align:right;">Remaining</th>
+                    <th style="min-width:140px;">Progress</th>
+                    <th style="text-align:center;">Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (item, depth) in GetFlatItems())
+                {
+                    var color = GetBudgetColor(item);
+                    var progress = GetProgressValue(item);
+                    var progressLabel = GetProgressLabel(item);
+                    var remaining = item.Amount - item.Used;
+                    <tr>
+                        <td>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1"
+                                      Style="@($"padding-left:{depth * 20}px;")">
+                                @if (depth > 0)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight"
+                                             Size="Size.Small" Style="opacity:0.5;" />
+                                }
+                                <MudAvatar Size="Size.Small" Style="@($"background-color:{item.CategoryColor}; width:20px; height:20px;")">
+                                    <MudIcon Icon="@(item.CategoryIcon.ToIcon())" Color="Color.Surface" Size="Size.Small"
+                                             Style="font-size:12px;" />
+                                </MudAvatar>
+                                <MudText Typo="Typo.body2" Class="@(depth == 0 ? "font-weight-bold" : "")">
+                                    @item.CategoryName
+                                </MudText>
+                            </MudStack>
+                        </td>
+                        <td style="text-align:right;">
+                            <MudText Typo="Typo.body2">
+                                @(item.HasBudget ? CurrencyHelper.FormatCurrency(item.Amount) : "—")
+                            </MudText>
+                        </td>
+                        <td style="text-align:right;">
+                            <MudText Typo="Typo.body2" Color="@(item.IsOverBudget ? Color.Error : Color.Default)">
+                                @CurrencyHelper.FormatCurrency(item.Used)
+                            </MudText>
+                        </td>
+                        <td style="text-align:right;">
+                            @if (item.HasBudget)
+                            {
+                                <MudText Typo="Typo.body2"
+                                         Color="@(remaining < 0 ? Color.Error : Color.Success)">
+                                    @CurrencyHelper.FormatCurrency(remaining)
+                                </MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Style="opacity:0.5;">—</MudText>
+                            }
+                        </td>
+                        <td style="min-width:140px;">
+                            <MudStack Spacing="0">
+                                <MudProgressLinear Value="@progress" Color="@color" Size="Size.Small" />
+                                <MudText Typo="Typo.caption" Style="opacity:0.7;">@progressLabel</MudText>
+                            </MudStack>
+                        </td>
+                        <td style="text-align:center;">
+                            <MudChip T="string" Size="Size.Small" Color="@color">
+                                @GetHealthLabel(item)
+                            </MudChip>
+                        </td>
+                        <td>
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" Size="Size.Small">
+                                <MudMenuItem OnClick="@(() => OnViewTransactions.InvokeAsync(item))">
+                                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Class="mr-2" Size="Size.Small" /> Transactions
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(() => OnEdit.InvokeAsync(item))">
+                                    <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" Size="Size.Small" /> Edit
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(() => OnDelete.InvokeAsync(item))">
+                                    <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" Size="Size.Small" /> Delete
+                                </MudMenuItem>
+                            </MudMenu>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+}
+else
+{
 
 @if (Loading)
 {
@@ -147,6 +261,19 @@ else
                                            Size="Size.Large" />
                     </MudStack>
 
+                    @if (parent.IncludeChildren && hasChildren && Math.Abs(parent.DirectUsed) > 0.01m)
+                    {
+                        var childrenUsed = displayUsed - parent.DirectUsed;
+                        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" Class="mb-1">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">
+                                Direct: @CurrencyHelper.FormatCurrency(Math.Abs(parent.DirectUsed))
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default">
+                                Children: @CurrencyHelper.FormatCurrency(Math.Abs(childrenUsed))
+                            </MudChip>
+                        </MudStack>
+                    }
+
                     <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
                         @if (parent.IncludeChildren)
                         {
@@ -263,8 +390,11 @@ else
     </MudStack>
 }
 
+} @* end else (card view) *@
+
 @code {
     [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool TableView { get; set; }
     [Parameter] public string EmptyMessage { get; set; } = "No budgets found.";
     [Parameter] public List<BudgetListItemVm>? Items { get; set; }
 
@@ -273,6 +403,30 @@ else
     [Parameter] public EventCallback<BudgetListItemVm> OnViewTransactions { get; set; }
 
     private readonly HashSet<int> _expandedParents = new();
+
+    private IEnumerable<(BudgetListItemVm Item, int Depth)> GetFlatItems()
+    {
+        if (Items is null) yield break;
+
+        var parents = Items
+            .Where(x => x.ParentCategoryId is null)
+            .OrderByDescending(x => Math.Abs(x.Used) > 0.01m)
+            .ThenByDescending(x => x.Amount > 0)
+            .ThenBy(x => x.CategoryName);
+
+        var childrenByParent = Items
+            .Where(x => x.ParentCategoryId is not null)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CategoryName).ToList());
+
+        foreach (var parent in parents)
+        {
+            yield return (parent, 0);
+            if (!childrenByParent.TryGetValue(parent.CategoryId, out var children)) continue;
+            foreach (var child in children)
+                yield return (child, 1);
+        }
+    }
 
     private void ToggleParent(int parentCategoryId)
     {

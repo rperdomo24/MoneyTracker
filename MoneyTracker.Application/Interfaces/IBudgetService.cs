@@ -10,5 +10,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<bool>> CreateOrUpdateAsync(BudgetDto dto);
         Task<OperationResult<bool>> DeleteAsync(int id);
         Task<OperationResult<List<BudgetWithUsageDto>>> GetMonthlyWithUsageAsync(int year, int month);
+        Task<OperationResult<int>> CopyMonthAsync(int fromYear, int fromMonth, int toYear, int toMonth);
     }
 }
