@@ -17,6 +17,15 @@
         </MudButton>
     </MudStack>
 
+    <MudTextField @bind-Value="_searchText"
+                  Placeholder="Search merchants..."
+                  Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search"
+                  Variant="Variant.Outlined"
+                  Class="mb-3"
+                  Clearable="true"
+                  Immediate="true" />
+
     <MudPaper Elevation="2">
         @if (_loading)
         {
@@ -41,12 +50,23 @@
         }
         else
         {
+            var filtered = string.IsNullOrWhiteSpace(_searchText)
+                ? _merchants
+                : _merchants.Where(m => m.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+
             <MudList T="MerchantDto">
                 <MudListSubheader>
-                    <MudText Typo="Typo.overline">MERCHANTS &middot; @_merchants.Count</MudText>
+                    <MudText Typo="Typo.overline">MERCHANTS &middot; @filtered.Count</MudText>
                 </MudListSubheader>
 
-                @foreach (var merchant in _merchants)
+                @if (!filtered.Any())
+                {
+                    <MudStack AlignItems="AlignItems.Center" Class="pa-6">
+                        <MudText Typo="Typo.body2" Style="opacity:.6;">No merchants match "@_searchText"</MudText>
+                    </MudStack>
+                }
+
+                @foreach (var merchant in filtered)
                 {
                     <MudDivider />
                     <MudListItem T="MerchantDto">
@@ -55,7 +75,13 @@
                                 <MudAvatar Color="Color.Primary" Size="Size.Small">
                                     @merchant.Name[0]
                                 </MudAvatar>
-                                <MudText Typo="Typo.body1" Class="font-weight-medium">@merchant.Name.ToUpper()</MudText>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body1" Class="font-weight-medium">@merchant.Name</MudText>
+                                    @if (merchant.TransactionCount > 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:.6;">@merchant.TransactionCount transaction(s)</MudText>
+                                    }
+                                </MudStack>
                             </MudStack>
                             <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Dense="true">
                                 <MudMenuItem OnClick="@(() => OpenEditModal(merchant))">
@@ -82,6 +108,7 @@
 @code {
     private List<MerchantDto> _merchants = new();
     private bool _loading = true;
+    private string _searchText = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -123,9 +150,13 @@
 
     private async Task ConfirmDeleteAsync(MerchantDto merchant)
     {
+        var body = merchant.TransactionCount > 0
+            ? $"Delete \"{merchant.Name}\"? {merchant.TransactionCount} transaction(s) will lose their merchant link."
+            : $"Delete \"{merchant.Name}\"?";
+
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete merchant",
-            $"Delete \"{merchant.Name}\"? This won't affect existing transactions.",
+            body,
             yesText: "Delete", cancelText: "Cancel");
 
         if (confirmed == true)

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Interfaces;
+using MoneyTracker.Infrastructure.Persistence;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories
 {
@@ -90,6 +91,23 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 _logger.LogError(ex, "Error deleting merchant with ID {Id}.", id);
                 throw;
+            }
+        }
+
+        public async Task<Dictionary<int, int>> GetTransactionCountsAsync()
+        {
+            try
+            {
+                return await _context.Transaction
+                    .AsNoTracking()
+                    .Where(t => t.MerchantId.HasValue && !t.IsDeleted)
+                    .GroupBy(t => t.MerchantId!.Value)
+                    .ToDictionaryAsync(g => g.Key, g => g.Count());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting merchant transaction counts.");
+                return new();
             }
         }
 

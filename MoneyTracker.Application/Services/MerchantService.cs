@@ -29,7 +29,14 @@ namespace MoneyTracker.Application.Services
             try
             {
                 var entities = await _repository.GetAllAsync();
-                return OperationResult<List<MerchantDto>>.Ok(entities.Select(m => m.MapToDto()).ToList());
+                var counts = await _repository.GetTransactionCountsAsync();
+                var dtos = entities.Select(m =>
+                {
+                    var dto = m.MapToDto();
+                    dto.TransactionCount = counts.TryGetValue(m.Id, out var c) ? c : 0;
+                    return dto;
+                }).ToList();
+                return OperationResult<List<MerchantDto>>.Ok(dtos);
             }
             catch (Exception ex)
             {

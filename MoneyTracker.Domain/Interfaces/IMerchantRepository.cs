@@ -10,5 +10,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task UpdateAsync(Merchant merchant);
         Task SoftDeleteAsync(int id);
         Task<bool> ExistsAsync(string name, int? excludeId = null);
+        Task<Dictionary<int, int>> GetTransactionCountsAsync();
     }
 }
