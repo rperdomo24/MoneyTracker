@@ -18,7 +18,7 @@
                        Size="MudBlazor.Size.Small"
                        StartIcon="@Icons.Material.Filled.ReceiptLong"
                        OnClick="NavigateToBudgets">
-                View budgets
+                View transactions
             </MudButton>
         </MudStack>
 
@@ -70,7 +70,7 @@
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.ReceiptLong"
                            OnClick="NavigateToBudgets">
-                    View budgets
+                    View transactions
                 </MudButton>
             </MudStack>
         }
@@ -148,7 +148,7 @@
     }
 
     private void NavigateToBudgets()
-        => NavigationManager.NavigateTo("/budgets");
+        => NavigationManager.NavigateTo("/transactions");
 
     private static List<CategoryBreakdownDto> BuildLegendCategories(
         List<CategoryBreakdownDto> source,

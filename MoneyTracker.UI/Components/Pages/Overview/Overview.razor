@@ -8,6 +8,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
+@using MoneyTracker.UI.Helpers
 @using System.Threading
 @inject IDashboardService DashboardService
 @inject IDashboardFilterStateService DashboardFilterState
@@ -18,51 +19,35 @@
 
 <MudContainer MaxWidth="MaxWidth.False" Class="mt-4 overview-shell">
     <MudGrid Spacing="3">
-        @* Header *@
+
+        @* Compact header *@
         <MudItem xs="12">
-            <MudPaper Class="pa-4" Style="background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
-                <MudGrid Spacing="2">
-                    <MudItem xs="12" md="7">
-                        <MudStack Spacing="1">
-                            <MudText Typo="Typo.h4" Style="color: white; font-weight: 600;">
-                                <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mr-2" />
-                                Welcome, @UserDisplayName
-                            </MudText>
-                            <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.8);">
-                                Here's what's happening with your finances. Last updated: @DateTime.Now.ToString("dddd, dd MMMM yyyy - HH:mm")
-                            </MudText>
-                        </MudStack>
-                    </MudItem>
-
-                    <MudItem xs="12" md="5">
-                        <MudStack Row Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
-                            <MudSelect T="TimePeriodFilter"
-                                       Label="Period"
-                                       Variant="Variant.Filled"
-                                       Dense="true"
-                                       Class="w-100"
-                                       Style="background-color: var(--mud-palette-surface); color: var(--mud-palette-text-primary); border-radius: 8px;"
-                                       Value="_selectedPeriod"
-                                       ValueChanged="OnPeriodChanged">
-                                @foreach (var periodOption in _periodOptions)
-                                {
-                                    <MudSelectItem Value="@periodOption.Value">
-                                        <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                                            <MudIcon Icon="@GetPeriodIcon(periodOption.Value)" Size="Size.Small" />
-                                            <MudText Typo="Typo.body2">@periodOption.Label</MudText>
-                                        </MudStack>
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
-
-                            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
-                                           Style="color: white;"
-                                           OnClick="RefreshDashboard"
-                                           title="Refresh dashboard" />
-                        </MudStack>
-                    </MudItem>
-                </MudGrid>
-            </MudPaper>
+            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="px-1">
+                <MudText Typo="Typo.h5" Style="font-weight:600;">@UserDisplayName</MudText>
+                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                    <MudSelect T="TimePeriodFilter"
+                               Label="Period"
+                               Variant="Variant.Outlined"
+                               Dense="true"
+                               Margin="Margin.Dense"
+                               Style="min-width:170px;"
+                               Value="_selectedPeriod"
+                               ValueChanged="OnPeriodChanged">
+                        @foreach (var periodOption in _periodOptions)
+                        {
+                            <MudSelectItem Value="@periodOption.Value">
+                                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                                    <MudIcon Icon="@GetPeriodIcon(periodOption.Value)" Size="Size.Small" />
+                                    <MudText Typo="Typo.body2">@periodOption.Label</MudText>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                                   OnClick="RefreshDashboard"
+                                   title="Refresh dashboard" />
+                </MudStack>
+            </MudStack>
         </MudItem>
 
         @if (_selectedPeriod == TimePeriodFilter.Custom)
@@ -91,12 +76,62 @@
 
         @if (_isLoading)
         {
+            @* KPI skeletons *@
+            <MudItem xs="12" sm="4"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
+            <MudItem xs="12" sm="4"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
+            <MudItem xs="12" sm="4"><MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="72px" /></MudItem>
             <MudItem xs="12">
                 <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="380px" />
             </MudItem>
         }
         else
         {
+            @* KPI strip *@
+            <MudItem xs="12" sm="4">
+                <MudPaper Class="pa-3 kpi-card" Elevation="0">
+                    <MudStack Spacing="0">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowCircleUp" Color="Color.Success" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Income</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.h6" Class="mud-success-text" Style="font-weight:600;">
+                            @CurrencyHelper.FormatCurrency(_cashFlow?.TotalIncome ?? 0)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudPaper Class="pa-3 kpi-card" Elevation="0">
+                    <MudStack Spacing="0">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowCircleDown" Color="Color.Error" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Expenses</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.h6" Class="mud-error-text" Style="font-weight:600;">
+                            @CurrencyHelper.FormatCurrency(_cashFlow?.TotalExpenses ?? 0)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="4">
+                <MudPaper Class="pa-3 kpi-card" Elevation="0">
+                    <MudStack Spacing="0">
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.SwapVert" Color="Color.Default" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Net Cash Flow</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.h6"
+                                 Class="@(_cashFlow?.NetCashFlow >= 0 ? "mud-success-text" : "mud-error-text")"
+                                 Style="font-weight:600;">
+                            @CurrencyHelper.FormatSignedCurrency(_cashFlow?.NetCashFlow ?? 0)
+                        </MudText>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            @* Main row: Net Worth hero + Category breakdown *@
             <MudItem xs="12" md="8">
                 <BalanceTrendCard Data="_balanceTrend" />
             </MudItem>
@@ -105,23 +140,14 @@
                 <CategoryBreakdownCard Data="_categoryBreakdown" />
             </MudItem>
 
-            <MudItem xs="12" md="4">
-                <SpendingTrendCard Data="_spendingTrend" />
-            </MudItem>
-
-            <MudItem xs="12" md="4">
+            @* Secondary row: Recent transactions + Budget *@
+            <MudItem xs="12" md="6">
                 <RecentTransactionsCard Data="_recentTransactions" />
             </MudItem>
 
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" md="6">
                 <BudgetSummaryCard Data="_budgetSummary" />
             </MudItem>
-
-            @* Temporarily hidden: Cash Flow card
-            <MudItem xs="12" md="4">
-                <CashFlowCard Data="_cashFlow" />
-            </MudItem>
-            *@
         }
     </MudGrid>
 </MudContainer>
@@ -138,6 +164,12 @@
             max-width: 2440px;
         }
     }
+
+    .kpi-card {
+        border: 1px solid var(--mud-palette-divider);
+        border-radius: 12px;
+        height: 100%;
+    }
 </style>
 
 @code {
@@ -147,6 +179,7 @@
     private List<DashboardSpendingTrendDto> _spendingTrend = new();
     private List<CategoryBreakdownDto> _categoryBreakdown = new();
     private List<RecentTransactionDto> _recentTransactions = new();
+    private CashFlowDto? _cashFlow;
     private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
     private DateTime? _customFromDate;
     private DateTime? _customToDate;
@@ -323,16 +356,7 @@
             var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync(filter);
             var spendingTrendResult = await DashboardService.GetSpendingTrendAsync(filter);
             var categoryBreakdownResult = await DashboardService.GetCategoryBreakdownAsync(filter);
-            // Temporarily hidden: Cash Flow card.
-            // var cashFlowFilter = new DashboardFilterDto
-            // {
-            //     TimePeriod = filter.TimePeriod,
-            //     FromDate = filter.FromDate,
-            //     ToDate = filter.ToDate,
-            //     AccountIds = filter.AccountIds,
-            //     TransactionFilter = DashboardTransactionFilter.All
-            // };
-            // var cashFlowResult = await DashboardService.GetCashFlowAsync(cashFlowFilter);
+            var cashFlowResult = await DashboardService.GetCashFlowAsync(filter);
             var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(filter, 6);
             if (!balanceTrendResult.Success)
             {
@@ -374,17 +398,6 @@
                 Snackbar.Add("No Category Breakdown data was returned.", Severity.Error);
                 return;
             }
-            // Temporarily hidden: Cash Flow validations.
-            // if (!cashFlowResult.Success)
-            // {
-            //     Snackbar.Add($"Error loading Cash Flow: {cashFlowResult.Message}", Severity.Error);
-            //     return;
-            // }
-            // if (cashFlowResult.Data is null)
-            // {
-            //     Snackbar.Add("No Cash Flow data was returned.", Severity.Error);
-            //     return;
-            // }
             if (!recentTransactionsResult.Success)
             {
                 Snackbar.Add($"Error loading Recent Transactions: {recentTransactionsResult.Message}", Severity.Error);
@@ -400,6 +413,7 @@
             _spendingTrend = spendingTrendResult.Data;
             _categoryBreakdown = categoryBreakdownResult.Data;
             _recentTransactions = recentTransactionsResult.Data;
+            _cashFlow = cashFlowResult.Data;
         }
         catch (Exception ex)
         {
@@ -429,6 +443,7 @@
         _spendingTrend = new();
         _categoryBreakdown = new();
         _recentTransactions = new();
+        _cashFlow = null;
     }
 
     private async Task RefreshDashboard()
