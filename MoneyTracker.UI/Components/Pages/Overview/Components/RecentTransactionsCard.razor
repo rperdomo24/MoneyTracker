@@ -117,10 +117,10 @@
 
     private static string GetFormattedAmount(RecentTransactionDto transaction) => transaction.Type switch
     {
-        TransactionTypeEnum.Income => $"+${transaction.Amount:N2}",
-        TransactionTypeEnum.Expense => $"-${transaction.Amount:N2}",
-        TransactionTypeEnum.Transfer => $"${transaction.Amount:N2}",
-        _ => $"${transaction.Amount:N2}"
+        TransactionTypeEnum.Income => $"+${Math.Abs(transaction.Amount):N2}",
+        TransactionTypeEnum.Expense => $"-${Math.Abs(transaction.Amount):N2}",
+        TransactionTypeEnum.Transfer => $"${Math.Abs(transaction.Amount):N2}",
+        _ => $"${Math.Abs(transaction.Amount):N2}"
     };
 
     private static string GetPrimaryText(RecentTransactionDto transaction)

@@ -395,7 +395,7 @@
             var budgetSummaryResult = await DashboardService.GetBudgetSummaryAsync(filter);
             var categoryBreakdownResult = await DashboardService.GetCategoryBreakdownAsync(filter);
             var cashFlowResult = await DashboardService.GetCashFlowAsync(filter);
-            var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(filter, 6);
+            var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(filter, 20);
             var alertsResult = await DashboardService.GetAlertsAsync();
             var goalsResult = await GoalService.GetAllAsync();
             if (!balanceTrendResult.Success)
