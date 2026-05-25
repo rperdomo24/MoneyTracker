@@ -102,23 +102,20 @@
     </DialogActions>
 </MudDialog>
 
-<UpdateTransactionDrawer @bind-IsOpen="_txDrawerOpen"
-                         TransactionId="@_txDrawerTransactionId"
-                         OnTransactionUpdated="StateHasChanged" />
-
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public SavingsGoalDto? Goal { get; set; }
     [Parameter] public ISavingsGoalService GoalService { get; set; } = default!;
     [Parameter] public EventCallback OnChanged { get; set; }
 
-    private bool _txDrawerOpen = false;
-    private int _txDrawerTransactionId = 0;
-
-    private void OpenTransactionDrawer(int transactionId)
+    private async Task OpenTransactionDrawer(int transactionId)
     {
-        _txDrawerTransactionId = transactionId;
-        _txDrawerOpen = true;
+        var parameters = new DialogParameters
+        {
+            [nameof(TransactionViewDialog.TransactionId)] = transactionId
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<TransactionViewDialog>("Transaction Details", parameters, options);
     }
 
     private async Task EditContribution(SavingsContributionDto c)
