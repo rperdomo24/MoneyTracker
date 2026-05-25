@@ -12,8 +12,8 @@ namespace MoneyTracker.Application.DTOs.Transactions
         public List<int> TransactionTypeIds { get; set; } = new();
 
         public string SearchText { get; set; } = string.Empty;
-        public int? CategoryId { get; set; }
-        public CategoryTypeEnum? Type { get; set; }
+        public List<int> CategoryIds { get; set; } = new();
+        public List<CategoryTypeEnum> Types { get; set; } = new();
 
         // Optional optimization for read-heavy dashboards where sort order is applied later.
         public bool SkipSorting { get; set; }

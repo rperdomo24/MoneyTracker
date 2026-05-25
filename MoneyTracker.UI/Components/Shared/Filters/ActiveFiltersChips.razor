@@ -40,24 +40,21 @@
                     </MudTooltip>
                 }
 
-                @if (Filter.CategoryId.HasValue)
+                @if (Filter.CategoryIds?.Any() == true)
                 {
-                    var categoryName = GetCategoryName();
-                    <MudTooltip Text="@categoryName">
+                    var categoryText = GetCategoriesText();
+                    <MudTooltip Text="@categoryText">
                         <MudChip T="string" Size="Size.Small" Color="Color.Warning" OnClose="RemoveCategoryFilter">
-                            📁 @Truncate(categoryName, 18)
+                            📁 @Truncate(categoryText, 18)
                         </MudChip>
                     </MudTooltip>
                 }
 
-                @if (Filter.Type is CategoryTypeEnum typeValue)
+                @if (Filter.Types?.Any() == true)
                 {
-                    var typeText = typeValue.ToString();
-                    <MudChip T="string"
-                             Size="Size.Small"
-                             Color="@(typeValue == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
-                             OnClose="RemoveTypeFilter">
-                        @(typeValue == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
+                    var typesText = GetTypesText();
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" OnClose="RemoveTypeFilter">
+                        🏷 @Truncate(typesText, 18)
                     </MudChip>
                 }
             </MudStack>
@@ -107,24 +104,21 @@
                     </MudTooltip>
                 }
 
-                @if (Filter.CategoryId.HasValue)
+                @if (Filter.CategoryIds?.Any() == true)
                 {
-                    var categoryName = GetCategoryName();
-                    <MudTooltip Text="@categoryName">
+                    var categoryText = GetCategoriesText();
+                    <MudTooltip Text="@categoryText">
                         <MudChip T="string" Size="Size.Small" Color="Color.Warning" OnClose="RemoveCategoryFilter">
-                            📁 @Truncate(categoryName, 28)
+                            📁 @Truncate(categoryText, 28)
                         </MudChip>
                     </MudTooltip>
                 }
 
-                @if (Filter.Type is CategoryTypeEnum typeValue)
+                @if (Filter.Types?.Any() == true)
                 {
-                    var typeText = typeValue.ToString();
-                    <MudChip T="string"
-                             Size="Size.Small"
-                             Color="@(typeValue == CategoryTypeEnum.Income ? Color.Success : Color.Error)"
-                             OnClose="RemoveTypeFilter">
-                        @(typeValue == CategoryTypeEnum.Income ? "💰" : "💸") @typeText
+                    var typesText = GetTypesText();
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" OnClose="RemoveTypeFilter">
+                        🏷 @Truncate(typesText, 28)
                     </MudChip>
                 }
             </MudStack>
@@ -180,12 +174,21 @@
         return $"{selected.Count} Accounts";
     }
 
-    private string GetCategoryName()
+    private string GetCategoriesText()
     {
-        if (!Filter.CategoryId.HasValue || Categories?.Any() != true)
+        if (Filter.CategoryIds?.Any() != true || Categories?.Any() != true)
             return "Category";
 
-        return Categories.FirstOrDefault(c => c.Id == Filter.CategoryId.Value)?.Name ?? "Category";
+        var selected = Categories.Where(c => Filter.CategoryIds!.Contains(c.Id)).ToList();
+        if (!selected.Any()) return "Category";
+        if (selected.Count == 1) return selected[0].Name;
+        return $"{selected.Count} categories";
+    }
+
+    private string GetTypesText()
+    {
+        if (Filter.Types?.Any() != true) return string.Empty;
+        return string.Join(", ", Filter.Types.Select(t => t.ToString()));
     }
 
     private static string Truncate(string? text, int max)
@@ -217,13 +220,13 @@
 
     private async Task RemoveCategoryFilter()
     {
-        Filter.CategoryId = null;
+        Filter.CategoryIds = new List<int>();
         await OnFilterRemoved.InvokeAsync("Category");
     }
 
     private async Task RemoveTypeFilter()
     {
-        Filter.Type = null;
+        Filter.Types = new List<CategoryTypeEnum>();
         await OnFilterRemoved.InvokeAsync("Type");
     }
 
