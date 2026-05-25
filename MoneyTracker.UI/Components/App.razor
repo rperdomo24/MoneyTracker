@@ -39,6 +39,13 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         };
+        window.createBlobUrl = function (bytes) {
+            const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+            return URL.createObjectURL(blob);
+        };
+        window.revokeBlobUrl = function (url) {
+            URL.revokeObjectURL(url);
+        };
         window.downloadBinaryFile = function (filename, bytes) {
             const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);

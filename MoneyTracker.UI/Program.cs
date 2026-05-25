@@ -192,6 +192,8 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ITransactionRuleService, TransactionRuleService>();
             builder.Services.AddScoped<ISavingsGoalRepository, SavingsGoalRepository>();
             builder.Services.AddScoped<ISavingsGoalService, SavingsGoalService>();
+            builder.Services.AddScoped<ILoanRepository, LoanRepository>();
+            builder.Services.AddScoped<ILoanService, LoanService>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
@@ -207,6 +209,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<AccountsDrawerState>();
             builder.Services.AddScoped<AccountsRefreshBus>();
             builder.Services.AddScoped<ITransactionPrintService, TransactionPrintService>();
+            builder.Services.AddScoped<ILoanPrintService, LoanPrintService>();
             builder.Services.AddScoped<ITransactionAttachmentRepository, TransactionAttachmentRepository>();
             builder.Services.AddScoped<ITransactionAttachmentService, TransactionAttachmentService>();
 
