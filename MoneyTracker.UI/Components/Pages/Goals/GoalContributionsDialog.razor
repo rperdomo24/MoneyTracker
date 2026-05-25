@@ -2,6 +2,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Helpers
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
@@ -36,7 +37,7 @@
                 {
                     <MudPaper Elevation="0" Class="pa-3" Style="border: 1px solid var(--mud-palette-divider); border-radius: 8px;">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                            <MudStack Spacing="0">
+                            <MudStack Spacing="0" Style="flex:1; min-width:0;">
                                 <MudText Typo="Typo.body2" Class="font-weight-medium">
                                     @CurrencyHelper.FormatCurrency(c.Amount)
                                 </MudText>
@@ -49,13 +50,43 @@
                                         @c.Notes
                                     </MudText>
                                 }
+                                @if (c.LinkedTransactionId.HasValue && c.LinkedTransactionName is not null)
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small" Style="opacity:0.5; font-size:0.9rem;" />
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.caption" Style="opacity:0.7;">@c.LinkedTransactionName</MudText>
+                                            <MudText Typo="Typo.caption" Style="opacity:0.5;">
+                                                @(c.LinkedTransactionDate?.ToString("MMM d, yyyy") ?? "")
+                                                @if (!string.IsNullOrWhiteSpace(c.LinkedTransactionAccount))
+                                                {
+                                                    <span> · @c.LinkedTransactionAccount</span>
+                                                }
+                                                @if (c.LinkedTransactionAmount.HasValue)
+                                                {
+                                                    <span style="margin-left:4px; color:@(c.LinkedTransactionAmount >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)");">
+                                                        @CurrencyHelper.FormatCurrency(Math.Abs(c.LinkedTransactionAmount.Value))
+                                                    </span>
+                                                }
+                                            </MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                }
                             </MudStack>
-                            <MudTooltip Text="Delete contribution">
-                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                               Size="Size.Small"
-                                               Color="Color.Error"
-                                               OnClick="@(() => DeleteContribution(c))" />
-                            </MudTooltip>
+                            <MudStack Row="true" Spacing="0">
+                                <MudTooltip Text="Edit contribution">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                   Size="Size.Small"
+                                                   Color="Color.Default"
+                                                   OnClick="@(() => EditContribution(c))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Delete contribution">
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                   Size="Size.Small"
+                                                   Color="Color.Error"
+                                                   OnClick="@(() => DeleteContribution(c))" />
+                                </MudTooltip>
+                            </MudStack>
                         </MudStack>
                     </MudPaper>
                 }
@@ -73,6 +104,31 @@
     [Parameter] public SavingsGoalDto? Goal { get; set; }
     [Parameter] public ISavingsGoalService GoalService { get; set; } = default!;
     [Parameter] public EventCallback OnChanged { get; set; }
+
+    private async Task EditContribution(SavingsContributionDto c)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(AddContributionDialog.Goal)] = Goal!,
+            [nameof(AddContributionDialog.GoalService)] = GoalService,
+            [nameof(AddContributionDialog.ExistingContribution)] = c,
+            [nameof(AddContributionDialog.OnSaved)] = EventCallback.Factory.Create(this, RefreshGoal)
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<AddContributionDialog>("Edit Contribution", parameters, options);
+    }
+
+    private async Task RefreshGoal()
+    {
+        var result = await GoalService.GetByIdAsync(Goal!.Id);
+        if (result.Success && result.Data is not null)
+        {
+            Goal = result.Data;
+            await OnChanged.InvokeAsync();
+            StateHasChanged();
+        }
+    }
 
     private async Task DeleteContribution(SavingsContributionDto c)
     {
