@@ -42,6 +42,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<Loan> Loans => Set<Loan>();
         public DbSet<LoanPayment> LoanPayments => Set<LoanPayment>();
         public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
+        public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -133,6 +134,13 @@ namespace MoneyTracker.Infrastructure.Persistence
 
             modelBuilder.Entity<Transaction>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<RecurringTransaction>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<RecurringTransaction>()
+                .Property(e => e.Frequency)
+                .HasConversion<string>();
 
             modelBuilder.Entity<Budget>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);

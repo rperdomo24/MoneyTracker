@@ -1,0 +1,239 @@
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.RecurringTransactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Components.Shared.Selectors
+@inject IRecurringTransactionService RecurringService
+@inject IAccountService AccountService
+@inject ICategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Repeat" Color="Color.Primary" />
+            <MudText Typo="Typo.h6" Class="font-weight-bold">
+                @(Recurring is null ? "New Recurring Transaction" : "Edit Recurring Transaction")
+            </MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-6">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </MudStack>
+        }
+        else
+        {
+            <MudForm @ref="_form">
+                <MudStack Spacing="3">
+
+                    <MudTextField T="string"
+                                  Label="Name"
+                                  @bind-Value="_dto.Name"
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Name is required"
+                                  MaxLength="100"
+                                  Immediate="true"
+                                  Placeholder="e.g., Netflix, Rent, Salary..." />
+
+                    <AccountSelector @bind-SelectedAccount="_selectedAccount"
+                                     Accounts="@_accounts"
+                                     Label="Account"
+                                     Required="true"
+                                     ShowBalance="false" />
+
+                    <MudNumericField T="decimal"
+                                     Label="Amount"
+                                     @bind-Value="_dto.Amount"
+                                     Variant="Variant.Outlined"
+                                     Required="true"
+                                     Min="0.01m"
+                                     Format="F2"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="$"
+                                     HideSpinButtons="false" />
+
+                    <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                      Categories="@_categories"
+                                      FilterByType="CategoryTypeEnum.Expense"
+                                      ShowAddButton="false" />
+
+                    <MudSelect T="RecurringFrequency"
+                               Label="Frequency"
+                               @bind-Value="_dto.Frequency"
+                               Variant="Variant.Outlined"
+                               Required="true">
+                        <MudSelectItem Value="RecurringFrequency.Daily">Daily</MudSelectItem>
+                        <MudSelectItem Value="RecurringFrequency.Weekly">Weekly</MudSelectItem>
+                        <MudSelectItem Value="RecurringFrequency.BiWeekly">Bi-Weekly (every 2 weeks)</MudSelectItem>
+                        <MudSelectItem Value="RecurringFrequency.Monthly">Monthly</MudSelectItem>
+                        <MudSelectItem Value="RecurringFrequency.BiMonthly">Bi-Monthly (every 2 months)</MudSelectItem>
+                        <MudSelectItem Value="RecurringFrequency.Quarterly">Quarterly</MudSelectItem>
+                        <MudSelectItem Value="RecurringFrequency.Yearly">Yearly</MudSelectItem>
+                    </MudSelect>
+
+                    <MudDatePicker Label="Start Date"
+                                   @bind-Date="_startDate"
+                                   Variant="Variant.Outlined"
+                                   Required="true"
+                                   Editable="true"
+                                   DateFormat="MM/dd/yyyy"
+                                   AutoClose="true" />
+
+                    <MudSelect T="PaymentMethodEnum?"
+                               Label="Payment Method (Optional)"
+                               @bind-Value="_dto.PaymentMethod"
+                               Variant="Variant.Outlined"
+                               Clearable="true">
+                        @foreach (var method in Enum.GetValues<PaymentMethodEnum>())
+                        {
+                            <MudSelectItem T="PaymentMethodEnum?" Value="@((PaymentMethodEnum?)method)">
+                                @method.ToString()
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudTextField T="string"
+                                  Label="Description (Optional)"
+                                  @bind-Value="_dto.Description"
+                                  Variant="Variant.Outlined"
+                                  Lines="2"
+                                  MaxLength="500"
+                                  Placeholder="Add additional details..." />
+
+                    <MudSwitch @bind-Value="_dto.IsActive"
+                               Color="Color.Success"
+                               Label="Active" />
+
+                </MudStack>
+            </MudForm>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel" Disabled="@_saving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)"
+                   OnClick="SaveAsync"
+                   Disabled="@(_saving || _loading)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ml-2">Saving...</MudText>
+            }
+            else
+            {
+                <span>Save</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public RecurringTransactionDto? Recurring { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private MudForm _form = default!;
+    private bool _loading = true;
+    private bool _saving = false;
+
+    private RecurringTransactionDto _dto = new() { IsActive = true, Frequency = RecurringFrequency.Monthly };
+    private DateTime? _startDate = DateTime.Today;
+    private AccountDto? _selectedAccount;
+    private CategoryDto? _selectedCategory;
+    private List<AccountDto> _accounts = new();
+    private List<CategoryDto> _categories = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var accountsResult = await AccountService.GetAllAsync();
+        _accounts = accountsResult.Success && accountsResult.Data != null ? accountsResult.Data : new();
+
+        var categoriesResult = await CategoryService.GetAllAsync();
+        _categories = categoriesResult.Success && categoriesResult.Data != null ? categoriesResult.Data : new();
+
+        if (Recurring is not null)
+        {
+            _dto = new RecurringTransactionDto
+            {
+                Id = Recurring.Id,
+                Name = Recurring.Name,
+                Amount = Recurring.Amount,
+                CategoryId = Recurring.CategoryId,
+                AccountId = Recurring.AccountId,
+                Frequency = Recurring.Frequency,
+                StartDate = Recurring.StartDate,
+                IsActive = Recurring.IsActive,
+                Description = Recurring.Description,
+                PaymentMethod = Recurring.PaymentMethod
+            };
+            _startDate = Recurring.StartDate.ToLocalTime();
+            _selectedAccount = _accounts.FirstOrDefault(a => a.Id == Recurring.AccountId);
+            _selectedCategory = _categories.FirstOrDefault(c => c.Id == Recurring.CategoryId);
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_saving) return;
+
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        if (_selectedAccount is null)
+        {
+            Snackbar.Add("Please select an account", Severity.Warning);
+            return;
+        }
+
+        if (_selectedCategory is null)
+        {
+            Snackbar.Add("Please select a category", Severity.Warning);
+            return;
+        }
+
+        _dto.AccountId = _selectedAccount.Id;
+        _dto.CategoryId = _selectedCategory.Id;
+        _dto.StartDate = _startDate?.ToUniversalTime() ?? DateTime.UtcNow;
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = Recurring is null
+                ? await RecurringService.CreateAsync(_dto)
+                : await RecurringService.UpdateAsync(_dto);
+
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? (Recurring is null ? "Recurring transaction created" : "Recurring transaction updated"), Severity.Success);
+                await OnSaved.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error saving recurring transaction", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,216 @@
+@page "/recurring"
+@using MoneyTracker.Application.DTOs.RecurringTransactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Transaction
+@inject IRecurringTransactionService RecurringService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Recurring Transactions - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-1 pa-sm-6">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <div>
+            <MudText Typo="Typo.h5" Class="font-weight-bold">Recurring Transactions</MudText>
+            <MudText Typo="Typo.body2" Style="opacity:0.6;">Auto-generated transactions on a schedule</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenAddDialog">
+            New Recurring
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Elevation="2">
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                <MudText Class="mt-4">Loading...</MudText>
+            </MudStack>
+        }
+        else if (!_items.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="padding: 64px 0;">
+                <MudIcon Icon="@Icons.Material.Filled.Repeat" Size="Size.Large"
+                         Color="Color.Default" Style="font-size: 4rem;" />
+                <MudText Typo="Typo.h6" Class="mt-4">No recurring transactions yet</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Default" Align="Align.Center" Style="max-width: 380px;">
+                    Set up automatic transactions — subscriptions, rent, salary — and MoneyTracker will generate them for you each period.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Class="mt-4"
+                           OnClick="OpenAddDialog">
+                    Create first recurring transaction
+                </MudButton>
+            </MudStack>
+        }
+        else
+        {
+            <MudList T="RecurringTransactionDto">
+                <MudListSubheader>
+                    <MudText Typo="Typo.overline">
+                        RECURRING &middot; @_items.Count
+                        &nbsp;·&nbsp;
+                        @_items.Count(x => x.IsActive) active
+                    </MudText>
+                </MudListSubheader>
+
+                @foreach (var item in _items)
+                {
+                    <MudDivider />
+                    <MudListItem T="RecurringTransactionDto" Style="@(item.IsActive ? "" : "opacity:0.5;")">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Style="flex:1; min-width:0;">
+                                <MudAvatar Color="@(item.IsActive ? Color.Primary : Color.Default)" Size="Size.Small">
+                                    <MudIcon Icon="@Icons.Material.Filled.Repeat" Size="Size.Small" />
+                                </MudAvatar>
+                                <MudStack Spacing="0" Style="min-width:0;">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body1" Class="font-weight-medium">@item.Name</MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                                 Class="ml-1" Style="height:20px; font-size:11px;">
+                                            @FrequencyLabel(item.Frequency)
+                                        </MudChip>
+                                    </MudStack>
+                                    <MudStack Row="true" Spacing="2">
+                                        @if (item.AccountName is not null)
+                                        {
+                                            <MudText Typo="Typo.caption" Style="opacity:0.6;">@item.AccountName</MudText>
+                                        }
+                                        @if (item.CategoryName is not null)
+                                        {
+                                            <MudText Typo="Typo.caption" Style="opacity:0.6;">&middot; @item.CategoryName</MudText>
+                                        }
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                                            &middot; Next: @item.NextDate.ToLocalTime().ToString("MMM dd, yyyy")
+                                        </MudText>
+                                    </MudStack>
+                                </MudStack>
+                            </MudStack>
+
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText Typo="Typo.body1" Class="font-weight-bold">
+                                    $@item.Amount.ToString("N2")
+                                </MudText>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Dense="true">
+                                    <MudMenuItem OnClick="@(() => ToggleActiveAsync(item))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@(item.IsActive ? Icons.Material.Filled.PauseCircle : Icons.Material.Filled.PlayCircle)"
+                                                     Size="Size.Small"
+                                                     Color="@(item.IsActive ? Color.Warning : Color.Success)" />
+                                            <MudText>@(item.IsActive ? "Pause" : "Resume")</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="@(() => OpenEditDialog(item))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" />
+                                            <MudText>Edit</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                    <MudMenuItem OnClick="@(() => ConfirmDeleteAsync(item))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" />
+                                            <MudText Color="Color.Error">Delete</MudText>
+                                        </MudStack>
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </MudStack>
+
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<RecurringTransactionDto> _items = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var result = await RecurringService.GetAllAsync();
+        _items = result.Success && result.Data != null ? result.Data : new();
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            [nameof(RecurringTransactionEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+        await DialogService.ShowAsync<RecurringTransactionEditorDialog>("New Recurring Transaction", parameters, options);
+    }
+
+    private async Task OpenEditDialog(RecurringTransactionDto item)
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var parameters = new DialogParameters
+        {
+            [nameof(RecurringTransactionEditorDialog.Recurring)] = item,
+            [nameof(RecurringTransactionEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
+        };
+        await DialogService.ShowAsync<RecurringTransactionEditorDialog>("Edit Recurring Transaction", parameters, options);
+    }
+
+    private async Task ToggleActiveAsync(RecurringTransactionDto item)
+    {
+        var result = await RecurringService.ToggleActiveAsync(item.Id);
+        if (result.Success)
+        {
+            Snackbar.Add(result.Message ?? (item.IsActive ? "Paused" : "Resumed"), Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error toggling status", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteAsync(RecurringTransactionDto item)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete recurring transaction",
+            $"Delete \"{item.Name}\"? This will not delete previously generated transactions.",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirmed == true)
+        {
+            var result = await RecurringService.DeleteAsync(item.Id);
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Deleted", Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error deleting", Severity.Error);
+            }
+        }
+    }
+
+    private static string FrequencyLabel(RecurringFrequency freq) => freq switch
+    {
+        RecurringFrequency.Daily => "Daily",
+        RecurringFrequency.Weekly => "Weekly",
+        RecurringFrequency.BiWeekly => "Bi-Weekly",
+        RecurringFrequency.Monthly => "Monthly",
+        RecurringFrequency.BiMonthly => "Bi-Monthly",
+        RecurringFrequency.Quarterly => "Quarterly",
+        RecurringFrequency.Yearly => "Yearly",
+        _ => freq.ToString()
+    };
+}
