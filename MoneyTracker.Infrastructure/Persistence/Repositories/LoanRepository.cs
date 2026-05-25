@@ -128,6 +128,20 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task UpdatePaymentAsync(LoanPayment payment)
+        {
+            try
+            {
+                _context.LoanPayments.Update(payment);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating loan payment with ID {Id}.", payment.Id);
+                throw;
+            }
+        }
+
         public async Task DeletePaymentAsync(int paymentId)
         {
             try

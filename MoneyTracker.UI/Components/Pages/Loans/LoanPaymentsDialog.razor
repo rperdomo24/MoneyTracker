@@ -76,10 +76,16 @@
                                     </MudText>
                                 </td>
                                 <td>
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                                   Color="Color.Error"
-                                                   Size="Size.Small"
-                                                   OnClick="@(() => DeletePayment(payment))" />
+                                    <MudStack Row="true" Spacing="0">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                       Color="Color.Default"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => EditPayment(payment))" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Color="Color.Error"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => DeletePayment(payment))" />
+                                    </MudStack>
                                 </td>
                             </tr>
                         }
@@ -116,6 +122,22 @@
     [Parameter] public LoanDto Loan { get; set; } = default!;
     [Parameter] public ILoanService LoanService { get; set; } = default!;
     [Parameter] public EventCallback OnChanged { get; set; }
+
+    private async Task EditPayment(LoanPaymentDto payment)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(EditLoanPaymentDialog.Payment)] = payment,
+            [nameof(EditLoanPaymentDialog.LoanService)] = LoanService,
+            [nameof(EditLoanPaymentDialog.OnSaved)] = EventCallback.Factory.Create(this, async () =>
+            {
+                await OnChanged.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            })
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<EditLoanPaymentDialog>("Edit Payment", parameters, options);
+    }
 
     private async Task OpenTransactionDialog(int transactionId)
     {
