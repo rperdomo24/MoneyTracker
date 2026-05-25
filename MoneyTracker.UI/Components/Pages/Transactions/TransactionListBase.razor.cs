@@ -27,11 +27,14 @@ namespace MoneyTracker.UI.Components.Pages.Transactions
         [Parameter] public EventCallback<TransactionDto> OnDelete { get; set; }
         [Parameter] public EventCallback OnClearFilters { get; set; }
         [Parameter] public EventCallback OnDeleteSelected { get; set; }
+        [Parameter] public EventCallback OnPrintSelected { get; set; }
         [Parameter] public EventCallback<int> OnPageChanged { get; set; }
         [Parameter] public EventCallback<int> OnRowsPerPageChanged { get; set; }
 
         // Data for pairing transactions
         [Parameter] public List<TransactionDto>? AllTransactions { get; set; }
+
+        [Parameter] public decimal SelectedSum { get; set; }
 
         // ========== COMPUTED PROPERTIES ==========
         public int SelectedCount => SelectedTransactionIds?.Count ?? 0;

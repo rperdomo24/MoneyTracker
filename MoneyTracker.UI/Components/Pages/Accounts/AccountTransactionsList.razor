@@ -7,9 +7,12 @@
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Print
 @inject ITransactionService TransactionService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject ITransactionPrintService PrintService
+@inject IJSRuntime JS
 
 <TransactionListBase GroupedTransactions="@_groupedTransactions"
                      Loading="@_loading"
@@ -27,14 +30,18 @@
                      OnEdit="EditTransaction"
                      OnDuplicate="DuplicateTransaction"
                      OnDelete="DeleteTransaction"
+                     SelectedSum="@_selectedSum"
                      OnClearFilters="OnClearFilters"
                      OnDeleteSelected="DeleteSelectedTransactions"
+                     OnPrintSelected="PrintSelectedAsync"
                      OnPageChanged="HandlePageChanged"
                      OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
 <SelectionActionBar SelectedCount="@_selectedTransactionIds.Count"
+                    SelectedSum="@_selectedSum"
                     OnClearSelection="ClearSelection"
-                    OnDeleteSelected="DeleteSelectedTransactions" />
+                    OnDeleteSelected="DeleteSelectedTransactions"
+                    OnPrintSelected="PrintSelectedAsync" />
 
 <UpdateTransactionDrawer @bind-IsOpen="_drawerOpen"
                          TransactionId="@_selectedTransactionId"
@@ -60,6 +67,7 @@
     private List<TransactionDto>? _allTransactionsUnfiltered;
 
     private HashSet<int> _selectedTransactionIds = new();
+    private decimal _selectedSum = 0;
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
 
@@ -107,8 +115,8 @@
             {
                 SearchText = Filter.SearchText,
                 TimePeriod = Filter.TimePeriod,
-                Type = Filter.Type,
-                CategoryId = Filter.CategoryId,
+                Types = Filter.Types?.ToList() ?? new(),
+                CategoryIds = Filter.CategoryIds?.ToList() ?? new(),
                 AccountIds = new List<int> { AccountId }
             };
 
@@ -184,6 +192,9 @@
     private void OnSelectedTransactionsChanged(HashSet<int> selectedIds)
     {
         _selectedTransactionIds = selectedIds;
+        _selectedSum = _allTransactionsUnfiltered
+            ?.Where(t => selectedIds.Contains(t.Id))
+            .Sum(t => t.Amount) ?? 0;
         StateHasChanged();
     }
 
@@ -292,7 +303,25 @@
     private void ClearSelection()
     {
         _selectedTransactionIds.Clear();
+        _selectedSum = 0;
         StateHasChanged();
+    }
+
+    private async Task PrintSelectedAsync()
+    {
+        var selected = _allTransactionsUnfiltered
+            ?.Where(t => _selectedTransactionIds.Contains(t.Id))
+            .ToList() ?? new();
+        if (selected.Count == 0) return;
+        try
+        {
+            var bytes = PrintService.GenerateReport(selected, "Selected Transactions");
+            await JS.InvokeVoidAsync("downloadBinaryFile", $"transactions_{DateTime.Today:yyyy-MM-dd}.pdf", bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Error generating PDF report", Severity.Error);
+        }
     }
 
     private async Task OnTransactionUpdatedHandler()
@@ -304,13 +333,14 @@
     private bool HasActiveFilters(TransactionFilterDto filter)
         => filter.TimePeriod != TimePeriodFilter.Last30Days ||
            !string.IsNullOrWhiteSpace(filter.SearchText) ||
-           filter.CategoryId.HasValue ||
-           filter.Type.HasValue;
+           filter.CategoryIds?.Any() == true ||
+           filter.Types?.Any() == true;
 
     private static string BuildFilterKey(int accountId, TransactionFilterDto filter)
     {
-        // String key: stable & simple
-        return $"{accountId}|{filter.TimePeriod}|{filter.FromDate:yyyyMMdd}|{filter.ToDate:yyyyMMdd}|{filter.Type?.ToString() ?? ""}|{filter.CategoryId?.ToString() ?? ""}|{(filter.SearchText ?? "").Trim()}";
+        var types = string.Join(",", filter.Types ?? new());
+        var cats = string.Join(",", filter.CategoryIds ?? new());
+        return $"{accountId}|{filter.TimePeriod}|{filter.FromDate:yyyyMMdd}|{filter.ToDate:yyyyMMdd}|{types}|{cats}|{(filter.SearchText ?? "").Trim()}";
     }
 
     public void Dispose()

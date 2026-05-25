@@ -14,8 +14,10 @@
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
+@using MoneyTracker.UI.Services.Print
 @using System.Text
 @inject ITransactionFilterStateService TransactionFilterState
+@inject ITransactionPrintService PrintService
 @inject IJSRuntime JS
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
@@ -110,6 +112,14 @@
                                        OnClick="ExportCsvAsync" />
                     </MudTooltip>
 
+                    <MudTooltip Text="Print filtered transactions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Disabled="@(_transactionSummary?.Transactions is null or { Count: 0 })"
+                                       OnClick="PrintFilteredAsync" />
+                    </MudTooltip>
+
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.Add"
@@ -153,8 +163,10 @@
                          OnEdit="EditTransaction"
                          OnDuplicate="DuplicateTransaction"
                          OnDelete="DeleteTransaction"
+                         SelectedSum="@_selectedSum"
                          OnClearFilters="ClearAllFilters"
                          OnDeleteSelected="DeleteSelectedTransactions"
+                         OnPrintSelected="PrintSelectedAsync"
                          OnPageChanged="HandlePageChanged"
                          OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
@@ -193,6 +205,7 @@
     private int _totalTransactions = 0;
 
     private HashSet<int> _selectedTransactionIds = new();
+    private decimal _selectedSum = 0;
 
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
@@ -368,6 +381,9 @@
     private Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
     {
         _selectedTransactionIds = selectedIds;
+        _selectedSum = _allTransactionsUnfiltered
+            ?.Where(t => selectedIds.Contains(t.Id))
+            .Sum(t => t.Amount) ?? 0;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -576,5 +592,36 @@
         if (!value.Contains(',') && !value.Contains(q) && !value.Contains('\n'))
             return value;
         return q + value.Replace(q.ToString(), q.ToString() + q.ToString()) + q;
+    }
+
+    private async Task PrintSelectedAsync()
+    {
+        var selected = _allTransactionsUnfiltered
+            ?.Where(t => _selectedTransactionIds.Contains(t.Id))
+            .ToList() ?? new();
+
+        if (selected.Count == 0) return;
+        await PrintTransactionsAsync(selected, "Selected Transactions");
+    }
+
+    private async Task PrintFilteredAsync()
+    {
+        var transactions = _transactionSummary?.Transactions;
+        if (transactions is null || transactions.Count == 0) return;
+        await PrintTransactionsAsync(transactions, "Filtered Transactions");
+    }
+
+    private async Task PrintTransactionsAsync(IList<TransactionDto> transactions, string title)
+    {
+        try
+        {
+            var bytes = PrintService.GenerateReport(transactions, title);
+            var filename = $"transactions_{DateTime.Today:yyyy-MM-dd}.pdf";
+            await JS.InvokeVoidAsync("downloadBinaryFile", filename, bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Error generating PDF report", Severity.Error);
+        }
     }
 }
