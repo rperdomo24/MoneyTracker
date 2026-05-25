@@ -946,7 +946,6 @@ namespace MoneyTracker.Application.Services
 
             return expenses
                 .Select(x => x.MapToCategoryBreakdown(totalExpenses))
-                .Take(6)
                 .ToList();
         }
 
