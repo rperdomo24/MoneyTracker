@@ -1,0 +1,474 @@
+@page "/loans"
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Loans
+@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Services.Print
+@inject ILoanService LoanService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ILoanPrintService LoanPrintService
+
+<PageTitle>Loans - Money Tracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-1 pa-sm-6">
+
+    <!-- Header (Mobile) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndUp">
+        <MudStack Spacing="3" Class="mb-4">
+            <MudText Typo="Typo.h5" Class="font-weight-bold">Loans</MudText>
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog"
+                       FullWidth="true"
+                       Size="Size.Large">
+                New Loan
+            </MudButton>
+        </MudStack>
+    </MudHidden>
+
+    <!-- Header (Tablet/Desktop) -->
+    <MudHidden Breakpoint="Breakpoint.Xs">
+        <MudStack Row="true"
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-4">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h5" Class="font-weight-bold">Loans</MudText>
+                <MudText Typo="Typo.body2" Style="opacity:0.6;">Money you've lent out</MudText>
+            </MudStack>
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenAddDialog">
+                New Loan
+            </MudButton>
+        </MudStack>
+    </MudHidden>
+
+    <!-- Summary chips -->
+    @if (_loans.Any())
+    {
+        var totalLent = _loans.Sum(l => l.PrincipalAmount);
+        var totalOutstanding = _loans.Where(l => l.Status == LoanStatus.Active).Sum(l => l.Balance);
+        var totalOverdue = _loans.Count(l => l.IsOverdue);
+
+        <MudStack Row="true" Spacing="2" Class="mb-4" Wrap="Wrap.Wrap">
+            <MudChip T="string" Color="Color.Default" Icon="@Icons.Material.Filled.AccountBalance">
+                Lent: @CurrencyHelper.FormatCurrency(totalLent)
+            </MudChip>
+            <MudChip T="string" Color="Color.Warning" Icon="@Icons.Material.Filled.PendingActions">
+                Outstanding: @CurrencyHelper.FormatCurrency(totalOutstanding)
+            </MudChip>
+            @if (totalOverdue > 0)
+            {
+                <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.Warning">
+                    @totalOverdue overdue
+                </MudChip>
+            }
+        </MudStack>
+    }
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Class="mt-4">Loading loans...</MudText>
+        </MudStack>
+    }
+    else if (!_loans.Any())
+    {
+        <MudPaper Class="pa-6 pa-sm-8" Elevation="1">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Handshake"
+                         Size="Size.Large"
+                         Style="font-size: 4rem; opacity: 0.3;" />
+                <MudText Typo="Typo.h6">No loans tracked yet</MudText>
+                <MudText Typo="Typo.body2" Align="Align.Center">
+                    Track money you've lent and register payments as they come in.
+                </MudText>
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenAddDialog"
+                           Size="Size.Large">
+                    Add First Loan
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+            @foreach (var loan in _loans)
+            {
+                var borderColor = loan.IsOverdue ? "var(--mud-palette-error)"
+                    : loan.Status == LoanStatus.PaidOff ? "var(--mud-palette-success)"
+                    : loan.Status == LoanStatus.Forgiven ? "var(--mud-palette-default)"
+                    : "var(--mud-palette-primary)";
+
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudCard Outlined="true" Elevation="1" Style="@($"border-left: 4px solid {borderColor}; height: 100%;")">
+                        <MudCardContent>
+                            <!-- Title row -->
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.h6" Class="font-weight-medium"
+                                             Style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">
+                                        @loan.ContactName
+                                    </MudText>
+                                    @if (!string.IsNullOrWhiteSpace(loan.Description))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;">@loan.Description</MudText>
+                                    }
+                                </MudStack>
+
+                                @if (loan.Status == LoanStatus.PaidOff)
+                                {
+                                    <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">
+                                        Paid Off
+                                    </MudChip>
+                                }
+                                else if (loan.Status == LoanStatus.Forgiven)
+                                {
+                                    <MudChip T="string" Color="Color.Default" Size="Size.Small">Forgiven</MudChip>
+                                }
+                                else if (loan.IsOverdue)
+                                {
+                                    <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">
+                                        Overdue
+                                    </MudChip>
+                                }
+                            </MudStack>
+
+                            <!-- Progress bar -->
+                            <MudStack Spacing="1" Class="mb-3">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.body2">
+                                        @CurrencyHelper.FormatCurrency(loan.TotalPaid)
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
+                                            / @CurrencyHelper.FormatCurrency(loan.TotalOwed)
+                                        </MudText>
+                                    </MudText>
+                                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                        @loan.ProgressPercent%
+                                    </MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="@((double)loan.ProgressPercent)"
+                                                   Color="@(loan.Status == LoanStatus.PaidOff ? Color.Success : Color.Primary)"
+                                                   Rounded="true"
+                                                   Size="Size.Medium" />
+                            </MudStack>
+
+                            <!-- Balance / overpayment -->
+                            @if (loan.Status == LoanStatus.Active)
+                            {
+                                @if (loan.OverpaymentAmount > 0)
+                                {
+                                    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">
+                                        Overpaid by @CurrencyHelper.FormatCurrency(loan.OverpaymentAmount)
+                                    </MudAlert>
+                                }
+                                else if (loan.Balance > 0)
+                                {
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-2">
+                                        <MudText Typo="Typo.caption" Style="opacity:0.7;">Outstanding</MudText>
+                                        <MudText Typo="Typo.caption" Class="font-weight-bold">
+                                            @CurrencyHelper.FormatCurrency(loan.Balance)
+                                        </MudText>
+                                    </MudStack>
+                                }
+                            }
+
+                            <!-- Due date -->
+                            @if (loan.DueDate.HasValue && loan.Status == LoanStatus.Active)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="opacity:0.6;" />
+                                    <MudText Typo="Typo.caption">Due @loan.DueDate.Value.ToString("MMM d, yyyy")</MudText>
+                                </MudStack>
+                            }
+
+                            <!-- Notes -->
+                            @if (!string.IsNullOrWhiteSpace(loan.Notes))
+                            {
+                                <MudText Typo="Typo.caption"
+                                         Style="opacity:0.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;"
+                                         Class="mb-2">
+                                    @loan.Notes
+                                </MudText>
+                            }
+
+                            <!-- Stats -->
+                            <MudStack Row="true" Spacing="2" Class="mt-1">
+                                <MudText Typo="Typo.caption" Style="opacity:0.5;">
+                                    @loan.Payments.Count payment@(loan.Payments.Count != 1 ? "s" : "")
+                                </MudText>
+                                @if (loan.Installments.Any())
+                                {
+                                    var paidCount = loan.Installments.Count(i => i.IsPaid);
+                                    <MudText Typo="Typo.caption" Style="opacity:0.5;">·</MudText>
+                                    <MudText Typo="Typo.caption" Style="opacity:0.5;">
+                                        @paidCount/@loan.Installments.Count cuotas
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudCardContent>
+
+                        <MudCardActions>
+                            @if (loan.Status == LoanStatus.Active)
+                            {
+                                <MudTooltip Text="Register Payment">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Payments"
+                                                   Color="Color.Primary"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => OpenAddPaymentDialog(loan))" />
+                                </MudTooltip>
+                            }
+                            <MudTooltip Text="Payment History">
+                                <MudIconButton Icon="@Icons.Material.Filled.History"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               Disabled="@(!loan.Payments.Any())"
+                                               OnClick="@(() => OpenPaymentsHistory(loan))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Installment Schedule">
+                                <MudIconButton Icon="@Icons.Material.Filled.TableChart"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenInstallmentsDialog(loan))" />
+                            </MudTooltip>
+                            <MudTooltip Text="Edit">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               OnClick="@(() => OpenEditDialog(loan))" />
+                            </MudTooltip>
+                            @if (loan.Status == LoanStatus.Active)
+                            {
+                                <MudTooltip Text="Mark as Paid Off">
+                                    <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                                   Color="Color.Success"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => MarkPaidOff(loan))" />
+                                </MudTooltip>
+                            }
+                            <MudTooltip Text="@(GetContactLoans(loan.ContactName).Count > 1 ? $"Print report ({GetContactLoans(loan.ContactName).Count} loans)" : "Print report")">
+                                <MudIconButton Icon="@Icons.Material.Filled.Print"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               OnClick="@(() => PrintReport(loan.ContactName))" />
+                            </MudTooltip>
+                            <MudSpacer />
+                            <MudTooltip Text="Delete">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               OnClick="@(() => DeleteLoan(loan))" />
+                            </MudTooltip>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+
+</MudContainer>
+
+@code {
+    private List<LoanDto> _loans = new();
+    private bool _loading = true;
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        CloseButton = true,
+        FullWidth = true,
+        MaxWidth = MaxWidth.Small,
+        CloseOnEscapeKey = true
+    };
+
+    protected override async Task OnInitializedAsync()
+        => await LoadLoans();
+
+    private async Task LoadLoans()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await LoanService.GetAllAsync();
+            if (result.Success && result.Data is not null)
+                _loans = result.Data;
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to load loans.", Severity.Error);
+                _loans.Clear();
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error loading loans.", Severity.Error);
+            _loans.Clear();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(LoanEditorDialog.Loan)] = null,
+            [nameof(LoanEditorDialog.LoanService)] = LoanService,
+            [nameof(LoanEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadLoans)
+        };
+        await DialogService.ShowAsync<LoanEditorDialog>("New Loan", parameters, _dialogOptions);
+    }
+
+    private async Task OpenEditDialog(LoanDto loan)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(LoanEditorDialog.Loan)] = loan,
+            [nameof(LoanEditorDialog.LoanService)] = LoanService,
+            [nameof(LoanEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadLoans)
+        };
+        await DialogService.ShowAsync<LoanEditorDialog>("Edit Loan", parameters, _dialogOptions);
+    }
+
+    private async Task OpenAddPaymentDialog(LoanDto loan)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(AddLoanPaymentDialog.Loan)] = loan,
+            [nameof(AddLoanPaymentDialog.LoanService)] = LoanService,
+            [nameof(AddLoanPaymentDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadLoans)
+        };
+        await DialogService.ShowAsync<AddLoanPaymentDialog>("Register Payment", parameters, _dialogOptions);
+    }
+
+    private async Task OpenPaymentsHistory(LoanDto loan)
+    {
+        var refreshedResult = await LoanService.GetByIdAsync(loan.Id);
+        var current = refreshedResult.Success && refreshedResult.Data is not null ? refreshedResult.Data : loan;
+
+        var parameters = new DialogParameters
+        {
+            [nameof(LoanPaymentsDialog.Loan)] = current,
+            [nameof(LoanPaymentsDialog.LoanService)] = LoanService,
+            [nameof(LoanPaymentsDialog.OnChanged)] = EventCallback.Factory.Create(this, LoadLoans)
+        };
+        var opts = _dialogOptions with { MaxWidth = MaxWidth.Medium };
+        await DialogService.ShowAsync<LoanPaymentsDialog>("Payment History", parameters, opts);
+    }
+
+    private async Task OpenInstallmentsDialog(LoanDto loan)
+    {
+        var refreshedResult = await LoanService.GetByIdAsync(loan.Id);
+        var current = refreshedResult.Success && refreshedResult.Data is not null ? refreshedResult.Data : loan;
+
+        var parameters = new DialogParameters
+        {
+            [nameof(LoanInstallmentsDialog.Loan)] = current,
+            [nameof(LoanInstallmentsDialog.LoanService)] = LoanService,
+            [nameof(LoanInstallmentsDialog.OnChanged)] = EventCallback.Factory.Create(this, LoadLoans)
+        };
+        var opts = _dialogOptions with { MaxWidth = MaxWidth.Medium };
+        await DialogService.ShowAsync<LoanInstallmentsDialog>("Installment Schedule", parameters, opts);
+    }
+
+    private async Task MarkPaidOff(LoanDto loan)
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Mark as Paid Off",
+            $"Mark '{loan.ContactName}' loan as fully paid off?",
+            confirmText: "Mark Paid Off",
+            color: Color.Success);
+
+        if (!confirmed) return;
+
+        try
+        {
+            var result = await LoanService.MarkPaidOffAsync(loan.Id);
+            if (result.Success)
+            {
+                Snackbar.Add("Loan marked as paid off.", Severity.Success);
+                await LoadLoans();
+            }
+            else Snackbar.Add(result.Message ?? "Failed to update.", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Error updating loan.", Severity.Error);
+        }
+    }
+
+    private List<LoanDto> GetContactLoans(string contactName)
+        => _loans.Where(l => l.ContactName.Equals(contactName, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private async Task PrintReport(string contactName)
+    {
+        try
+        {
+            var contactLoans = GetContactLoans(contactName);
+            var refreshed = new List<LoanDto>();
+            foreach (var l in contactLoans)
+            {
+                var r = await LoanService.GetByIdAsync(l.Id);
+                refreshed.Add(r.Success && r.Data is not null ? r.Data : l);
+            }
+
+            var bytes = LoanPrintService.GenerateReport(refreshed);
+            var filename = $"loan-report-{contactName.ToLower().Replace(" ", "-")}-{DateTime.Today:yyyy-MM-dd}.pdf";
+
+            var parameters = new DialogParameters
+            {
+                [nameof(LoanReportPreviewDialog.PdfBytes)] = bytes,
+                [nameof(LoanReportPreviewDialog.FileName)] = filename
+            };
+            var opts = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Large,
+                FullWidth = true,
+                CloseButton = true,
+                CloseOnEscapeKey = true
+            };
+            await DialogService.ShowAsync<LoanReportPreviewDialog>($"Report — {contactName}", parameters, opts);
+        }
+        catch
+        {
+            Snackbar.Add("Error generating report.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteLoan(LoanDto loan)
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Delete Loan",
+            $"Delete loan for '{loan.ContactName}'? All payments will be removed.",
+            confirmText: "Delete",
+            color: Color.Error);
+
+        if (!confirmed) return;
+
+        try
+        {
+            var result = await LoanService.DeleteAsync(loan.Id);
+            if (result.Success)
+            {
+                Snackbar.Add("Loan deleted.", Severity.Success);
+                await LoadLoans();
+            }
+            else Snackbar.Add(result.Message ?? "Failed to delete.", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Error deleting loan.", Severity.Error);
+        }
+    }
+}

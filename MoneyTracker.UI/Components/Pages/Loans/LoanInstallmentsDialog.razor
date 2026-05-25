@@ -1,0 +1,214 @@
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.TableChart" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Installment Schedule — @Loan.ContactName</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-0">
+
+            <!-- Summary row -->
+            <MudStack Row="true" Spacing="3" Wrap="Wrap.Wrap" Class="mb-4">
+                <MudChip T="string" Color="Color.Default" Size="Size.Small">
+                    Principal: @CurrencyHelper.FormatCurrency(Loan.PrincipalAmount)
+                </MudChip>
+                @if (Loan.InterestRate > 0)
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small">
+                        Interest @Loan.InterestRate%: @CurrencyHelper.FormatCurrency(Loan.InterestAmount)
+                    </MudChip>
+                }
+                <MudChip T="string" Color="Color.Primary" Size="Size.Small">
+                    Total: @CurrencyHelper.FormatCurrency(Loan.TotalOwed)
+                </MudChip>
+                <MudChip T="string" Color="Color.Success" Size="Size.Small">
+                    Paid: @CurrencyHelper.FormatCurrency(Loan.TotalPaid)
+                </MudChip>
+                @if (Loan.Balance > 0)
+                {
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small">
+                        Outstanding: @CurrencyHelper.FormatCurrency(Loan.Balance)
+                    </MudChip>
+                }
+            </MudStack>
+
+            @if (!Loan.Installments.Any())
+            {
+                <MudAlert Severity="Severity.Info" Dense="true" Class="mb-4">
+                    No installment plan. Edit the loan to add number of installments and first payment date.
+                </MudAlert>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true" Striped="true" Class="mb-3">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">#</th>
+                            <th>Due Date</th>
+                            <th style="text-align:right;">Expected</th>
+                            <th style="text-align:right;">Paid</th>
+                            <th style="text-align:right;">Pending</th>
+                            <th style="width:100px;">Status</th>
+                            <th style="width:40px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var inst in Loan.Installments.OrderBy(i => i.InstallmentNumber))
+                        {
+                            <tr>
+                                <td>@inst.InstallmentNumber</td>
+                                <td>@inst.DueDate.ToString("MMM d, yyyy")</td>
+                                <td style="text-align:right;">@CurrencyHelper.FormatCurrency(inst.ExpectedAmount)</td>
+                                <td style="text-align:right; color: var(--mud-palette-success-text);">
+                                    @CurrencyHelper.FormatCurrency(inst.PaidAmount)
+                                </td>
+                                <td style="text-align:right; @(inst.PendingAmount > 0 ? "color: var(--mud-palette-warning-text);" : "")">
+                                    @(inst.PendingAmount > 0 ? CurrencyHelper.FormatCurrency(inst.PendingAmount) : "—")
+                                </td>
+                                <td>
+                                    @if (inst.IsPaid)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">
+                                            Paid
+                                        </MudChip>
+                                    }
+                                    else if (inst.IsOverdue)
+                                    {
+                                        <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">
+                                            Overdue
+                                        </MudChip>
+                                    }
+                                    else if (inst.IsPartiallyPaid)
+                                    {
+                                        <MudChip T="string" Color="Color.Warning" Size="Size.Small">Partial</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Color="Color.Default" Size="Size.Small">Pending</MudChip>
+                                    }
+                                </td>
+                                <td>
+                                    <MudTooltip Text="Edit installment">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                       Size="Size.Small"
+                                                       Color="Color.Default"
+                                                       OnClick="@(() => OpenEditInstallment(inst))" />
+                                    </MudTooltip>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+
+                <!-- Notes column if any have notes -->
+                @if (Loan.Installments.Any(i => !string.IsNullOrWhiteSpace(i.Notes)))
+                {
+                    <MudStack Spacing="1" Class="mb-3">
+                        @foreach (var inst in Loan.Installments.Where(i => !string.IsNullOrWhiteSpace(i.Notes)))
+                        {
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">
+                                <strong>#@inst.InstallmentNumber:</strong> @inst.Notes
+                            </MudText>
+                        }
+                    </MudStack>
+                }
+            }
+
+            <!-- Regenerate option -->
+            @if (Loan.NumberOfInstallments is > 0 && Loan.Installments.Any())
+            {
+                <MudText Typo="Typo.caption" Style="opacity:0.5;" Class="mt-2">
+                    Edited installment amounts are not overwritten unless you regenerate.
+                </MudText>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Warning"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="RegenerateInstallments"
+                           Disabled="@_isRegenerating"
+                           Class="mt-1">
+                    Regenerate from loan settings
+                </MudButton>
+            }
+
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public LoanDto Loan { get; set; } = default!;
+    [Parameter] public ILoanService LoanService { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _isRegenerating;
+
+    private async Task OpenEditInstallment(LoanInstallmentDto inst)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(EditInstallmentDialog.Installment)] = inst,
+            [nameof(EditInstallmentDialog.LoanService)] = LoanService,
+            [nameof(EditInstallmentDialog.OnSaved)] = EventCallback.Factory.Create(this, RefreshAndNotify)
+        };
+        var opts = new DialogOptions { CloseButton = true, FullWidth = true, MaxWidth = MaxWidth.ExtraSmall };
+        await DialogService.ShowAsync<EditInstallmentDialog>("Edit Installment", parameters, opts);
+    }
+
+    private async Task RefreshAndNotify()
+    {
+        await OnChanged.InvokeAsync();
+        var refreshed = await LoanService.GetByIdAsync(Loan.Id);
+        if (refreshed.Success && refreshed.Data is not null)
+            Loan = refreshed.Data;
+        StateHasChanged();
+    }
+
+    private async Task RegenerateInstallments()
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Regenerate Installments",
+            "This will reset all installments to equal amounts based on current loan settings. Custom amounts and notes will be lost.",
+            confirmText: "Regenerate",
+            color: Color.Warning);
+
+        if (!confirmed) return;
+
+        _isRegenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await LoanService.RegenerateInstallmentsAsync(Loan.Id);
+            if (result.Success)
+            {
+                Snackbar.Add("Installments regenerated.", Severity.Success);
+                await RefreshAndNotify();
+            }
+            else Snackbar.Add(result.Message ?? "Failed.", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred.", Severity.Error);
+        }
+        finally
+        {
+            _isRegenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+}
