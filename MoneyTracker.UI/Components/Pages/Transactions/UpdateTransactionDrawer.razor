@@ -16,8 +16,10 @@
 @inject ICategoryService CategoryService
 @inject IMerchantService MerchantService
 @inject ISavingsGoalService GoalService
+@inject ITransactionAttachmentService AttachmentService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
 <MudDrawer @bind-Open="@IsOpen"
@@ -259,6 +261,67 @@
             </MudForm>
         }
 
+        @* Attachments *@
+        @if (!_loading && _transactionWithPair?.Transaction != null)
+        {
+            <MudDivider Class="my-3" />
+            <MudStack Spacing="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.subtitle2">
+                        <MudIcon Icon="@Icons.Material.Filled.AttachFile" Size="Size.Small" Class="mr-1" />
+                        Attachments (@_attachments.Count/5)
+                    </MudText>
+                </MudStack>
+
+                @foreach (var att in _attachments)
+                {
+                    <MudPaper Outlined="true" Class="pa-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="min-width:0;">
+                                <MudIcon Icon="@GetAttachmentIcon(att.ContentType)" Size="Size.Small" />
+                                <MudText Typo="Typo.caption" Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                    @att.FileName
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="text-muted">
+                                    (@FormatFileSize(att.FileSize))
+                                </MudText>
+                            </MudStack>
+                            <MudStack Row="true" Spacing="0">
+                                @if (att.ContentType?.StartsWith("image/") == true || att.ContentType == "application/pdf")
+                                {
+                                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => PreviewAttachmentAsync(att))" />
+                                }
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="@(() => DeleteAttachmentAsync(att))" />
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @if (_attachments.Count < 5)
+                {
+                    <MudFileUpload T="IBrowserFile"
+                                   @ref="_fileUpload"
+                                   FilesChanged="OnFileSelected"
+                                   Accept="image/*,application/pdf"
+                                   MaximumFileCount="1" />
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.Upload"
+                               FullWidth="true"
+                               Size="Size.Small"
+                               Disabled="@_uploadingAttachment"
+                               OnClick="@(() => _fileUpload?.OpenFilePickerAsync())">
+                        @(_uploadingAttachment ? "Uploading..." : "Attach File")
+                    </MudButton>
+                }
+            </MudStack>
+        }
+
     </MudDrawerContainer>
 
     @* FOOTER (no Cancel, only actions) *@
@@ -327,6 +390,11 @@
     // Goal link
     private bool _linkToGoal = false;
     private int? _selectedGoalId;
+
+    // Attachments
+    private List<TransactionAttachmentDto> _attachments = new();
+    private bool _uploadingAttachment = false;
+    private MudFileUpload<IBrowserFile>? _fileUpload;
     private decimal _goalContributionAmount = 0;
 
     // Flags
@@ -416,6 +484,13 @@
             var goalsResult = await GoalService.GetAllAsync();
             if (goalsResult.Success && goalsResult.Data is not null)
                 _activeGoals = goalsResult.Data.Where(g => !g.IsCompleted).ToList();
+
+            // Load attachments
+            var attachResult = await AttachmentService.GetByTransactionIdAsync(TransactionId);
+            if (attachResult.Success && attachResult.Data != null)
+                _attachments = attachResult.Data;
+            else
+                _attachments = new();
         }
         catch (Exception ex)
         {
@@ -723,4 +798,70 @@
     }
 
     public record ChangeItem(string Field, string OldValue, string NewValue);
+
+    private async Task OnFileSelected(IBrowserFile file)
+    {
+        if (_uploadingAttachment) return;
+        _uploadingAttachment = true;
+        StateHasChanged();
+
+        try
+        {
+            const long maxSize = 10 * 1024 * 1024;
+            using var ms = new System.IO.MemoryStream();
+            await file.OpenReadStream(maxSize).CopyToAsync(ms);
+            var bytes = ms.ToArray();
+
+            var result = await AttachmentService.AddAsync(TransactionId, file.Name, file.ContentType, bytes);
+            if (result.Success && result.Data != null)
+            {
+                _attachments.Add(result.Data);
+                Snackbar.Add("Attachment saved", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to save attachment", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Error uploading file", Severity.Error);
+        }
+        finally
+        {
+            _uploadingAttachment = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAttachmentAsync(TransactionAttachmentDto att)
+    {
+        var result = await AttachmentService.DeleteAsync(att.Id);
+        if (result.Success)
+        {
+            _attachments.Remove(att);
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Failed to delete attachment", Severity.Error);
+        }
+    }
+
+    private async Task PreviewAttachmentAsync(TransactionAttachmentDto att)
+    {
+        var base64 = Convert.ToBase64String(att.FileContent);
+        var dataUrl = $"data:{att.ContentType};base64,{base64}";
+        await JS.InvokeVoidAsync("open", dataUrl, "_blank");
+    }
+
+    private static string GetAttachmentIcon(string? contentType)
+        => contentType?.StartsWith("image/") == true
+            ? Icons.Material.Filled.Image
+            : Icons.Material.Filled.PictureAsPdf;
+
+    private static string FormatFileSize(int bytes)
+        => bytes < 1024 ? $"{bytes} B"
+         : bytes < 1024 * 1024 ? $"{bytes / 1024} KB"
+         : $"{bytes / (1024 * 1024):F1} MB";
 }

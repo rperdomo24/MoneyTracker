@@ -29,6 +29,7 @@ using MoneyTracker.UI.Endpoints;
 using MoneyTracker.UI.Services.Components.Drawer;
 using MoneyTracker.UI.Services.Filters;
 using MoneyTracker.UI.Services.Filters.Interface;
+using MoneyTracker.UI.Services.Print;
 using MoneyTracker.UI.Services.User;
 using MoneyTracker.UI.Services.Branding;
 using MoneyTracker.UI.Utility.Settings;
@@ -205,6 +206,9 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ISignOutService, SignOutService>();
             builder.Services.AddScoped<AccountsDrawerState>();
             builder.Services.AddScoped<AccountsRefreshBus>();
+            builder.Services.AddScoped<ITransactionPrintService, TransactionPrintService>();
+            builder.Services.AddScoped<ITransactionAttachmentRepository, TransactionAttachmentRepository>();
+            builder.Services.AddScoped<ITransactionAttachmentService, TransactionAttachmentService>();
 
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
