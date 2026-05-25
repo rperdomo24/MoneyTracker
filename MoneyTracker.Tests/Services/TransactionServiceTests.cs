@@ -75,6 +75,7 @@ namespace MoneyTracker.Tests.Services
             _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
             _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
             _txRepo.Setup(x => x.AddAsync(It.IsAny<Transaction>())).Returns(Task.CompletedTask);
+            _txRepo.Setup(x => x.GetAccountBalanceAsync(10)).ReturnsAsync(-20m);
 
             var svc = CreateService();
             var dto = new TransactionDto
@@ -94,7 +95,7 @@ namespace MoneyTracker.Tests.Services
             result.Success.Should().BeTrue();
             result.Message.Should().Be(OperationMessages.Created);
             _txRepo.Verify(x => x.AddAsync(It.Is<Transaction>(t => t.AccountId == 10 && t.Amount == -20m)), Times.Once);
-            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == 80m)), Times.Once);
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == -20m)), Times.Once);
         }
 
         [Fact]
@@ -164,6 +165,7 @@ namespace MoneyTracker.Tests.Services
             var account = new Account { Id = 10, Name = "Cash", Balance = 100m, Icon = "Wallet", Type = AccountType.Cash };
             _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
             _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            _txRepo.Setup(x => x.GetAccountBalanceAsync(10)).ReturnsAsync(-40m);
 
             var svc = CreateService();
 
@@ -171,7 +173,7 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeTrue();
             result.Data.Should().Be(77);
-            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == 80m)), Times.Once);
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == -40m)), Times.Once);
         }
 
         [Fact]
@@ -252,8 +254,8 @@ namespace MoneyTracker.Tests.Services
             {
                 TimePeriod = TimePeriodFilter.ThisMonth,
                 SearchText = "mark",
-                CategoryId = 2,
-                Type = CategoryTypeEnum.Expense
+                CategoryIds = new List<int> { 2 },
+                Types = new List<CategoryTypeEnum> { CategoryTypeEnum.Expense }
             };
 
             var result = await svc.GetFilteredAsync(filter);

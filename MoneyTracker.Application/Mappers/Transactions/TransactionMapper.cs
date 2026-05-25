@@ -63,6 +63,9 @@ public static class TransactionMapper
         entity.Date = timeZoneService.ConvertToUtc(dto.Date);
         entity.Amount = dto.GetSignedAmount();
         entity.Description = dto.Description;
+        entity.Category = null;
+        entity.Account = null;
+        entity.Merchant = null;
         entity.AccountId = dto.AccountId;
         entity.CategoryId = dto.CategoryId;
         entity.MerchantId = dto.MerchantId;
