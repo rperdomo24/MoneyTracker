@@ -320,6 +320,10 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .Property(e => e.Status)
                 .HasConversion<string>();
 
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.PaymentFrequency)
+                .HasConversion<string>();
+
             // LoanPayment
             modelBuilder.Entity<LoanPayment>()
                 .HasOne(p => p.Loan)

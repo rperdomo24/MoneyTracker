@@ -19,7 +19,7 @@ namespace MoneyTracker.Application.Mappers
             var isOverdue = loan.Status == LoanStatus.Active
                 && loan.DueDate.HasValue
                 && loan.DueDate.Value.Date < DateTime.UtcNow.Date;
-            var monthlyQuota = loan.NumberOfInstallments is > 0
+            var installmentQuota = loan.NumberOfInstallments is > 0
                 ? Math.Round(totalOwed / loan.NumberOfInstallments.Value, 2)
                 : 0m;
 
@@ -34,6 +34,7 @@ namespace MoneyTracker.Application.Mappers
                 InterestRate = loan.InterestRate,
                 NumberOfInstallments = loan.NumberOfInstallments,
                 FirstPaymentDate = loan.FirstPaymentDate,
+                PaymentFrequency = loan.PaymentFrequency,
                 StartDate = loan.StartDate,
                 DueDate = loan.DueDate,
                 Status = loan.Status,
@@ -45,7 +46,7 @@ namespace MoneyTracker.Application.Mappers
                 OverpaymentAmount = overpayment,
                 IsOverdue = isOverdue,
                 ProgressPercent = progress,
-                MonthlyQuota = monthlyQuota,
+                InstallmentQuota = installmentQuota,
                 Payments = loan.Payments
                     .OrderByDescending(p => p.Date)
                     .Select(p => p.MapToDto())
@@ -121,6 +122,7 @@ namespace MoneyTracker.Application.Mappers
             FirstPaymentDate = dto.FirstPaymentDate.HasValue
                 ? DateTime.SpecifyKind(dto.FirstPaymentDate.Value, DateTimeKind.Utc)
                 : null,
+            PaymentFrequency = dto.PaymentFrequency,
             StartDate = DateTime.SpecifyKind(dto.StartDate, DateTimeKind.Utc),
             DueDate = dto.DueDate.HasValue
                 ? DateTime.SpecifyKind(dto.DueDate.Value, DateTimeKind.Utc)
@@ -141,6 +143,7 @@ namespace MoneyTracker.Application.Mappers
             loan.FirstPaymentDate = dto.FirstPaymentDate.HasValue
                 ? DateTime.SpecifyKind(dto.FirstPaymentDate.Value, DateTimeKind.Utc)
                 : null;
+            loan.PaymentFrequency = dto.PaymentFrequency;
             loan.StartDate = DateTime.SpecifyKind(dto.StartDate, DateTimeKind.Utc);
             loan.DueDate = dto.DueDate.HasValue
                 ? DateTime.SpecifyKind(dto.DueDate.Value, DateTimeKind.Utc)
@@ -163,9 +166,16 @@ namespace MoneyTracker.Application.Mappers
             var installments = new List<LoanInstallment>();
             var firstDue = DateTime.SpecifyKind(loan.FirstPaymentDate.Value, DateTimeKind.Utc);
 
+            DateTime GetDueDate(int i) => loan.PaymentFrequency switch
+            {
+                PaymentFrequency.Weekly => firstDue.AddDays(7 * (i - 1)),
+                PaymentFrequency.Biweekly => firstDue.AddDays(14 * (i - 1)),
+                _ => firstDue.AddMonths(i - 1)
+            };
+
             for (int i = 1; i <= loan.NumberOfInstallments.Value; i++)
             {
-                var dueDate = firstDue.AddMonths(i - 1);
+                var dueDate = GetDueDate(i);
                 installments.Add(new LoanInstallment
                 {
                     LoanId = loan.Id,
