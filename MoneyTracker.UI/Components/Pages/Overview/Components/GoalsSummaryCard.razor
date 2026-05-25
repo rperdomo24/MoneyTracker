@@ -12,7 +12,18 @@
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.h6">Savings Goals</MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                        @_activeGoals.Count active @(_activeGoals.Count == 1 ? "goal" : "goals")
+                        @if (_activeGoals.Any())
+                        {
+                            @($"{_activeGoals.Count} active {(_activeGoals.Count == 1 ? "goal" : "goals")}")
+                        }
+                        else if (_completedGoals.Any())
+                        {
+                            @($"{_completedGoals.Count} completed")
+                        }
+                        else
+                        {
+                            <text>No goals yet</text>
+                        }
                     </MudText>
                 </MudStack>
             </MudStack>
@@ -77,6 +88,24 @@
                 }
             </MudStack>
         }
+        else if (_completedGoals.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Color="Color.Warning" />
+                <MudText Typo="Typo.body1" Class="mud-warning-text" Style="font-weight:600;" Align="Align.Center">
+                    All goals achieved!
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary" Align="Align.Center">
+                    @_completedGoals.Count @(_completedGoals.Count == 1 ? "goal" : "goals") completed
+                </MudText>
+                <MudButton Variant="Variant.Text"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => NavigationManager.NavigateTo("/goals"))">
+                    Create a new goal
+                </MudButton>
+            </MudStack>
+        }
         else
         {
             <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
@@ -97,12 +126,17 @@
     [Parameter] public List<SavingsGoalDto>? Data { get; set; }
 
     private List<SavingsGoalDto> _activeGoals = new();
+    private List<SavingsGoalDto> _completedGoals = new();
 
     protected override void OnParametersSet()
     {
         _activeGoals = Data?
             .Where(g => !g.IsCompleted)
             .OrderBy(g => g.ProgressPercent)
+            .ToList() ?? new();
+
+        _completedGoals = Data?
+            .Where(g => g.IsCompleted)
             .ToList() ?? new();
     }
 }
