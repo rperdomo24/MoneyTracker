@@ -35,5 +35,10 @@ namespace MoneyTracker.Domain.Entities
 
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }
+
+        public bool IncludeInNetWorth { get; set; } = true;
+
+        public int? CutDay { get; set; }
+        public int? PaymentDay { get; set; }
     }
 }

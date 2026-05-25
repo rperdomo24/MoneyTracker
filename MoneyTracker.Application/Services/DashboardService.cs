@@ -718,11 +718,13 @@ namespace MoneyTracker.Application.Services
 
         private DashboardSummaryDto BuildSummary(List<AccountDto> accounts)
         {
-            var assets = accounts
+            var included = accounts.Where(a => a.IncludeInNetWorth).ToList();
+
+            var assets = included
                 .Where(a => a.CurrentBalance > 0)
                 .Sum(a => a.CurrentBalance);
 
-            var liabilities = Math.Abs(accounts
+            var liabilities = Math.Abs(included
                 .Where(a => a.CurrentBalance < 0)
                 .Sum(a => Math.Min(a.CurrentBalance, 0)));
 
@@ -1110,7 +1112,7 @@ namespace MoneyTracker.Application.Services
                 return new List<BalanceTrendDto>();
 
             var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
-            var currentNetWorth = BuildSummary(accounts).NetWorth;
+            var currentNetWorth = BuildSummary(accounts.Where(a => a.IncludeInNetWorth).ToList()).NetWorth;
             var rangeTransactions = transactions
                 .Where(t => t.Date >= rangeStart && t.Date <= rangeEnd)
                 .ToList();

@@ -83,7 +83,7 @@
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.AccountBalance" />
 
-                    <!-- Credit Limit (only for Credit cards) -->
+                    <!-- Credit Limit + card dates (only for Credit cards) -->
                     @if (_account.Type == AccountType.Credit)
                     {
                         <MudNumericField Label="Credit Limit"
@@ -96,6 +96,23 @@
                                          Adornment="Adornment.Start"
                                          AdornmentText="$"
                                          Placeholder="0.00" />
+
+                        <MudStack Row="true" Spacing="3" Class="mb-4">
+                            <MudNumericField T="int?"
+                                             Label="Cut Day (1–28)"
+                                             @bind-Value="_account.CutDay"
+                                             Variant="Variant.Outlined"
+                                             Min="1" Max="28"
+                                             Placeholder="e.g. 15"
+                                             HelperText="Day of month billing period closes" />
+                            <MudNumericField T="int?"
+                                             Label="Payment Day (1–28)"
+                                             @bind-Value="_account.PaymentDay"
+                                             Variant="Variant.Outlined"
+                                             Min="1" Max="28"
+                                             Placeholder="e.g. 5"
+                                             HelperText="Day of month payment is due" />
+                        </MudStack>
                     }
 
                     <!-- Bank & Card Details -->
@@ -124,6 +141,12 @@
                     <IconPicker TIcon="AccountIcon"
                                 @bind-SelectedIcon="_account.Icon"
                                 Label="Icon" />
+
+                    <!-- Net Worth toggle -->
+                    <MudSwitch @bind-Value="_account.IncludeInNetWorth"
+                               Label="Include in net worth & balance"
+                               Color="Color.Primary"
+                               Class="mt-2" />
                 </MudForm>
             </MudContainer>
         }

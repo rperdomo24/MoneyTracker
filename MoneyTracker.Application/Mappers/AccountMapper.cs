@@ -19,7 +19,10 @@ namespace MoneyTracker.Application.Mappers
                 Color = entity.Color,
                 Type = entity.Type,
                 BankName = entity.BankName,
-                CardDisplayName = entity.CardDisplayName
+                CardDisplayName = entity.CardDisplayName,
+                IncludeInNetWorth = entity.IncludeInNetWorth,
+                CutDay = entity.CutDay,
+                PaymentDay = entity.PaymentDay
             };
         }
 
@@ -36,7 +39,10 @@ namespace MoneyTracker.Application.Mappers
                 Color = dto.Color,
                 Type = dto.Type,
                 BankName = dto.BankName,
-                CardDisplayName = dto.CardDisplayName
+                CardDisplayName = dto.CardDisplayName,
+                IncludeInNetWorth = dto.IncludeInNetWorth,
+                CutDay = dto.CutDay,
+                PaymentDay = dto.PaymentDay
             };
         }
 
@@ -51,6 +57,9 @@ namespace MoneyTracker.Application.Mappers
             entity.Type = dto.Type;
             entity.BankName = dto.BankName;
             entity.CardDisplayName = dto.CardDisplayName;
+            entity.IncludeInNetWorth = dto.IncludeInNetWorth;
+            entity.CutDay = dto.CutDay;
+            entity.PaymentDay = dto.PaymentDay;
         }
     }
 }

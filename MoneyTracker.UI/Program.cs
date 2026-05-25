@@ -1,4 +1,6 @@
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Diagnostics;
@@ -11,16 +13,17 @@ using MoneyTracker.Application.DTOs.Auth;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Budgets;
 using MoneyTracker.Application.DTOs.Transactions;
+using MoneyTracker.Application.DTOs.CardBenefits;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
 using MoneyTracker.Application.Validators.Accounts;
 using MoneyTracker.Application.Validators.Budgets;
 using MoneyTracker.Application.Validators.Auth;
 using MoneyTracker.Application.Validators.Categories;
-using MoneyTracker.Application.DTOs.CardBenefits;
 using MoneyTracker.Application.Validators.CardBenefits;
 using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Interfaces;
+using MoneyTracker.Infrastructure.Jobs;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Persistence.Repositories;
 using MoneyTracker.Infrastructure.Services;
@@ -194,6 +197,8 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ISavingsGoalService, SavingsGoalService>();
             builder.Services.AddScoped<ILoanRepository, LoanRepository>();
             builder.Services.AddScoped<ILoanService, LoanService>();
+            builder.Services.AddScoped<IGlobalSearchRepository, GlobalSearchRepository>();
+            builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
@@ -215,6 +220,19 @@ namespace MoneyTracker.UI
 
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
+
+            builder.Services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(options =>
+                    options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+            builder.Services.AddHangfireServer(options =>
+            {
+                options.WorkerCount = 2;
+                options.Queues = ["default"];
+            });
+            builder.Services.AddScoped<CardReminderJob>();
 
             Log.Logger = new LoggerConfiguration()
                             .WriteTo.Console()
@@ -254,6 +272,16 @@ namespace MoneyTracker.UI
             app.UseAuthorization();
 
             app.UseAntiforgery();
+
+            app.UseHangfireDashboard("/hangfire", new DashboardOptions
+            {
+                Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
+            });
+
+            RecurringJob.AddOrUpdate<CardReminderJob>(
+                "card-reminders-daily",
+                job => job.ExecuteAsync(),
+                "0 8 * * *");
 
             app.MapAuthEndpoints();
             app.MapDiagnosticsEndpoints();

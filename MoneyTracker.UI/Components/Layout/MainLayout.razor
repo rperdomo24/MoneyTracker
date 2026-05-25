@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Components.Shared.Drawer
+@using MoneyTracker.UI.Components.Shared.GlobalSearch
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Components.Drawer
 @using MoneyTracker.UI.Services.Branding
@@ -12,6 +13,7 @@
 @inject IAccountService AccountService
 @inject IBrandingService BrandingService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
@@ -38,6 +40,12 @@
                       Height="36"
                       Class="mr-2" />
         </MudHidden>
+
+        <!-- Global Search -->
+        <MudIconButton Icon="@Icons.Material.Filled.Search"
+                       Color="Color.Inherit"
+                       OnClick="OpenGlobalSearch"
+                       title="Search (Ctrl+K)" />
 
         <MudSpacer />
 
@@ -622,13 +630,25 @@
         _userAvatarDataUrl = result.Data.AvatarDataUrl;
     }
 
+    private async Task OpenGlobalSearch()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            Position = DialogPosition.TopCenter
+        };
+        await DialogService.ShowAsync<GlobalSearchDialog>("Search", options);
+    }
+
     private async Task LoadQuickBalanceAsync()
     {
         try
         {
             var result = await AccountService.GetAccountsWithBalancesAsync();
             _quickBalanceAmount = (result.Success && result.Data is not null)
-                ? result.Data.Sum(a => a.CurrentBalance)
+                ? result.Data.Where(a => a.IncludeInNetWorth).Sum(a => a.CurrentBalance)
                 : 0m;
         }
         catch

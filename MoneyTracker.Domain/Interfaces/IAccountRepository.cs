@@ -11,5 +11,6 @@ namespace MoneyTracker.Domain.Interfaces
         Task<bool> UpdateAsync(Account account);
         Task<bool> DeleteAsync(int id);
         Task<bool> HasAccountsByTypeAsync(AccountType accountType);
+        Task<List<Account>> GetAllCreditAccountsWithDatesAsync();
     }
 }

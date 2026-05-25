@@ -31,6 +31,11 @@ namespace MoneyTracker.Application.DTOs
         public string? CardDisplayName { get; set; }
 
 
+        public bool IncludeInNetWorth { get; set; } = true;
+
+        public int? CutDay { get; set; }
+        public int? PaymentDay { get; set; }
+
         // View Model properties
         public decimal AvailableCredit => Type == AccountType.Credit
             ? CreditLimit - Math.Abs(CurrentBalance)
