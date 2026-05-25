@@ -24,6 +24,8 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 return await _context.SavingsGoals
                     .AsNoTracking()
                     .Include(g => g.Contributions)
+                        .ThenInclude(c => c.LinkedTransaction)
+                            .ThenInclude(t => t!.Account)
                     .OrderByDescending(g => g.CreatedAt)
                     .ToListAsync();
             }
@@ -40,6 +42,8 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 return await _context.SavingsGoals
                     .Include(g => g.Contributions)
+                        .ThenInclude(c => c.LinkedTransaction)
+                            .ThenInclude(t => t!.Account)
                     .FirstOrDefaultAsync(g => g.Id == id);
             }
             catch (Exception ex)
@@ -109,6 +113,20 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task UpdateContributionAsync(SavingsContribution contribution)
+        {
+            try
+            {
+                _context.SavingsContributions.Update(contribution);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating savings contribution with ID {Id}.", contribution.Id);
+                throw;
+            }
+        }
+
         public async Task DeleteContributionAsync(int contributionId)
         {
             try
@@ -123,6 +141,19 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 _logger.LogError(ex, "Error deleting savings contribution with ID {Id}.", contributionId);
                 throw;
+            }
+        }
+
+        public async Task<SavingsContribution?> GetContributionByIdAsync(int contributionId)
+        {
+            try
+            {
+                return await _context.SavingsContributions.FindAsync(contributionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting savings contribution with ID {Id}.", contributionId);
+                return null;
             }
         }
     }

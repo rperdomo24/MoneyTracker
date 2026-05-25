@@ -39,6 +39,9 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<TransactionRuleAction> TransactionRuleActions => Set<TransactionRuleAction>();
         public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
         public DbSet<SavingsContribution> SavingsContributions => Set<SavingsContribution>();
+        public DbSet<Loan> Loans => Set<Loan>();
+        public DbSet<LoanPayment> LoanPayments => Set<LoanPayment>();
+        public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -285,6 +288,69 @@ namespace MoneyTracker.Infrastructure.Persistence
             modelBuilder.Entity<SavingsContribution>()
                 .Property(c => c.Amount)
                 .HasColumnType("numeric(12,2)");
+
+            modelBuilder.Entity<SavingsContribution>()
+                .HasOne(c => c.LinkedTransaction)
+                .WithMany()
+                .HasForeignKey(c => c.LinkedTransactionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Loan
+            modelBuilder.Entity<Loan>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<Loan>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.ContactName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.PrincipalAmount)
+                .HasColumnType("numeric(12,2)");
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.InterestRate)
+                .HasColumnType("numeric(8,4)");
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.Status)
+                .HasConversion<string>();
+
+            // LoanPayment
+            modelBuilder.Entity<LoanPayment>()
+                .HasOne(p => p.Loan)
+                .WithMany(l => l.Payments)
+                .HasForeignKey(p => p.LoanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LoanPayment>()
+                .HasOne(p => p.Transaction)
+                .WithMany()
+                .HasForeignKey(p => p.TransactionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<LoanPayment>()
+                .Property(p => p.Amount)
+                .HasColumnType("numeric(12,2)");
+
+            // LoanInstallment
+            modelBuilder.Entity<LoanInstallment>()
+                .HasOne(i => i.Loan)
+                .WithMany(l => l.Installments)
+                .HasForeignKey(i => i.LoanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LoanInstallment>()
+                .Property(i => i.ExpectedAmount)
+                .HasColumnType("numeric(12,2)");
+
+            modelBuilder.Entity<LoanInstallment>()
+                .HasIndex(i => new { i.LoanId, i.InstallmentNumber })
+                .IsUnique();
         }
 
         public override int SaveChanges()

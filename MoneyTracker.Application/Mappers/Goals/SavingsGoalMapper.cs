@@ -45,7 +45,12 @@ namespace MoneyTracker.Application.Mappers.Goals
             GoalId = contribution.GoalId,
             Amount = contribution.Amount,
             Date = contribution.Date,
-            Notes = contribution.Notes
+            Notes = contribution.Notes,
+            LinkedTransactionId = contribution.LinkedTransactionId,
+            LinkedTransactionName = contribution.LinkedTransaction?.Name,
+            LinkedTransactionAccount = contribution.LinkedTransaction?.Account?.Name,
+            LinkedTransactionDate = contribution.LinkedTransaction?.Date,
+            LinkedTransactionAmount = contribution.LinkedTransaction?.Amount
         };
     }
 }

@@ -10,6 +10,8 @@ namespace MoneyTracker.Domain.Interfaces
         Task UpdateAsync(SavingsGoal goal);
         Task SoftDeleteAsync(int id);
         Task AddContributionAsync(SavingsContribution contribution);
+        Task UpdateContributionAsync(SavingsContribution contribution);
         Task DeleteContributionAsync(int contributionId);
+        Task<SavingsContribution?> GetContributionByIdAsync(int contributionId);
     }
 }

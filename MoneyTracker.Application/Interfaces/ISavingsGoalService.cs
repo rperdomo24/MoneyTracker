@@ -11,6 +11,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult> UpdateAsync(SavingsGoalDto dto);
         Task<OperationResult> DeleteAsync(int id);
         Task<OperationResult> AddContributionAsync(SavingsContributionDto dto);
+        Task<OperationResult> UpdateContributionAsync(SavingsContributionDto dto);
         Task<OperationResult> DeleteContributionAsync(int contributionId);
         Task<OperationResult> ToggleCompletedAsync(int id);
     }

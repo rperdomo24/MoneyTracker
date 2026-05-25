@@ -140,11 +140,38 @@ namespace MoneyTracker.Application.Services
                     Amount = dto.Amount,
                     Date = DateTime.SpecifyKind(dto.Date, DateTimeKind.Utc),
                     Notes = dto.Notes,
+                    LinkedTransactionId = dto.LinkedTransactionId,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 await _repo.AddContributionAsync(contribution);
                 return OperationResult.Ok(OperationMessages.Created);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult> UpdateContributionAsync(SavingsContributionDto dto)
+        {
+            try
+            {
+                if (dto.Amount <= 0)
+                    return OperationResult.Fail("Contribution amount must be greater than zero.");
+
+                var contribution = await _repo.GetContributionByIdAsync(dto.Id);
+                if (contribution is null)
+                    return OperationResult.Fail(OperationMessages.NotFound);
+
+                contribution.Amount = dto.Amount;
+                contribution.Date = DateTime.SpecifyKind(dto.Date, DateTimeKind.Utc);
+                contribution.Notes = dto.Notes;
+                contribution.LinkedTransactionId = dto.LinkedTransactionId;
+
+                await _repo.UpdateContributionAsync(contribution);
+                return OperationResult.Ok(OperationMessages.Updated);
             }
             catch (Exception ex)
             {
