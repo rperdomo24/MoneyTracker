@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.DTOs.Goals
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Helpers
 @inject ISnackbar Snackbar
 @inject ITransactionService TransactionService
@@ -139,7 +140,7 @@
         if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
             return Enumerable.Empty<TransactionDto?>();
 
-        var filter = new TransactionFilterDto { SearchText = value };
+        var filter = new TransactionFilterDto { SearchText = value, TimePeriod = TimePeriodFilter.AllTime };
         var result = await TransactionService.GetFilteredAsync(filter);
         if (!result.Success || result.Data is null)
             return Enumerable.Empty<TransactionDto?>();

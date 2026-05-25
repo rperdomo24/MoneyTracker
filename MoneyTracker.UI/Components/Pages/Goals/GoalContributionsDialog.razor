@@ -1,6 +1,7 @@
 @using MoneyTracker.Application.DTOs.Goals
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Components.Pages.Transactions
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
@@ -52,10 +53,12 @@
                                 }
                                 @if (c.LinkedTransactionId.HasValue && c.LinkedTransactionName is not null)
                                 {
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
-                                        <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small" Style="opacity:0.5; font-size:0.9rem;" />
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1"
+                                              Style="cursor:pointer;"
+                                              @onclick="@(() => OpenTransactionDrawer(c.LinkedTransactionId!.Value))">
+                                        <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Style="opacity:0.5; font-size:0.9rem;" />
                                         <MudStack Spacing="0">
-                                            <MudText Typo="Typo.caption" Style="opacity:0.7;">@c.LinkedTransactionName</MudText>
+                                            <MudText Typo="Typo.caption" Style="opacity:0.7; text-decoration:underline dotted;">@c.LinkedTransactionName</MudText>
                                             <MudText Typo="Typo.caption" Style="opacity:0.5;">
                                                 @(c.LinkedTransactionDate?.ToString("MMM d, yyyy") ?? "")
                                                 @if (!string.IsNullOrWhiteSpace(c.LinkedTransactionAccount))
@@ -99,11 +102,24 @@
     </DialogActions>
 </MudDialog>
 
+<UpdateTransactionDrawer @bind-IsOpen="_txDrawerOpen"
+                         TransactionId="@_txDrawerTransactionId"
+                         OnTransactionUpdated="StateHasChanged" />
+
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter] public SavingsGoalDto? Goal { get; set; }
     [Parameter] public ISavingsGoalService GoalService { get; set; } = default!;
     [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _txDrawerOpen = false;
+    private int _txDrawerTransactionId = 0;
+
+    private void OpenTransactionDrawer(int transactionId)
+    {
+        _txDrawerTransactionId = transactionId;
+        _txDrawerOpen = true;
+    }
 
     private async Task EditContribution(SavingsContributionDto c)
     {
