@@ -1,0 +1,153 @@
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@using MoneyTracker.UI.Components.Pages.Transactions
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Payment History — @Loan.ContactName</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="pa-0">
+            @if (!Loan.Payments.Any())
+            {
+                <MudText Typo="Typo.body2" Style="opacity:0.6;" Align="Align.Center" Class="py-4">
+                    No payments recorded yet.
+                </MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Transaction</th>
+                            <th>Notes</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var payment in Loan.Payments)
+                        {
+                            <tr>
+                                <td>@payment.Date.ToString("MMM d, yyyy")</td>
+                                <td><strong>@CurrencyHelper.FormatCurrency(payment.Amount)</strong></td>
+                                <td>
+                                    @if (payment.TransactionId.HasValue)
+                                    {
+                                        <MudStack Spacing="0" Style="cursor:pointer;"
+                                                  @onclick="@(() => OpenTransactionDialog(payment.TransactionId!.Value))">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Style="opacity:0.5; font-size:0.85rem;" />
+                                                <MudText Typo="Typo.caption" Style="opacity:0.8; text-decoration:underline dotted;">
+                                                    @(payment.TransactionName ?? $"#{payment.TransactionId}")
+                                                </MudText>
+                                            </MudStack>
+                                            <MudText Typo="Typo.caption" Style="opacity:0.5;">
+                                                @(payment.TransactionDate?.ToString("MMM d, yyyy") ?? "")
+                                                @if (!string.IsNullOrWhiteSpace(payment.TransactionAccount))
+                                                {
+                                                    <span> · @payment.TransactionAccount</span>
+                                                }
+                                                @if (payment.TransactionAmount.HasValue)
+                                                {
+                                                    <span style="margin-left:4px; color:@(payment.TransactionAmount >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)");">
+                                                        @CurrencyHelper.FormatCurrency(Math.Abs(payment.TransactionAmount.Value))
+                                                    </span>
+                                                }
+                                            </MudText>
+                                        </MudStack>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:0.4;">—</MudText>
+                                    }
+                                </td>
+                                <td>
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">
+                                        @(payment.Notes ?? "—")
+                                    </MudText>
+                                </td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                   Color="Color.Error"
+                                                   Size="Size.Small"
+                                                   OnClick="@(() => DeletePayment(payment))" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+
+                <MudDivider Class="my-3" />
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Style="opacity:0.7;">Total Paid</MudText>
+                    <MudText Typo="Typo.body2" Class="font-weight-bold">
+                        @CurrencyHelper.FormatCurrency(Loan.TotalPaid)
+                    </MudText>
+                </MudStack>
+                @if (Loan.OverpaymentAmount > 0)
+                {
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-1">
+                        <MudText Typo="Typo.body2" Color="Color.Warning">Overpayment</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Warning" Class="font-weight-bold">
+                            +@CurrencyHelper.FormatCurrency(Loan.OverpaymentAmount)
+                        </MudText>
+                    </MudStack>
+                }
+            }
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public LoanDto Loan { get; set; } = default!;
+    [Parameter] public ILoanService LoanService { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private async Task OpenTransactionDialog(int transactionId)
+    {
+        var parameters = new DialogParameters
+        {
+            [nameof(TransactionViewDialog.TransactionId)] = transactionId
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseButton = true };
+        await DialogService.ShowAsync<TransactionViewDialog>("Transaction Details", parameters, options);
+    }
+
+    private async Task DeletePayment(LoanPaymentDto payment)
+    {
+        try
+        {
+            var result = await LoanService.DeletePaymentAsync(payment.Id);
+            if (result.Success)
+            {
+                Snackbar.Add("Payment removed.", Severity.Success);
+                await OnChanged.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to remove payment.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred.", Severity.Error);
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+}
