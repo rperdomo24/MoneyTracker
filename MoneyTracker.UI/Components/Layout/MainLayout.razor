@@ -4,6 +4,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Components.Shared.Drawer
 @using MoneyTracker.UI.Components.Shared.GlobalSearch
+@using MoneyTracker.UI.Components.Shared.Notifications
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Components.Drawer
 @using MoneyTracker.UI.Services.Branding
@@ -83,16 +84,7 @@
                        OnClick="ToggleAccountsDrawer" />
 
         <!-- Notifications -->
-        <MudIconButton Icon="@Icons.Material.Filled.Notifications"
-                       Color="Color.Inherit"
-                       Class="mr-1"
-                       title="Notifications">
-            <MudBadge Content="3"
-                      Color="Color.Error"
-                      Overlap="true"
-                      Bordered="true">
-            </MudBadge>
-        </MudIconButton>
+        <NotificationsBell />
 
         <!-- User Menu -->
         <MudMenu Color="Color.Inherit"

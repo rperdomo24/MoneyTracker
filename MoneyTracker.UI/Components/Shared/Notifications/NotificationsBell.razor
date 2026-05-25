@@ -1,0 +1,191 @@
+@using MoneyTracker.Application.DTOs.Notifications
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums
+@inject INotificationService NotificationService
+@inject NavigationManager Navigation
+
+<!-- Badge wrapping the bell button -->
+<MudBadge Content="@(_unreadCount > 9 ? "9+" : _unreadCount.ToString())"
+          Color="Color.Error"
+          Overlap="true"
+          Visible="@(_unreadCount > 0)"
+          Class="mr-1">
+    <MudIconButton Icon="@Icons.Material.Filled.Notifications"
+                   Color="Color.Inherit"
+                   title="Notifications"
+                   OnClick="TogglePanel" />
+</MudBadge>
+
+<!-- Notifications Drawer -->
+<MudDrawer @bind-Open="_open"
+           Anchor="Anchor.End"
+           Variant="DrawerVariant.Temporary"
+           Width="380px"
+           Elevation="4"
+           Overlay="true"
+           OverlayAutoClose="true">
+
+    <MudDrawerHeader>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
+            <MudText Typo="Typo.h6" Class="font-weight-bold">Notifications</MudText>
+            @if (_unreadCount > 0)
+            {
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                           OnClick="MarkAllReadAsync">
+                    Mark all read
+                </MudButton>
+            }
+        </MudStack>
+    </MudDrawerHeader>
+
+    <MudDivider />
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="pa-8">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        </MudStack>
+    }
+    else if (!_notifications.Any())
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="padding: 48px 24px;">
+            <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone"
+                     Size="Size.Large"
+                     Style="font-size:3rem; opacity:0.3;" />
+            <MudText Typo="Typo.body1" Class="mt-3" Style="opacity:0.5;">No notifications yet</MudText>
+        </MudStack>
+    }
+    else
+    {
+        <MudList T="NotificationDto" Dense="true">
+            @foreach (var n in _notifications)
+            {
+                <MudListItem T="NotificationDto"
+                             Style="@(n.IsRead ? "opacity:0.6;" : "background:var(--mud-palette-background-grey);")"
+                             OnClick="@(() => OnNotificationClickAsync(n))">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                        <MudIcon Icon="@GetIcon(n.Type)"
+                                 Color="@GetColor(n.Type)"
+                                 Size="Size.Small"
+                                 Class="mt-1"
+                                 Style="flex-shrink:0;" />
+                        <MudStack Spacing="0" Style="flex:1; min-width:0;">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body2" Class="font-weight-medium" Style="word-break:break-word;">
+                                    @n.Title
+                                </MudText>
+                                @if (!n.IsRead)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                             Size="Size.Small"
+                                             Color="Color.Primary"
+                                             Style="font-size:8px; flex-shrink:0;" />
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Style="opacity:0.7; word-break:break-word;">@n.Message</MudText>
+                            <MudText Typo="Typo.caption" Style="opacity:0.4; margin-top:2px;">
+                                @FormatDate(n.CreatedAt)
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudListItem>
+                <MudDivider />
+            }
+        </MudList>
+    }
+</MudDrawer>
+
+@code {
+    private bool _open;
+    private bool _loading;
+    private int _unreadCount;
+    private List<NotificationDto> _notifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUnreadCountAsync();
+    }
+
+    private async Task TogglePanel()
+    {
+        _open = !_open;
+        if (_open)
+            await LoadNotificationsAsync();
+    }
+
+    private async Task LoadUnreadCountAsync()
+    {
+        var result = await NotificationService.GetUnreadCountAsync();
+        _unreadCount = result.Success ? result.Data : 0;
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await NotificationService.GetRecentAsync(30);
+            _notifications = result.Success && result.Data != null ? result.Data : new();
+
+            var countResult = await NotificationService.GetUnreadCountAsync();
+            _unreadCount = countResult.Success ? countResult.Data : 0;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnNotificationClickAsync(NotificationDto n)
+    {
+        if (!n.IsRead)
+        {
+            await NotificationService.MarkReadAsync(n.Id);
+            n.IsRead = true;
+            _unreadCount = Math.Max(0, _unreadCount - 1);
+            StateHasChanged();
+        }
+
+        if (!string.IsNullOrWhiteSpace(n.Link))
+        {
+            _open = false;
+            Navigation.NavigateTo(n.Link);
+        }
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        await NotificationService.MarkAllReadAsync();
+        _notifications.ForEach(n => n.IsRead = true);
+        _unreadCount = 0;
+        StateHasChanged();
+    }
+
+    private static string GetIcon(NotificationType type) => type switch
+    {
+        NotificationType.BudgetAlert => Icons.Material.Filled.PieChart,
+        NotificationType.LoanReminder => Icons.Material.Filled.Handshake,
+        _ => Icons.Material.Filled.Notifications
+    };
+
+    private static Color GetColor(NotificationType type) => type switch
+    {
+        NotificationType.BudgetAlert => Color.Error,
+        NotificationType.LoanReminder => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static string FormatDate(DateTime utc)
+    {
+        var local = utc.ToLocalTime();
+        var diff = DateTime.Now - local;
+        if (diff.TotalMinutes < 1) return "Just now";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return local.ToString("MMM dd, yyyy");
+    }
+}

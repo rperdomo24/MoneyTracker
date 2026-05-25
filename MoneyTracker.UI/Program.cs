@@ -202,6 +202,9 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IRecurringTransactionRepository, RecurringTransactionRepository>();
             builder.Services.AddScoped<IRecurringTransactionService, RecurringTransactionService>();
             builder.Services.AddScoped<RecurringTransactionGeneratorJob>();
+            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<NotificationGeneratorJob>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
@@ -290,6 +293,11 @@ namespace MoneyTracker.UI
                 "recurring-transactions-daily",
                 job => job.ExecuteAsync(),
                 "0 6 * * *");
+
+            RecurringJob.AddOrUpdate<NotificationGeneratorJob>(
+                "notification-alerts-daily",
+                job => job.ExecuteAsync(),
+                "0 8 * * *");
 
             app.MapAuthEndpoints();
             app.MapDiagnosticsEndpoints();

@@ -43,6 +43,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<LoanPayment> LoanPayments => Set<LoanPayment>();
         public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
         public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
+        public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -137,6 +138,23 @@ namespace MoneyTracker.Infrastructure.Persistence
 
             modelBuilder.Entity<RecurringTransaction>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => new { e.TenantId, e.IsRead });
+
+            modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => e.DuplicateKey)
+                .HasFilter("\"DuplicateKey\" IS NOT NULL");
+
+            modelBuilder.Entity<AppNotification>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AppNotification>()
+                .Property(e => e.Type)
+                .HasConversion<string>();
 
             modelBuilder.Entity<RecurringTransaction>()
                 .Property(e => e.Frequency)
