@@ -135,11 +135,20 @@
                         .Where(x => x.ParentCategoryId is null)
                         .Sum(x => GetDisplayUsed(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId)));
                     var totalRemaining = totalBudget - totalUsed;
+                    var totalQuincena = PaycheckView > 0
+                        ? Items!.Where(x => x.ParentCategoryId is null).Sum(x => x.QuincenaAmount(PaycheckView))
+                        : 0m;
                 }
                 <tr style="border-top: 2px solid var(--mud-palette-divider); font-weight: bold;">
                     <td><MudText Typo="Typo.body2" Class="font-weight-bold">Total</MudText></td>
                     <td style="text-align:right;">
-                        <MudText Typo="Typo.body2" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(totalBudget)</MudText>
+                        <MudStack Spacing="0" AlignItems="AlignItems.End">
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(totalBudget)</MudText>
+                            @if (PaycheckView > 0)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Primary">@(PaycheckView == 1 ? "Q1" : "Q2"): @CurrencyHelper.FormatCurrency(totalQuincena)</MudText>
+                            }
+                        </MudStack>
                     </td>
                     <td style="text-align:right;">
                         <MudText Typo="Typo.body2" Class="font-weight-bold" Color="@(totalRemaining < 0 ? Color.Error : Color.Default)">
@@ -342,6 +351,15 @@ else
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">Using child budgets</MudChip>
                         }
+                        @if (PaycheckView > 0)
+                        {
+                            var qLabel = PaycheckView == 1 ? "Q1" : "Q2";
+                            var qAmt = parent.QuincenaAmount(PaycheckView);
+                            var qColor = parent.IsActiveInView(PaycheckView) ? Color.Primary : Color.Default;
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@qColor">
+                                @qLabel: @CurrencyHelper.FormatCurrency(qAmt)
+                            </MudChip>
+                        }
                     </MudStack>
 
                     @if (hasChildren)
@@ -446,6 +464,7 @@ else
 @code {
     [Parameter] public bool Loading { get; set; }
     [Parameter] public bool TableView { get; set; }
+    [Parameter] public int PaycheckView { get; set; } = 0;
     [Parameter] public string EmptyMessage { get; set; } = "No budgets found.";
     [Parameter] public List<BudgetListItemVm>? Items { get; set; }
 

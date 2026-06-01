@@ -1,6 +1,7 @@
 ﻿@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Budgets
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Budgets
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
@@ -48,6 +49,16 @@
                                      Adornment="Adornment.Start"
                                      AdornmentText="$"
                                      HideSpinButtons="false" />
+
+                    <MudSelect T="PaycheckPeriod"
+                               Label="Paycheck period"
+                               @bind-Value="_paycheckPeriod"
+                               Variant="Variant.Outlined"
+                               HelperText="Which paycheck covers this expense?">
+                        <MudSelectItem Value="PaycheckPeriod.Both">Ambas quincenas (÷2 cada una)</MudSelectItem>
+                        <MudSelectItem Value="PaycheckPeriod.FirstOnly">Solo Q1 (días 1-15)</MudSelectItem>
+                        <MudSelectItem Value="PaycheckPeriod.SecondOnly">Solo Q2 (días 16-fin)</MudSelectItem>
+                    </MudSelect>
 
                     <MudCheckBox @bind-Value="_includeChildren" Color="Color.Primary" Dense="true">
                         <MudText Typo="Typo.body2">Include children categories</MudText>
@@ -107,6 +118,7 @@
     private decimal _amount = 0;
     private bool _includeChildren = true;
     private bool _rolloverEnabled = false;
+    private PaycheckPeriod _paycheckPeriod = PaycheckPeriod.Both;
 
     private bool IsCategoryLocked => CategoryId.HasValue && CategoryId.Value > 0;
 
@@ -197,7 +209,8 @@
                 Amount = _amount,
                 IncludeChildren = _includeChildren,
                 RolloverEnabled = _rolloverEnabled,
-                RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None
+                RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None,
+                PaycheckPeriod = _paycheckPeriod
             };
 
             var result = await BudgetService.CreateOrUpdateAsync(dto);

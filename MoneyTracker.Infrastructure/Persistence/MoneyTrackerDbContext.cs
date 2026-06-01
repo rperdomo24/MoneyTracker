@@ -163,6 +163,10 @@ namespace MoneyTracker.Infrastructure.Persistence
             modelBuilder.Entity<Budget>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
+            modelBuilder.Entity<Budget>()
+                .Property(e => e.PaycheckPeriod)
+                .HasConversion<int>();
+
             modelBuilder.Entity<TransactionAttachment>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 

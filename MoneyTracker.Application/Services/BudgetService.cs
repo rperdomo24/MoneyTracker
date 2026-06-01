@@ -79,6 +79,7 @@ namespace MoneyTracker.Application.Services
                         IncludeChildren = dto.IncludeChildren,
                         RolloverEnabled = dto.RolloverEnabled,
                         RolloverMode = dto.RolloverMode,
+                        PaycheckPeriod = dto.PaycheckPeriod,
                         CreatedAt = _timeZoneService.GetNowInUtc(),
                         UpdatedAt = _timeZoneService.GetNowInUtc(),
                         IsDeleted = false
@@ -93,6 +94,7 @@ namespace MoneyTracker.Application.Services
                     existing.IncludeChildren = dto.IncludeChildren;
                     existing.RolloverEnabled = dto.RolloverEnabled;
                     existing.RolloverMode = dto.RolloverMode;
+                    existing.PaycheckPeriod = dto.PaycheckPeriod;
                     existing.UpdatedAt = _timeZoneService.GetNowInUtc();
 
                     await _budgetRepository.UpdateAsync(existing);

@@ -54,6 +54,18 @@
                                @bind-Value:after="OnOnlyWithActivityChanged"
                                Label="Active categories only" />
 
+                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary">
+                        <MudButton Color="@(_paycheckView == 0 ? Color.Primary : Color.Secondary)"
+                                   Variant="@(_paycheckView == 0 ? Variant.Filled : Variant.Outlined)"
+                                   OnClick="@(() => _paycheckView = 0)">Mes</MudButton>
+                        <MudButton Color="@(_paycheckView == 1 ? Color.Primary : Color.Secondary)"
+                                   Variant="@(_paycheckView == 1 ? Variant.Filled : Variant.Outlined)"
+                                   OnClick="@(() => _paycheckView = 1)">Q1 (1-15)</MudButton>
+                        <MudButton Color="@(_paycheckView == 2 ? Color.Primary : Color.Secondary)"
+                                   Variant="@(_paycheckView == 2 ? Variant.Filled : Variant.Outlined)"
+                                   OnClick="@(() => _paycheckView = 2)">Q2 (16-fin)</MudButton>
+                    </MudButtonGroup>
+
                     <MudTooltip Text="Copy all budgets from this month to next month (skips already existing)">
                         <MudButton Variant="Variant.Outlined"
                                    Color="Color.Secondary"
@@ -208,6 +220,7 @@
                         <BudgetsList Items="@_expenseBudgets"
                                      Loading="@_loading"
                                      TableView="@_tableView"
+                                     PaycheckView="@_paycheckView"
                                      EmptyMessage="No expense budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -219,6 +232,7 @@
                         <BudgetsList Items="@_incomeBudgets"
                                      Loading="@_loading"
                                      TableView="@_tableView"
+                                     PaycheckView="@_paycheckView"
                                      EmptyMessage="No income budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -242,6 +256,7 @@
                         <BudgetsList Items="@_expenseBudgets"
                                      Loading="@_loading"
                                      TableView="@_tableView"
+                                     PaycheckView="@_paycheckView"
                                      EmptyMessage="No expense budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -253,6 +268,7 @@
                         <BudgetsList Items="@_incomeBudgets"
                                      Loading="@_loading"
                                      TableView="@_tableView"
+                                     PaycheckView="@_paycheckView"
                                      EmptyMessage="No income budgets for this month."
                                      OnEdit="HandleEdit"
                                      OnDelete="HandleDelete"
@@ -296,6 +312,7 @@
     // Default OFF so new categories and children are visible without activity.
     private bool _onlyWithActivity = false;
     private BudgetViewMode _viewMode = BudgetViewMode.Budgeted;
+    private int _paycheckView = 0; // 0=month, 1=Q1 (1-15), 2=Q2 (16-end)
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();
@@ -906,7 +923,8 @@
         CategoryColor = x.CategoryColor ?? "#757575",
         CategoryIcon = x.CategoryIcon,
         ParentCategoryId = x.ParentCategoryId,
-        ChildrenCount = x.ChildrenCount
+        ChildrenCount = x.ChildrenCount,
+        PaycheckPeriod = x.Budget.PaycheckPeriod
     };
 
     private void BuildMonthLabel()

@@ -14,6 +14,7 @@ namespace MoneyTracker.Application.DTOs.Budgets
         public bool IncludeChildren { get; set; }
         public bool RolloverEnabled { get; set; }
         public RolloverMode RolloverMode { get; set; }
+        public PaycheckPeriod PaycheckPeriod { get; set; } = PaycheckPeriod.Both;
         public bool IsDeleted { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

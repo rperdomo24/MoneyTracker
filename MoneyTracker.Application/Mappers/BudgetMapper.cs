@@ -1,4 +1,4 @@
-﻿using MoneyTracker.Application.DTOs.Budgets;
+using MoneyTracker.Application.DTOs.Budgets;
 using MoneyTracker.Domain.Entities;
 
 namespace MoneyTracker.Application.Mappers
@@ -16,7 +16,8 @@ namespace MoneyTracker.Application.Mappers
                 Amount = entity.Amount,
                 IncludeChildren = entity.IncludeChildren,
                 RolloverEnabled = entity.RolloverEnabled,
-                RolloverMode = entity.RolloverMode
+                RolloverMode = entity.RolloverMode,
+                PaycheckPeriod = entity.PaycheckPeriod
             };
         }
 
@@ -32,6 +33,7 @@ namespace MoneyTracker.Application.Mappers
                 IncludeChildren = dto.IncludeChildren,
                 RolloverEnabled = dto.RolloverEnabled,
                 RolloverMode = dto.RolloverMode,
+                PaycheckPeriod = dto.PaycheckPeriod,
                 CreatedAt = nowUtc,
                 UpdatedAt = nowUtc
             };
@@ -43,6 +45,7 @@ namespace MoneyTracker.Application.Mappers
             entity.IncludeChildren = dto.IncludeChildren;
             entity.RolloverEnabled = dto.RolloverEnabled;
             entity.RolloverMode = dto.RolloverMode;
+            entity.PaycheckPeriod = dto.PaycheckPeriod;
             entity.UpdatedAt = timeZoneService.GetNowInUtc();
         }
     }

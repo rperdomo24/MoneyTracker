@@ -9,5 +9,6 @@ namespace MoneyTracker.Application.DTOs.Budgets
         public bool IncludeChildren { get; set; }
         public bool RolloverEnabled { get; set; }
         public RolloverMode RolloverMode { get; set; }
+        public PaycheckPeriod PaycheckPeriod { get; set; } = PaycheckPeriod.Both;
     }
 }
