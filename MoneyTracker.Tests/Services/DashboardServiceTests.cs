@@ -138,7 +138,7 @@ namespace MoneyTracker.Tests.Services
                 });
 
             _budgetService
-                .Setup(x => x.GetMonthlyWithUsageAsync(It.IsAny<int>(), It.IsAny<int>()))
+                .Setup(x => x.GetMonthlyWithUsageAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
             var result = await svc.GetOverviewWidgetsAsync(new DashboardFilterDto
@@ -677,7 +677,7 @@ namespace MoneyTracker.Tests.Services
                 }));
 
             _budgetService
-                .Setup(x => x.GetMonthlyWithUsageAsync(2026, 3))
+                .Setup(x => x.GetMonthlyWithUsageAsync(2026, 3, It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>
                 {
                     new()
@@ -722,7 +722,7 @@ namespace MoneyTracker.Tests.Services
                 .Returns(new DateTime(2026, 3, 10, 12, 0, 0));
 
             _budgetService
-                .Setup(x => x.GetMonthlyWithUsageAsync(2026, 3))
+                .Setup(x => x.GetMonthlyWithUsageAsync(2026, 3, It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>
                 {
                     new()
@@ -783,7 +783,7 @@ namespace MoneyTracker.Tests.Services
                 }));
 
             _budgetService
-                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
+                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month, It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
             var result = await svc.GetOverviewAsync(new DashboardFilterDto
@@ -844,7 +844,7 @@ namespace MoneyTracker.Tests.Services
                 }));
 
             _budgetService
-                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
+                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month, It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
             var result = await svc.GetOverviewAsync(new DashboardFilterDto
@@ -897,7 +897,7 @@ namespace MoneyTracker.Tests.Services
                 }));
 
             _budgetService
-                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month))
+                .Setup(x => x.GetMonthlyWithUsageAsync(now.Year, now.Month, It.IsAny<int>()))
                 .ReturnsAsync(OperationResult<List<BudgetWithUsageDto>>.Ok(new List<BudgetWithUsageDto>()));
 
             var svc = CreateService();
