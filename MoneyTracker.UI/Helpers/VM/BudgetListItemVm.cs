@@ -35,17 +35,15 @@ namespace MoneyTracker.UI.Helpers.VM
 
         public decimal QuincenaAmount(int view) => view switch
         {
-            1 => PaycheckPeriod is PaycheckPeriod.SecondOnly or PaycheckPeriod.Sporadic ? 0m
-               : Amount / (PaycheckPeriod == PaycheckPeriod.Both ? 2m : 1m),
-            2 => PaycheckPeriod is PaycheckPeriod.FirstOnly or PaycheckPeriod.Sporadic ? 0m
-               : Amount / (PaycheckPeriod == PaycheckPeriod.Both ? 2m : 1m),
+            1 => PaycheckPeriod == PaycheckPeriod.SecondOnly ? 0m : Amount / (PaycheckPeriod == PaycheckPeriod.Both ? 2m : 1m),
+            2 => PaycheckPeriod == PaycheckPeriod.FirstOnly ? 0m : Amount / (PaycheckPeriod == PaycheckPeriod.Both ? 2m : 1m),
             _ => Amount
         };
 
         public bool IsActiveInView(int view) => view switch
         {
-            1 => PaycheckPeriod is PaycheckPeriod.Both or PaycheckPeriod.FirstOnly,
-            2 => PaycheckPeriod is PaycheckPeriod.Both or PaycheckPeriod.SecondOnly,
+            1 => PaycheckPeriod != PaycheckPeriod.SecondOnly,
+            2 => PaycheckPeriod != PaycheckPeriod.FirstOnly,
             _ => true
         };
 
