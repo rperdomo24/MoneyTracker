@@ -1,5 +1,6 @@
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Helpers.VM
+@using MoneyTracker.Domain.Enums.Budgets
 @using Color = MudBlazor.Color
 @using Size = MudBlazor.Size
 
@@ -68,6 +69,14 @@
                                 <MudText Typo="Typo.body2" Class="@(depth == 0 ? "font-weight-bold" : "")">
                                     @item.CategoryName
                                 </MudText>
+                                @if (item.HasBudget)
+                                {
+                                    <MudChip T="string" Size="Size.Small"
+                                             Color="@PaycheckChipColor(item.PaycheckPeriod)"
+                                             Style="height:18px; font-size:10px; padding: 0 6px; min-width:0;">
+                                        @PaycheckChipLabel(item.PaycheckPeriod)
+                                    </MudChip>
+                                }
                             </MudStack>
                         </td>
                         <td style="text-align:right;">
@@ -328,6 +337,13 @@ else
                     }
 
                     <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                        @if (parent.HasBudget)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+                                     Color="@PaycheckChipColor(parent.PaycheckPeriod)">
+                                @PaycheckChipLabel(parent.PaycheckPeriod)
+                            </MudChip>
+                        }
                         @if (parent.IncludeChildren)
                         {
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Include Children</MudChip>
@@ -515,6 +531,20 @@ else
         if (!_expandedParents.Add(parentCategoryId))
             _expandedParents.Remove(parentCategoryId);
     }
+
+    private static string PaycheckChipLabel(PaycheckPeriod p) => p switch
+    {
+        PaycheckPeriod.FirstOnly  => "Q1",
+        PaycheckPeriod.SecondOnly => "Q2",
+        _                         => "÷2"
+    };
+
+    private static Color PaycheckChipColor(PaycheckPeriod p) => p switch
+    {
+        PaycheckPeriod.FirstOnly  => Color.Primary,
+        PaycheckPeriod.SecondOnly => Color.Secondary,
+        _                         => Color.Default
+    };
 
     private static bool IsGroupOnly(BudgetListItemVm item, List<BudgetListItemVm>? children)
         => !item.HasBudget && children?.Any(x => x.HasBudget) == true;
