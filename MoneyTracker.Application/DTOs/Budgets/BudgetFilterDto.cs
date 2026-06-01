@@ -42,5 +42,6 @@ namespace MoneyTracker.Application.DTOs.Budgets
         public bool OnlyWithActivity { get; set; } = false;
         public int ViewMode { get; set; } = 0;
         public bool ListExpanded { get; set; } = false;
+        public int PaycheckView { get; set; } = 0;
     }
 }

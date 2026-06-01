@@ -57,13 +57,13 @@
                     <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary">
                         <MudButton Color="@(_paycheckView == 0 ? Color.Primary : Color.Secondary)"
                                    Variant="@(_paycheckView == 0 ? Variant.Filled : Variant.Outlined)"
-                                   OnClick="@(() => _paycheckView = 0)">Mes</MudButton>
+                                   OnClick="@(() => SetPaycheckViewAsync(0))">Mes</MudButton>
                         <MudButton Color="@(_paycheckView == 1 ? Color.Primary : Color.Secondary)"
                                    Variant="@(_paycheckView == 1 ? Variant.Filled : Variant.Outlined)"
-                                   OnClick="@(() => _paycheckView = 1)">Q1 (1-15)</MudButton>
+                                   OnClick="@(() => SetPaycheckViewAsync(1))">Q1 (1-15)</MudButton>
                         <MudButton Color="@(_paycheckView == 2 ? Color.Primary : Color.Secondary)"
                                    Variant="@(_paycheckView == 2 ? Variant.Filled : Variant.Outlined)"
-                                   OnClick="@(() => _paycheckView = 2)">Q2 (16-fin)</MudButton>
+                                   OnClick="@(() => SetPaycheckViewAsync(2))">Q2 (16-fin)</MudButton>
                     </MudButtonGroup>
 
                     <MudTooltip Text="Copy all budgets from this month to next month (skips already existing)">
@@ -368,6 +368,7 @@
             _viewMode = Enum.IsDefined(typeof(BudgetViewMode), saved.ViewMode)
                 ? (BudgetViewMode)saved.ViewMode
                 : BudgetViewMode.All;
+            _paycheckView = saved.PaycheckView is >= 0 and <= 2 ? saved.PaycheckView : 0;
         }
 
         BuildMonthLabel();
@@ -417,6 +418,12 @@
     private async Task ToggleListExpanded()
     {
         _listExpanded = !_listExpanded;
+        await PersistStateAsync();
+    }
+
+    private async Task SetPaycheckViewAsync(int view)
+    {
+        _paycheckView = view;
         await PersistStateAsync();
     }
 
@@ -943,7 +950,8 @@
             OnlyWithActivity = _onlyWithActivity,
             SearchText = _searchText,
             ViewMode = (int)_viewMode,
-            ListExpanded = _listExpanded
+            ListExpanded = _listExpanded,
+            PaycheckView = _paycheckView
         });
     }
 
