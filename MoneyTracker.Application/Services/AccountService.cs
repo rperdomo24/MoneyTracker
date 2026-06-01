@@ -287,6 +287,25 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<bool>> ToggleNetWorthAsync(int id)
+        {
+            try
+            {
+                var account = await _repository.GetByIdAsync(id);
+                if (account is null)
+                    return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                account.IncludeInNetWorth = !account.IncludeInNetWorth;
+                await _repository.UpdateAsync(account);
+                return OperationResult<bool>.Ok(account.IncludeInNetWorth,
+                    account.IncludeInNetWorth ? "Included in net worth." : "Excluded from net worth.");
+            }
+            catch (Exception ex)
+            {
+                return await FailWithLoggedExceptionAsync<bool>(ex, OperationMessages.UnexpectedError, "Error toggling net worth for account.");
+            }
+        }
+
         private async Task<OperationResult> FailWithLoggedExceptionAsync(Exception ex, string failMessage, string logContext)
         {
             _logger?.LogError(ex, logContext);

@@ -91,6 +91,13 @@
                     <MudText Typo="Typo.caption" Style="opacity:0.6;">
                         Assets @FormatBalance(TotalAssets) — Liabilities @FormatBalance(TotalLiabilities)
                     </MudText>
+                    @if (ExcludedCount > 0)
+                    {
+                        <MudText Typo="Typo.caption" Style="opacity:0.5;">
+                            <MudIcon Icon="@Icons.Material.Filled.VisibilityOff" Size="Size.Small" Style="font-size:12px; vertical-align:middle;" />
+                            @ExcludedCount account@(ExcludedCount > 1 ? "s" : "") excluded from net worth
+                        </MudText>
+                    }
                 </MudStack>
 
                 <MudTooltip Text="Recalculates balance for ALL accounts by summing their transactions">
@@ -224,6 +231,13 @@
                                     </MudStack>
 
                                     <!-- Right -->
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                        <MudTooltip Text="@(account.IncludeInNetWorth ? "Included in net worth" : "Excluded from net worth")">
+                                            <MudIconButton Icon="@(account.IncludeInNetWorth ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                                           Color="@(account.IncludeInNetWorth ? Color.Default : Color.Error)"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => ToggleNetWorthAsync(account))" />
+                                        </MudTooltip>
                                     <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                              Size="Size.Medium"
                                              AnchorOrigin="Origin.BottomRight"
@@ -251,6 +265,7 @@
                                             Delete
                                         </MudMenuItem>
                                     </MudMenu>
+                                    </MudStack>
 
                                 </MudStack>
                             </MudHidden>
@@ -305,6 +320,13 @@
                                             }
                                         </MudStack>
 
+                                        <MudTooltip Text="@(account.IncludeInNetWorth ? "Included in net worth — click to exclude" : "Excluded from net worth — click to include")">
+                                            <MudIconButton Icon="@(account.IncludeInNetWorth ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                                           Color="@(account.IncludeInNetWorth ? Color.Default : Color.Error)"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => ToggleNetWorthAsync(account))" />
+                                        </MudTooltip>
+
                                         <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                                  Size="Size.Small"
                                                  AnchorOrigin="Origin.BottomRight"
@@ -352,9 +374,10 @@
     private bool _loading = true;
     private bool _syncingAll = false;
 
-    private decimal TotalAssets => _accounts.Where(a => a.Type != AccountType.Credit).Sum(a => a.CurrentBalance);
-    private decimal TotalLiabilities => _accounts.Where(a => a.Type == AccountType.Credit).Sum(a => Math.Abs(a.CurrentBalance));
+    private decimal TotalAssets => _accounts.Where(a => a.IncludeInNetWorth && a.Type != AccountType.Credit).Sum(a => a.CurrentBalance);
+    private decimal TotalLiabilities => _accounts.Where(a => a.IncludeInNetWorth && a.Type == AccountType.Credit).Sum(a => Math.Abs(a.CurrentBalance));
     private decimal NetWorth => TotalAssets - TotalLiabilities;
+    private int ExcludedCount => _accounts.Count(a => !a.IncludeInNetWorth);
     private IEnumerable<IGrouping<AccountType, AccountDto>> _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
 
     private readonly List<BreadcrumbItem> _breadcrumbItems = new()
@@ -495,8 +518,9 @@
             new DialogOptions { MaxWidth = MaxWidth.Small });
     }
 
-    private static bool NeedsBankWarning(AccountDto account)
-        => account.Type != AccountType.Cash && string.IsNullOrEmpty(account.BankName);
+    private static bool NeedsBankWarning(AccountDto account) =>
+        account.Type is AccountType.Bank or AccountType.Checking or AccountType.Credit
+        && string.IsNullOrEmpty(account.BankName);
 
     private async Task ConfirmSyncAllBalances()
     {
@@ -530,6 +554,21 @@
         {
             _syncingAll = false;
             StateHasChanged();
+        }
+    }
+
+    private async Task ToggleNetWorthAsync(AccountDto account)
+    {
+        var result = await AccountService.ToggleNetWorthAsync(account.Id);
+        if (result.Success)
+        {
+            account.IncludeInNetWorth = result.Data;
+            Snackbar.Add(result.Message ?? "Updated", Severity.Success);
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error updating", Severity.Error);
         }
     }
 
