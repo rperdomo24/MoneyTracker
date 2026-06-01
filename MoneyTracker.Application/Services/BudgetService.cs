@@ -122,14 +122,28 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<List<BudgetWithUsageDto>>> GetMonthlyWithUsageAsync(int year, int month)
+        public async Task<OperationResult<List<BudgetWithUsageDto>>> GetMonthlyWithUsageAsync(int year, int month, int halfMonth = 0)
         {
             try
             {
                 var budgets = await _budgetRepository.GetByMonthAsync(year, month);
 
-                var localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-                var localEnd = localStart.AddMonths(1).AddTicks(-1);
+                DateTime localStart, localEnd;
+                if (halfMonth == 1)
+                {
+                    localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+                    localEnd = new DateTime(year, month, 15, 23, 59, 59, DateTimeKind.Unspecified);
+                }
+                else if (halfMonth == 2)
+                {
+                    localStart = new DateTime(year, month, 16, 0, 0, 0, DateTimeKind.Unspecified);
+                    localEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month), 23, 59, 59, DateTimeKind.Unspecified);
+                }
+                else
+                {
+                    localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+                    localEnd = localStart.AddMonths(1).AddTicks(-1);
+                }
 
                 var fromUtc = _timeZoneService.ConvertToUtc(localStart);
                 var toUtc = _timeZoneService.ConvertToUtc(localEnd);

@@ -425,6 +425,7 @@
     {
         _paycheckView = view;
         await PersistStateAsync();
+        await LoadBudgets();
     }
 
     private void ToggleTableView() => _tableView = !_tableView;
@@ -446,7 +447,7 @@
 
         try
         {
-            var result = await BudgetService.GetMonthlyWithUsageAsync(_year, _month);
+            var result = await BudgetService.GetMonthlyWithUsageAsync(_year, _month, _paycheckView);
 
             if (!result.Success || result.Data is null)
             {

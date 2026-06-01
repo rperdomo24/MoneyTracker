@@ -135,20 +135,13 @@
                         .Where(x => x.ParentCategoryId is null)
                         .Sum(x => GetDisplayUsed(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId)));
                     var totalRemaining = totalBudget - totalUsed;
-                    var totalQuincena = PaycheckView > 0
-                        ? Items!.Where(x => x.ParentCategoryId is null).Sum(x => x.QuincenaAmount(PaycheckView))
-                        : 0m;
+                    // totalBudget already uses QuincenaAmount when PaycheckView>0 via GetDisplayBudget
+                    var totalQuincena = 0m; // unused, totalBudget handles it
                 }
                 <tr style="border-top: 2px solid var(--mud-palette-divider); font-weight: bold;">
                     <td><MudText Typo="Typo.body2" Class="font-weight-bold">Total</MudText></td>
                     <td style="text-align:right;">
-                        <MudStack Spacing="0" AlignItems="AlignItems.End">
-                            <MudText Typo="Typo.body2" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(totalBudget)</MudText>
-                            @if (PaycheckView > 0)
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Primary">@(PaycheckView == 1 ? "Q1" : "Q2"): @CurrencyHelper.FormatCurrency(totalQuincena)</MudText>
-                            }
-                        </MudStack>
+                        <MudText Typo="Typo.body2" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(totalBudget)</MudText>
                     </td>
                     <td style="text-align:right;">
                         <MudText Typo="Typo.body2" Class="font-weight-bold" Color="@(totalRemaining < 0 ? Color.Error : Color.Default)">
@@ -526,12 +519,12 @@ else
     private static bool IsGroupOnly(BudgetListItemVm item, List<BudgetListItemVm>? children)
         => !item.HasBudget && children?.Any(x => x.HasBudget) == true;
 
-    private static decimal GetDisplayBudget(BudgetListItemVm item, List<BudgetListItemVm>? children)
+    private decimal GetDisplayBudget(BudgetListItemVm item, List<BudgetListItemVm>? children)
     {
         if (!IsGroupOnly(item, children))
-            return item.Amount;
+            return PaycheckView > 0 ? item.QuincenaAmount(PaycheckView) : item.Amount;
 
-        return (children ?? new()).Sum(x => x.Amount);
+        return (children ?? new()).Sum(x => PaycheckView > 0 ? x.QuincenaAmount(PaycheckView) : x.Amount);
     }
 
     private static decimal GetDisplayUsed(BudgetListItemVm item, List<BudgetListItemVm>? children)
@@ -570,7 +563,7 @@ else
         return Color.Success;
     }
 
-    private static double GetProgressValue(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
+    private double GetProgressValue(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
     {
         if (IsGroupOnly(item, children))
         {
@@ -584,11 +577,12 @@ else
         if (!item.HasBudget)
             return 0d;
 
-        var percent = item.Amount == 0 ? 0d : (double)(item.Used / item.Amount) * 100d;
+        var denominator = PaycheckView > 0 ? item.QuincenaAmount(PaycheckView) : item.Amount;
+        var percent = denominator == 0 ? 0d : (double)(item.Used / denominator) * 100d;
         return Math.Clamp(percent, 0d, 100d);
     }
 
-    private static string GetProgressLabel(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
+    private string GetProgressLabel(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
     {
         if (IsGroupOnly(item, children))
         {
@@ -603,7 +597,10 @@ else
         if (!item.HasBudget)
             return Math.Abs(item.Used) > 0.01m ? "No budget set" : "Waiting for budget";
 
-        return $"{item.ProgressPercent}% used";
+        var denominator = PaycheckView > 0 ? item.QuincenaAmount(PaycheckView) : item.Amount;
+        if (denominator == 0) return "0% used";
+        var pct = (int)Math.Round((double)(item.Used / denominator) * 100d);
+        return $"{Math.Clamp(pct, 0, 100)}% used";
     }
 
     private static string GetHealthLabel(BudgetListItemVm item, List<BudgetListItemVm>? children = null)
