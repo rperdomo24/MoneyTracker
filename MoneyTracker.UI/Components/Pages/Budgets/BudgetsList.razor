@@ -391,7 +391,17 @@ else
                                                     </MudAvatar>
 
                                                     <MudStack Spacing="0">
-                                                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">@child.CategoryName</MudText>
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                            <MudText Typo="Typo.subtitle2" Class="font-weight-bold">@child.CategoryName</MudText>
+                                                            @if (child.HasBudget)
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small"
+                                                                         Color="@PaycheckChipColor(child.PaycheckPeriod)"
+                                                                         Style="height:16px; font-size:9px; padding: 0 5px; min-width:0;">
+                                                                    @PaycheckChipLabel(child.PaycheckPeriod)
+                                                                </MudChip>
+                                                            }
+                                                        </MudStack>
                                                         <MudText Typo="Typo.caption" Style="opacity:0.75;">
                                                             @if (child.Remaining < 0)
                                                             {
