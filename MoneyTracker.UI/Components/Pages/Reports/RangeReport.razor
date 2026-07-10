@@ -141,63 +141,127 @@
                            Summary="@_report.Summary"
                            Class="mb-6" />
 
-        @if (_report.CategorySummary.Any())
+        @if (_report.CategorySummary.Any() || _report.IncomeCategorySummary.Any())
         {
             <MudPaper Elevation="1" Class="mb-6">
                 <div class="pa-4">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
                         Click rows to filter the transactions table below. Multiple selections allowed.
                     </MudText>
-                    <MudSimpleTable Hover="true" Dense="true">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Total Spent</th>
-                                <th>Transactions</th>
-                                <th>% of Expenses</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var cat in _report.CategorySummary)
+                    <MudGrid Spacing="3">
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Error" Style="vertical-align:middle;" />
+                                Expenses
+                            </MudText>
+                            @if (!_report.CategorySummary.Any())
                             {
-                                var isActive = _tableFilter.Contains(cat.CategoryName);
-                                var pct = _report.Summary.TotalExpenses > 0
-                                    ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
-                                    : 0m;
-                                <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
-                                    @onclick="async () => await ToggleTableFilter(cat.CategoryName)">
-                                    <td>
-                                        @if (isActive)
-                                        {
-                                            <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small"
-                                                     Color="Color.Primary" Class="mr-1" Style="vertical-align:middle;" />
-                                        }
-                                        @cat.CategoryName
-                                    </td>
-                                    <td>@cat.TotalSpent.ToString("C2")</td>
-                                    <td>@cat.TransactionCount</td>
-                                    <td>@pct.ToString("F1")%</td>
-                                </tr>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No expense transactions.</MudText>
                             }
-                        </tbody>
-                    </MudSimpleTable>
+                            else
+                            {
+                                <MudSimpleTable Hover="true" Dense="true">
+                                    <thead>
+                                        <tr><th>Category</th><th>Total</th><th>Txn</th><th>%</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var cat in _report.CategorySummary)
+                                        {
+                                            var isActive = _tableFilter.Contains(cat.CategoryName);
+                                            var pct = _report.Summary.TotalExpenses > 0
+                                                ? cat.TotalSpent / _report.Summary.TotalExpenses * 100 : 0m;
+                                            <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
+                                                @onclick="async () => await ToggleTableFilter(cat.CategoryName)">
+                                                <td>
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                        @if (isActive) { <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Color="Color.Primary" /> }
+                                                        <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small" Style="@($"font-size:15px; color:{cat.Color ?? "inherit"};")" />
+                                                        <span>@cat.CategoryName</span>
+                                                    </MudStack>
+                                                </td>
+                                                <td>@cat.TotalSpent.ToString("C2")</td>
+                                                <td>@cat.TransactionCount</td>
+                                                <td>@pct.ToString("F1")%</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            }
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle2" Class="font-weight-bold mb-2">
+                                <MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Success" Style="vertical-align:middle;" />
+                                Income
+                            </MudText>
+                            @if (!_report.IncomeCategorySummary.Any())
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">No income transactions.</MudText>
+                            }
+                            else
+                            {
+                                <MudSimpleTable Hover="true" Dense="true">
+                                    <thead>
+                                        <tr><th>Category</th><th>Total</th><th>Txn</th><th>%</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var cat in _report.IncomeCategorySummary)
+                                        {
+                                            var isActive = _tableFilter.Contains(cat.CategoryName);
+                                            var pct = _report.Summary.TotalIncome > 0
+                                                ? cat.TotalSpent / _report.Summary.TotalIncome * 100 : 0m;
+                                            <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
+                                                @onclick="async () => await ToggleTableFilter(cat.CategoryName)">
+                                                <td>
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                        @if (isActive) { <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small" Color="Color.Primary" /> }
+                                                        <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small" Style="@($"font-size:15px; color:{cat.Color ?? "inherit"};")" />
+                                                        <span>@cat.CategoryName</span>
+                                                    </MudStack>
+                                                </td>
+                                                <td>@cat.TotalSpent.ToString("C2")</td>
+                                                <td>@cat.TransactionCount</td>
+                                                <td>@pct.ToString("F1")%</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            }
+                        </MudItem>
+                    </MudGrid>
                 </div>
             </MudPaper>
         }
 
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap:wrap; gap:6px;">
-                <MudText Typo="Typo.h6" Class="font-weight-bold">
-                    @(_tableFilter.Count == 0 ? "All Transactions" : _tableFilter.Count == 1 ? $"Transactions — {_tableFilter.First()}" : $"Transactions — {_tableFilter.Count} Categories")
-                </MudText>
-                @foreach (var cat in _tableFilter.ToList())
-                {
-                    var catName = cat;
-                    <MudChip T="string" Color="Color.Primary" Size="Size.Small"
-                             OnClose="@(async _ => await ToggleTableFilter(catName))">
-                        @catName
-                    </MudChip>
-                }
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-2" Wrap="Wrap.Wrap">
+            <MudStack Spacing="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap:wrap; gap:6px;">
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">
+                        @(_tableFilter.Count == 0 ? "All Transactions" : _tableFilter.Count == 1 ? $"Transactions — {_tableFilter.First()}" : $"Transactions — {_tableFilter.Count} Categories")
+                    </MudText>
+                    @foreach (var cat in _tableFilter.ToList())
+                    {
+                        var catName = cat;
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small"
+                                 OnClose="@(async _ => await ToggleTableFilter(catName))">
+                            @catName
+                        </MudChip>
+                    }
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Style="flex-wrap:wrap;">
+                    <MudText Typo="Typo.caption" Color="Color.Success">
+                        <b>@_ft.Income.ToString("C2")</b> income
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.4;">·</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Error">
+                        <b>@_ft.Expenses.ToString("C2")</b> expenses
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.4;">·</MudText>
+                    <MudText Typo="Typo.caption" Color="@(_ft.Net >= 0 ? Color.Success : Color.Error)">
+                        <b>@_ft.Net.ToString("C2")</b> net
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.4;">·</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@_ft.Total rows</MudText>
+                </MudStack>
             </MudStack>
             <MudButton StartIcon="@Icons.Material.Filled.Download"
                        Size="Size.Small"
@@ -206,27 +270,6 @@
                 Export CSV
             </MudButton>
         </MudStack>
-
-        <MudPaper Elevation="0" Class="mb-3 pa-3" Style="background: var(--mud-palette-background-grey);">
-            <MudStack Row="true" Spacing="4" Wrap="Wrap.Wrap">
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Income (@_ft.IncomeCount txn)</MudText>
-                    <MudText Typo="Typo.subtitle2" Color="Color.Success">@_ft.Income.ToString("C2")</MudText>
-                </MudStack>
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Expenses (@_ft.ExpenseCount txn)</MudText>
-                    <MudText Typo="Typo.subtitle2" Color="Color.Error">@_ft.Expenses.ToString("C2")</MudText>
-                </MudStack>
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Net</MudText>
-                    <MudText Typo="Typo.subtitle2" Color="@(_ft.Net >= 0 ? Color.Success : Color.Error)">@_ft.Net.ToString("C2")</MudText>
-                </MudStack>
-                <MudStack Spacing="0">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total rows</MudText>
-                    <MudText Typo="Typo.subtitle2">@_ft.Total</MudText>
-                </MudStack>
-            </MudStack>
-        </MudPaper>
 
         @if (!FilteredTransactions.Any())
         {
