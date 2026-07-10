@@ -40,44 +40,39 @@
             </MudItem>
             <MudItem xs="12" sm="12" md="4">
                 <MudSelect T="string"
-                           Label="Pre-filter by category (optional)"
+                           Label="Categories (optional)"
                            MultiSelection="true"
                            @bind-SelectedValues="_selectedCategories"
                            Variant="Variant.Outlined"
                            Clearable="true"
-                           AdornmentIcon="@Icons.Material.Filled.FilterAlt"
-                           HelperText="Leave empty to load all categories">
-                    @if (_expenseCategories.Any())
+                           SearchBox="true"
+                           SearchBoxPlaceholder="Search categories..."
+                           AdornmentIcon="@Icons.Material.Filled.Category">
+                    @foreach (var cat in _expenseCategories)
                     {
-                        <MudListSubheader>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Expenses</MudText>
-                        </MudListSubheader>
-                        @foreach (var cat in _expenseCategories)
-                        {
-                            <MudSelectItem T="string" Value="@cat.Name">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                    <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small"
-                                             Style="@($"font-size:16px; color:{cat.Color ?? "inherit"};")" />
-                                    <span>@cat.Name</span>
-                                </MudStack>
-                            </MudSelectItem>
-                        }
+                        <MudSelectItem T="string" Value="@cat.Name">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small"
+                                         Style="@($"font-size:16px; color:{cat.Color ?? "inherit"};")" />
+                                <span>@cat.Name</span>
+                                <MudText Typo="Typo.caption" Color="Color.Error" Style="opacity:0.6; margin-left:2px;">exp</MudText>
+                            </MudStack>
+                        </MudSelectItem>
                     }
-                    @if (_incomeCategories.Any())
+                    @if (_expenseCategories.Any() && _incomeCategories.Any())
                     {
-                        <MudListSubheader>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">Income</MudText>
-                        </MudListSubheader>
-                        @foreach (var cat in _incomeCategories)
-                        {
-                            <MudSelectItem T="string" Value="@cat.Name">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                    <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small"
-                                             Style="@($"font-size:16px; color:{cat.Color ?? "inherit"};")" />
-                                    <span>@cat.Name</span>
-                                </MudStack>
-                            </MudSelectItem>
-                        }
+                        <MudDivider />
+                    }
+                    @foreach (var cat in _incomeCategories)
+                    {
+                        <MudSelectItem T="string" Value="@cat.Name">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small"
+                                         Style="@($"font-size:16px; color:{cat.Color ?? "inherit"};")" />
+                                <span>@cat.Name</span>
+                                <MudText Typo="Typo.caption" Color="Color.Success" Style="opacity:0.6; margin-left:2px;">inc</MudText>
+                            </MudStack>
+                        </MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
