@@ -186,9 +186,14 @@
                                     <!-- Left -->
                                     <MudAvatar Size="Size.Medium"
                                                Style="@($"background-color: {account.Color};")">
-                                        <MudIcon Icon="@account.Icon.ToIcon()"
-                                                 Color="Color.Surface"
-                                                 Size="Size.Small" />
+                                        @if (!string.IsNullOrEmpty(account.BankName))
+                                        {
+                                            <span style="color:white; font-size:10px; font-weight:700; letter-spacing:0.5px;">@GetBankInitials(account.BankName)</span>
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@account.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
+                                        }
                                     </MudAvatar>
 
                                     <!-- Middle (dominant) -->
@@ -205,13 +210,19 @@
                                             }
                                         </MudStack>
 
-                                        <MudText Typo="Typo.caption"
-                                                 Style="opacity: 0.7; white-space: nowrap;">
-                                            @account.Type.ToLabel()
+                                        <MudText Typo="Typo.caption" Style="opacity: 0.7; white-space: nowrap;">
+                                            @GetAccountSubtitle(account)
                                         </MudText>
 
+                                        @if (account.Type == AccountType.Credit && !string.IsNullOrEmpty(account.CardDisplayName))
+                                        {
+                                            <MudText Typo="Typo.caption" Style="opacity:0.5; white-space:nowrap; font-family:monospace; letter-spacing:1px;">
+                                                •••• @account.CardDisplayName
+                                            </MudText>
+                                        }
+
                                         <MudText Typo="Typo.h6"
-                                                 Class="@GetBalanceClass(account.CurrentBalance)"
+                                                 Class="@($"font-weight-bold {GetBalanceClass(account.CurrentBalance)}")"
                                                  Style="white-space: nowrap;">
                                             @CurrencyHelper.FormatCurrency(account.CurrentBalance)
                                         </MudText>
@@ -221,37 +232,30 @@
                                             var used = (double)(Math.Abs(account.CurrentBalance) / account.CreditLimit) * 100d;
                                             var usedClamped = Math.Clamp(used, 0d, 100d);
                                             var limitColor = used >= 90 ? Color.Error : used >= 70 ? Color.Warning : Color.Success;
-                                            <MudStack Spacing="0" Style="min-width:80px;">
+                                            <MudStack Spacing="1" Style="min-width:80px;">
+                                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.65;">Uso</MudText>
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.85; font-weight:600;">@($"{usedClamped:F0}")%</MudText>
+                                                </MudStack>
                                                 <MudProgressLinear Value="@usedClamped" Color="@limitColor" Size="Size.Small" />
-                                                <MudText Typo="Typo.caption" Style="opacity:0.7;">
-                                                    @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
+                                                <MudText Typo="Typo.caption" Style="opacity:0.65;">
+                                                    @CurrencyHelper.FormatCurrency(account.AvailableCredit) disponible
                                                 </MudText>
                                             </MudStack>
                                         }
 
                                         @if (account.Type == AccountType.Credit && (account.CutDay.HasValue || account.PaymentDay.HasValue || account.AnnualInterestRate.HasValue))
                                         {
-                                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="flex-wrap:wrap; gap:4px;">
-                                                @if (account.CutDay.HasValue)
+                                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
+                                                @if (account.CutDay.HasValue || account.PaymentDay.HasValue)
                                                 {
-                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                                        <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
-                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">Cut @account.CutDay</MudText>
-                                                    </MudStack>
-                                                }
-                                                @if (account.PaymentDay.HasValue)
-                                                {
-                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                                        <MudIcon Icon="@Icons.Material.Filled.Payment" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
-                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">Due @account.PaymentDay</MudText>
-                                                    </MudStack>
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
+                                                        @GetCreditDateSummary(account)
+                                                    </MudText>
                                                 }
                                                 @if (account.AnnualInterestRate.HasValue)
                                                 {
-                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                                        <MudIcon Icon="@Icons.Material.Filled.Percent" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
-                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">@($"{account.AnnualInterestRate:F1}")% APR</MudText>
-                                                    </MudStack>
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">@($"{account.AnnualInterestRate:F1}")% APR</MudText>
                                                 }
                                             </MudStack>
                                         }
@@ -305,9 +309,14 @@
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         <MudAvatar Size="Size.Medium"
                                                    Style="@($"background-color: {account.Color};")">
-                                            <MudIcon Icon="@account.Icon.ToIcon()"
-                                                     Color="Color.Surface"
-                                                     Size="Size.Small" />
+                                            @if (!string.IsNullOrEmpty(account.BankName))
+                                            {
+                                                <span style="color:white; font-size:10px; font-weight:700; letter-spacing:0.5px;">@GetBankInitials(account.BankName)</span>
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@account.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
+                                            }
                                         </MudAvatar>
 
                                         <MudStack Spacing="0">
@@ -323,14 +332,20 @@
                                                 }
                                             </MudStack>
                                             <MudText Typo="Typo.caption" Style="opacity: 0.7;">
-                                                @account.Type.ToLabel()
+                                                @GetAccountSubtitle(account)
                                             </MudText>
+                                            @if (account.Type == AccountType.Credit && !string.IsNullOrEmpty(account.CardDisplayName))
+                                            {
+                                                <MudText Typo="Typo.caption" Style="opacity:0.5; font-family:monospace; letter-spacing:1px;">
+                                                    •••• @account.CardDisplayName
+                                                </MudText>
+                                            }
                                         </MudStack>
                                     </MudStack>
 
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
                                         <MudStack Spacing="0" AlignItems="AlignItems.End">
-                                            <MudText Typo="Typo.h6" Class="@GetBalanceClass(account.CurrentBalance)">
+                                            <MudText Typo="Typo.h6" Class="@($"font-weight-bold {GetBalanceClass(account.CurrentBalance)}")">
                                                 @CurrencyHelper.FormatCurrency(account.CurrentBalance)
                                             </MudText>
                                             @if (account.Type == AccountType.Credit && account.CreditLimit > 0)
@@ -338,37 +353,30 @@
                                                 var used = (double)(Math.Abs(account.CurrentBalance) / account.CreditLimit) * 100d;
                                                 var usedClamped = Math.Clamp(used, 0d, 100d);
                                                 var limitColor = used >= 90 ? Color.Error : used >= 70 ? Color.Warning : Color.Success;
-                                                <MudStack Spacing="0" Style="min-width:120px;">
+                                                <MudStack Spacing="1" Style="min-width:140px;">
+                                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">Uso</MudText>
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.85; font-weight:600;">@($"{usedClamped:F0}")%</MudText>
+                                                    </MudStack>
                                                     <MudProgressLinear Value="@usedClamped" Color="@limitColor" Size="Size.Small" />
-                                                    <MudText Typo="Typo.caption" Style="opacity:0.7; text-align:right;">
-                                                        @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.65; text-align:right;">
+                                                        @CurrencyHelper.FormatCurrency(account.AvailableCredit) disponible
                                                     </MudText>
                                                 </MudStack>
                                             }
 
                                             @if (account.Type == AccountType.Credit && (account.CutDay.HasValue || account.PaymentDay.HasValue || account.AnnualInterestRate.HasValue))
                                             {
-                                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Style="flex-wrap:wrap; gap:4px;">
-                                                    @if (account.CutDay.HasValue)
+                                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Style="flex-wrap:wrap;">
+                                                    @if (account.CutDay.HasValue || account.PaymentDay.HasValue)
                                                     {
-                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                                            <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
-                                                            <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">Cut @account.CutDay</MudText>
-                                                        </MudStack>
-                                                    }
-                                                    @if (account.PaymentDay.HasValue)
-                                                    {
-                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                                            <MudIcon Icon="@Icons.Material.Filled.Payment" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
-                                                            <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">Due @account.PaymentDay</MudText>
-                                                        </MudStack>
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
+                                                            @GetCreditDateSummary(account)
+                                                        </MudText>
                                                     }
                                                     @if (account.AnnualInterestRate.HasValue)
                                                     {
-                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                                            <MudIcon Icon="@Icons.Material.Filled.Percent" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
-                                                            <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">@($"{account.AnnualInterestRate:F1}")% APR</MudText>
-                                                        </MudStack>
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">@($"{account.AnnualInterestRate:F1}")% APR</MudText>
                                                     }
                                                 </MudStack>
                                             }
@@ -624,6 +632,26 @@
         {
             Snackbar.Add(result.Message ?? "Error updating", Severity.Error);
         }
+    }
+
+    private static string GetBankInitials(string? bankName)
+    {
+        if (string.IsNullOrWhiteSpace(bankName)) return string.Empty;
+        var words = bankName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length == 1
+            ? bankName[..Math.Min(4, bankName.Length)].ToUpper()
+            : string.Concat(words.Take(3).Select(w => w[0])).ToUpper();
+    }
+
+    private static string GetAccountSubtitle(AccountDto account)
+        => !string.IsNullOrEmpty(account.BankName) ? account.BankName : account.Type.ToLabel();
+
+    private static string GetCreditDateSummary(AccountDto account)
+    {
+        var parts = new List<string>();
+        if (account.CutDay.HasValue) parts.Add($"Corte: {account.CutDay}");
+        if (account.PaymentDay.HasValue) parts.Add($"Pago: {account.PaymentDay}");
+        return string.Join(" · ", parts);
     }
 
     private async Task ConfirmSyncBalance(AccountDto account)
