@@ -105,7 +105,7 @@
                     else
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
-                            Click a row to filter the transactions table below.
+                            Click rows to filter the transactions table below. Multiple selections allowed.
                         </MudText>
                         <MudSimpleTable Hover="true" Dense="true">
                             <thead>
@@ -119,12 +119,12 @@
                             <tbody>
                                 @foreach (var cat in _report.CategorySummary)
                                 {
-                                    var isActive = _filterIsCategory && _activeFilterLabel == cat.CategoryName;
+                                    var isActive = _selectedCategories.Contains(cat.CategoryName);
                                     var pct = _report.Summary.TotalExpenses > 0
                                         ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
                                         : 0m;
                                     <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
-                                        @onclick="() => SetCategoryFilter(cat.CategoryName)">
+                                        @onclick="() => ToggleCategoryFilter(cat.CategoryName)">
                                         <td>
                                             @if (isActive)
                                             {
@@ -168,7 +168,7 @@
                             <tbody>
                                 @foreach (var card in _report.CardSummary)
                                 {
-                                    var isActive = !_filterIsCategory && _activeFilterLabel == card.CardName;
+                                    var isActive = _activeCardFilter == card.CardName;
                                     var topCat = GetTopCategoryForCard(card.CardName);
                                     <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
                                         @onclick="() => SetCardFilter(card.CardName)">
@@ -260,15 +260,33 @@
         </MudPaper>
 
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap:wrap; gap:6px;">
                 <MudText Typo="Typo.h6" Class="font-weight-bold">
-                    @(_activeFilterLabel is not null ? $"Transactions — {_activeFilterLabel}" : "All Transactions")
+                    @TransactionSectionTitle
                 </MudText>
-                @if (_activeFilterLabel is not null)
+                @if (_selectedCategories.Count == 1)
                 {
                     <MudChip T="string" Color="Color.Primary" Size="Size.Small"
-                             OnClose="@(_ => ClearFilter())">
-                        @_activeFilterLabel
+                             OnClose="@(_ => ClearCategoryFilters())">
+                        @_selectedCategories.First()
+                    </MudChip>
+                }
+                else if (_selectedCategories.Count > 1)
+                {
+                    @foreach (var cat in _selectedCategories.ToList())
+                    {
+                        var catName = cat;
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small"
+                                 OnClose="@(_ => ToggleCategoryFilter(catName))">
+                            @catName
+                        </MudChip>
+                    }
+                }
+                @if (_activeCardFilter is not null)
+                {
+                    <MudChip T="string" Color="Color.Secondary" Size="Size.Small"
+                             OnClose="@(_ => ClearCardFilter())">
+                        @_activeCardFilter
                     </MudChip>
                 }
             </MudStack>
@@ -323,8 +341,8 @@
     private bool _loading;
     private bool _aiLoading;
 
-    private string? _activeFilterLabel;
-    private bool _filterIsCategory;
+    private HashSet<string> _selectedCategories = new();
+    private string? _activeCardFilter;
 
     private string MonthLabel =>
         new DateTime(_filter.Year, _filter.Month, 1).ToString("MMMM yyyy");
@@ -332,15 +350,32 @@
     private bool IsCurrentMonth =>
         _filter.Year == DateTime.Today.Year && _filter.Month == DateTime.Today.Month;
 
+    private string TransactionSectionTitle
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (_selectedCategories.Count == 1)
+                parts.Add(_selectedCategories.First());
+            else if (_selectedCategories.Count > 1)
+                parts.Add($"{_selectedCategories.Count} Categories");
+            if (_activeCardFilter is not null)
+                parts.Add(_activeCardFilter);
+            return parts.Count > 0 ? $"Transactions — {string.Join(" + ", parts)}" : "All Transactions";
+        }
+    }
+
     private IEnumerable<ReportTransactionDto> FilteredTransactions
     {
         get
         {
             if (_report is null) return [];
-            if (_activeFilterLabel is null) return _report.Transactions;
-            return _filterIsCategory
-                ? _report.Transactions.Where(t => t.CategoryName == _activeFilterLabel)
-                : _report.Transactions.Where(t => t.CardName == _activeFilterLabel);
+            var tx = _report.Transactions.AsEnumerable();
+            if (_selectedCategories.Count > 0)
+                tx = tx.Where(t => _selectedCategories.Contains(t.CategoryName));
+            if (_activeCardFilter is not null)
+                tx = tx.Where(t => t.CardName == _activeCardFilter);
+            return tx;
         }
     }
 
@@ -350,7 +385,8 @@
     {
         _loading = true;
         _report = null;
-        _activeFilterLabel = null;
+        _selectedCategories = new();
+        _activeCardFilter = null;
         StateHasChanged();
 
         var result = await ReportService.GetMonthlyReportAsync(_filter);
@@ -391,29 +427,21 @@
         await LoadReport();
     }
 
-    private void SetCategoryFilter(string categoryName)
+    private void ToggleCategoryFilter(string categoryName)
     {
-        if (_filterIsCategory && _activeFilterLabel == categoryName)
-        {
-            ClearFilter();
-            return;
-        }
-        _activeFilterLabel = categoryName;
-        _filterIsCategory = true;
+        if (_selectedCategories.Contains(categoryName))
+            _selectedCategories.Remove(categoryName);
+        else
+            _selectedCategories.Add(categoryName);
     }
 
-    private void SetCardFilter(string accountName)
+    private void SetCardFilter(string cardName)
     {
-        if (!_filterIsCategory && _activeFilterLabel == accountName)
-        {
-            ClearFilter();
-            return;
-        }
-        _activeFilterLabel = accountName;
-        _filterIsCategory = false;
+        _activeCardFilter = _activeCardFilter == cardName ? null : cardName;
     }
 
-    private void ClearFilter() => _activeFilterLabel = null;
+    private void ClearCategoryFilters() => _selectedCategories = new();
+    private void ClearCardFilter() => _activeCardFilter = null;
 
     private string? GetTopCategoryForCard(string cardName) =>
         _report?.Transactions
@@ -433,10 +461,15 @@
             sb.AppendLine($"{t.Date:yyyy-MM-dd},{Esc(t.Name)},{Esc(t.Merchant)},{Esc(t.CategoryName)},{t.Amount},{Esc(t.CardName)},{t.PaymentMethod?.ToString() ?? string.Empty},{Esc(t.AccountName)},{Esc(t.BankName ?? string.Empty)},{Esc(t.Description ?? string.Empty)}");
         }
 
-        var filename = _activeFilterLabel is not null
-            ? $"report_{_filter.Year}_{_filter.Month:00}_{_activeFilterLabel}.csv"
-            : $"report_{_filter.Year}_{_filter.Month:00}.csv";
+        var suffix = _selectedCategories.Count == 1
+            ? $"_{_selectedCategories.First()}"
+            : _selectedCategories.Count > 1
+                ? $"_{_selectedCategories.Count}_categories"
+                : _activeCardFilter is not null
+                    ? $"_{_activeCardFilter}"
+                    : string.Empty;
 
+        var filename = $"report_{_filter.Year}_{_filter.Month:00}{suffix}.csv";
         await JS.InvokeVoidAsync("downloadTextFile", filename, sb.ToString());
     }
 
@@ -450,5 +483,4 @@
         RecommendationType.HighCashUsage => Severity.Info,
         _ => Severity.Normal
     };
-
 }

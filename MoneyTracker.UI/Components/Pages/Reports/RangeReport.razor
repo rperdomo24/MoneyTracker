@@ -1,0 +1,271 @@
+@page "/reports/range"
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Reports
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Transaction
+@using System.Text
+@inject IReportService ReportService
+@inject ICategoryService CategoryService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Date Range Report - MoneyTracker</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-1 pa-sm-6">
+
+    <MudText Typo="Typo.h5" Class="font-weight-bold mb-4">Date Range Report</MudText>
+
+    <!-- Filter card -->
+    <MudPaper Elevation="1" Class="pa-4 mb-6">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="3">
+                <MudDatePicker Label="From"
+                               Date="@FromDateTime"
+                               DateChanged="@(d => { if (d.HasValue) _fromDate = DateOnly.FromDateTime(d.Value); })"
+                               Variant="Variant.Outlined"
+                               DateFormat="MM/dd/yyyy"
+                               MaxDate="@DateTime.Today" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudDatePicker Label="To"
+                               Date="@ToDateTime"
+                               DateChanged="@(d => { if (d.HasValue) _toDate = DateOnly.FromDateTime(d.Value); })"
+                               Variant="Variant.Outlined"
+                               DateFormat="MM/dd/yyyy"
+                               MaxDate="@DateTime.Today" />
+            </MudItem>
+            <MudItem xs="12" sm="12" md="4">
+                <MudSelect T="string"
+                           Label="Categories (optional)"
+                           MultiSelection="true"
+                           @bind-SelectedValues="_selectedCategories"
+                           Variant="Variant.Outlined"
+                           Clearable="true"
+                           AdornmentIcon="@Icons.Material.Filled.Category">
+                    @foreach (var cat in _allCategories)
+                    {
+                        <MudSelectItem T="string" Value="@cat.Name">@cat.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="12" md="2">
+                <MudButton Color="Color.Primary"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           FullWidth="true"
+                           OnClick="LoadReport"
+                           Disabled="@_loading">
+                    @if (_loading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Loading...</span>
+                    }
+                    else
+                    {
+                        <span>Generate</span>
+                    }
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+            <MudText Class="mt-4">Generating report...</MudText>
+        </MudStack>
+    }
+    else if (_report is not null)
+    {
+        <MudText Typo="Typo.h6" Class="mb-3 font-weight-bold">@_report.DateRangeLabel — Summary</MudText>
+
+        <MudGrid Spacing="3" Class="mb-6">
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Income</MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Success">@_report.Summary.TotalIncome.ToString("C2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Expenses</MudText>
+                    <MudText Typo="Typo.h6" Color="Color.Error">@_report.Summary.TotalExpenses.ToString("C2")</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Balance</MudText>
+                    <MudText Typo="Typo.h6" Color="@(_report.Summary.FinalBalance >= 0 ? Color.Success : Color.Error)">
+                        @_report.Summary.FinalBalance.ToString("C2")
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Class="pa-4 text-center" Elevation="1">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Transactions</MudText>
+                    <MudText Typo="Typo.h6">@_report.Summary.TransactionCount</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <ReportChartsPanel CategorySummary="@_report.CategorySummary"
+                           Summary="@_report.Summary"
+                           Class="mb-6" />
+
+        @if (_report.CategorySummary.Any())
+        {
+            <MudPaper Elevation="1" Class="mb-6">
+                <div class="pa-4">
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-3">By Category</MudText>
+                    <MudSimpleTable Hover="false" Dense="true">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Total Spent</th>
+                                <th>Transactions</th>
+                                <th>% of Expenses</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cat in _report.CategorySummary)
+                            {
+                                var pct = _report.Summary.TotalExpenses > 0
+                                    ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
+                                    : 0m;
+                                <tr>
+                                    <td>@cat.CategoryName</td>
+                                    <td>@cat.TotalSpent.ToString("C2")</td>
+                                    <td>@cat.TransactionCount</td>
+                                    <td>@pct.ToString("F1")%</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </div>
+            </MudPaper>
+        }
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
+            <MudText Typo="Typo.h6" Class="font-weight-bold">All Transactions</MudText>
+            <MudButton StartIcon="@Icons.Material.Filled.Download"
+                       Size="Size.Small"
+                       Variant="Variant.Outlined"
+                       OnClick="ExportCsv">
+                Export CSV
+            </MudButton>
+        </MudStack>
+
+        @if (!_report.Transactions.Any())
+        {
+            <MudPaper Class="pa-6" Elevation="1">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">No transactions found for the selected range and filters.</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudDataGrid T="ReportTransactionDto"
+                         Items="@_report.Transactions"
+                         Filterable="true"
+                         SortMode="SortMode.Multiple"
+                         Dense="true"
+                         Elevation="1">
+                <Columns>
+                    <PropertyColumn Property="x => x.Date" Title="Date" Format="MM/dd/yyyy" />
+                    <PropertyColumn Property="x => x.Name" Title="Name" />
+                    <PropertyColumn Property="x => x.CategoryName" Title="Category" />
+                    <TemplateColumn Title="Amount" SortBy="@(x => x.Amount)">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2"
+                                     Color="@(context.Item.IsExpense ? Color.Error : Color.Success)">
+                                @context.Item.Amount.ToString("C2")
+                            </MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Payment">
+                        <CellTemplate>
+                            <MudText Typo="Typo.caption">@(context.Item.PaymentMethod?.ToString() ?? "—")</MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.CardName" Title="Card" />
+                    <PropertyColumn Property="x => x.AccountName" Title="Account" />
+                    <PropertyColumn Property="x => x.BankName" Title="Bank" />
+                    <PropertyColumn Property="x => x.Description" Title="Notes" />
+                </Columns>
+            </MudDataGrid>
+        }
+    }
+
+</MudContainer>
+
+@code {
+    private DateOnly _fromDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+    private DateOnly _toDate = DateOnly.FromDateTime(DateTime.Today);
+    private IReadOnlyCollection<string> _selectedCategories = new HashSet<string>();
+
+    private List<CategoryDto> _allCategories = new();
+    private DateRangeReportDto? _report;
+    private bool _loading;
+
+    private DateTime? FromDateTime => _fromDate.ToDateTime(TimeOnly.MinValue);
+    private DateTime? ToDateTime => _toDate.ToDateTime(TimeOnly.MinValue);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await CategoryService.GetAllAsync();
+        if (result.Success && result.Data is not null)
+            _allCategories = result.Data
+                .Where(c => c.Type != CategoryTypeEnum.Transfer)
+                .OrderBy(c => c.Name)
+                .ToList();
+    }
+
+    private async Task LoadReport()
+    {
+        if (_fromDate > _toDate)
+        {
+            Snackbar.Add("\"From\" date must be before \"To\" date.", Severity.Warning);
+            return;
+        }
+
+        _loading = true;
+        _report = null;
+        StateHasChanged();
+
+        var filter = new DateRangeReportFilterDto
+        {
+            From = _fromDate,
+            To = _toDate,
+            CategoryNames = _selectedCategories.ToList()
+        };
+
+        var result = await ReportService.GetRangeReportAsync(filter);
+        if (result.Success)
+            _report = result.Data;
+        else
+            Snackbar.Add(result.Message, Severity.Error);
+
+        _loading = false;
+    }
+
+    private async Task ExportCsv()
+    {
+        if (_report is null) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Date,Name,Merchant,Category,Amount,CardName,PaymentMethod,Account,Bank,Notes");
+        foreach (var t in _report.Transactions)
+        {
+            sb.AppendLine($"{t.Date:yyyy-MM-dd},{Esc(t.Name)},{Esc(t.Merchant)},{Esc(t.CategoryName)},{t.Amount},{Esc(t.CardName)},{t.PaymentMethod?.ToString() ?? string.Empty},{Esc(t.AccountName)},{Esc(t.BankName ?? string.Empty)},{Esc(t.Description ?? string.Empty)}");
+        }
+
+        var filename = $"report_range_{_fromDate:yyyy-MM-dd}_{_toDate:yyyy-MM-dd}.csv";
+        await JS.InvokeVoidAsync("downloadTextFile", filename, sb.ToString());
+    }
+
+    private static string Esc(string s) => "\"" + s.Replace("\"", "\"\"") + "\"";
+}

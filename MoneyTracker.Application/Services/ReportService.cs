@@ -106,6 +106,53 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<DateRangeReportDto>> GetRangeReportAsync(DateRangeReportFilterDto filter)
+        {
+            try
+            {
+                var (fromUtc, toUtc) = GetDateRangeBoundariesUtc(filter.From, filter.To);
+
+                var transactions = await _transactionRepository.GetFilteredAsync(
+                    fromUtc, toUtc, accountIds: new List<int>(), transactionTypeIds: new List<int>());
+
+                var filtered = transactions
+                    .Where(t => t.TransferPairId == null && t.Category?.Type != CategoryTypeEnum.Transfer)
+                    .ToList();
+
+                if (filter.CategoryNames.Count > 0)
+                    filtered = filtered
+                        .Where(t => filter.CategoryNames.Contains(t.Category?.Name ?? string.Empty))
+                        .ToList();
+
+                var expenseTransactions = filtered
+                    .Where(t => t.Category?.Type == CategoryTypeEnum.Expense)
+                    .ToList();
+
+                var incomeTransactions = filtered
+                    .Where(t => t.Category?.Type == CategoryTypeEnum.Income)
+                    .ToList();
+
+                var report = new DateRangeReportDto
+                {
+                    From = filter.From,
+                    To = filter.To,
+                    Summary = BuildSummary(expenseTransactions, incomeTransactions),
+                    Transactions = filtered
+                        .Select(t => t.MapToReportDto(_timeZoneService))
+                        .OrderByDescending(t => t.Date)
+                        .ToList(),
+                    CategorySummary = BuildCategorySummary(expenseTransactions)
+                };
+
+                return OperationResult<DateRangeReportDto>.Ok(report, OperationMessages.DataRetrieved);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating range report for {From} – {To}", filter.From, filter.To);
+                return OperationResult<DateRangeReportDto>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
         public async Task<OperationResult<string>> GetAiAnalysisAsync(MonthlyReportDto report)
         {
             var reportJson = JsonSerializer.Serialize(report, new JsonSerializerOptions
@@ -206,6 +253,13 @@ namespace MoneyTracker.Application.Services
         {
             var startLocal = new DateTime(year, month, 1);
             var endLocal = new DateTime(year, month, DateTime.DaysInMonth(year, month), 23, 59, 59);
+            return (_timeZoneService.ConvertToUtc(startLocal), _timeZoneService.ConvertToUtc(endLocal));
+        }
+
+        private (DateTime fromUtc, DateTime toUtc) GetDateRangeBoundariesUtc(DateOnly from, DateOnly to)
+        {
+            var startLocal = from.ToDateTime(TimeOnly.MinValue);
+            var endLocal = to.ToDateTime(new TimeOnly(23, 59, 59));
             return (_timeZoneService.ConvertToUtc(startLocal), _timeZoneService.ConvertToUtc(endLocal));
         }
 
