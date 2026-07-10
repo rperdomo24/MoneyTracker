@@ -27,6 +27,12 @@
 
             public static string Categories(string? userKey)
                 => $"{Prefix}:{NormalizeUserKey(userKey)}:categories";
+
+            public static string MonthlyReport(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:reports:monthly";
+
+            public static string RangeReport(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:reports:range";
         }
     }
 }

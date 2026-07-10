@@ -4,9 +4,11 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Services.Filters.Interface
 @using System.Text
 @inject IReportService ReportService
 @inject ICategoryService CategoryService
+@inject IRangeReportStateService ReportState
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -171,7 +173,7 @@
                                     ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
                                     : 0m;
                                 <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
-                                    @onclick="() => ToggleTableFilter(cat.CategoryName)">
+                                    @onclick="async () => await ToggleTableFilter(cat.CategoryName)">
                                     <td>
                                         @if (isActive)
                                         {
@@ -200,7 +202,7 @@
                 {
                     var catName = cat;
                     <MudChip T="string" Color="Color.Primary" Size="Size.Small"
-                             OnClose="@(_ => ToggleTableFilter(catName))">
+                             OnClose="@(async _ => await ToggleTableFilter(catName))">
                         @catName
                     </MudChip>
                 }
@@ -283,15 +285,25 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var result = await CategoryService.GetAllAsync();
-        if (result.Success && result.Data is not null)
+        var catResult = await CategoryService.GetAllAsync();
+        if (catResult.Success && catResult.Data is not null)
         {
-            _allCategories = result.Data
+            _allCategories = catResult.Data
                 .Where(c => c.Type != CategoryTypeEnum.Transfer)
                 .OrderBy(c => c.Name)
                 .ToList();
             _expenseCategories = _allCategories.Where(c => c.Type == CategoryTypeEnum.Expense).ToList();
             _incomeCategories = _allCategories.Where(c => c.Type == CategoryTypeEnum.Income).ToList();
+        }
+
+        var saved = await ReportState.GetAsync();
+        if (saved is not null)
+        {
+            _fromDate = saved.From;
+            _toDate = saved.To;
+            _selectedCategories = saved.PreFilterCategories.ToHashSet();
+            _tableFilter = saved.TableFilter.ToHashSet();
+            await LoadReport();
         }
     }
 
@@ -305,7 +317,6 @@
 
         _loading = true;
         _report = null;
-        _tableFilter = new();
         StateHasChanged();
 
         var filter = new DateRangeReportFilterDto
@@ -317,19 +328,33 @@
 
         var result = await ReportService.GetRangeReportAsync(filter);
         if (result.Success)
+        {
             _report = result.Data;
+            await SaveState();
+        }
         else
+        {
             Snackbar.Add(result.Message, Severity.Error);
+        }
 
         _loading = false;
     }
 
-    private void ToggleTableFilter(string categoryName)
+    private Task SaveState() => ReportState.SaveAsync(new RangeReportStateDto
+    {
+        From = _fromDate,
+        To = _toDate,
+        PreFilterCategories = _selectedCategories.ToList(),
+        TableFilter = _tableFilter.ToList()
+    });
+
+    private async Task ToggleTableFilter(string categoryName)
     {
         if (_tableFilter.Contains(categoryName))
             _tableFilter.Remove(categoryName);
         else
             _tableFilter.Add(categoryName);
+        await SaveState();
     }
 
     private async Task ExportCsv()

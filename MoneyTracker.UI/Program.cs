@@ -143,6 +143,8 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IBudgetFilterStateService, BudgetFilterStateService>();
             builder.Services.AddScoped<IDashboardFilterStateService, DashboardFilterStateService>();
             builder.Services.AddScoped<ICategoryFilterStateService, CategoryFilterStateService>();
+            builder.Services.AddScoped<IMonthlyReportStateService, MonthlyReportStateService>();
+            builder.Services.AddScoped<IRangeReportStateService, RangeReportStateService>();
             builder.Services.AddScoped<IAccountsPanelStateService, AccountsPanelStateService>();
             builder.Services.AddSingleton<IBrandingService, BrandingService>();
 

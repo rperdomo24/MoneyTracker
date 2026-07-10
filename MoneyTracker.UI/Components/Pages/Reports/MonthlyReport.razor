@@ -2,8 +2,10 @@
 @using MoneyTracker.Application.DTOs.Reports
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Services.Filters.Interface
 @using System.Text
 @inject IReportService ReportService
+@inject IMonthlyReportStateService ReportState
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
@@ -124,7 +126,7 @@
                                         ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
                                         : 0m;
                                     <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
-                                        @onclick="() => ToggleCategoryFilter(cat.CategoryName)">
+                                        @onclick="() => ToggleCategoryFilter(cat.CategoryName)" @onclick:stopPropagation="true">
                                         <td>
                                             @if (isActive)
                                             {
@@ -171,7 +173,7 @@
                                     var isActive = _activeCardFilter == card.CardName;
                                     var topCat = GetTopCategoryForCard(card.CardName);
                                     <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
-                                        @onclick="() => SetCardFilter(card.CardName)">
+                                        @onclick="async () => await SetCardFilter(card.CardName)">
                                         <td>
                                             @if (isActive)
                                             {
@@ -267,7 +269,7 @@
                 @if (_selectedCategories.Count == 1)
                 {
                     <MudChip T="string" Color="Color.Primary" Size="Size.Small"
-                             OnClose="@(_ => ClearCategoryFilters())">
+                             OnClose="@(async _ => await ClearCategoryFilters())">
                         @_selectedCategories.First()
                     </MudChip>
                 }
@@ -277,7 +279,7 @@
                     {
                         var catName = cat;
                         <MudChip T="string" Color="Color.Primary" Size="Size.Small"
-                                 OnClose="@(_ => ToggleCategoryFilter(catName))">
+                                 OnClose="@(async _ => await ToggleCategoryFilter(catName))">
                             @catName
                         </MudChip>
                     }
@@ -285,7 +287,7 @@
                 @if (_activeCardFilter is not null)
                 {
                     <MudChip T="string" Color="Color.Secondary" Size="Size.Small"
-                             OnClose="@(_ => ClearCardFilter())">
+                             OnClose="@(async _ => await ClearCardFilter())">
                         @_activeCardFilter
                     </MudChip>
                 }
@@ -379,14 +381,22 @@
         }
     }
 
-    protected override async Task OnInitializedAsync() => await LoadReport();
+    protected override async Task OnInitializedAsync()
+    {
+        var saved = await ReportState.GetAsync();
+        if (saved is not null)
+        {
+            _filter = new MonthlyReportFilterDto { Year = saved.Year, Month = saved.Month };
+            _selectedCategories = saved.SelectedCategories.ToHashSet();
+            _activeCardFilter = saved.ActiveCardFilter;
+        }
+        await LoadReport();
+    }
 
     private async Task LoadReport()
     {
         _loading = true;
         _report = null;
-        _selectedCategories = new();
-        _activeCardFilter = null;
         StateHasChanged();
 
         var result = await ReportService.GetMonthlyReportAsync(_filter);
@@ -397,6 +407,14 @@
 
         _loading = false;
     }
+
+    private Task SaveState() => ReportState.SaveAsync(new MonthlyReportStateDto
+    {
+        Year = _filter.Year,
+        Month = _filter.Month,
+        SelectedCategories = _selectedCategories.ToList(),
+        ActiveCardFilter = _activeCardFilter
+    });
 
     private async Task RequestAiAnalysis()
     {
@@ -417,6 +435,9 @@
     {
         var d = new DateTime(_filter.Year, _filter.Month, 1).AddMonths(-1);
         _filter = new MonthlyReportFilterDto { Year = d.Year, Month = d.Month };
+        _selectedCategories = new();
+        _activeCardFilter = null;
+        await SaveState();
         await LoadReport();
     }
 
@@ -424,24 +445,38 @@
     {
         var d = new DateTime(_filter.Year, _filter.Month, 1).AddMonths(1);
         _filter = new MonthlyReportFilterDto { Year = d.Year, Month = d.Month };
+        _selectedCategories = new();
+        _activeCardFilter = null;
+        await SaveState();
         await LoadReport();
     }
 
-    private void ToggleCategoryFilter(string categoryName)
+    private async Task ToggleCategoryFilter(string categoryName)
     {
         if (_selectedCategories.Contains(categoryName))
             _selectedCategories.Remove(categoryName);
         else
             _selectedCategories.Add(categoryName);
+        await SaveState();
     }
 
-    private void SetCardFilter(string cardName)
+    private async Task SetCardFilter(string cardName)
     {
         _activeCardFilter = _activeCardFilter == cardName ? null : cardName;
+        await SaveState();
     }
 
-    private void ClearCategoryFilters() => _selectedCategories = new();
-    private void ClearCardFilter() => _activeCardFilter = null;
+    private async Task ClearCategoryFilters()
+    {
+        _selectedCategories = new();
+        await SaveState();
+    }
+
+    private async Task ClearCardFilter()
+    {
+        _activeCardFilter = null;
+        await SaveState();
+    }
 
     private string? GetTopCategoryForCard(string cardName) =>
         _report?.Transactions
