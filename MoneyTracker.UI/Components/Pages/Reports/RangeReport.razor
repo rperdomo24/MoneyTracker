@@ -37,15 +37,48 @@
             </MudItem>
             <MudItem xs="12" sm="12" md="4">
                 <MudSelect T="string"
-                           Label="Categories (optional)"
+                           Label="Pre-filter by category (optional)"
                            MultiSelection="true"
                            @bind-SelectedValues="_selectedCategories"
                            Variant="Variant.Outlined"
                            Clearable="true"
-                           AdornmentIcon="@Icons.Material.Filled.Category">
-                    @foreach (var cat in _allCategories)
+                           AdornmentIcon="@Icons.Material.Filled.FilterAlt"
+                           HelperText="Leave empty to load all categories">
+                    @if (_expenseCategories.Any())
                     {
-                        <MudSelectItem T="string" Value="@cat.Name">@cat.Name</MudSelectItem>
+                        <MudListSubheader>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Error" />
+                                <MudText Typo="Typo.caption" Color="Color.Error">Expenses</MudText>
+                            </MudStack>
+                        </MudListSubheader>
+                        @foreach (var cat in _expenseCategories)
+                        {
+                            <MudSelectItem T="string" Value="@cat.Name">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Error" Style="font-size:14px;" />
+                                    <span>@cat.Name</span>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
+                    }
+                    @if (_incomeCategories.Any())
+                    {
+                        <MudListSubheader>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Success" />
+                                <MudText Typo="Typo.caption" Color="Color.Success">Income</MudText>
+                            </MudStack>
+                        </MudListSubheader>
+                        @foreach (var cat in _incomeCategories)
+                        {
+                            <MudSelectItem T="string" Value="@cat.Name">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Success" Style="font-size:14px;" />
+                                    <span>@cat.Name</span>
+                                </MudStack>
+                            </MudSelectItem>
+                        }
                     }
                 </MudSelect>
             </MudItem>
@@ -118,8 +151,10 @@
         {
             <MudPaper Elevation="1" Class="mb-6">
                 <div class="pa-4">
-                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold mb-3">By Category</MudText>
-                    <MudSimpleTable Hover="false" Dense="true">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                        Click rows to filter the transactions table below. Multiple selections allowed.
+                    </MudText>
+                    <MudSimpleTable Hover="true" Dense="true">
                         <thead>
                             <tr>
                                 <th>Category</th>
@@ -131,11 +166,20 @@
                         <tbody>
                             @foreach (var cat in _report.CategorySummary)
                             {
+                                var isActive = _tableFilter.Contains(cat.CategoryName);
                                 var pct = _report.Summary.TotalExpenses > 0
                                     ? cat.TotalSpent / _report.Summary.TotalExpenses * 100
                                     : 0m;
-                                <tr>
-                                    <td>@cat.CategoryName</td>
+                                <tr style="cursor:pointer; @(isActive ? "background: var(--mud-palette-primary-hover);" : "")"
+                                    @onclick="() => ToggleTableFilter(cat.CategoryName)">
+                                    <td>
+                                        @if (isActive)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Size="Size.Small"
+                                                     Color="Color.Primary" Class="mr-1" Style="vertical-align:middle;" />
+                                        }
+                                        @cat.CategoryName
+                                    </td>
                                     <td>@cat.TotalSpent.ToString("C2")</td>
                                     <td>@cat.TransactionCount</td>
                                     <td>@pct.ToString("F1")%</td>
@@ -148,7 +192,19 @@
         }
 
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
-            <MudText Typo="Typo.h6" Class="font-weight-bold">All Transactions</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap:wrap; gap:6px;">
+                <MudText Typo="Typo.h6" Class="font-weight-bold">
+                    @(_tableFilter.Count == 0 ? "All Transactions" : _tableFilter.Count == 1 ? $"Transactions — {_tableFilter.First()}" : $"Transactions — {_tableFilter.Count} Categories")
+                </MudText>
+                @foreach (var cat in _tableFilter.ToList())
+                {
+                    var catName = cat;
+                    <MudChip T="string" Color="Color.Primary" Size="Size.Small"
+                             OnClose="@(_ => ToggleTableFilter(catName))">
+                        @catName
+                    </MudChip>
+                }
+            </MudStack>
             <MudButton StartIcon="@Icons.Material.Filled.Download"
                        Size="Size.Small"
                        Variant="Variant.Outlined"
@@ -157,7 +213,7 @@
             </MudButton>
         </MudStack>
 
-        @if (!_report.Transactions.Any())
+        @if (!FilteredTransactions.Any())
         {
             <MudPaper Class="pa-6" Elevation="1">
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
@@ -169,7 +225,7 @@
         else
         {
             <MudDataGrid T="ReportTransactionDto"
-                         Items="@_report.Transactions"
+                         Items="@FilteredTransactions"
                          Filterable="true"
                          SortMode="SortMode.Multiple"
                          Dense="true"
@@ -206,22 +262,37 @@
     private DateOnly _fromDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
     private DateOnly _toDate = DateOnly.FromDateTime(DateTime.Today);
     private IReadOnlyCollection<string> _selectedCategories = new HashSet<string>();
+    private HashSet<string> _tableFilter = new();
 
     private List<CategoryDto> _allCategories = new();
+    private List<CategoryDto> _expenseCategories = new();
+    private List<CategoryDto> _incomeCategories = new();
+
     private DateRangeReportDto? _report;
     private bool _loading;
 
     private DateTime? FromDateTime => _fromDate.ToDateTime(TimeOnly.MinValue);
     private DateTime? ToDateTime => _toDate.ToDateTime(TimeOnly.MinValue);
 
+    private IEnumerable<ReportTransactionDto> FilteredTransactions =>
+        _report is null
+            ? []
+            : _tableFilter.Count == 0
+                ? _report.Transactions
+                : _report.Transactions.Where(t => _tableFilter.Contains(t.CategoryName));
+
     protected override async Task OnInitializedAsync()
     {
         var result = await CategoryService.GetAllAsync();
         if (result.Success && result.Data is not null)
+        {
             _allCategories = result.Data
                 .Where(c => c.Type != CategoryTypeEnum.Transfer)
                 .OrderBy(c => c.Name)
                 .ToList();
+            _expenseCategories = _allCategories.Where(c => c.Type == CategoryTypeEnum.Expense).ToList();
+            _incomeCategories = _allCategories.Where(c => c.Type == CategoryTypeEnum.Income).ToList();
+        }
     }
 
     private async Task LoadReport()
@@ -234,6 +305,7 @@
 
         _loading = true;
         _report = null;
+        _tableFilter = new();
         StateHasChanged();
 
         var filter = new DateRangeReportFilterDto
@@ -252,13 +324,21 @@
         _loading = false;
     }
 
+    private void ToggleTableFilter(string categoryName)
+    {
+        if (_tableFilter.Contains(categoryName))
+            _tableFilter.Remove(categoryName);
+        else
+            _tableFilter.Add(categoryName);
+    }
+
     private async Task ExportCsv()
     {
         if (_report is null) return;
 
         var sb = new StringBuilder();
         sb.AppendLine("Date,Name,Merchant,Category,Amount,CardName,PaymentMethod,Account,Bank,Notes");
-        foreach (var t in _report.Transactions)
+        foreach (var t in FilteredTransactions)
         {
             sb.AppendLine($"{t.Date:yyyy-MM-dd},{Esc(t.Name)},{Esc(t.Merchant)},{Esc(t.CategoryName)},{t.Amount},{Esc(t.CardName)},{t.PaymentMethod?.ToString() ?? string.Empty},{Esc(t.AccountName)},{Esc(t.BankName ?? string.Empty)},{Esc(t.Description ?? string.Empty)}");
         }
