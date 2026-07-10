@@ -91,6 +91,7 @@ namespace MoneyTracker.Application.Services
                         .OrderByDescending(t => t.Date)
                         .ToList(),
                     CategorySummary = BuildCategorySummary(expenseTransactions),
+                    IncomeCategorySummary = BuildIncomeSummary(incomeTransactions),
                     CardSummary = BuildCardSummary(expenseTransactions, activeBenefits),
                     BenefitRules = activeBenefits.Select(b => b.MapToDto()).ToList(),
                     Recommendations = BuildRecommendations(expenseTransactions, activeBenefits),
@@ -141,7 +142,8 @@ namespace MoneyTracker.Application.Services
                         .Select(t => t.MapToReportDto(_timeZoneService))
                         .OrderByDescending(t => t.Date)
                         .ToList(),
-                    CategorySummary = BuildCategorySummary(expenseTransactions)
+                    CategorySummary = BuildCategorySummary(expenseTransactions),
+                    IncomeCategorySummary = BuildIncomeSummary(incomeTransactions)
                 };
 
                 return OperationResult<DateRangeReportDto>.Ok(report, OperationMessages.DataRetrieved);
@@ -296,7 +298,25 @@ namespace MoneyTracker.Application.Services
                 {
                     CategoryName = g.Key,
                     TotalSpent = g.Sum(t => Math.Abs(t.Amount)),
-                    TransactionCount = g.Count()
+                    TransactionCount = g.Count(),
+                    Icon = Enum.TryParse<CategoryIcon>(g.First().Category?.Icon, out var parsedIcon) ? parsedIcon : default,
+                    Color = g.First().Category?.Color
+                })
+                .OrderByDescending(c => c.TotalSpent)
+                .ToList();
+        }
+
+        private static List<ReportCategorySummaryDto> BuildIncomeSummary(List<Transaction> incomes)
+        {
+            return incomes
+                .GroupBy(t => t.Category?.Name ?? "Uncategorized")
+                .Select(g => new ReportCategorySummaryDto
+                {
+                    CategoryName = g.Key,
+                    TotalSpent = g.Sum(t => Math.Abs(t.Amount)),
+                    TransactionCount = g.Count(),
+                    Icon = Enum.TryParse<CategoryIcon>(g.First().Category?.Icon, out var parsedIcon) ? parsedIcon : default,
+                    Color = g.First().Category?.Color
                 })
                 .OrderByDescending(c => c.TotalSpent)
                 .ToList();
