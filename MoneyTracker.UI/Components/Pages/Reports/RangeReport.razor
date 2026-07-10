@@ -4,6 +4,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
 @using System.Text
 @inject IReportService ReportService
@@ -49,16 +50,14 @@
                     @if (_expenseCategories.Any())
                     {
                         <MudListSubheader>
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Error" />
-                                <MudText Typo="Typo.caption" Color="Color.Error">Expenses</MudText>
-                            </MudStack>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Expenses</MudText>
                         </MudListSubheader>
                         @foreach (var cat in _expenseCategories)
                         {
                             <MudSelectItem T="string" Value="@cat.Name">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                    <MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Error" Style="font-size:14px;" />
+                                    <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small"
+                                             Style="@($"font-size:16px; color:{cat.Color ?? "inherit"};")" />
                                     <span>@cat.Name</span>
                                 </MudStack>
                             </MudSelectItem>
@@ -67,16 +66,14 @@
                     @if (_incomeCategories.Any())
                     {
                         <MudListSubheader>
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Success" />
-                                <MudText Typo="Typo.caption" Color="Color.Success">Income</MudText>
-                            </MudStack>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Income</MudText>
                         </MudListSubheader>
                         @foreach (var cat in _incomeCategories)
                         {
                             <MudSelectItem T="string" Value="@cat.Name">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                    <MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Success" Style="font-size:14px;" />
+                                    <MudIcon Icon="@cat.Icon.ToIcon()" Size="Size.Small"
+                                             Style="@($"font-size:16px; color:{cat.Color ?? "inherit"};")" />
                                     <span>@cat.Name</span>
                                 </MudStack>
                             </MudSelectItem>
