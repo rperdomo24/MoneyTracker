@@ -47,14 +47,14 @@
         </MudStack>
     </MudHidden>
 
-    <!-- Summary chips -->
-    @if (_loans.Any())
+    <!-- Summary chips (always from full dataset) -->
+    @if (_allLoans.Any())
     {
-        var totalLent = _loans.Sum(l => l.PrincipalAmount);
-        var totalOutstanding = _loans.Where(l => l.Status == LoanStatus.Active).Sum(l => l.Balance);
-        var totalOverdue = _loans.Count(l => l.IsOverdue);
+        var totalLent = _allLoans.Sum(l => l.PrincipalAmount);
+        var totalOutstanding = _allLoans.Where(l => l.Status == LoanStatus.Active).Sum(l => l.Balance);
+        var totalOverdue = _allLoans.Count(l => l.IsOverdue);
 
-        <MudStack Row="true" Spacing="2" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudStack Row="true" Spacing="2" Class="mb-3" Wrap="Wrap.Wrap">
             <MudChip T="string" Color="Color.Default" Icon="@Icons.Material.Filled.AccountBalance">
                 Lent: @CurrencyHelper.FormatCurrency(totalLent)
             </MudChip>
@@ -70,6 +70,29 @@
         </MudStack>
     }
 
+    <!-- Status filter -->
+    @if (_allLoans.Any())
+    {
+        <MudStack Row="true" Spacing="1" Class="mb-4" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            @foreach (var opt in _loanFilterOptions)
+            {
+                var isActive = _loanStatusFilter == opt.Value;
+                <MudChip T="string"
+                         Color="@(isActive ? Color.Primary : Color.Default)"
+                         Variant="@(isActive ? Variant.Filled : Variant.Outlined)"
+                         Size="Size.Small"
+                         OnClick="@(() => SetLoanFilter(opt.Value))"
+                         Icon="@opt.Icon">
+                    @opt.Label
+                    @if (opt.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Inline="true" Style="opacity:0.7;"> (@opt.Count)</MudText>
+                    }
+                </MudChip>
+            }
+        </MudStack>
+    }
+
     @if (_loading)
     {
         <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
@@ -77,7 +100,7 @@
             <MudText Class="mt-4">Loading loans...</MudText>
         </MudStack>
     }
-    else if (!_loans.Any())
+    else if (!_allLoans.Any())
     {
         <MudPaper Class="pa-6 pa-sm-8" Elevation="1">
             <MudStack AlignItems="AlignItems.Center" Spacing="3">
@@ -98,10 +121,20 @@
             </MudStack>
         </MudPaper>
     }
+    else if (!_displayedLoans.Any())
+    {
+        <MudPaper Class="pa-6" Elevation="1">
+            <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.FilterListOff" Size="Size.Large" Style="font-size: 3rem; opacity: 0.3;" />
+                <MudText Typo="Typo.body1">No loans match the current filter.</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SetLoanFilter(null))">Show All</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
     else
     {
         <MudGrid Spacing="3">
-            @foreach (var loan in _loans)
+            @foreach (var loan in _displayedLoans)
             {
                 var borderColor = loan.IsOverdue ? "var(--mud-palette-error)"
                     : loan.Status == LoanStatus.PaidOff ? "var(--mud-palette-success)"
@@ -277,7 +310,9 @@
 </MudContainer>
 
 @code {
-    private List<LoanDto> _loans = new();
+    private List<LoanDto> _allLoans = new();
+    private List<LoanDto> _displayedLoans = new();
+    private LoanStatus? _loanStatusFilter = LoanStatus.Active;
     private bool _loading = true;
 
     private readonly DialogOptions _dialogOptions = new()
@@ -287,6 +322,29 @@
         MaxWidth = MaxWidth.Small,
         CloseOnEscapeKey = true
     };
+
+    private record LoanFilterOption(string Label, LoanStatus? Value, string Icon, int Count);
+
+    private IEnumerable<LoanFilterOption> _loanFilterOptions => new[]
+    {
+        new LoanFilterOption("Active",   LoanStatus.Active,   Icons.Material.Filled.PendingActions, _allLoans.Count(l => l.Status == LoanStatus.Active)),
+        new LoanFilterOption("Paid Off", LoanStatus.PaidOff,  Icons.Material.Filled.CheckCircle,   _allLoans.Count(l => l.Status == LoanStatus.PaidOff)),
+        new LoanFilterOption("Forgiven", LoanStatus.Forgiven, Icons.Material.Filled.Handshake,     _allLoans.Count(l => l.Status == LoanStatus.Forgiven)),
+        new LoanFilterOption("All",      null,                Icons.Material.Filled.List,           _allLoans.Count),
+    };
+
+    private void SetLoanFilter(LoanStatus? status)
+    {
+        _loanStatusFilter = status;
+        ApplyLoanFilter();
+    }
+
+    private void ApplyLoanFilter()
+    {
+        _displayedLoans = _loanStatusFilter.HasValue
+            ? _allLoans.Where(l => l.Status == _loanStatusFilter.Value).ToList()
+            : _allLoans;
+    }
 
     protected override async Task OnInitializedAsync()
         => await LoadLoans();
@@ -300,20 +358,21 @@
         {
             var result = await LoanService.GetAllAsync();
             if (result.Success && result.Data is not null)
-                _loans = result.Data;
+                _allLoans = result.Data;
             else
             {
                 Snackbar.Add(result.Message ?? "Failed to load loans.", Severity.Error);
-                _loans.Clear();
+                _allLoans.Clear();
             }
         }
         catch
         {
             Snackbar.Add("Error loading loans.", Severity.Error);
-            _loans.Clear();
+            _allLoans.Clear();
         }
         finally
         {
+            ApplyLoanFilter();
             _loading = false;
             StateHasChanged();
         }
@@ -409,7 +468,7 @@
     }
 
     private List<LoanDto> GetContactLoans(string contactName)
-        => _loans.Where(l => l.ContactName.Equals(contactName, StringComparison.OrdinalIgnoreCase)).ToList();
+        => _allLoans.Where(l => l.ContactName.Equals(contactName, StringComparison.OrdinalIgnoreCase)).ToList();
 
     private async Task PrintReport(string contactName)
     {

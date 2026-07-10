@@ -41,6 +41,40 @@
         </MudStack>
     </MudHidden>
 
+    <!-- Status filter -->
+    @if (_allGoals.Any())
+    {
+        <MudStack Row="true" Spacing="1" Class="mb-4" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudChip T="string"
+                     Color="@(_goalShowCompleted == false ? Color.Primary : Color.Default)"
+                     Variant="@(_goalShowCompleted == false ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     Icon="@Icons.Material.Filled.PendingActions"
+                     OnClick="@(() => SetGoalFilter(false))">
+                In Progress
+                <MudText Typo="Typo.caption" Inline="true" Style="opacity:0.7;"> (@_allGoals.Count(g => !g.IsCompleted))</MudText>
+            </MudChip>
+            <MudChip T="string"
+                     Color="@(_goalShowCompleted == true ? Color.Success : Color.Default)"
+                     Variant="@(_goalShowCompleted == true ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     Icon="@Icons.Material.Filled.CheckCircle"
+                     OnClick="@(() => SetGoalFilter(true))">
+                Completed
+                <MudText Typo="Typo.caption" Inline="true" Style="opacity:0.7;"> (@_allGoals.Count(g => g.IsCompleted))</MudText>
+            </MudChip>
+            <MudChip T="string"
+                     Color="@(_goalShowCompleted == null ? Color.Primary : Color.Default)"
+                     Variant="@(_goalShowCompleted == null ? Variant.Filled : Variant.Outlined)"
+                     Size="Size.Small"
+                     Icon="@Icons.Material.Filled.List"
+                     OnClick="@(() => SetGoalFilter(null))">
+                All
+                <MudText Typo="Typo.caption" Inline="true" Style="opacity:0.7;"> (@_allGoals.Count)</MudText>
+            </MudChip>
+        </MudStack>
+    }
+
     @if (_loading)
     {
         <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-10">
@@ -48,7 +82,7 @@
             <MudText Class="mt-4">Loading goals...</MudText>
         </MudStack>
     }
-    else if (!_goals.Any())
+    else if (!_allGoals.Any())
     {
         <MudPaper Class="pa-6 pa-sm-8" Elevation="1">
             <MudStack AlignItems="AlignItems.Center" Spacing="3">
@@ -70,10 +104,20 @@
             </MudStack>
         </MudPaper>
     }
+    else if (!_displayedGoals.Any())
+    {
+        <MudPaper Class="pa-6" Elevation="1">
+            <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.FilterListOff" Size="Size.Large" Style="font-size: 3rem; opacity: 0.3;" />
+                <MudText Typo="Typo.body1">No goals match the current filter.</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => SetGoalFilter(null))">Show All</MudButton>
+            </MudStack>
+        </MudPaper>
+    }
     else
     {
         <MudGrid Spacing="3">
-            @foreach (var goal in _goals)
+            @foreach (var goal in _displayedGoals)
             {
                 var daysRemaining = goal.TargetDate.HasValue
                     ? (goal.TargetDate.Value.Date - DateTime.Today).Days
@@ -223,7 +267,9 @@
 </MudContainer>
 
 @code {
-    private List<SavingsGoalDto> _goals = new();
+    private List<SavingsGoalDto> _allGoals = new();
+    private List<SavingsGoalDto> _displayedGoals = new();
+    private bool? _goalShowCompleted = false;
     private bool _loading = true;
 
     private readonly DialogOptions _dialogOptions = new()
@@ -233,6 +279,19 @@
         MaxWidth = MaxWidth.Small,
         CloseOnEscapeKey = true
     };
+
+    private void SetGoalFilter(bool? showCompleted)
+    {
+        _goalShowCompleted = showCompleted;
+        ApplyGoalFilter();
+    }
+
+    private void ApplyGoalFilter()
+    {
+        _displayedGoals = _goalShowCompleted.HasValue
+            ? _allGoals.Where(g => g.IsCompleted == _goalShowCompleted.Value).ToList()
+            : _allGoals;
+    }
 
     protected override async Task OnInitializedAsync()
         => await LoadGoals();
@@ -246,20 +305,21 @@
         {
             var result = await GoalService.GetAllAsync();
             if (result.Success && result.Data is not null)
-                _goals = result.Data;
+                _allGoals = result.Data;
             else
             {
                 Snackbar.Add(result.Message ?? "Failed to load goals.", Severity.Error);
-                _goals.Clear();
+                _allGoals.Clear();
             }
         }
         catch
         {
             Snackbar.Add("Error loading goals.", Severity.Error);
-            _goals.Clear();
+            _allGoals.Clear();
         }
         finally
         {
+            ApplyGoalFilter();
             _loading = false;
             StateHasChanged();
         }
