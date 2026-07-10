@@ -22,7 +22,8 @@ namespace MoneyTracker.Application.Mappers
                 CardDisplayName = entity.CardDisplayName,
                 IncludeInNetWorth = entity.IncludeInNetWorth,
                 CutDay = entity.CutDay,
-                PaymentDay = entity.PaymentDay
+                PaymentDay = entity.PaymentDay,
+                AnnualInterestRate = entity.AnnualInterestRate
             };
         }
 
@@ -42,7 +43,8 @@ namespace MoneyTracker.Application.Mappers
                 CardDisplayName = dto.CardDisplayName,
                 IncludeInNetWorth = dto.IncludeInNetWorth,
                 CutDay = dto.CutDay,
-                PaymentDay = dto.PaymentDay
+                PaymentDay = dto.PaymentDay,
+                AnnualInterestRate = dto.AnnualInterestRate
             };
         }
 
@@ -60,6 +62,7 @@ namespace MoneyTracker.Application.Mappers
             entity.IncludeInNetWorth = dto.IncludeInNetWorth;
             entity.CutDay = dto.CutDay;
             entity.PaymentDay = dto.PaymentDay;
+            entity.AnnualInterestRate = dto.AnnualInterestRate;
         }
     }
 }

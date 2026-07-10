@@ -40,5 +40,6 @@ namespace MoneyTracker.Domain.Entities
 
         public int? CutDay { get; set; }
         public int? PaymentDay { get; set; }
+        public decimal? AnnualInterestRate { get; set; }
     }
 }

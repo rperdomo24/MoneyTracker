@@ -228,6 +228,33 @@
                                                 </MudText>
                                             </MudStack>
                                         }
+
+                                        @if (account.Type == AccountType.Credit && (account.CutDay.HasValue || account.PaymentDay.HasValue || account.AnnualInterestRate.HasValue))
+                                        {
+                                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="flex-wrap:wrap; gap:4px;">
+                                                @if (account.CutDay.HasValue)
+                                                {
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                                        <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">Cut @account.CutDay</MudText>
+                                                    </MudStack>
+                                                }
+                                                @if (account.PaymentDay.HasValue)
+                                                {
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Payment" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">Due @account.PaymentDay</MudText>
+                                                    </MudStack>
+                                                }
+                                                @if (account.AnnualInterestRate.HasValue)
+                                                {
+                                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Percent" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
+                                                        <MudText Typo="Typo.caption" Style="opacity:0.65;">@($"{account.AnnualInterestRate:F1}")% APR</MudText>
+                                                    </MudStack>
+                                                }
+                                            </MudStack>
+                                        }
                                     </MudStack>
 
                                     <!-- Right -->
@@ -316,6 +343,33 @@
                                                     <MudText Typo="Typo.caption" Style="opacity:0.7; text-align:right;">
                                                         @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
                                                     </MudText>
+                                                </MudStack>
+                                            }
+
+                                            @if (account.Type == AccountType.Credit && (account.CutDay.HasValue || account.PaymentDay.HasValue || account.AnnualInterestRate.HasValue))
+                                            {
+                                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Style="flex-wrap:wrap; gap:4px;">
+                                                    @if (account.CutDay.HasValue)
+                                                    {
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                                            <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
+                                                            <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">Cut @account.CutDay</MudText>
+                                                        </MudStack>
+                                                    }
+                                                    @if (account.PaymentDay.HasValue)
+                                                    {
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Payment" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
+                                                            <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">Due @account.PaymentDay</MudText>
+                                                        </MudStack>
+                                                    }
+                                                    @if (account.AnnualInterestRate.HasValue)
+                                                    {
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Percent" Size="Size.Small" Style="font-size:12px; opacity:0.55;" />
+                                                            <MudText Typo="Typo.caption" Style="opacity:0.65; white-space:nowrap;">@($"{account.AnnualInterestRate:F1}")% APR</MudText>
+                                                        </MudStack>
+                                                    }
                                                 </MudStack>
                                             }
                                         </MudStack>

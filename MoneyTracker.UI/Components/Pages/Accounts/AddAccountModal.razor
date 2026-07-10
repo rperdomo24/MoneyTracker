@@ -116,6 +116,19 @@
                                          Placeholder="e.g. 5"
                                          HelperText="Day of month payment is due" />
                     </MudStack>
+
+                    <MudNumericField T="decimal?"
+                                     Label="Annual Interest Rate % (optional)"
+                                     @bind-Value="_account.AnnualInterestRate"
+                                     Variant="Variant.Outlined"
+                                     Min="0m" Max="200m"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                     Class="mb-4"
+                                     Adornment="Adornment.End"
+                                     AdornmentText="%"
+                                     Placeholder="e.g. 42.50"
+                                     HelperText="Annual interest rate charged when not paid in full" />
                 }
 
                 <!-- Bank & Card Details -->

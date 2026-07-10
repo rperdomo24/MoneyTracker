@@ -45,6 +45,12 @@ namespace MoneyTracker.Application.Validators.Accounts
             RuleFor(x => x.CardDisplayName)
                 .MaximumLength(150).WithMessage(string.Format(ValidationMessages.MaxLength, 150))
                 .When(x => !string.IsNullOrWhiteSpace(x.CardDisplayName));
+
+            RuleFor(x => x.AnnualInterestRate)
+                .GreaterThanOrEqualTo(0m)
+                .LessThanOrEqualTo(200m)
+                .WithMessage("Annual interest rate must be between 0% and 200%.")
+                .When(x => x.AnnualInterestRate.HasValue);
         }
 
         public Func<object, string, Task<IEnumerable<string>>> ValidateValue => async (model, propertyName) =>

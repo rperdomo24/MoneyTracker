@@ -35,6 +35,7 @@ namespace MoneyTracker.Application.DTOs
 
         public int? CutDay { get; set; }
         public int? PaymentDay { get; set; }
+        public decimal? AnnualInterestRate { get; set; }
 
         // View Model properties
         public decimal AvailableCredit => Type == AccountType.Credit
