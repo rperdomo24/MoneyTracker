@@ -207,6 +207,27 @@
             </MudButton>
         </MudStack>
 
+        <MudPaper Elevation="0" Class="mb-3 pa-3" Style="background: var(--mud-palette-background-grey);">
+            <MudStack Row="true" Spacing="4" Wrap="Wrap.Wrap">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Income (@_ft.IncomeCount txn)</MudText>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Success">@_ft.Income.ToString("C2")</MudText>
+                </MudStack>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Expenses (@_ft.ExpenseCount txn)</MudText>
+                    <MudText Typo="Typo.subtitle2" Color="Color.Error">@_ft.Expenses.ToString("C2")</MudText>
+                </MudStack>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Net</MudText>
+                    <MudText Typo="Typo.subtitle2" Color="@(_ft.Net >= 0 ? Color.Success : Color.Error)">@_ft.Net.ToString("C2")</MudText>
+                </MudStack>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Total rows</MudText>
+                    <MudText Typo="Typo.subtitle2">@_ft.Total</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+
         @if (!FilteredTransactions.Any())
         {
             <MudPaper Class="pa-6" Elevation="1">
@@ -274,6 +295,20 @@
             : _tableFilter.Count == 0
                 ? _report.Transactions
                 : _report.Transactions.Where(t => _tableFilter.Contains(t.CategoryName));
+
+    private (decimal Income, decimal Expenses, decimal Net, int IncomeCount, int ExpenseCount, int Total) _ft
+    {
+        get
+        {
+            var list = FilteredTransactions.ToList();
+            var income   = list.Where(t => !t.IsExpense).Sum(t => Math.Abs(t.Amount));
+            var expenses = list.Where(t =>  t.IsExpense).Sum(t => Math.Abs(t.Amount));
+            return (income, expenses, income - expenses,
+                    list.Count(t => !t.IsExpense),
+                    list.Count(t =>  t.IsExpense),
+                    list.Count);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
