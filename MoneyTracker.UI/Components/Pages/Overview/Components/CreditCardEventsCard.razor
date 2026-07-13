@@ -1,6 +1,8 @@
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Account
 @inject NavigationManager NavigationManager
+@inject ITimeZoneService TimeZoneService
 
 <MudCard Class="dashboard-card">
     <MudCardContent>
@@ -53,7 +55,7 @@
                                     @evt.AccountName
                                 </MudText>
                                 <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                    @(isCut ? "Statement closes" : "Payment due") · day @evt.Day
+                                    @(isCut ? "Statement closes" : "Payment due") · @evt.Date.ToString("MMM dd")
                                 </MudText>
                             </MudStack>
                             <MudChip T="string" Size="Size.Small" Color="@chipColor" Variant="@chipVariant"
@@ -77,15 +79,18 @@
 @code {
     [Parameter] public List<AccountDto>? Data { get; set; }
 
-    private record CreditEvent(string AccountName, string EventType, int Day, int DaysAway);
+    private record CreditEvent(string AccountName, string EventType, int Day, int DaysAway, DateTime Date);
 
     private List<CreditEvent> _events = new();
+
+    private DateTime LocalToday => TimeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
 
     protected override void OnParametersSet() => _events = BuildEvents();
 
     private List<CreditEvent> BuildEvents()
     {
         if (Data is null) return [];
+        var today = LocalToday;
         var result = new List<CreditEvent>();
 
         foreach (var account in Data.Where(a => a.Type == AccountType.Credit))
@@ -94,25 +99,27 @@
 
             if (account.CutDay.HasValue)
             {
-                var offset = GetDayOffset(account.CutDay.Value);
+                var offset = GetDayOffset(account.CutDay.Value, today);
                 if (offset >= -3 && offset <= 45)
-                    result.Add(new CreditEvent(displayName, "Cut", account.CutDay.Value, offset));
+                    result.Add(new CreditEvent(displayName, "Cut", account.CutDay.Value, offset, GetThisMonthDate(account.CutDay.Value, today)));
             }
             if (account.PaymentDay.HasValue)
             {
-                var offset = GetDayOffset(account.PaymentDay.Value);
+                var offset = GetDayOffset(account.PaymentDay.Value, today);
                 if (offset >= -3 && offset <= 45)
-                    result.Add(new CreditEvent(displayName, "Due", account.PaymentDay.Value, offset));
+                    result.Add(new CreditEvent(displayName, "Due", account.PaymentDay.Value, offset, GetThisMonthDate(account.PaymentDay.Value, today)));
             }
         }
 
-        return result.OrderBy(e => e.DaysAway).ToList();
+        return result.OrderBy(e => e.DaysAway * 2 + (e.EventType == "Due" ? 0 : 1)).ToList();
     }
 
-    private static int GetDayOffset(int day)
+    private static int GetDayOffset(int day, DateTime today)
     {
-        var today = DateTime.Today;
         var target = new DateTime(today.Year, today.Month, Math.Min(day, DateTime.DaysInMonth(today.Year, today.Month)));
         return (target - today).Days;
     }
+
+    private static DateTime GetThisMonthDate(int day, DateTime today) =>
+        new DateTime(today.Year, today.Month, Math.Min(day, DateTime.DaysInMonth(today.Year, today.Month)));
 }

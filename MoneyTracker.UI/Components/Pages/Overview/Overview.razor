@@ -170,26 +170,22 @@
                 <CategoryBreakdownCard Data="_categoryBreakdown" />
             </MudItem>
 
-            @* Secondary row: Recent transactions + Budget + Goals *@
-            <MudItem xs="12" md="4">
+            @* Secondary row: 4 cards *@
+            <MudItem xs="12" sm="6" md="3">
                 <RecentTransactionsCard Data="_recentTransactions" />
             </MudItem>
 
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <BudgetSummaryCard Data="_budgetSummary" />
             </MudItem>
 
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" sm="6" md="3">
                 <GoalsSummaryCard Data="_goals" />
             </MudItem>
 
-            @* Credit Card Events — always shown when user has credit cards *@
-            @if (_creditCards.Any(a => a.CutDay.HasValue || a.PaymentDay.HasValue))
-            {
-                <MudItem xs="12" md="4">
-                    <CreditCardEventsCard Data="_creditCards" />
-                </MudItem>
-            }
+            <MudItem xs="12" sm="6" md="3">
+                <CreditCardEventsCard Data="_creditCards" />
+            </MudItem>
         }
     </MudGrid>
 </MudContainer>
