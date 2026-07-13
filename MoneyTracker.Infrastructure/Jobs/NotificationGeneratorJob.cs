@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums;
+using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Enums.Loans;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
@@ -20,30 +21,35 @@ namespace MoneyTracker.Infrastructure.Jobs
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<NotificationGeneratorJob> _logger;
 
+        private readonly ITimeZoneService _timeZoneService;
+
         public NotificationGeneratorJob(
             IServiceScopeFactory scopeFactory,
             INotificationRepository notificationRepo,
             IEmailSenderService emailSender,
             UserManager<ApplicationUser> userManager,
+            ITimeZoneService timeZoneService,
             ILogger<NotificationGeneratorJob> logger)
         {
             _scopeFactory = scopeFactory;
             _notificationRepo = notificationRepo;
             _emailSender = emailSender;
             _userManager = userManager;
+            _timeZoneService = timeZoneService;
             _logger = logger;
         }
 
         [AutomaticRetry(Attempts = 2)]
         public async Task ExecuteAsync()
         {
-            var today = DateTime.UtcNow;
+            var today = _timeZoneService.GetLocalTimeInConfiguredTimeZone();
 
             await using var scope = _scopeFactory.CreateAsyncScope();
             var context = scope.ServiceProvider.GetRequiredService<Persistence.MoneyTrackerDbContext>();
 
             await CheckBudgetAlertsAsync(context, today);
             await CheckLoanRemindersAsync(context, today);
+            await CheckCreditCardAlertsAsync(context, today);
         }
 
         private async Task CheckBudgetAlertsAsync(Persistence.MoneyTrackerDbContext context, DateTime today)
@@ -178,6 +184,156 @@ namespace MoneyTracker.Infrastructure.Jobs
             {
                 _logger.LogError(ex, "Error in loan reminder check");
             }
+        }
+
+        private async Task CheckCreditCardAlertsAsync(MoneyTrackerDbContext context, DateTime today)
+        {
+            try
+            {
+                const int CutLeadDays = 7;
+                const int DueLeadDays = 5;
+
+                var accounts = await context.Accounts
+                    .IgnoreQueryFilters()
+                    .Where(a => !a.IsDeleted && a.Type == AccountType.Credit
+                             && (a.CutDay.HasValue || a.PaymentDay.HasValue))
+                    .ToListAsync();
+
+                foreach (var account in accounts)
+                {
+                    try
+                    {
+                        var user = await _userManager.Users
+                            .FirstOrDefaultAsync(u => u.TenantId == account.TenantId);
+
+                        if (account.CutDay.HasValue)
+                        {
+                            var cutDate = GetThisMonthOccurrence(today, account.CutDay.Value);
+                            var daysUntil = (cutDate.Date - today.Date).Days;
+                            if (daysUntil >= 0 && daysUntil <= CutLeadDays)
+                            {
+                                var key = $"credit-cut-{account.TenantId}-{account.Id}-{today.Year}-{today.Month:D2}";
+                                if (!await _notificationRepo.ExistsByDuplicateKeyAsync(key))
+                                {
+                                    var label = daysUntil == 0 ? "today" : $"in {daysUntil} day(s)";
+                                    await _notificationRepo.AddAsync(new AppNotification
+                                    {
+                                        TenantId = account.TenantId,
+                                        Title = $"Statement closes {label}: {account.Name}",
+                                        Message = $"Your statement for '{account.Name}' closes {label} (day {account.CutDay}, {cutDate:MMM dd}). Review your charges.",
+                                        Type = NotificationType.CreditCardCut,
+                                        Link = $"/accounts/{account.Id}",
+                                        DuplicateKey = key
+                                    });
+
+                                    if (user?.Email is not null)
+                                        await _emailSender.SendAsync(user.Email,
+                                            $"Statement closing {label}: {account.Name}",
+                                            BuildCreditCutEmail(account.Name, cutDate, daysUntil));
+                                }
+                            }
+                        }
+
+                        if (account.PaymentDay.HasValue && account.Balance < 0)
+                        {
+                            var dueDate = GetThisMonthOccurrence(today, account.PaymentDay.Value);
+                            var daysUntil = (dueDate.Date - today.Date).Days;
+                            if (daysUntil >= -3 && daysUntil <= DueLeadDays)
+                            {
+                                var key = $"credit-due-{account.TenantId}-{account.Id}-{today.Year}-{today.Month:D2}";
+                                if (!await _notificationRepo.ExistsByDuplicateKeyAsync(key))
+                                {
+                                    var label = daysUntil < 0 ? $"was due {Math.Abs(daysUntil)}d ago (OVERDUE)"
+                                              : daysUntil == 0 ? "is due today"
+                                              : $"is due in {daysUntil} day(s)";
+                                    await _notificationRepo.AddAsync(new AppNotification
+                                    {
+                                        TenantId = account.TenantId,
+                                        Title = $"Credit card payment {label}: {account.Name}",
+                                        Message = $"Payment of ${Math.Abs(account.Balance):N2} {label} for '{account.Name}' (day {account.PaymentDay}, {dueDate:MMM dd}).",
+                                        Type = NotificationType.CreditCardDue,
+                                        Link = $"/accounts/{account.Id}",
+                                        DuplicateKey = key
+                                    });
+
+                                    if (user?.Email is not null)
+                                        await _emailSender.SendAsync(user.Email,
+                                            $"Credit card payment {label}: {account.Name}",
+                                            BuildCreditDueEmail(account.Name, Math.Abs(account.Balance), dueDate, daysUntil));
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing credit card alert for account {Id}", account.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in credit card alert check");
+            }
+        }
+
+        private static DateTime GetThisMonthOccurrence(DateTime today, int day)
+        {
+            var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
+            return new DateTime(today.Year, today.Month, Math.Min(day, daysInMonth));
+        }
+
+        private static string BuildCreditCutEmail(string accountName, DateTime cutDate, int daysUntil) =>
+            $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:'Segoe UI',sans-serif;background:#f4f7f6;margin:0;padding:32px;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="background:#1976D2;padding:24px;text-align:center;">
+                  <h2 style="color:#fff;margin:0;">📋 Statement Closing Soon</h2>
+                </div>
+                <div style="padding:28px 32px;">
+                  <p style="font-size:16px;color:#2A364E;">Your statement for <strong>{accountName}</strong> closes {(daysUntil == 0 ? "today" : $"in {daysUntil} day(s)")}.</p>
+                  <div style="background:#F0F4FF;border-left:4px solid #1976D2;padding:16px;border-radius:4px;margin:16px 0;">
+                    <p style="margin:0;color:#1976D2;font-size:18px;font-weight:bold;">Closing date: {cutDate:MMMM dd, yyyy}</p>
+                    <p style="margin:4px 0 0;color:#666;">This will determine your minimum payment due.</p>
+                  </div>
+                  <a href="/accounts" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#2143B5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Review Account</a>
+                </div>
+                <div style="background:#f4f7f6;padding:16px;text-align:center;">
+                  <p style="margin:0;font-size:12px;color:#999;">MoneyTracker &mdash; Credit Card Alerts</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """;
+
+        private static string BuildCreditDueEmail(string accountName, decimal amount, DateTime dueDate, int daysUntil)
+        {
+            var urgencyColor = daysUntil < 0 ? "#E53935" : daysUntil <= 2 ? "#E53935" : "#FF9800";
+            var label = daysUntil < 0 ? $"OVERDUE by {Math.Abs(daysUntil)} day(s)" : daysUntil == 0 ? "due TODAY" : $"due in {daysUntil} day(s)";
+            return $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:'Segoe UI',sans-serif;background:#f4f7f6;margin:0;padding:32px;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="background:{urgencyColor};padding:24px;text-align:center;">
+                  <h2 style="color:#fff;margin:0;">💳 Credit Card Payment {label.ToUpper()}</h2>
+                </div>
+                <div style="padding:28px 32px;">
+                  <p style="font-size:16px;color:#2A364E;">Your payment for <strong>{accountName}</strong> is {label}.</p>
+                  <div style="background:#FFF3F3;border-left:4px solid {urgencyColor};padding:16px;border-radius:4px;margin:16px 0;">
+                    <p style="margin:0;color:{urgencyColor};font-size:24px;font-weight:bold;">${amount:N2}</p>
+                    <p style="margin:4px 0 0;color:#666;">Payment date: {dueDate:MMMM dd, yyyy}</p>
+                  </div>
+                  <a href="/accounts" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#2143B5;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Go to Accounts</a>
+                </div>
+                <div style="background:#f4f7f6;padding:16px;text-align:center;">
+                  <p style="margin:0;font-size:12px;color:#999;">MoneyTracker &mdash; Credit Card Alerts</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """;
         }
 
         private static string BuildBudgetAlertEmail(string categoryName, decimal spending, decimal budgetAmount, int percent) => $"""

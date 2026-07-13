@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.Notifications;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Application.Services
@@ -22,17 +24,7 @@ namespace MoneyTracker.Application.Services
             try
             {
                 var items = await _repository.GetRecentAsync(count);
-                var dtos = items.Select(n => new NotificationDto
-                {
-                    Id = n.Id,
-                    Title = n.Title,
-                    Message = n.Message,
-                    Type = n.Type,
-                    IsRead = n.IsRead,
-                    Link = n.Link,
-                    CreatedAt = n.CreatedAt
-                }).ToList();
-                return OperationResult<List<NotificationDto>>.Ok(dtos);
+                return OperationResult<List<NotificationDto>>.Ok(items.Select(MapToDto).ToList());
             }
             catch (Exception ex)
             {
@@ -40,6 +32,32 @@ namespace MoneyTracker.Application.Services
                 return OperationResult<List<NotificationDto>>.Fail(OperationMessages.UnexpectedError);
             }
         }
+
+        public async Task<OperationResult<List<NotificationDto>>> GetUnreadCreditAlertsAsync()
+        {
+            try
+            {
+                var types = new[] { NotificationType.CreditCardCut, NotificationType.CreditCardDue };
+                var items = await _repository.GetUnreadByTypesAsync(types);
+                return OperationResult<List<NotificationDto>>.Ok(items.Select(MapToDto).ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching credit card notifications");
+                return OperationResult<List<NotificationDto>>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        private static NotificationDto MapToDto(AppNotification n) => new()
+        {
+            Id = n.Id,
+            Title = n.Title,
+            Message = n.Message,
+            Type = n.Type,
+            IsRead = n.IsRead,
+            Link = n.Link,
+            CreatedAt = n.CreatedAt
+        };
 
         public async Task<OperationResult<int>> GetUnreadCountAsync()
         {

@@ -4,6 +4,8 @@ namespace MoneyTracker.Domain.Enums
     {
         BudgetAlert = 1,
         LoanReminder = 2,
-        General = 3
+        General = 3,
+        CreditCardCut = 4,
+        CreditCardDue = 5
     }
 }

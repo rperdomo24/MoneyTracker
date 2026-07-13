@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories
@@ -93,6 +94,43 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 _logger.LogError(ex, "Error checking duplicate notification key");
                 return false;
+            }
+        }
+
+        public async Task<bool> ExistsByDuplicateKeyAsync(string duplicateKey)
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+                return await context.AppNotifications
+                    .IgnoreQueryFilters()
+                    .AnyAsync(n => n.DuplicateKey == duplicateKey);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking duplicate notification key (any date)");
+                return false;
+            }
+        }
+
+        public async Task<List<AppNotification>> GetUnreadByTypesAsync(IEnumerable<NotificationType> types)
+        {
+            try
+            {
+                var typeList = types.ToList();
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+                return await context.AppNotifications
+                    .AsNoTracking()
+                    .Where(n => !n.IsRead && typeList.Contains(n.Type))
+                    .OrderByDescending(n => n.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching unread notifications by type");
+                return [];
             }
         }
     }

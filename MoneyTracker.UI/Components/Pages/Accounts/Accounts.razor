@@ -80,16 +80,18 @@
     }
     else
     {
-        <!-- Net Worth Summary -->
+        <!-- Financial Overview -->
         <MudPaper Class="pa-4 pa-sm-5 mb-4" Elevation="1">
-            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Wrap="Wrap.Wrap" Style="gap:20px;">
+
+                <!-- Net Worth -->
                 <MudStack Spacing="0">
                     <MudText Typo="Typo.caption" Style="opacity:0.7;">Net Worth</MudText>
                     <MudText Typo="Typo.h5" Class="@($"font-weight-bold {GetBalanceClass(NetWorth)}")">
                         @FormatBalance(NetWorth)
                     </MudText>
                     <MudText Typo="Typo.caption" Style="opacity:0.6;">
-                        Assets @FormatBalance(TotalAssets) — Liabilities @FormatBalance(TotalLiabilities)
+                        Assets @FormatBalance(TotalAssets) · Liabilities @FormatBalance(TotalLiabilities)
                     </MudText>
                     @if (ExcludedCount > 0)
                     {
@@ -100,6 +102,51 @@
                     }
                 </MudStack>
 
+                <!-- Financial metrics -->
+                <MudStack Row="true" AlignItems="AlignItems.Start" Wrap="Wrap.Wrap" Style="gap:20px;">
+
+                    <!-- Liquidity -->
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.caption" Style="opacity:0.7;">Liquidity</MudText>
+                        <MudText Typo="Typo.h6" Class="font-weight-bold mud-success-text">
+                            @FormatBalance(TotalLiquidity)
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="opacity:0.55;">cash available</MudText>
+                    </MudStack>
+
+                    <!-- Credit utilization -->
+                    @if (TotalCreditLimit > 0)
+                    {
+                        var utilPct = (double)(TotalCreditUsed / TotalCreditLimit) * 100d;
+                        var utilCssClass = utilPct >= 70 ? "mud-error-text" : utilPct >= 30 ? "mud-warning-text" : "mud-success-text";
+                        var utilLabel = utilPct >= 70 ? "high" : utilPct >= 30 ? "moderate" : "healthy";
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Credit usage</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Baseline" Spacing="1">
+                                <MudText Typo="Typo.h6" Class="@($"font-weight-bold {utilCssClass}")">@($"{utilPct:F0}")%</MudText>
+                                <MudText Typo="Typo.caption" Class="@utilCssClass">@utilLabel</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Style="opacity:0.55;">
+                                @FormatBalance(TotalCreditUsed) / @FormatBalance(TotalCreditLimit)
+                            </MudText>
+                        </MudStack>
+                    }
+
+                    <!-- Monthly debt cost -->
+                    @if (TotalMonthlyDebtCost > 0)
+                    {
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Debt cost/mo</MudText>
+                            <MudText Typo="Typo.h6" Class="font-weight-bold mud-error-text">
+                                @FormatBalance(TotalMonthlyDebtCost)
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="opacity:0.55;">estimated interest</MudText>
+                        </MudStack>
+                    }
+
+                </MudStack>
+
+                <!-- Sync -->
                 <MudTooltip Text="Recalculates balance for ALL accounts by summing their transactions">
                     <MudButton Variant="Variant.Outlined"
                                Color="Color.Secondary"
@@ -111,11 +158,33 @@
                         {
                             <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
                         }
-                        Sync All Balances
+                        Sync All
                     </MudButton>
                 </MudTooltip>
             </MudStack>
         </MudPaper>
+
+        <!-- Credit Card Alerts -->
+        @if (_creditAlerts.Any())
+        {
+            <MudPaper Class="pa-3 mb-4" Elevation="0" Outlined="true"
+                      Style="border-color: var(--mud-palette-warning); border-left: 4px solid var(--mud-palette-warning);">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Color="Color.Warning" />
+                        <MudText Typo="Typo.subtitle2">Credit Card Alerts</MudText>
+                    </MudStack>
+                    @foreach (var alert in _creditAlerts)
+                    {
+                        <MudAlert Severity="@GetAlertSeverity(alert)"
+                                  Dense="true"
+                                  Icon="@GetAlertIcon(alert)">
+                            @GetAlertMessage(alert)
+                        </MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
 
         @foreach (var group in _accountGroups)
         {
@@ -234,24 +303,39 @@
                                             var limitColor = used >= 90 ? Color.Error : used >= 70 ? Color.Warning : Color.Success;
                                             <MudStack Spacing="1" Style="min-width:80px;">
                                                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                                    <MudText Typo="Typo.caption" Style="opacity:0.65;">Uso</MudText>
+                                                    <MudText Typo="Typo.caption" Style="opacity:0.65;">Usage</MudText>
                                                     <MudText Typo="Typo.caption" Style="opacity:0.85; font-weight:600;">@($"{usedClamped:F0}")%</MudText>
                                                 </MudStack>
                                                 <MudProgressLinear Value="@usedClamped" Color="@limitColor" Size="Size.Small" />
                                                 <MudText Typo="Typo.caption" Style="opacity:0.65;">
-                                                    @CurrencyHelper.FormatCurrency(account.AvailableCredit) disponible
+                                                    @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
                                                 </MudText>
                                             </MudStack>
                                         }
 
                                         @if (account.Type == AccountType.Credit && (account.CutDay.HasValue || account.PaymentDay.HasValue || account.AnnualInterestRate.HasValue))
                                         {
-                                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
-                                                @if (account.CutDay.HasValue || account.PaymentDay.HasValue)
+                                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="flex-wrap:wrap; gap:6px;">
+                                                @if (account.CutDay.HasValue)
                                                 {
-                                                    <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
-                                                        @GetCreditDateSummary(account)
-                                                    </MudText>
+                                                    var co = GetDayOffset(account.CutDay.Value);
+                                                    var cl = co < 0 ? $"Cut · closed {Math.Abs(co)}d ago"
+                                                           : co == 0 ? $"Cut · today!"
+                                                           : $"Cut {account.CutDay} ({co}d)";
+                                                    var cs = co < 0 ? "color:var(--mud-palette-info); opacity:0.85;"
+                                                           : co == 0 ? "color:var(--mud-palette-warning); font-weight:700;"
+                                                           : GetDayUrgencyStyle(co);
+                                                    <MudText Typo="Typo.caption" Style="@($"white-space:nowrap; {cs}")">@cl</MudText>
+                                                }
+                                                @if (account.PaymentDay.HasValue)
+                                                {
+                                                    var po = GetDayOffset(account.PaymentDay.Value);
+                                                    var pl = po < 0 ? $"Due · OVERDUE {Math.Abs(po)}d!"
+                                                           : po == 0 ? $"Due · today!"
+                                                           : $"Due {account.PaymentDay} ({po}d)";
+                                                    var ps = po <= 0 ? "color:var(--mud-palette-error); font-weight:700;"
+                                                           : GetDayUrgencyStyle(po);
+                                                    <MudText Typo="Typo.caption" Style="@($"white-space:nowrap; {ps}")">@pl</MudText>
                                                 }
                                                 @if (account.AnnualInterestRate.HasValue)
                                                 {
@@ -360,19 +444,34 @@
                                                     </MudStack>
                                                     <MudProgressLinear Value="@usedClamped" Color="@limitColor" Size="Size.Small" />
                                                     <MudText Typo="Typo.caption" Style="opacity:0.65; text-align:right;">
-                                                        @CurrencyHelper.FormatCurrency(account.AvailableCredit) disponible
+                                                        @CurrencyHelper.FormatCurrency(account.AvailableCredit) available
                                                     </MudText>
                                                 </MudStack>
                                             }
 
                                             @if (account.Type == AccountType.Credit && (account.CutDay.HasValue || account.PaymentDay.HasValue || account.AnnualInterestRate.HasValue))
                                             {
-                                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Style="flex-wrap:wrap;">
-                                                    @if (account.CutDay.HasValue || account.PaymentDay.HasValue)
+                                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Style="flex-wrap:wrap; gap:6px;">
+                                                    @if (account.CutDay.HasValue)
                                                     {
-                                                        <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
-                                                            @GetCreditDateSummary(account)
-                                                        </MudText>
+                                                        var co = GetDayOffset(account.CutDay.Value);
+                                                        var cl = co < 0 ? $"Cut · closed {Math.Abs(co)}d ago"
+                                                               : co == 0 ? $"Cut · today!"
+                                                               : $"Cut {account.CutDay} ({co}d)";
+                                                        var cs = co < 0 ? "color:var(--mud-palette-info); opacity:0.85;"
+                                                               : co == 0 ? "color:var(--mud-palette-warning); font-weight:700;"
+                                                               : GetDayUrgencyStyle(co);
+                                                        <MudText Typo="Typo.caption" Style="@($"white-space:nowrap; {cs}")">@cl</MudText>
+                                                    }
+                                                    @if (account.PaymentDay.HasValue)
+                                                    {
+                                                        var po = GetDayOffset(account.PaymentDay.Value);
+                                                        var pl = po < 0 ? $"Due · OVERDUE {Math.Abs(po)}d!"
+                                                               : po == 0 ? $"Due · today!"
+                                                               : $"Due {account.PaymentDay} ({po}d)";
+                                                        var ps = po <= 0 ? "color:var(--mud-palette-error); font-weight:700;"
+                                                               : GetDayUrgencyStyle(po);
+                                                        <MudText Typo="Typo.caption" Style="@($"white-space:nowrap; {ps}")">@pl</MudText>
                                                     }
                                                     @if (account.AnnualInterestRate.HasValue)
                                                     {
@@ -440,7 +539,24 @@
     private decimal TotalLiabilities => _accounts.Where(a => a.IncludeInNetWorth && a.Type == AccountType.Credit).Sum(a => Math.Abs(a.CurrentBalance));
     private decimal NetWorth => TotalAssets - TotalLiabilities;
     private int ExcludedCount => _accounts.Count(a => !a.IncludeInNetWorth);
+
+    private decimal TotalLiquidity => _accounts
+        .Where(a => a.Type is AccountType.Bank or AccountType.Checking or AccountType.Savings or AccountType.Cash)
+        .Sum(a => a.CurrentBalance);
+
+    private decimal TotalCreditUsed => _accounts
+        .Where(a => a.Type == AccountType.Credit && a.CreditLimit > 0)
+        .Sum(a => Math.Abs(a.CurrentBalance));
+
+    private decimal TotalCreditLimit => _accounts
+        .Where(a => a.Type == AccountType.Credit && a.CreditLimit > 0)
+        .Sum(a => a.CreditLimit);
+
+    private decimal TotalMonthlyDebtCost => _accounts
+        .Where(a => a.Type == AccountType.Credit && a.AnnualInterestRate.HasValue && a.CurrentBalance < 0)
+        .Sum(a => Math.Abs(a.CurrentBalance) * (a.AnnualInterestRate!.Value / 100m) / 12m);
     private IEnumerable<IGrouping<AccountType, AccountDto>> _accountGroups = Enumerable.Empty<IGrouping<AccountType, AccountDto>>();
+    private IReadOnlyList<CreditAlert> _creditAlerts = [];
 
     private readonly List<BreadcrumbItem> _breadcrumbItems = new()
     {
@@ -470,6 +586,7 @@
             if (result.Success && result.Data is not null)
             {
                 _accounts = result.Data;
+                _creditAlerts = BuildCreditAlerts();
                 _accountGroups = _accounts.GroupBy(a => a.Type)
                     .OrderBy(g => g.Key switch
                     {
@@ -646,12 +763,86 @@
     private static string GetAccountSubtitle(AccountDto account)
         => !string.IsNullOrEmpty(account.BankName) ? account.BankName : account.Type.ToLabel();
 
-    private static string GetCreditDateSummary(AccountDto account)
+    // Days until next occurrence of this day-of-month (always positive, wraps to next month)
+    private static int GetDaysUntil(int day)
     {
-        var parts = new List<string>();
-        if (account.CutDay.HasValue) parts.Add($"Corte: {account.CutDay}");
-        if (account.PaymentDay.HasValue) parts.Add($"Pago: {account.PaymentDay}");
-        return string.Join(" · ", parts);
+        var today = DateTime.Today;
+        var target = new DateTime(today.Year, today.Month, Math.Min(day, DateTime.DaysInMonth(today.Year, today.Month)));
+        if (target <= today)
+        {
+            var next = today.AddMonths(1);
+            target = new DateTime(next.Year, next.Month, Math.Min(day, DateTime.DaysInMonth(next.Year, next.Month)));
+        }
+        return (target - today).Days;
+    }
+
+    // Days relative to this month's occurrence (negative = already passed this month)
+    private static int GetDayOffset(int day)
+    {
+        var today = DateTime.Today;
+        var target = new DateTime(today.Year, today.Month, Math.Min(day, DateTime.DaysInMonth(today.Year, today.Month)));
+        return (target - today).Days;
+    }
+
+    private static string GetDayUrgencyStyle(int days) => days <= 3
+        ? "color:var(--mud-palette-error); font-weight:700;"
+        : days <= 7
+            ? "color:var(--mud-palette-warning-darken); font-weight:600;"
+            : "opacity:0.7;";
+
+    private record CreditAlert(string AccountName, string EventType, int Day, int Offset);
+
+    private IReadOnlyList<CreditAlert> BuildCreditAlerts()
+    {
+        var result = new List<CreditAlert>();
+        foreach (var a in _accounts.Where(a => a.Type == AccountType.Credit))
+        {
+            if (a.CutDay.HasValue)
+            {
+                var off = GetDayOffset(a.CutDay.Value);
+                if (off >= -3 && off <= 7)
+                    result.Add(new CreditAlert(a.Name, "Cut", a.CutDay.Value, off));
+            }
+            if (a.PaymentDay.HasValue)
+            {
+                var off = GetDayOffset(a.PaymentDay.Value);
+                if (off >= -2 && off <= 10)
+                    result.Add(new CreditAlert(a.Name, "Due", a.PaymentDay.Value, off));
+            }
+        }
+        return result.OrderBy(e => e.Offset).ToList();
+    }
+
+    private static Severity GetAlertSeverity(CreditAlert alert)
+    {
+        if (alert.EventType == "Due" && alert.Offset <= 0) return Severity.Error;
+        if (alert.EventType == "Due" && alert.Offset <= 3) return Severity.Error;
+        if (alert.EventType == "Due") return Severity.Warning;
+        if (alert.EventType == "Cut" && alert.Offset < 0) return Severity.Info;
+        if (alert.EventType == "Cut" && alert.Offset == 0) return Severity.Warning;
+        return Severity.Warning;
+    }
+
+    private static string GetAlertIcon(CreditAlert alert) =>
+        alert.EventType == "Due" && alert.Offset <= 0
+            ? Icons.Material.Filled.PriorityHigh
+            : alert.EventType == "Due"
+                ? Icons.Material.Filled.Payment
+                : Icons.Material.Filled.Receipt;
+
+    private static string GetAlertMessage(CreditAlert alert)
+    {
+        if (alert.EventType == "Due" && alert.Offset < 0)
+            return $"{alert.AccountName} — payment was due {Math.Abs(alert.Offset)}d ago!";
+        if (alert.EventType == "Due" && alert.Offset == 0)
+            return $"{alert.AccountName} — payment due TODAY (day {alert.Day})";
+        if (alert.EventType == "Due")
+            return $"{alert.AccountName} — payment due in {alert.Offset}d (day {alert.Day})";
+        if (alert.EventType == "Cut" && alert.Offset < 0)
+            return $"{alert.AccountName} — statement closed {Math.Abs(alert.Offset)}d ago · check your statement";
+        if (alert.EventType == "Cut" && alert.Offset == 0)
+            return $"{alert.AccountName} — statement closes TODAY (day {alert.Day})";
+        return $"{alert.AccountName} — statement closes in {alert.Offset}d (day {alert.Day})";
     }
 
     private async Task ConfirmSyncBalance(AccountDto account)

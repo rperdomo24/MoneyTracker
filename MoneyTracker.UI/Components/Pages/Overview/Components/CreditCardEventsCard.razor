@@ -1,0 +1,118 @@
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Domain.Enums.Account
+@inject NavigationManager NavigationManager
+
+<MudCard Class="dashboard-card">
+    <MudCardContent>
+        <MudStack Spacing="3">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Warning" Size="Size.Medium">
+                    <MudIcon Icon="@Icons.Material.Filled.CreditCard" />
+                </MudAvatar>
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">Credit Card Events</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Statements & payments · next 45 days</MudText>
+                </MudStack>
+            </MudStack>
+
+            @if (!_events.Any())
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                    <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+                        No upcoming events · add cut/due days to your credit cards
+                    </MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudStack Spacing="0">
+                    @foreach (var evt in _events)
+                    {
+                        var isCut = evt.EventType == "Cut";
+                        var isPast = evt.DaysAway < 0;
+                        var isToday = evt.DaysAway == 0;
+                        Color chipColor = isPast && !isCut ? Color.Error
+                                        : isPast ? Color.Info
+                                        : evt.DaysAway <= 3 ? Color.Error
+                                        : evt.DaysAway <= 7 ? Color.Warning
+                                        : Color.Default;
+                        Variant chipVariant = (evt.DaysAway <= 7 || isPast) ? Variant.Filled : Variant.Outlined;
+                        string countdownLabel = isPast ? (isCut ? $"{Math.Abs(evt.DaysAway)}d ago" : $"OVERDUE {Math.Abs(evt.DaysAway)}d")
+                                              : isToday ? "Today"
+                                              : evt.DaysAway == 1 ? "Tomorrow"
+                                              : $"{evt.DaysAway}d";
+
+                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2"
+                                  Style="padding: 8px 0; border-bottom: 1px solid var(--mud-palette-divider);">
+                            <MudIcon Icon="@(isCut ? Icons.Material.Filled.Receipt : Icons.Material.Filled.Payment)"
+                                     Color="@chipColor" Size="Size.Small" Style="min-width:20px;" />
+                            <MudStack Spacing="0" Style="flex:1; min-width:0;">
+                                <MudText Typo="Typo.body2" Class="font-weight-medium"
+                                         Style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    @evt.AccountName
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @(isCut ? "Statement closes" : "Payment due") · day @evt.Day
+                                </MudText>
+                            </MudStack>
+                            <MudChip T="string" Size="Size.Small" Color="@chipColor" Variant="@chipVariant"
+                                     Style="font-weight:600; min-width:72px; justify-content:center;">
+                                @countdownLabel
+                            </MudChip>
+                        </MudStack>
+                    }
+                </MudStack>
+            }
+        </MudStack>
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   OnClick="@(() => NavigationManager.NavigateTo("/accounts"))">
+            View Accounts
+        </MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter] public List<AccountDto>? Data { get; set; }
+
+    private record CreditEvent(string AccountName, string EventType, int Day, int DaysAway);
+
+    private List<CreditEvent> _events = new();
+
+    protected override void OnParametersSet() => _events = BuildEvents();
+
+    private List<CreditEvent> BuildEvents()
+    {
+        if (Data is null) return [];
+        var result = new List<CreditEvent>();
+
+        foreach (var account in Data.Where(a => a.Type == AccountType.Credit))
+        {
+            var displayName = string.IsNullOrEmpty(account.BankName) ? account.Name : $"{account.BankName} · {account.Name}";
+
+            if (account.CutDay.HasValue)
+            {
+                var offset = GetDayOffset(account.CutDay.Value);
+                if (offset >= -3 && offset <= 45)
+                    result.Add(new CreditEvent(displayName, "Cut", account.CutDay.Value, offset));
+            }
+            if (account.PaymentDay.HasValue)
+            {
+                var offset = GetDayOffset(account.PaymentDay.Value);
+                if (offset >= -3 && offset <= 45)
+                    result.Add(new CreditEvent(displayName, "Due", account.PaymentDay.Value, offset));
+            }
+        }
+
+        return result.OrderBy(e => e.DaysAway).ToList();
+    }
+
+    private static int GetDayOffset(int day)
+    {
+        var today = DateTime.Today;
+        var target = new DateTime(today.Year, today.Month, Math.Min(day, DateTime.DaysInMonth(today.Year, today.Month)));
+        return (target - today).Days;
+    }
+}

@@ -9,11 +9,14 @@
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
 @using MoneyTracker.UI.Helpers
+@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.Domain.Enums.Account
 @using System.Threading
 @inject IDashboardService DashboardService
 @inject IDashboardFilterStateService DashboardFilterState
 @inject ISavingsGoalService GoalService
+@inject IAccountService AccountService
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
@@ -179,6 +182,14 @@
             <MudItem xs="12" md="4">
                 <GoalsSummaryCard Data="_goals" />
             </MudItem>
+
+            @* Credit Card Events — always shown when user has credit cards *@
+            @if (_creditCards.Any(a => a.CutDay.HasValue || a.PaymentDay.HasValue))
+            {
+                <MudItem xs="12" md="4">
+                    <CreditCardEventsCard Data="_creditCards" />
+                </MudItem>
+            }
         }
     </MudGrid>
 </MudContainer>
@@ -212,6 +223,7 @@
     private CashFlowDto? _cashFlow;
     private List<FinancialAlertDto> _alerts = new();
     private List<SavingsGoalDto> _goals = new();
+    private List<AccountDto> _creditCards = new();
     private TimePeriodFilter _selectedPeriod = TimePeriodFilter.Last30Days;
     private DateTime? _customFromDate;
     private DateTime? _customToDate;
@@ -407,6 +419,7 @@
             var recentTransactionsResult = await DashboardService.GetRecentTransactionsAsync(recentFilter, 6);
             var alertsResult = await DashboardService.GetAlertsAsync();
             var goalsResult = await GoalService.GetAllAsync();
+            var accountsResult = await AccountService.GetAccountsWithBalancesAsync();
             if (!balanceTrendResult.Success)
             {
                 Snackbar.Add($"Error loading Net Worth Trend: {balanceTrendResult.Message}", Severity.Error);
@@ -454,6 +467,9 @@
             _cashFlow = cashFlowResult.Data;
             _alerts = alertsResult.Success ? (alertsResult.Data ?? []) : [];
             _goals = goalsResult.Success ? (goalsResult.Data ?? []) : [];
+            _creditCards = accountsResult.Success && accountsResult.Data is not null
+                ? accountsResult.Data.Where(a => a.Type == AccountType.Credit).ToList()
+                : [];
         }
         catch (Exception ex)
         {
@@ -485,6 +501,7 @@
         _cashFlow = null;
         _alerts = new();
         _goals = new();
+        _creditCards = new();
     }
 
     private async Task RefreshDashboard()

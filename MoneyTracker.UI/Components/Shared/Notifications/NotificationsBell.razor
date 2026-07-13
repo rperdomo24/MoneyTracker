@@ -168,6 +168,8 @@
     {
         NotificationType.BudgetAlert => Icons.Material.Filled.PieChart,
         NotificationType.LoanReminder => Icons.Material.Filled.Handshake,
+        NotificationType.CreditCardCut => Icons.Material.Filled.Receipt,
+        NotificationType.CreditCardDue => Icons.Material.Filled.Payment,
         _ => Icons.Material.Filled.Notifications
     };
 
@@ -175,6 +177,8 @@
     {
         NotificationType.BudgetAlert => Color.Error,
         NotificationType.LoanReminder => Color.Primary,
+        NotificationType.CreditCardCut => Color.Info,
+        NotificationType.CreditCardDue => Color.Error,
         _ => Color.Default
     };
 
