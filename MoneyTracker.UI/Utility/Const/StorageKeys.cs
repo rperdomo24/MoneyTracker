@@ -33,6 +33,9 @@
 
             public static string RangeReport(string? userKey)
                 => $"{Prefix}:{NormalizeUserKey(userKey)}:reports:range";
+
+            public static string CreditCalendar(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:credit:calendar:filter";
         }
     }
 }

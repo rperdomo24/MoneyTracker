@@ -18,14 +18,7 @@
                 </MudStack>
             </MudStack>
         </CardHeaderContent>
-        <CardHeaderActions>
-            <MudButton Variant="Variant.Text"
-                       Size="Size.Small"
-                       StartIcon="@Icons.Material.Filled.List"
-                       OnClick="GoToTransactions">
-                View transactions
-            </MudButton>
-        </CardHeaderActions>
+        <CardHeaderActions></CardHeaderActions>
     </MudCardHeader>
 
     <MudCardContent>
@@ -77,6 +70,13 @@
             </MudStack>
         }
     </MudCardContent>
+    <MudCardActions>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.List"
+                   OnClick="GoToTransactions">
+            View transactions
+        </MudButton>
+    </MudCardActions>
 </MudCard>
 
 <style>
