@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Interfaces;
@@ -12,22 +13,25 @@ namespace MoneyTracker.Infrastructure.Jobs
     {
         private readonly IRecurringTransactionRepository _recurringRepo;
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ITimeZoneService _timeZoneService;
         private readonly ILogger<RecurringTransactionGeneratorJob> _logger;
 
         public RecurringTransactionGeneratorJob(
             IRecurringTransactionRepository recurringRepo,
             IServiceScopeFactory scopeFactory,
+            ITimeZoneService timeZoneService,
             ILogger<RecurringTransactionGeneratorJob> logger)
         {
             _recurringRepo = recurringRepo;
             _scopeFactory = scopeFactory;
+            _timeZoneService = timeZoneService;
             _logger = logger;
         }
 
         [AutomaticRetry(Attempts = 2)]
         public async Task ExecuteAsync()
         {
-            var today = DateTime.UtcNow;
+            var today = _timeZoneService.GetLocalTimeInConfiguredTimeZone();
             var dueItems = await _recurringRepo.GetDueAsync(today);
 
             if (dueItems.Count == 0)
