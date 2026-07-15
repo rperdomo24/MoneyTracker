@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Jobs
@@ -40,7 +41,7 @@ namespace MoneyTracker.Infrastructure.Jobs
                 return;
             }
 
-            _logger.LogInformation("RecurringTransactionGeneratorJob: generating {Count} transactions", dueItems.Count);
+            _logger.LogInformation("RecurringTransactionGeneratorJob: {Count} items due", dueItems.Count);
 
             await using var scope = _scopeFactory.CreateAsyncScope();
             var context = scope.ServiceProvider.GetRequiredService<Persistence.MoneyTrackerDbContext>();
@@ -50,13 +51,18 @@ namespace MoneyTracker.Infrastructure.Jobs
                 try
                 {
                     var current = recurring.NextDate;
+                    decimal totalAmount = 0;
+
+                    var isExpense = recurring.Category?.Type != CategoryTypeEnum.Income;
+                    var signedAmount = isExpense ? Math.Abs(recurring.Amount) * -1 : Math.Abs(recurring.Amount);
+
                     while (current.Date <= today.Date)
                     {
-                        var transaction = new Transaction
+                        context.Transaction.Add(new Transaction
                         {
                             TenantId = recurring.TenantId,
                             Name = recurring.Name,
-                            Amount = recurring.Amount,
+                            Amount = signedAmount,
                             Date = current,
                             CategoryId = recurring.CategoryId,
                             AccountId = recurring.AccountId,
@@ -65,30 +71,36 @@ namespace MoneyTracker.Infrastructure.Jobs
                             IsSystemGenerated = true,
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow
-                        };
+                        });
 
-                        context.Transaction.Add(transaction);
-
-                        // Update account balance
-                        var account = await context.Accounts
-                            .IgnoreQueryFilters()
-                            .FirstOrDefaultAsync(a => a.Id == recurring.AccountId);
-
-                        if (account is not null)
-                            account.Balance += recurring.Amount;
-
+                        totalAmount += recurring.Amount;
                         current = RecurringTransactionMapper.AdvanceNextDate(current, recurring.Frequency);
                     }
 
-                    recurring.NextDate = current;
-                    recurring.LastGeneratedDate = today;
-                    context.RecurringTransactions.Update(recurring);
-
+                    // Only Added entities with TenantId set — passes tenant enforcement
                     await context.SaveChangesAsync();
 
-                    _logger.LogInformation(
-                        "Generated recurring '{Name}' (TenantId={TenantId}), next={Next}",
-                        recurring.Name, recurring.TenantId, recurring.NextDate.Date);
+                    var newBalance = await context.Transaction
+                        .IgnoreQueryFilters()
+                        .Where(t => t.AccountId == recurring.AccountId && !t.IsDeleted)
+                        .SumAsync(t => (decimal?)t.Amount) ?? 0m;
+
+                    await context.Accounts
+                        .IgnoreQueryFilters()
+                        .Where(a => a.Id == recurring.AccountId)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(x => x.Balance, newBalance));
+
+                    var now = DateTime.UtcNow;
+                    await context.RecurringTransactions
+                        .IgnoreQueryFilters()
+                        .Where(r => r.Id == recurring.Id)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(x => x.NextDate, current)
+                            .SetProperty(x => x.LastGeneratedDate, now));
+
+                    _logger.LogInformation("Generated recurring '{Name}' (TenantId={TenantId}), next={Next}",
+                        recurring.Name, recurring.TenantId, current.Date);
                 }
                 catch (Exception ex)
                 {
