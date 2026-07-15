@@ -232,7 +232,12 @@ namespace MoneyTracker.Application.Services
 
                 using var http = new HttpClient();
                 var response = await http.PostAsJsonAsync(url, body);
-                response.EnsureSuccessStatusCode();
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("Google AI API error {Status}: {Body}", (int)response.StatusCode, errorBody);
+                    return OperationResult<string>.Fail($"AI API returned {(int)response.StatusCode}. Check logs.");
+                }
 
                 var json = await response.Content.ReadFromJsonAsync<JsonDocument>();
                 var text = json!.RootElement
