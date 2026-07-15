@@ -39,6 +39,7 @@ services:
       ASPNETCORE_URLS: http://+:8091
       ConnectionStrings__DefaultConnection: Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
       ApplicationSettings__DefaultTimeZone: ${APP_TIMEZONE:-Central America Standard Time}
+      ApplicationSettings__PublicBaseUrl: ${APP_PUBLIC_BASE_URL}
       ApplicationSettings__DateFormat: yyyy-MM-dd
       ApplicationSettings__DateTimeFormat: yyyy-MM-dd HH:mm:ss
       EmailSettings__Host: ${EMAIL_HOST}
@@ -48,6 +49,13 @@ services:
       EmailSettings__SenderName: ${EMAIL_SENDER_NAME}
       EmailSettings__Username: ${EMAIL_USER}
       EmailSettings__Password: ${EMAIL_PASSWORD}
+      AiProvider: ${AI_PROVIDER:-Google}
+      OpenAiSettings__ApiKey: ${OPENAI_API_KEY}
+      OpenAiSettings__Model: ${OPENAI_MODEL:-gpt-4o-mini}
+      OpenAiSettings__MaxTokens: ${OPENAI_MAX_TOKENS:-1024}
+      GoogleAiSettings__ApiKey: ${GOOGLE_AI_API_KEY}
+      GoogleAiSettings__Model: ${GOOGLE_AI_MODEL:-gemini-1.5-flash}
+      GoogleAiSettings__MaxTokens: ${GOOGLE_AI_MAX_TOKENS:-1024}
     volumes:
       - moneytracker-logs:/app/Logs
     networks:
