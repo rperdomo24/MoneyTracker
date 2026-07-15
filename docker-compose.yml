@@ -57,14 +57,13 @@ services:
       GoogleAiSettings__Model: ${GOOGLE_AI_MODEL:-gemini-1.5-flash}
       GoogleAiSettings__MaxTokens: ${GOOGLE_AI_MAX_TOKENS:-1024}
     volumes:
-      - moneytracker-logs:/app/Logs
+      - ${LOGS_PATH:-./logs}:/app/Logs
     networks:
       - moneytracker-network
       - jobordermanager_default
 
 volumes:
   moneytracker-postgres-data:
-  moneytracker-logs:
 
 networks:
   moneytracker-network:
