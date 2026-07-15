@@ -83,16 +83,18 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             await context.SaveChangesAsync();
         }
 
-        public async Task<List<RecurringTransaction>> GetDueAsync(DateTime asOfDateUtc)
+        public async Task<List<RecurringTransaction>> GetDueAsync(DateTime asOfDate)
         {
             try
             {
+                var cutoff = DateTime.SpecifyKind(asOfDate.Date, DateTimeKind.Utc);
                 await using var scope = _scopeFactory.CreateAsyncScope();
                 var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
                 return await context.RecurringTransactions
                     .IgnoreQueryFilters()
                     .Include(r => r.Account)
-                    .Where(r => !r.IsDeleted && r.IsActive && r.NextDate.Date <= asOfDateUtc.Date)
+                    .Include(r => r.Category)
+                    .Where(r => !r.IsDeleted && r.IsActive && r.NextDate <= cutoff)
                     .ToListAsync();
             }
             catch (Exception ex)
