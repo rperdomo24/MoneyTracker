@@ -42,7 +42,9 @@ namespace MoneyTracker.Infrastructure.Jobs
         [AutomaticRetry(Attempts = 2)]
         public async Task ExecuteAsync()
         {
-            var today = _timeZoneService.GetLocalTimeInConfiguredTimeZone();
+            var today = DateTime.SpecifyKind(
+                _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
+                DateTimeKind.Utc);
 
             await using var scope = _scopeFactory.CreateAsyncScope();
             var context = scope.ServiceProvider.GetRequiredService<Persistence.MoneyTrackerDbContext>();
