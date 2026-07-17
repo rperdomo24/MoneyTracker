@@ -192,7 +192,7 @@
                                                         ~$@projected.Value.ToString("N2") est. interest
                                                     </MudText>
                                                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                                        @evt.AnnualInterestRate!.Value.ToString("F1")% APR · @evt.DaysFromToday days
+                                                        @evt.AnnualInterestRate!.Value.ToString("F1")% APR · @evt.DaysInCycle-day cycle
                                                     </MudText>
                                                 </MudAlert>
                                             }
@@ -375,7 +375,8 @@
         bool IsPastOrToday,
         string? AccountColor,
         decimal? AnnualInterestRate,
-        int DaysFromToday);
+        int DaysFromToday,
+        int DaysInCycle);
 
     private Dictionary<int, List<CalendarEvent>> _calendarEvents = new();
     private List<int> _calendarCells = new();
@@ -448,7 +449,9 @@
                 var day = Math.Min(account.CutDay.Value, daysInMonth);
                 var date = new DateTime(_calendarYear, _calendarMonth, day);
                 var daysAway = (date.Date - today).Days;
-                AddEvent(day, new CalendarEvent(shortLabel, fullName, "Cut", account.Id, account.CurrentBalance, date.Date <= today, account.Color, account.AnnualInterestRate, daysAway));
+                // Full billing cycle = from previous cut date to this cut date (~30 days)
+                var cycleDays = (date - date.AddMonths(-1)).Days;
+                AddEvent(day, new CalendarEvent(shortLabel, fullName, "Cut", account.Id, account.CurrentBalance, date.Date <= today, account.Color, account.AnnualInterestRate, daysAway, cycleDays));
             }
 
             if (account.PaymentDay.HasValue && _activeFilter != CreditCalendarFilter.CutOnly)
@@ -456,7 +459,7 @@
                 var day = Math.Min(account.PaymentDay.Value, daysInMonth);
                 var date = new DateTime(_calendarYear, _calendarMonth, day);
                 var daysAway = (date.Date - today).Days;
-                AddEvent(day, new CalendarEvent(shortLabel, fullName, "Due", account.Id, account.CurrentBalance, date.Date <= today, account.Color, account.AnnualInterestRate, daysAway));
+                AddEvent(day, new CalendarEvent(shortLabel, fullName, "Due", account.Id, account.CurrentBalance, date.Date <= today, account.Color, account.AnnualInterestRate, daysAway, 0));
             }
         }
 
@@ -489,9 +492,14 @@
 
     private static decimal? GetProjectedInterest(CalendarEvent evt)
     {
+        // Only Cut events show bonifiable interest — interest on Due events is already
+        // determined by the statement; projecting it again here is misleading.
+        if (evt.EventType != "Cut") return null;
         if (evt.AnnualInterestRate is null || evt.Balance >= 0 || evt.DaysFromToday <= 0) return null;
         var dailyRate = evt.AnnualInterestRate.Value / 100m / 365m;
-        return Math.Abs(evt.Balance) * dailyRate * evt.DaysFromToday;
+        // Use the full billing cycle length, not remaining days. Interés bonificable is
+        // calculated over the entire period (prev cut → this cut), not just from today.
+        return Math.Abs(evt.Balance) * dailyRate * evt.DaysInCycle;
     }
 
     private static string GetIconColor(CalendarEvent evt)
