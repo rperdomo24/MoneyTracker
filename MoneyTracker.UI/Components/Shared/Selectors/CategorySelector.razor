@@ -54,7 +54,7 @@
     [Parameter] public CategoryDto? SelectedCategory { get; set; }
     [Parameter] public EventCallback<CategoryDto?> SelectedCategoryChanged { get; set; }
     [Parameter] public List<CategoryDto> Categories { get; set; } = new();
-    [Parameter] public CategoryTypeEnum FilterByType { get; set; }
+    [Parameter] public CategoryTypeEnum? FilterByType { get; set; }
     [Parameter] public string Label { get; set; } = "Category";
     [Parameter] public bool Required { get; set; } = true;
     [Parameter] public bool Disabled { get; set; } = false;
@@ -68,7 +68,7 @@
     [Parameter] public EventCallback OnAddCategory { get; set; }
 
     private List<CategoryDto> FilteredCategories => Categories
-        .Where(c => c.Type == FilterByType && !c.IsSystem)
+        .Where(c => (FilterByType == null || c.Type == FilterByType.Value) && !c.IsSystem)
         .OrderBy(c => c.Name)
         .ToList();
 

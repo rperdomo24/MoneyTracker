@@ -1,12 +1,12 @@
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.RecurringTransactions
 @using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Shared.Selectors
 @inject IRecurringTransactionService RecurringService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
+@inject ITimeZoneService TimeZoneService
 @inject ISnackbar Snackbar
 
 <MudDialog>
@@ -60,7 +60,6 @@
 
                     <CategorySelector @bind-SelectedCategory="_selectedCategory"
                                       Categories="@_categories"
-                                      FilterByType="CategoryTypeEnum.Expense"
                                       ShowAddButton="false" />
 
                     <MudSelect T="RecurringFrequency"
@@ -84,6 +83,53 @@
                                    Editable="true"
                                    DateFormat="MM/dd/yyyy"
                                    AutoClose="true" />
+
+                    <MudDivider />
+
+                    @* Installment / limit section *@
+                    <MudStack Spacing="1">
+                        <MudSwitch @bind-Value="_isInstallment"
+                                   Color="Color.Primary"
+                                   Label="Fixed installments (tasa 0, quota plan, etc.)" />
+
+                        @if (_isInstallment)
+                        {
+                            <MudNumericField T="int?"
+                                             Label="Total installments"
+                                             @bind-Value="_dto.TotalOccurrences"
+                                             Variant="Variant.Outlined"
+                                             Min="1"
+                                             Placeholder="e.g., 6"
+                                             HelperText="Auto-pauses after this many payments" />
+
+                            @if (Recurring is not null && _dto.TotalOccurrences.HasValue)
+                            {
+                                var remaining = _dto.TotalOccurrences.Value - Recurring.OccurrencesGenerated;
+                                var pct = Recurring.TotalOccurrences.HasValue
+                                    ? (double)Recurring.OccurrencesGenerated / Recurring.TotalOccurrences.Value * 100
+                                    : 0;
+                                <MudStack Spacing="1">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @Recurring.OccurrencesGenerated of @_dto.TotalOccurrences paid · @(remaining > 0 ? $"{remaining} remaining" : "Completed")
+                                    </MudText>
+                                    <MudProgressLinear Value="@pct" Color="Color.Primary" Size="Size.Small" Rounded="true" />
+                                </MudStack>
+                            }
+                        }
+                        else
+                        {
+                            <MudDatePicker Label="End date (optional)"
+                                           @bind-Date="_endDate"
+                                           Variant="Variant.Outlined"
+                                           Editable="true"
+                                           DateFormat="MM/dd/yyyy"
+                                           AutoClose="true"
+                                           Clearable="true"
+                                           HelperText="Auto-pauses after this date" />
+                        }
+                    </MudStack>
+
+                    <MudDivider />
 
                     <MudSelect T="PaymentMethodEnum?"
                                Label="Payment Method (Optional)"
@@ -142,9 +188,11 @@
     private MudForm _form = default!;
     private bool _loading = true;
     private bool _saving = false;
+    private bool _isInstallment = false;
 
     private RecurringTransactionDto _dto = new() { IsActive = true, Frequency = RecurringFrequency.Monthly };
-    private DateTime? _startDate = DateTime.Today;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
     private AccountDto? _selectedAccount;
     private CategoryDto? _selectedCategory;
     private List<AccountDto> _accounts = new();
@@ -152,6 +200,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _startDate = TimeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
+
         var accountsResult = await AccountService.GetAllAsync();
         _accounts = accountsResult.Success && accountsResult.Data != null ? accountsResult.Data : new();
 
@@ -169,11 +219,18 @@
                 AccountId = Recurring.AccountId,
                 Frequency = Recurring.Frequency,
                 StartDate = Recurring.StartDate,
+                TotalOccurrences = Recurring.TotalOccurrences,
+                OccurrencesGenerated = Recurring.OccurrencesGenerated,
+                EndDate = Recurring.EndDate,
                 IsActive = Recurring.IsActive,
                 Description = Recurring.Description,
                 PaymentMethod = Recurring.PaymentMethod
             };
-            _startDate = Recurring.StartDate.ToLocalTime();
+            _startDate = TimeZoneService.ConvertFromUtc(Recurring.StartDate).Date;
+            _endDate = Recurring.EndDate.HasValue
+                ? TimeZoneService.ConvertFromUtc(Recurring.EndDate.Value).Date
+                : null;
+            _isInstallment = Recurring.TotalOccurrences.HasValue;
             _selectedAccount = _accounts.FirstOrDefault(a => a.Id == Recurring.AccountId);
             _selectedCategory = _categories.FirstOrDefault(c => c.Id == Recurring.CategoryId);
         }
@@ -202,7 +259,17 @@
 
         _dto.AccountId = _selectedAccount.Id;
         _dto.CategoryId = _selectedCategory.Id;
-        _dto.StartDate = _startDate?.ToUniversalTime() ?? DateTime.UtcNow;
+        _dto.StartDate = TimeZoneService.ConvertToUtc(_startDate ?? TimeZoneService.GetLocalTimeInConfiguredTimeZone());
+
+        if (_isInstallment)
+        {
+            _dto.EndDate = null;
+        }
+        else
+        {
+            _dto.TotalOccurrences = null;
+            _dto.EndDate = _endDate.HasValue ? TimeZoneService.ConvertToUtc(_endDate.Value) : null;
+        }
 
         _saving = true;
         StateHasChanged();

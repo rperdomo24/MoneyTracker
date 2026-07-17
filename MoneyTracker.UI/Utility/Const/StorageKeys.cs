@@ -36,6 +36,9 @@
 
             public static string CreditCalendar(string? userKey)
                 => $"{Prefix}:{NormalizeUserKey(userKey)}:credit:calendar:filter";
+
+            public static string RecurringTransactions(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:recurring:filter";
         }
     }
 }

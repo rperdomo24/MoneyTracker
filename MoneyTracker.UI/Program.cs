@@ -144,6 +144,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IDashboardFilterStateService, DashboardFilterStateService>();
             builder.Services.AddScoped<ICategoryFilterStateService, CategoryFilterStateService>();
             builder.Services.AddScoped<ICreditCalendarFilterStateService, CreditCalendarFilterStateService>();
+            builder.Services.AddScoped<IRecurringTransactionFilterStateService, RecurringTransactionFilterStateService>();
             builder.Services.AddScoped<IMonthlyReportStateService, MonthlyReportStateService>();
             builder.Services.AddScoped<IRangeReportStateService, RangeReportStateService>();
             builder.Services.AddScoped<IAccountsPanelStateService, AccountsPanelStateService>();
@@ -158,7 +159,6 @@ namespace MoneyTracker.UI
                 options.KnownProxies.Clear();
             });
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-            builder.Services.Configure<OpenAiSettings>(builder.Configuration.GetSection("OpenAiSettings"));
             builder.Services.Configure<GoogleAiSettings>(builder.Configuration.GetSection("GoogleAiSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
             builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
