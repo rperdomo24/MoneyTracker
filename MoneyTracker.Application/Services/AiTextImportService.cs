@@ -2,7 +2,6 @@ using Microsoft.Extensions.Configuration;
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.TextImport;
 using MoneyTracker.Application.Interfaces;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -76,13 +75,9 @@ namespace MoneyTracker.Application.Services
             if (string.IsNullOrWhiteSpace(rawText))
                 return OperationResult<TextImportAnalysisDto>.Fail("Text is empty.");
 
-            var provider = _config["AiProvider"] ?? "Google";
-
             try
             {
-                var jsonResponse = provider.Equals("OpenAi", StringComparison.OrdinalIgnoreCase)
-                    ? await CallOpenAiAsync(rawText)
-                    : await CallGoogleAsync(rawText);
+                var jsonResponse = await CallGoogleAsync(rawText);
 
                 if (jsonResponse is null)
                     return OperationResult<TextImportAnalysisDto>.Fail("AI provider returned no response.");
@@ -127,36 +122,6 @@ namespace MoneyTracker.Application.Services
             var raw = await response.Content.ReadAsStringAsync();
             var doc = JsonNode.Parse(raw);
             return doc?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.GetValue<string>();
-        }
-
-        private async Task<string?> CallOpenAiAsync(string rawText)
-        {
-            var apiKey = _config["OpenAiSettings:ApiKey"];
-            var model = _config["OpenAiSettings:Model"] ?? "gpt-4o-mini";
-            var maxTokens = int.TryParse(_config["OpenAiSettings:MaxTokens"], out var mt) ? mt : 1024;
-
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-
-            var body = new
-            {
-                model,
-                messages = new[]
-                {
-                    new { role = "system", content = SystemPrompt },
-                    new { role = "user", content = rawText }
-                },
-                max_tokens = maxTokens,
-                temperature = 0,
-                response_format = new { type = "json_object" }
-            };
-
-            var request = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-            var response = await _http.PostAsync("https://api.openai.com/v1/chat/completions", request);
-            response.EnsureSuccessStatusCode();
-
-            var raw = await response.Content.ReadAsStringAsync();
-            var doc = JsonNode.Parse(raw);
-            return doc?["choices"]?[0]?["message"]?["content"]?.GetValue<string>();
         }
 
         private static TextImportAnalysisDto? ParseAiResponse(string jsonText)

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MoneyTracker.Application.Common;
@@ -12,8 +11,7 @@ using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
-using OpenAI;
-using OpenAI.Chat;
+using Google.Apis.Auth.OAuth2;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -34,26 +32,20 @@ namespace MoneyTracker.Application.Services
         private readonly ICardBenefitRepository _cardBenefitRepository;
         private readonly ITimeZoneService _timeZoneService;
         private readonly ILogger<ReportService> _logger;
-        private readonly OpenAiSettings _openAiSettings;
         private readonly GoogleAiSettings _googleAiSettings;
-        private readonly string _activeProvider;
 
         public ReportService(
             ITransactionRepository transactionRepository,
             ICardBenefitRepository cardBenefitRepository,
             ITimeZoneService timeZoneService,
             ILogger<ReportService> logger,
-            IOptions<OpenAiSettings> openAiSettings,
-            IOptions<GoogleAiSettings> googleAiSettings,
-            IConfiguration configuration)
+            IOptions<GoogleAiSettings> googleAiSettings)
         {
             _transactionRepository = transactionRepository;
             _cardBenefitRepository = cardBenefitRepository;
             _timeZoneService = timeZoneService;
             _logger = logger;
-            _openAiSettings = openAiSettings.Value;
             _googleAiSettings = googleAiSettings.Value;
-            _activeProvider = configuration["AiProvider"] ?? "Google";
         }
 
         public async Task<OperationResult<MonthlyReportDto>> GetMonthlyReportAsync(MonthlyReportFilterDto filter)
@@ -184,42 +176,51 @@ namespace MoneyTracker.Application.Services
                 {reportJson}
                 """;
 
-            return _activeProvider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase)
-                ? await CallOpenAiAsync(prompt)
-                : await CallGoogleAiAsync(prompt);
-        }
-
-        private async Task<OperationResult<string>> CallOpenAiAsync(string prompt)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(_openAiSettings.ApiKey))
-                    return OperationResult<string>.Fail("OpenAI not configured. Add OpenAiSettings:ApiKey to appsettings.");
-
-                var client = new OpenAIClient(_openAiSettings.ApiKey);
-                var chatClient = client.GetChatClient(_openAiSettings.Model);
-
-                var completion = await chatClient.CompleteChatAsync(
-                    new List<ChatMessage> { new UserChatMessage(prompt) },
-                    new ChatCompletionOptions { MaxOutputTokenCount = _openAiSettings.MaxTokens });
-
-                return OperationResult<string>.Ok(completion.Value.Content[0].Text, "Analysis complete.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error calling OpenAI API");
-                return OperationResult<string>.Fail("AI analysis failed. Check logs for details.");
-            }
+            return await CallGoogleAiAsync(prompt);
         }
 
         private async Task<OperationResult<string>> CallGoogleAiAsync(string prompt)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(_googleAiSettings.ApiKey))
-                    return OperationResult<string>.Fail("Google AI not configured. Add GoogleAiSettings:ApiKey to appsettings.");
+                bool useVertexAi = !string.IsNullOrWhiteSpace(_googleAiSettings.ProjectId);
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_googleAiSettings.Model}:generateContent?key={_googleAiSettings.ApiKey}";
+                string url;
+                using var http = new HttpClient();
+
+                if (useVertexAi)
+                {
+                    var location = string.IsNullOrWhiteSpace(_googleAiSettings.Location)
+                        ? "us-central1"
+                        : _googleAiSettings.Location;
+
+                    url = $"https://{location}-aiplatform.googleapis.com/v1/projects/{_googleAiSettings.ProjectId}/locations/{location}/publishers/google/models/{_googleAiSettings.Model}:generateContent";
+
+                    GoogleCredential credential;
+                    if (!string.IsNullOrWhiteSpace(_googleAiSettings.ServiceAccountJsonPath)
+                        && File.Exists(_googleAiSettings.ServiceAccountJsonPath))
+                    {
+                        credential = GoogleCredential
+                            .FromFile(_googleAiSettings.ServiceAccountJsonPath)
+                            .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+                    }
+                    else
+                    {
+                        credential = (await GoogleCredential.GetApplicationDefaultAsync())
+                            .CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+                    }
+
+                    var token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+                    http.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(_googleAiSettings.ApiKey))
+                        return OperationResult<string>.Fail("Google AI not configured. Set GoogleAiSettings:ProjectId (Vertex AI) or GoogleAiSettings:ApiKey.");
+
+                    url = $"https://generativelanguage.googleapis.com/v1beta/models/{_googleAiSettings.Model}:generateContent?key={_googleAiSettings.ApiKey}";
+                }
 
                 var body = new
                 {
@@ -230,7 +231,6 @@ namespace MoneyTracker.Application.Services
                     generationConfig = new { maxOutputTokens = _googleAiSettings.MaxTokens }
                 };
 
-                using var http = new HttpClient();
                 var response = await http.PostAsJsonAsync(url, body);
                 if (!response.IsSuccessStatusCode)
                 {

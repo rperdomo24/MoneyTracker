@@ -1,5 +1,4 @@
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MoneyTracker.Application.Constants.Configuration;
@@ -21,18 +20,13 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ICardBenefitRepository> _cardBenefitRepo = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
 
-        private static IConfiguration EmptyConfig =>
-            new ConfigurationBuilder().Build();
-
         private ReportService CreateService()
             => new ReportService(
                 _transactionRepo.Object,
                 _cardBenefitRepo.Object,
                 _timeZoneService.Object,
                 NullLogger<ReportService>.Instance,
-                Options.Create(new OpenAiSettings()),
-                Options.Create(new GoogleAiSettings()),
-                EmptyConfig);
+                Options.Create(new GoogleAiSettings()));
 
         private void SetupTimeZone()
         {
