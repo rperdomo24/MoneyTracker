@@ -50,14 +50,17 @@ services:
       EmailSettings__Username: ${EMAIL_USER}
       EmailSettings__Password: ${EMAIL_PASSWORD}
       AiProvider: ${AI_PROVIDER:-Google}
-      OpenAiSettings__ApiKey: ${OPENAI_API_KEY}
-      OpenAiSettings__Model: ${OPENAI_MODEL:-gpt-4o-mini}
-      OpenAiSettings__MaxTokens: ${OPENAI_MAX_TOKENS:-1024}
-      GoogleAiSettings__ApiKey: ${GOOGLE_AI_API_KEY}
-      GoogleAiSettings__Model: ${GOOGLE_AI_MODEL:-gemini-1.5-flash}
+      # Google AI — usar ApiKey (AI Studio) o ProjectId (Vertex AI con cuenta de servicio)
+      GoogleAiSettings__Model: ${GOOGLE_AI_MODEL:-gemini-2.0-flash}
       GoogleAiSettings__MaxTokens: ${GOOGLE_AI_MAX_TOKENS:-1024}
+      GoogleAiSettings__ApiKey: ${GOOGLE_AI_API_KEY}
+      GoogleAiSettings__ProjectId: ${GOOGLE_AI_PROJECT_ID}
+      GoogleAiSettings__Location: ${GOOGLE_AI_LOCATION:-us-central1}
+      GoogleAiSettings__ServiceAccountJsonPath: ${GOOGLE_AI_SA_JSON_PATH:-/run/secrets/gcp.json}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gcp.json}
     volumes:
       - ${LOGS_PATH:-./logs}:/app/Logs
+      - ${GOOGLE_SA_JSON_LOCAL_PATH:-/dev/null}:/run/secrets/gcp.json:ro
     networks:
       - moneytracker-network
       - jobordermanager_default
