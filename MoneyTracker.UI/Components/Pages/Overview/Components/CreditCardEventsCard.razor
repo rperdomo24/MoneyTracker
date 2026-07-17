@@ -495,7 +495,7 @@
         // Only Cut events show bonifiable interest — interest on Due events is already
         // determined by the statement; projecting it again here is misleading.
         if (evt.EventType != "Cut") return null;
-        if (evt.AnnualInterestRate is null || evt.Balance >= 0 || evt.DaysFromToday <= 0) return null;
+        if (evt.AnnualInterestRate is null || evt.Balance >= 0 || evt.DaysFromToday < 0) return null;
         var dailyRate = evt.AnnualInterestRate.Value / 100m / 365m;
         // Use the full billing cycle length, not remaining days. Interés bonificable is
         // calculated over the entire period (prev cut → this cut), not just from today.
