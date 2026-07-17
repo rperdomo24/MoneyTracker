@@ -52,12 +52,19 @@ namespace MoneyTracker.Infrastructure.Jobs
                 {
                     var current = recurring.NextDate;
                     decimal totalAmount = 0;
+                    var occurrencesThisRun = 0;
 
                     var isExpense = recurring.Category?.Type != CategoryTypeEnum.Income;
                     var signedAmount = isExpense ? Math.Abs(recurring.Amount) * -1 : Math.Abs(recurring.Amount);
 
                     while (current.Date <= today.Date)
                     {
+                        if (recurring.TotalOccurrences.HasValue &&
+                            recurring.OccurrencesGenerated + occurrencesThisRun >= recurring.TotalOccurrences.Value)
+                            break;
+                        if (recurring.EndDate.HasValue && current.Date > recurring.EndDate.Value.Date)
+                            break;
+
                         context.Transaction.Add(new Transaction
                         {
                             TenantId = recurring.TenantId,
@@ -74,7 +81,14 @@ namespace MoneyTracker.Infrastructure.Jobs
                         });
 
                         totalAmount += recurring.Amount;
+                        occurrencesThisRun++;
                         current = RecurringTransactionMapper.AdvanceNextDate(current, recurring.Frequency);
+                    }
+
+                    if (occurrencesThisRun == 0)
+                    {
+                        _logger.LogInformation("Recurring '{Name}' (Id={Id}) skipped — limit reached", recurring.Name, recurring.Id);
+                        continue;
                     }
 
                     // Only Added entities with TenantId set — passes tenant enforcement
@@ -91,16 +105,25 @@ namespace MoneyTracker.Infrastructure.Jobs
                         .ExecuteUpdateAsync(s => s
                             .SetProperty(x => x.Balance, newBalance));
 
+                    var newOccurrencesGenerated = recurring.OccurrencesGenerated + occurrencesThisRun;
+                    var limitReached =
+                        (recurring.TotalOccurrences.HasValue && newOccurrencesGenerated >= recurring.TotalOccurrences.Value) ||
+                        (recurring.EndDate.HasValue && current.Date > recurring.EndDate.Value.Date);
+
                     var now = DateTime.UtcNow;
                     await context.RecurringTransactions
                         .IgnoreQueryFilters()
                         .Where(r => r.Id == recurring.Id)
                         .ExecuteUpdateAsync(s => s
                             .SetProperty(x => x.NextDate, current)
-                            .SetProperty(x => x.LastGeneratedDate, now));
+                            .SetProperty(x => x.LastGeneratedDate, now)
+                            .SetProperty(x => x.OccurrencesGenerated, newOccurrencesGenerated)
+                            .SetProperty(x => x.IsActive, limitReached ? false : recurring.IsActive));
 
-                    _logger.LogInformation("Generated recurring '{Name}' (TenantId={TenantId}), next={Next}",
-                        recurring.Name, recurring.TenantId, current.Date);
+                    _logger.LogInformation("Generated recurring '{Name}' (TenantId={TenantId}), occurrences={Generated}/{Total}, next={Next}",
+                        recurring.Name, recurring.TenantId, newOccurrencesGenerated,
+                        recurring.TotalOccurrences.HasValue ? recurring.TotalOccurrences.Value.ToString() : "∞",
+                        current.Date);
                 }
                 catch (Exception ex)
                 {

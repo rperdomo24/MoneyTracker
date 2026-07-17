@@ -15,12 +15,16 @@ namespace MoneyTracker.Application.Mappers
                 Amount = entity.Amount,
                 CategoryId = entity.CategoryId,
                 CategoryName = entity.Category?.Name,
+                CategoryType = entity.Category?.Type,
                 AccountId = entity.AccountId,
                 AccountName = entity.Account?.Name,
                 Frequency = entity.Frequency,
                 StartDate = entity.StartDate,
                 NextDate = entity.NextDate,
                 LastGeneratedDate = entity.LastGeneratedDate,
+                EndDate = entity.EndDate,
+                TotalOccurrences = entity.TotalOccurrences,
+                OccurrencesGenerated = entity.OccurrencesGenerated,
                 IsActive = entity.IsActive,
                 Description = entity.Description,
                 PaymentMethod = entity.PaymentMethod
@@ -39,6 +43,9 @@ namespace MoneyTracker.Application.Mappers
                 Frequency = dto.Frequency,
                 StartDate = dto.StartDate.ToUniversalTime(),
                 NextDate = dto.StartDate.ToUniversalTime(),
+                EndDate = dto.EndDate,
+                TotalOccurrences = dto.TotalOccurrences,
+                OccurrencesGenerated = 0,
                 IsActive = dto.IsActive,
                 Description = dto.Description,
                 PaymentMethod = dto.PaymentMethod
@@ -52,6 +59,8 @@ namespace MoneyTracker.Application.Mappers
             entity.CategoryId = dto.CategoryId;
             entity.AccountId = dto.AccountId;
             entity.Frequency = dto.Frequency;
+            entity.EndDate = dto.EndDate;
+            entity.TotalOccurrences = dto.TotalOccurrences;
             entity.IsActive = dto.IsActive;
             entity.Description = dto.Description;
             entity.PaymentMethod = dto.PaymentMethod;

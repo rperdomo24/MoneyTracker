@@ -26,6 +26,10 @@ namespace MoneyTracker.Domain.Entities
         public DateTime StartDate { get; set; }
         public DateTime NextDate { get; set; }
         public DateTime? LastGeneratedDate { get; set; }
+        public DateTime? EndDate { get; set; }
+
+        public int? TotalOccurrences { get; set; }
+        public int OccurrencesGenerated { get; set; } = 0;
 
         public bool IsActive { get; set; } = true;
 

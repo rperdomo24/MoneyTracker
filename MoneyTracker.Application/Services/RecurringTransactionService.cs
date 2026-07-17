@@ -64,6 +64,10 @@ namespace MoneyTracker.Application.Services
                 return OperationResult.Fail("Category is required.");
             if (dto.StartDate == default)
                 return OperationResult.Fail("Start date is required.");
+            if (dto.TotalOccurrences.HasValue && dto.TotalOccurrences.Value <= 0)
+                return OperationResult.Fail("Total installments must be greater than zero.");
+            if (dto.EndDate.HasValue && dto.EndDate.Value <= dto.StartDate)
+                return OperationResult.Fail("End date must be after start date.");
 
             try
             {
@@ -83,6 +87,8 @@ namespace MoneyTracker.Application.Services
                 return OperationResult.Fail("Name is required.");
             if (dto.Amount == 0)
                 return OperationResult.Fail("Amount cannot be zero.");
+            if (dto.TotalOccurrences.HasValue && dto.TotalOccurrences.Value <= 0)
+                return OperationResult.Fail("Total installments must be greater than zero.");
 
             try
             {
