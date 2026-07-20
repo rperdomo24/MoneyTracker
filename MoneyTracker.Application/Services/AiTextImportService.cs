@@ -117,7 +117,11 @@ namespace MoneyTracker.Application.Services
 
             var request = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
             var response = await _http.PostAsync(url, request);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"Google AI {(int)response.StatusCode}: {errorBody}");
+            }
 
             var raw = await response.Content.ReadAsStringAsync();
             var doc = JsonNode.Parse(raw);

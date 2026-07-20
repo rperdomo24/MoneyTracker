@@ -35,8 +35,9 @@ namespace MoneyTracker.UI.Services.Filters
                 var result = await _session.GetAsync<T>(key);
                 return result.Success ? result.Value : default;
             }
-            catch (InvalidOperationException)
+            catch (Exception ex) when (ex is InvalidOperationException or System.Security.Cryptography.CryptographicException)
             {
+                try { await _session.DeleteAsync(key); } catch { }
                 return default;
             }
         }

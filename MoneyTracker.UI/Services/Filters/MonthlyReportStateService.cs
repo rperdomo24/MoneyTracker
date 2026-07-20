@@ -1,25 +1,45 @@
 using MoneyTracker.Application.DTOs.Reports;
+using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.UI.Services.Filters.Interface;
-using MoneyTracker.UI.Services.User;
-using MoneyTracker.UI.Utility.Const;
+using System.Text.Json;
 
 namespace MoneyTracker.UI.Services.Filters
 {
     public class MonthlyReportStateService : IMonthlyReportStateService
     {
-        private readonly IFilterStorageService _storage;
-        private readonly ICurrentUserKeyProvider _userKey;
+        private readonly IUserReportPreferenceRepository _repo;
 
-        public MonthlyReportStateService(IFilterStorageService storage, ICurrentUserKeyProvider userKey)
+        public MonthlyReportStateService(IUserReportPreferenceRepository repo)
         {
-            _storage = storage;
-            _userKey = userKey;
+            _repo = repo;
         }
 
-        private string Key => StorageKeys.Filters.MonthlyReport(_userKey.GetUserKey());
+        public async Task<MonthlyReportStateDto?> GetAsync()
+        {
+            var pref = await _repo.GetAsync();
+            if (pref is null) return null;
 
-        public Task SaveAsync(MonthlyReportStateDto state) => _storage.SaveAsync(Key, state);
-        public Task<MonthlyReportStateDto?> GetAsync() => _storage.GetAsync<MonthlyReportStateDto>(Key);
-        public Task ClearAsync() => _storage.RemoveAsync(Key);
+            return new MonthlyReportStateDto
+            {
+                Year = pref.Year,
+                Month = pref.Month,
+                SelectedCategories = JsonSerializer.Deserialize<List<string>>(pref.CategoriesJson) ?? new(),
+                ActiveCardFilter = pref.ActiveCardFilter
+            };
+        }
+
+        public async Task SaveAsync(MonthlyReportStateDto state)
+        {
+            await _repo.SaveAsync(new UserReportPreference
+            {
+                Year = state.Year,
+                Month = state.Month,
+                CategoriesJson = JsonSerializer.Serialize(state.SelectedCategories),
+                ActiveCardFilter = state.ActiveCardFilter
+            });
+        }
+
+        public Task ClearAsync() => Task.CompletedTask;
     }
 }

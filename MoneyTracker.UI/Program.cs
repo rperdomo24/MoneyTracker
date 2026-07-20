@@ -145,6 +145,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ICategoryFilterStateService, CategoryFilterStateService>();
             builder.Services.AddScoped<ICreditCalendarFilterStateService, CreditCalendarFilterStateService>();
             builder.Services.AddScoped<IRecurringTransactionFilterStateService, RecurringTransactionFilterStateService>();
+            builder.Services.AddScoped<IUserReportPreferenceRepository, UserReportPreferenceRepository>();
             builder.Services.AddScoped<IMonthlyReportStateService, MonthlyReportStateService>();
             builder.Services.AddScoped<IRangeReportStateService, RangeReportStateService>();
             builder.Services.AddScoped<IAccountsPanelStateService, AccountsPanelStateService>();
@@ -208,6 +209,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
             builder.Services.AddScoped<NotificationGeneratorJob>();
+            builder.Services.AddScoped<IAiReportCacheRepository, AiReportCacheRepository>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 

@@ -6,6 +6,7 @@
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
 @using System.Text
+@using Markdig
 @inject IReportService ReportService
 @inject IBudgetService BudgetService
 @inject IMonthlyReportStateService ReportState
@@ -377,26 +378,47 @@
                     <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
                     <MudText Typo="Typo.subtitle1" Class="font-weight-bold">AI Analysis</MudText>
                 </MudStack>
-                <MudButton Color="Color.Primary"
-                           Variant="Variant.Outlined"
-                           StartIcon="@Icons.Material.Filled.Psychology"
-                           OnClick="RequestAiAnalysis"
-                           Disabled="@_aiLoading">
-                    @if (_aiLoading)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        <span>Analyzing...</span>
-                    }
-                    else
-                    {
-                        <span>Analyze with AI</span>
-                    }
-                </MudButton>
+                @if (string.IsNullOrWhiteSpace(_report.AiAnalysis))
+                {
+                    <MudButton Color="Color.Primary"
+                               Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Psychology"
+                               OnClick="@(() => RequestAiAnalysis(false))"
+                               Disabled="@_aiLoading">
+                        @if (_aiLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>Analyze with AI</span>
+                        }
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Color="Color.Secondary"
+                               Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="@(() => RequestAiAnalysis(true))"
+                               Disabled="@_aiLoading">
+                        @if (_aiLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>Re-analyze</span>
+                        }
+                    </MudButton>
+                }
             </MudStack>
 
             @if (!string.IsNullOrWhiteSpace(_report.AiAnalysis))
             {
-                <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@_report.AiAnalysis</MudText>
+                <div class="ai-report-content">@((MarkupString)RenderMarkdown(_report.AiAnalysis))</div>
             }
             else
             {
@@ -590,6 +612,13 @@
         else
             Snackbar.Add(result.Message, Severity.Error);
 
+        if (_report is not null)
+        {
+            var cached = await ReportService.GetCachedAiAnalysisAsync(_filter.Year, _filter.Month);
+            if (cached.Success)
+                _report.AiAnalysis = cached.Data;
+        }
+
         var br = budgetTask.Result;
         if (br.Success && br.Data is not null)
             _budgets = br.Data.Where(b => b.Budget.Amount > 0).ToList();
@@ -605,13 +634,19 @@
         ActiveCardFilter = _activeCardFilter
     });
 
-    private async Task RequestAiAnalysis()
+    private static string RenderMarkdown(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) return string.Empty;
+        return Markdown.ToHtml(markdown, new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
+    }
+
+    private async Task RequestAiAnalysis(bool forceRefresh)
     {
         if (_report is null) return;
         _aiLoading = true;
         StateHasChanged();
 
-        var result = await ReportService.GetAiAnalysisAsync(_report);
+        var result = await ReportService.GetAiAnalysisAsync(_report, forceRefresh);
         if (result.Success)
             _report.AiAnalysis = result.Data;
         else

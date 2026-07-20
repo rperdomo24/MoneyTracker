@@ -33,19 +33,22 @@ namespace MoneyTracker.Application.Services
         private readonly ITimeZoneService _timeZoneService;
         private readonly ILogger<ReportService> _logger;
         private readonly GoogleAiSettings _googleAiSettings;
+        private readonly IAiReportCacheRepository _aiReportCacheRepository;
 
         public ReportService(
             ITransactionRepository transactionRepository,
             ICardBenefitRepository cardBenefitRepository,
             ITimeZoneService timeZoneService,
             ILogger<ReportService> logger,
-            IOptions<GoogleAiSettings> googleAiSettings)
+            IOptions<GoogleAiSettings> googleAiSettings,
+            IAiReportCacheRepository aiReportCacheRepository)
         {
             _transactionRepository = transactionRepository;
             _cardBenefitRepository = cardBenefitRepository;
             _timeZoneService = timeZoneService;
             _logger = logger;
             _googleAiSettings = googleAiSettings.Value;
+            _aiReportCacheRepository = aiReportCacheRepository;
         }
 
         public async Task<OperationResult<MonthlyReportDto>> GetMonthlyReportAsync(MonthlyReportFilterDto filter)
@@ -147,8 +150,23 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<string>> GetAiAnalysisAsync(MonthlyReportDto report)
+        public async Task<OperationResult<string>> GetCachedAiAnalysisAsync(int year, int month)
         {
+            var cached = await _aiReportCacheRepository.GetAsync(year, month);
+            return cached is not null
+                ? OperationResult<string>.Ok(cached.Content)
+                : OperationResult<string>.Fail("No cached analysis.");
+        }
+
+        public async Task<OperationResult<string>> GetAiAnalysisAsync(MonthlyReportDto report, bool forceRefresh = false)
+        {
+            if (!forceRefresh)
+            {
+                var cached = await _aiReportCacheRepository.GetAsync(report.Year, report.Month);
+                if (cached is not null)
+                    return OperationResult<string>.Ok(cached.Content);
+            }
+
             var reportJson = JsonSerializer.Serialize(report, new JsonSerializerOptions
             {
                 WriteIndented = false,
@@ -176,7 +194,10 @@ namespace MoneyTracker.Application.Services
                 {reportJson}
                 """;
 
-            return await CallGoogleAiAsync(prompt);
+            var result = await CallGoogleAiAsync(prompt);
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Data))
+                await _aiReportCacheRepository.UpsertAsync(report.Year, report.Month, result.Data);
+            return result;
         }
 
         private async Task<OperationResult<string>> CallGoogleAiAsync(string prompt)
@@ -194,7 +215,10 @@ namespace MoneyTracker.Application.Services
                         ? "us-central1"
                         : _googleAiSettings.Location;
 
-                    url = $"https://{location}-aiplatform.googleapis.com/v1/projects/{_googleAiSettings.ProjectId}/locations/{location}/publishers/google/models/{_googleAiSettings.Model}:generateContent";
+                    var apiHost = location == "global"
+                        ? "aiplatform.googleapis.com"
+                        : $"{location}-aiplatform.googleapis.com";
+                    url = $"https://{apiHost}/v1/projects/{_googleAiSettings.ProjectId}/locations/{location}/publishers/google/models/{_googleAiSettings.Model}:generateContent";
 
                     GoogleCredential credential;
                     if (!string.IsNullOrWhiteSpace(_googleAiSettings.ServiceAccountJsonPath)
@@ -226,7 +250,7 @@ namespace MoneyTracker.Application.Services
                 {
                     contents = new[]
                     {
-                        new { parts = new[] { new { text = prompt } } }
+                        new { role = "user", parts = new[] { new { text = prompt } } }
                     },
                     generationConfig = new { maxOutputTokens = _googleAiSettings.MaxTokens }
                 };

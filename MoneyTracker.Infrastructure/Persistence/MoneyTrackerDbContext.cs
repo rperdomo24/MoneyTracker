@@ -44,6 +44,8 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
         public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
         public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
+        public DbSet<AiReportCache> AiReportCaches => Set<AiReportCache>();
+        public DbSet<UserReportPreference> UserReportPreferences => Set<UserReportPreference>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -137,6 +139,23 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
             modelBuilder.Entity<RecurringTransaction>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<UserReportPreference>()
+                .HasIndex(e => e.TenantId)
+                .IsUnique();
+
+            modelBuilder.Entity<UserReportPreference>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiReportCache>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiReportCache>()
+                .HasIndex(e => new { e.TenantId, e.Year, e.Month })
+                .IsUnique();
+
+            modelBuilder.Entity<AiReportCache>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
             modelBuilder.Entity<AppNotification>()
