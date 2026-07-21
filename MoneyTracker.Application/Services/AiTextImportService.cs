@@ -1,9 +1,13 @@
 using Google.Apis.Auth.OAuth2;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.TextImport;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Interfaces;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -14,6 +18,9 @@ namespace MoneyTracker.Application.Services
     {
         private readonly HttpClient _http;
         private readonly IConfiguration _config;
+        private readonly IAiCallLogRepository _callLogRepo;
+        private readonly IAiTextImportCacheRepository _importCacheRepo;
+        private readonly ILogger<AiTextImportService> _logger;
 
         private static readonly JsonSerializerOptions _json = new()
         {
@@ -66,10 +73,18 @@ namespace MoneyTracker.Application.Services
             }
             """;
 
-        public AiTextImportService(HttpClient http, IConfiguration config)
+        public AiTextImportService(
+            HttpClient http,
+            IConfiguration config,
+            IAiCallLogRepository callLogRepo,
+            IAiTextImportCacheRepository importCacheRepo,
+            ILogger<AiTextImportService> logger)
         {
             _http = http;
             _config = config;
+            _callLogRepo = callLogRepo;
+            _importCacheRepo = importCacheRepo;
+            _logger = logger;
         }
 
         public async Task<OperationResult<TextImportAnalysisDto>> AnalyzeAsync(string rawText)
@@ -79,7 +94,26 @@ namespace MoneyTracker.Application.Services
 
             try
             {
-                var jsonResponse = await CallGoogleAsync(rawText);
+                var inputHash = ComputeHash(rawText);
+                var cached = await _importCacheRepo.GetByHashAsync(inputHash);
+                if (cached is not null)
+                {
+                    var cachedResult = ParseAiResponse(cached.Content);
+                    if (cachedResult is not null && cachedResult.Items.Count > 0)
+                    {
+                        _ = _callLogRepo.AddAsync(new AiCallLog
+                        {
+                            Service = "TextImport",
+                            Model = _config["GoogleAiSettings:Model"] ?? "gemini",
+                            WasCacheHit = true,
+                            CalledAtUtc = DateTime.UtcNow
+                        });
+                        _logger.LogInformation("AI call [TextImport] cache hit hash={Hash}", inputHash[..8]);
+                        return OperationResult<TextImportAnalysisDto>.Ok(cachedResult, "Text analyzed successfully.");
+                    }
+                }
+
+                var jsonResponse = await CallGoogleAsync(rawText, inputHash);
 
                 if (jsonResponse is null)
                     return OperationResult<TextImportAnalysisDto>.Fail("AI provider returned no response.");
@@ -97,8 +131,15 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        private async Task<string?> CallGoogleAsync(string rawText)
+        private static string ComputeHash(string text)
         {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(text.Trim()));
+            return Convert.ToHexString(bytes).ToLowerInvariant();
+        }
+
+        private async Task<string?> CallGoogleAsync(string rawText, string inputHash)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var model = _config["GoogleAiSettings:Model"] ?? "gemini-1.5-flash";
             var maxTokens = int.TryParse(_config["GoogleAiSettings:MaxTokens"], out var mt) ? mt : 1024;
             var projectId = _config["GoogleAiSettings:ProjectId"];
@@ -153,8 +194,34 @@ namespace MoneyTracker.Application.Services
             }
 
             var raw = await response.Content.ReadAsStringAsync();
+            sw.Stop();
             var doc = JsonNode.Parse(raw);
-            return doc?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.GetValue<string>();
+
+            var text = doc?["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.GetValue<string>();
+
+            var inputTokens = doc?["usageMetadata"]?["promptTokenCount"]?.GetValue<int>() ?? 0;
+            var outputTokens = doc?["usageMetadata"]?["candidatesTokenCount"]?.GetValue<int>() ?? 0;
+            var cachedTokens = doc?["usageMetadata"]?["cachedContentTokenCount"]?.GetValue<int>() ?? 0;
+
+            _ = _callLogRepo.AddAsync(new AiCallLog
+            {
+                Service = "TextImport",
+                Model = model,
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                CachedTokens = cachedTokens,
+                WasCacheHit = false,
+                DurationMs = sw.ElapsedMilliseconds,
+                CalledAtUtc = DateTime.UtcNow
+            });
+
+            _logger.LogInformation("AI call [TextImport] model={Model} in={Input} out={Output} cached={Cached} ms={Ms}",
+                model, inputTokens, outputTokens, cachedTokens, sw.ElapsedMilliseconds);
+
+            if (text is not null)
+                await _importCacheRepo.SaveAsync(inputHash, text);
+
+            return text;
         }
 
         private static TextImportAnalysisDto? ParseAiResponse(string jsonText)

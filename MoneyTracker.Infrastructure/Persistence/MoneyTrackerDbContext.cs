@@ -47,6 +47,8 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<AiReportCache> AiReportCaches => Set<AiReportCache>();
         public DbSet<AiRangeReportCache> AiRangeReportCaches => Set<AiRangeReportCache>();
         public DbSet<UserReportPreference> UserReportPreferences => Set<UserReportPreference>();
+        public DbSet<AiCallLog> AiCallLogs => Set<AiCallLog>();
+        public DbSet<AiTextImportCache> AiTextImportCaches => Set<AiTextImportCache>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -167,6 +169,25 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .IsUnique();
 
             modelBuilder.Entity<AiReportCache>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiCallLog>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiCallLog>()
+                .HasIndex(e => e.CalledAtUtc);
+
+            modelBuilder.Entity<AiCallLog>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiTextImportCache>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiTextImportCache>()
+                .HasIndex(e => new { e.TenantId, e.InputHash })
+                .IsUnique();
+
+            modelBuilder.Entity<AiTextImportCache>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
             modelBuilder.Entity<AppNotification>()

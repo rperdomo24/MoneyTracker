@@ -35,6 +35,7 @@ namespace MoneyTracker.Application.Services
         private readonly GoogleAiSettings _googleAiSettings;
         private readonly IAiReportCacheRepository _aiReportCacheRepository;
         private readonly IAiRangeReportCacheRepository _aiRangeReportCacheRepository;
+        private readonly IAiCallLogRepository _aiCallLogRepository;
 
         public ReportService(
             ITransactionRepository transactionRepository,
@@ -43,7 +44,8 @@ namespace MoneyTracker.Application.Services
             ILogger<ReportService> logger,
             IOptions<GoogleAiSettings> googleAiSettings,
             IAiReportCacheRepository aiReportCacheRepository,
-            IAiRangeReportCacheRepository aiRangeReportCacheRepository)
+            IAiRangeReportCacheRepository aiRangeReportCacheRepository,
+            IAiCallLogRepository aiCallLogRepository)
         {
             _transactionRepository = transactionRepository;
             _cardBenefitRepository = cardBenefitRepository;
@@ -52,6 +54,7 @@ namespace MoneyTracker.Application.Services
             _googleAiSettings = googleAiSettings.Value;
             _aiReportCacheRepository = aiReportCacheRepository;
             _aiRangeReportCacheRepository = aiRangeReportCacheRepository;
+            _aiCallLogRepository = aiCallLogRepository;
         }
 
         public async Task<OperationResult<MonthlyReportDto>> GetMonthlyReportAsync(MonthlyReportFilterDto filter)
@@ -201,7 +204,7 @@ namespace MoneyTracker.Application.Services
                 {reportJson}
                 """;
 
-            var result = await CallGoogleAiAsync(prompt);
+            var result = await CallGoogleAiAsync(prompt, "RangeReport");
             if (result.Success && !string.IsNullOrWhiteSpace(result.Data))
                 await _aiRangeReportCacheRepository.UpsertAsync(report.From, report.To, result.Data);
             return result;
@@ -243,14 +246,15 @@ namespace MoneyTracker.Application.Services
                 {reportJson}
                 """;
 
-            var result = await CallGoogleAiAsync(prompt);
+            var result = await CallGoogleAiAsync(prompt, "MonthlyReport");
             if (result.Success && !string.IsNullOrWhiteSpace(result.Data))
                 await _aiReportCacheRepository.UpsertAsync(report.Year, report.Month, result.Data);
             return result;
         }
 
-        private async Task<OperationResult<string>> CallGoogleAiAsync(string prompt)
+        private async Task<OperationResult<string>> CallGoogleAiAsync(string prompt, string service)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 bool useVertexAi = !string.IsNullOrWhiteSpace(_googleAiSettings.ProjectId);
@@ -313,6 +317,8 @@ namespace MoneyTracker.Application.Services
                 }
 
                 var json = await response.Content.ReadFromJsonAsync<JsonDocument>();
+                sw.Stop();
+
                 var text = json!.RootElement
                     .GetProperty("candidates")[0]
                     .GetProperty("content")
@@ -320,11 +326,32 @@ namespace MoneyTracker.Application.Services
                     .GetProperty("text")
                     .GetString() ?? string.Empty;
 
+                var usage = json.RootElement.TryGetProperty("usageMetadata", out var meta) ? meta : (JsonElement?)null;
+                var inputTokens = usage?.TryGetProperty("promptTokenCount", out var inp) == true ? inp.GetInt32() : 0;
+                var outputTokens = usage?.TryGetProperty("candidatesTokenCount", out var out_) == true ? out_.GetInt32() : 0;
+                var cachedTokens = usage?.TryGetProperty("cachedContentTokenCount", out var cch) == true ? cch.GetInt32() : 0;
+
+                _ = _aiCallLogRepository.AddAsync(new AiCallLog
+                {
+                    Service = service,
+                    Model = _googleAiSettings.Model ?? string.Empty,
+                    InputTokens = inputTokens,
+                    OutputTokens = outputTokens,
+                    CachedTokens = cachedTokens,
+                    WasCacheHit = false,
+                    DurationMs = sw.ElapsedMilliseconds,
+                    CalledAtUtc = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("AI call [{Service}] model={Model} in={Input} out={Output} cached={Cached} ms={Ms}",
+                    service, _googleAiSettings.Model, inputTokens, outputTokens, cachedTokens, sw.ElapsedMilliseconds);
+
                 return OperationResult<string>.Ok(text, "Analysis complete.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error calling Google AI API");
+                sw.Stop();
+                _logger.LogError(ex, "Error calling Google AI API [{Service}]", service);
                 return OperationResult<string>.Fail("AI analysis failed. Check logs for details.");
             }
         }
