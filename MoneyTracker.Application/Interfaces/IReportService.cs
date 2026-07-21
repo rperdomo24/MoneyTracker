@@ -9,5 +9,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<DateRangeReportDto>> GetRangeReportAsync(DateRangeReportFilterDto filter);
         Task<OperationResult<string>> GetAiAnalysisAsync(MonthlyReportDto report, bool forceRefresh = false);
         Task<OperationResult<string>> GetCachedAiAnalysisAsync(int year, int month);
+        Task<OperationResult<string>> GetRangeAiAnalysisAsync(DateRangeReportDto report, bool forceRefresh = false);
+        Task<OperationResult<string>> GetCachedRangeAiAnalysisAsync(DateOnly from, DateOnly to);
     }
 }

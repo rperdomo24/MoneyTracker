@@ -34,6 +34,7 @@ namespace MoneyTracker.Application.Services
         private readonly ILogger<ReportService> _logger;
         private readonly GoogleAiSettings _googleAiSettings;
         private readonly IAiReportCacheRepository _aiReportCacheRepository;
+        private readonly IAiRangeReportCacheRepository _aiRangeReportCacheRepository;
 
         public ReportService(
             ITransactionRepository transactionRepository,
@@ -41,7 +42,8 @@ namespace MoneyTracker.Application.Services
             ITimeZoneService timeZoneService,
             ILogger<ReportService> logger,
             IOptions<GoogleAiSettings> googleAiSettings,
-            IAiReportCacheRepository aiReportCacheRepository)
+            IAiReportCacheRepository aiReportCacheRepository,
+            IAiRangeReportCacheRepository aiRangeReportCacheRepository)
         {
             _transactionRepository = transactionRepository;
             _cardBenefitRepository = cardBenefitRepository;
@@ -49,6 +51,7 @@ namespace MoneyTracker.Application.Services
             _logger = logger;
             _googleAiSettings = googleAiSettings.Value;
             _aiReportCacheRepository = aiReportCacheRepository;
+            _aiRangeReportCacheRepository = aiRangeReportCacheRepository;
         }
 
         public async Task<OperationResult<MonthlyReportDto>> GetMonthlyReportAsync(MonthlyReportFilterDto filter)
@@ -156,6 +159,52 @@ namespace MoneyTracker.Application.Services
             return cached is not null
                 ? OperationResult<string>.Ok(cached.Content)
                 : OperationResult<string>.Fail("No cached analysis.");
+        }
+
+        public async Task<OperationResult<string>> GetCachedRangeAiAnalysisAsync(DateOnly from, DateOnly to)
+        {
+            var cached = await _aiRangeReportCacheRepository.GetAsync(from, to);
+            return cached is not null
+                ? OperationResult<string>.Ok(cached.Content)
+                : OperationResult<string>.Fail("No cached analysis.");
+        }
+
+        public async Task<OperationResult<string>> GetRangeAiAnalysisAsync(DateRangeReportDto report, bool forceRefresh = false)
+        {
+            if (!forceRefresh)
+            {
+                var cached = await _aiRangeReportCacheRepository.GetAsync(report.From, report.To);
+                if (cached is not null)
+                    return OperationResult<string>.Ok(cached.Content);
+            }
+
+            var reportJson = JsonSerializer.Serialize(report, new JsonSerializerOptions
+            {
+                WriteIndented = false,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            var prompt = $"""
+                Eres un asesor financiero personal. Analiza el siguiente reporte financiero JSON de rango de fechas y proporciona un análisis directo en español con estas secciones:
+
+                1. **Resumen del período**: 2-3 oraciones sobre el panorama general (ingresos, gastos, balance) para el período {report.From:dd/MM/yyyy} – {report.To:dd/MM/yyyy}.
+                2. **Hábitos de gasto**: Categorías que consumieron más. ¿El patrón es preocupante?
+                3. **Comercios frecuentes**: Top 3 comercios donde más se gastó. ¿Alguno merece revisión?
+                4. **Movimientos a revisar**: Transacciones inusuales por monto, categoría o comercio desconocido.
+                5. **3 acciones concretas**: Qué hacer diferente. Sé específico con categorías y montos.
+
+                Reglas:
+                - Máximo 350 palabras.
+                - No repitas datos del JSON literalmente, interprétalos.
+
+                Reporte:
+                {reportJson}
+                """;
+
+            var result = await CallGoogleAiAsync(prompt);
+            if (result.Success && !string.IsNullOrWhiteSpace(result.Data))
+                await _aiRangeReportCacheRepository.UpsertAsync(report.From, report.To, result.Data);
+            return result;
         }
 
         public async Task<OperationResult<string>> GetAiAnalysisAsync(MonthlyReportDto report, bool forceRefresh = false)

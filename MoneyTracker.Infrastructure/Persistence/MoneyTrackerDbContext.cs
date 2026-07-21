@@ -45,6 +45,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
         public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
         public DbSet<AiReportCache> AiReportCaches => Set<AiReportCache>();
+        public DbSet<AiRangeReportCache> AiRangeReportCaches => Set<AiRangeReportCache>();
         public DbSet<UserReportPreference> UserReportPreferences => Set<UserReportPreference>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -146,6 +147,16 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .IsUnique();
 
             modelBuilder.Entity<UserReportPreference>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiRangeReportCache>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiRangeReportCache>()
+                .HasIndex(e => new { e.TenantId, e.FromDate, e.ToDate })
+                .IsUnique();
+
+            modelBuilder.Entity<AiRangeReportCache>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
             modelBuilder.Entity<AiReportCache>()

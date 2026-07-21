@@ -1,7 +1,9 @@
+using Google.Apis.Auth.OAuth2;
 using Microsoft.Extensions.Configuration;
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.TextImport;
 using MoneyTracker.Application.Interfaces;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -97,26 +99,53 @@ namespace MoneyTracker.Application.Services
 
         private async Task<string?> CallGoogleAsync(string rawText)
         {
-            var apiKey = _config["GoogleAiSettings:ApiKey"];
             var model = _config["GoogleAiSettings:Model"] ?? "gemini-1.5-flash";
             var maxTokens = int.TryParse(_config["GoogleAiSettings:MaxTokens"], out var mt) ? mt : 1024;
+            var projectId = _config["GoogleAiSettings:ProjectId"];
+            var useVertexAi = !string.IsNullOrWhiteSpace(projectId);
 
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+            string url;
+            using var requestMessage = new HttpRequestMessage(HttpMethod.Post, "");
 
-            var body = new
+            if (useVertexAi)
             {
-                system_instruction = new { parts = new[] { new { text = SystemPrompt } } },
-                contents = new[] { new { parts = new[] { new { text = rawText } } } },
-                generationConfig = new
-                {
-                    maxOutputTokens = maxTokens,
-                    temperature = 0,
-                    responseMimeType = "application/json"
-                }
-            };
+                var location = _config["GoogleAiSettings:Location"] ?? "us-central1";
+                var apiHost = location == "global" ? "aiplatform.googleapis.com" : $"{location}-aiplatform.googleapis.com";
+                url = $"https://{apiHost}/v1/projects/{projectId}/locations/{location}/publishers/google/models/{model}:generateContent";
 
-            var request = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-            var response = await _http.PostAsync(url, request);
+                var saPath = _config["GoogleAiSettings:ServiceAccountJsonPath"];
+                GoogleCredential credential = !string.IsNullOrWhiteSpace(saPath) && File.Exists(saPath)
+                    ? GoogleCredential.FromFile(saPath).CreateScoped("https://www.googleapis.com/auth/cloud-platform")
+                    : (await GoogleCredential.GetApplicationDefaultAsync()).CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+
+                var token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
+                requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+                var vertexBody = new
+                {
+                    systemInstruction = new { parts = new[] { new { text = SystemPrompt } } },
+                    contents = new[] { new { role = "user", parts = new[] { new { text = rawText } } } },
+                    generationConfig = new { maxOutputTokens = maxTokens, temperature = 0, responseMimeType = "application/json" }
+                };
+                requestMessage.RequestUri = new Uri(url);
+                requestMessage.Content = new StringContent(JsonSerializer.Serialize(vertexBody), Encoding.UTF8, "application/json");
+            }
+            else
+            {
+                var apiKey = _config["GoogleAiSettings:ApiKey"];
+                url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+
+                var studioBody = new
+                {
+                    system_instruction = new { parts = new[] { new { text = SystemPrompt } } },
+                    contents = new[] { new { parts = new[] { new { text = rawText } } } },
+                    generationConfig = new { maxOutputTokens = maxTokens, temperature = 0, responseMimeType = "application/json" }
+                };
+                requestMessage.RequestUri = new Uri(url);
+                requestMessage.Content = new StringContent(JsonSerializer.Serialize(studioBody), Encoding.UTF8, "application/json");
+            }
+
+            var response = await _http.SendAsync(requestMessage);
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync();

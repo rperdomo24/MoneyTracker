@@ -7,6 +7,7 @@
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
 @using System.Text
+@using Markdig
 @inject IReportService ReportService
 @inject ICategoryService CategoryService
 @inject IRangeReportStateService ReportState
@@ -140,6 +141,61 @@
         <ReportChartsPanel CategorySummary="@_report.CategorySummary"
                            Summary="@_report.Summary"
                            Class="mb-6" />
+
+        <MudPaper Class="pa-4 mb-6" Elevation="1">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold">AI Analysis</MudText>
+                </MudStack>
+                @if (string.IsNullOrWhiteSpace(_report.AiAnalysis))
+                {
+                    <MudButton Color="Color.Primary"
+                               Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Psychology"
+                               OnClick="@(() => RequestAiAnalysis(false))"
+                               Disabled="@_aiLoading">
+                        @if (_aiLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>Analyze with AI</span>
+                        }
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Color="Color.Secondary"
+                               Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="@(() => RequestAiAnalysis(true))"
+                               Disabled="@_aiLoading">
+                        @if (_aiLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>Re-analyze</span>
+                        }
+                    </MudButton>
+                }
+            </MudStack>
+            @if (!string.IsNullOrWhiteSpace(_report.AiAnalysis))
+            {
+                <div class="ai-report-content">@((MarkupString)RenderMarkdown(_report.AiAnalysis))</div>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Click "Analyze with AI" to get personalized recommendations based on this period's data.
+                </MudText>
+            }
+        </MudPaper>
 
         @if (_report.CategorySummary.Any() || _report.IncomeCategorySummary.Any())
         {
@@ -327,6 +383,7 @@
     private List<CategoryDto> _incomeCategories = new();
 
     private DateRangeReportDto? _report;
+    private bool _aiLoading;
     private bool _loading;
 
     private DateTime? FromDateTime => _fromDate.ToDateTime(TimeOnly.MinValue);
@@ -401,6 +458,13 @@
         {
             _report = result.Data;
             await SaveState();
+
+            if (_report is not null)
+            {
+                var cached = await ReportService.GetCachedRangeAiAnalysisAsync(_fromDate, _toDate);
+                if (cached.Success)
+                    _report.AiAnalysis = cached.Data;
+            }
         }
         else
         {
@@ -408,6 +472,27 @@
         }
 
         _loading = false;
+    }
+
+    private static string RenderMarkdown(string? markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown)) return string.Empty;
+        return Markdown.ToHtml(markdown, new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
+    }
+
+    private async Task RequestAiAnalysis(bool forceRefresh)
+    {
+        if (_report is null) return;
+        _aiLoading = true;
+        StateHasChanged();
+
+        var result = await ReportService.GetRangeAiAnalysisAsync(_report, forceRefresh);
+        if (result.Success)
+            _report.AiAnalysis = result.Data;
+        else
+            Snackbar.Add(result.Message, Severity.Warning);
+
+        _aiLoading = false;
     }
 
     private Task SaveState() => ReportState.SaveAsync(new RangeReportStateDto

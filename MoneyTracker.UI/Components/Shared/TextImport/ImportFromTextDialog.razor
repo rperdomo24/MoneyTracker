@@ -1,4 +1,4 @@
-﻿@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.TextImport
 @using MoneyTracker.Application.DTOs.Transactions
@@ -20,60 +20,136 @@
 <MudDialog>
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            <MudIcon Icon="@Icons.Material.Filled.ContentPaste" Color="Color.Info" />
-            <MudText Typo="Typo.h6">Import from text</MudText>
+            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Magic Import</MudText>
+            @if (_items.Count > 1)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled">
+                    @_items.Count detected
+                </MudChip>
+            }
+            @if (_savedCount > 0)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">
+                    @_savedCount saved
+                </MudChip>
+            }
         </MudStack>
     </TitleContent>
 
     <DialogContent>
         @if (_loading)
         {
-            <MudProgressCircular Indeterminate="true" />
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Loading...</MudText>
+            </MudStack>
         }
         else
         {
             <MudStack Spacing="3">
 
+                <!-- Input area -->
                 <MudTextField @bind-Value="_rawText"
-                              Label="Paste bank SMS / email or describe the transaction"
+                              Label="Paste bank SMS, email or describe a transaction"
                               Variant="Variant.Outlined"
-                              Lines="6"
+                              Lines="@(_items.Count > 0 ? 3 : 5)"
                               FullWidth="true"
-                              HelperText="e.g. 'gasto de $12 en BAC' or paste a bank SMS" />
+                              HelperText="You can paste multiple messages at once" />
 
-                <MudStack Row="true" Spacing="2">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                     <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@(_analyzing ? null : Icons.Material.Filled.Search)"
                                Disabled="@(string.IsNullOrWhiteSpace(_rawText) || _analyzing)"
                                OnClick="AnalyzeAsync">
-                        Analyze
+                        @if (_analyzing)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Analyzing...</span>
+                        }
+                        else
+                        {
+                            <span>Analyze</span>
+                        }
                     </MudButton>
 
-                    <MudButton Variant="Variant.Text"
-                               Disabled="@(_analyzing || _saving)"
-                               OnClick="Clear">
-                        Clear
-                    </MudButton>
+                    @if (_items.Count > 0)
+                    {
+                        <MudButton Variant="Variant.Text"
+                                   Disabled="@(_analyzing || _saving)"
+                                   OnClick="Clear">
+                            Clear
+                        </MudButton>
+                    }
                 </MudStack>
 
-                @if (_item is not null)
+                <!-- Results -->
+                @if (CurrentItem is not null)
                 {
-                    <MudPaper Class="pa-4" Outlined="true">
-                        <MudStack Spacing="2">
+                    <!-- Navigation bar (multi-item only) -->
+                    @if (_items.Count > 1)
+                    {
+                        <MudPaper Class="pa-3" Outlined="true" Style="border-color: var(--mud-palette-primary)">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.subtitle2" Color="Color.Primary">
+                                    Transaction @(_currentIndex + 1) of @_items.Count
+                                </MudText>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                                   Size="Size.Small"
+                                                   Disabled="@(_currentIndex == 0)"
+                                                   OnClick="PrevItem" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                                   Size="Size.Small"
+                                                   Disabled="@(_currentIndex == _items.Count - 1)"
+                                                   OnClick="NextItem" />
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
 
-                            <MudText Typo="Typo.subtitle1">@_item.Merchant</MudText>
+                    <!-- AI metadata: provider + confidence -->
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        @if (!string.IsNullOrWhiteSpace(CurrentItem.Provider))
+                        {
+                            <MudChip T="string" Size="Size.Small" Icon="@Icons.Material.Filled.AccountBalance"
+                                     Color="Color.Default" Variant="Variant.Outlined">
+                                @CurrentItem.Provider
+                            </MudChip>
+                        }
+                        <MudChip T="string" Size="Size.Small" Color="@ConfidenceColor" Variant="Variant.Filled">
+                            @((CurrentItem.Confidence * 100).ToString("F0"))% confidence
+                        </MudChip>
+                    </MudStack>
+
+                    <!-- Warnings -->
+                    @if (CurrentItem.Warnings.Any())
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">
+                            Review: @string.Join(", ", CurrentItem.Warnings)
+                        </MudAlert>
+                    }
+
+                    <!-- Fields -->
+                    <MudPaper Class="pa-4" Outlined="true">
+                        <MudStack Spacing="3">
 
                             <MudSelect T="TransactionTypeEnum"
                                        Label="Type"
                                        Variant="Variant.Outlined"
-                                       @bind-Value="_item.Type">
+                                       Value="CurrentItem.Type"
+                                       ValueChanged="OnTypeChanged">
                                 <MudSelectItem Value="TransactionTypeEnum.Expense">Expense</MudSelectItem>
                                 <MudSelectItem Value="TransactionTypeEnum.Income">Income</MudSelectItem>
+                                <MudSelectItem Value="TransactionTypeEnum.Transfer">Transfer</MudSelectItem>
                             </MudSelect>
 
                             <MudNumericField T="decimal"
                                              Label="Amount"
                                              Variant="Variant.Outlined"
-                                             @bind-Value="_item.Amount"
+                                             Value="CurrentItem.Amount"
+                                             ValueChanged="@((decimal v) => { CurrentItem.Amount = v; })"
                                              Min="0.01m"
                                              Format="F2"
                                              Adornment="Adornment.Start"
@@ -81,31 +157,35 @@
 
                             <MudDatePicker Label="Date"
                                            Variant="Variant.Outlined"
-                                           Date="@_item.DateLocal.Date"
+                                           Date="@CurrentItem.DateLocal.Date"
                                            DateChanged="OnDateChanged"
                                            MaxDate="DateTime.Today"
                                            AutoClose="true" />
 
+                            <MudTextField Label="Name"
+                                          Variant="Variant.Outlined"
+                                          Value="CurrentItem.Merchant"
+                                          ValueChanged="@((string v) => { CurrentItem.Merchant = v; })" />
+
                             <MudTextField Label="Description"
                                           Variant="Variant.Outlined"
-                                          @bind-Value="_item.Description" />
+                                          Value="CurrentItem.Description"
+                                          ValueChanged="@((string v) => { CurrentItem.Description = v; })" />
 
-                            <!-- ACCOUNT SELECTOR -->
                             <AccountSelector @bind-SelectedAccount="_selectedAccount"
                                               Accounts="@_accounts"
                                               Label="Account"
                                               Required="true"
                                               ShowBalance="true" />
 
-                            <!-- CATEGORY -->
                             <CategorySelector @bind-SelectedCategory="_selectedCategory"
                                               Categories="@_categories"
-                                              FilterByType="@(_item.Type == TransactionTypeEnum.Income
+                                              FilterByType="@(_currentItemType == TransactionTypeEnum.Income
                                                     ? CategoryTypeEnum.Income
                                                     : CategoryTypeEnum.Expense)"
-                                              ShowAddButton="true" />
+                                              ShowAddButton="true"
+                                              OnAddCategory="CreateCategory" />
 
-                            <!-- MERCHANT -->
                             <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
                                        Label="Merchant (Optional)"
                                        Variant="Variant.Outlined"
@@ -120,6 +200,7 @@
                         </MudStack>
                     </MudPaper>
                 }
+
             </MudStack>
         }
     </DialogContent>
@@ -127,12 +208,48 @@
     <DialogActions>
         <MudButton Variant="Variant.Text" OnClick="Cancel">Close</MudButton>
 
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   Disabled="@(!CanSave())"
-                   OnClick="SaveAsync">
-            Save
-        </MudButton>
+        @if (CurrentItem is not null)
+        {
+            @if (_items.Count > 1 && _currentIndex < _items.Count - 1)
+            {
+                <MudButton Variant="Variant.Text"
+                           Disabled="@_saving"
+                           OnClick="SkipItem">
+                    Skip
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(!CanSave() || _saving)"
+                           OnClick="SaveAndNext">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save & Next</span>
+                    }
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(!CanSave() || _saving)"
+                           OnClick="SaveAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save</span>
+                    }
+                </MudButton>
+            }
+        }
     </DialogActions>
 </MudDialog>
 
@@ -140,41 +257,70 @@
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
     private bool _loading = true;
-    private bool _analyzing = false;
-    private bool _saving = false;
+    private bool _analyzing;
+    private bool _saving;
 
     private string _rawText = string.Empty;
-    private ParsedTransactionSuggestionDto? _item;
+    private List<ParsedTransactionSuggestionDto> _items = new();
+    private int _currentIndex;
+    private int _savedCount;
+
+    // Per-item selection state keyed by TempId
+    private Dictionary<Guid, AccountDto?> _itemAccounts = new();
+    private Dictionary<Guid, CategoryDto?> _itemCategories = new();
+    private Dictionary<Guid, MerchantDto?> _itemMerchants = new();
+    private Dictionary<Guid, TransactionTypeEnum> _itemTypes = new();
 
     private List<AccountDto> _accounts = new();
     private List<CategoryDto> _categories = new();
     private List<MerchantDto> _merchants = new();
 
-    private AccountDto? _selectedAccount;
-    private CategoryDto? _selectedCategory;
-    private MerchantDto? _selectedMerchant;
+    private ParsedTransactionSuggestionDto? CurrentItem
+        => _items.Count > 0 && _currentIndex < _items.Count ? _items[_currentIndex] : null;
 
-    protected override async Task OnInitializedAsync()
+    private AccountDto? _selectedAccount
     {
-        await LoadData();
+        get => CurrentItem is not null ? _itemAccounts.GetValueOrDefault(CurrentItem.TempId) : null;
+        set { if (CurrentItem is not null) _itemAccounts[CurrentItem.TempId] = value; }
     }
+
+    private CategoryDto? _selectedCategory
+    {
+        get => CurrentItem is not null ? _itemCategories.GetValueOrDefault(CurrentItem.TempId) : null;
+        set { if (CurrentItem is not null) _itemCategories[CurrentItem.TempId] = value; }
+    }
+
+    private MerchantDto? _selectedMerchant
+    {
+        get => CurrentItem is not null ? _itemMerchants.GetValueOrDefault(CurrentItem.TempId) : null;
+        set { if (CurrentItem is not null) _itemMerchants[CurrentItem.TempId] = value; }
+    }
+
+    private TransactionTypeEnum _currentItemType
+        => CurrentItem is not null && _itemTypes.TryGetValue(CurrentItem.TempId, out var t) ? t : TransactionTypeEnum.Expense;
+
+    private Color ConfidenceColor => CurrentItem?.Confidence switch
+    {
+        >= 0.9m => Color.Success,
+        >= 0.7m => Color.Warning,
+        _ => Color.Error
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadData();
 
     private async Task LoadData()
     {
-        var accountsResult = await AccountService.GetAllAsync();
-        if (accountsResult.Success && accountsResult.Data is not null)
-            _accounts = accountsResult.Data.ToList();
+        var accountsTask = AccountService.GetAllAsync();
+        var categoriesTask = CategoryService.GetAllWithChildAsync(false);
+        var merchantsTask = MerchantService.GetAllAsync();
+        await Task.WhenAll(accountsTask, categoriesTask, merchantsTask);
 
-        var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
-        if (categoriesResult.Success && categoriesResult.Data is not null)
-            _categories = categoriesResult.Data.ToList();
-
-        var merchantsResult = await MerchantService.GetAllAsync();
-        if (merchantsResult.Success && merchantsResult.Data is not null)
-            _merchants = merchantsResult.Data;
-
-        if (_accounts.Any())
-            _selectedAccount = _accounts.First();
+        if (accountsTask.Result.Success && accountsTask.Result.Data is not null)
+            _accounts = accountsTask.Result.Data.ToList();
+        if (categoriesTask.Result.Success && categoriesTask.Result.Data is not null)
+            _categories = categoriesTask.Result.Data.ToList();
+        if (merchantsTask.Result.Success && merchantsTask.Result.Data is not null)
+            _merchants = merchantsTask.Result.Data;
 
         _loading = false;
     }
@@ -196,46 +342,24 @@
             if (!result.Success || result.Data?.Items.Any() != true)
             {
                 Snackbar.Add(result.Message ?? "Unable to analyze text.", Severity.Error);
-                _item = null;
-                _selectedCategory = null;
+                _items = new();
                 return;
             }
 
-            _item = result.Data.Items.First();
+            _items = result.Data.Items;
+            _currentIndex = 0;
+            _itemAccounts.Clear();
+            _itemCategories.Clear();
+            _itemMerchants.Clear();
+            _itemTypes.Clear();
 
-            // If parser didn't provide a hint (or provided a wrong one), try extract from raw text
-            if (string.IsNullOrWhiteSpace(_item.AccountHint) ||
-                (_item.AccountHint.Length == 4 && (_item.AccountHint.StartsWith("19") || _item.AccountHint.StartsWith("20"))))
-            {
-                _item.AccountHint = AccountHintResolver.ExtractHintFromText(_item.RawText) ?? string.Empty;
-            }
+            foreach (var item in _items)
+                ResolveItemDefaults(item);
 
-            // Auto match account using helper (based on last4 in account name)
-            var accountId = AccountHintResolver.ResolveAccountId(_item.AccountHint, _accounts);
-            if (accountId.HasValue)
-                _selectedAccount = _accounts.FirstOrDefault(x => x.Id == accountId.Value);
-
-            // Optional: keep a default if still null
-            if (_selectedAccount is null && _accounts.Any())
-                _selectedAccount = _accounts.First();
-
-            // Auto-match merchant: exact first, then contains
-            if (!string.IsNullOrWhiteSpace(_item.Merchant))
-            {
-                _selectedMerchant =
-                    _merchants.FirstOrDefault(m => m.Name.Equals(_item.Merchant, StringComparison.OrdinalIgnoreCase))
-                    ?? _merchants.FirstOrDefault(m => m.Name.Contains(_item.Merchant, StringComparison.OrdinalIgnoreCase))
-                    ?? _merchants.FirstOrDefault(m => _item.Merchant.Contains(m.Name, StringComparison.OrdinalIgnoreCase));
-            }
-            else
-            {
-                _selectedMerchant = null;
-            }
-
-            // Reset category because type/merchant changed
-            _selectedCategory = null;
-
-            Snackbar.Add("Text analyzed. Please review and save.", Severity.Success);
+            var msg = _items.Count == 1
+                ? "Transaction detected. Review and save."
+                : $"{_items.Count} transactions detected. Review each one.";
+            Snackbar.Add(msg, Severity.Success);
         }
         finally
         {
@@ -244,59 +368,147 @@
         }
     }
 
+    private void ResolveItemDefaults(ParsedTransactionSuggestionDto item)
+    {
+        _itemTypes[item.TempId] = item.Type;
+
+        // Fix year-like account hints
+        if (string.IsNullOrWhiteSpace(item.AccountHint) ||
+            (item.AccountHint.Length == 4 && (item.AccountHint.StartsWith("19") || item.AccountHint.StartsWith("20"))))
+        {
+            item.AccountHint = AccountHintResolver.ExtractHintFromText(item.RawText) ?? string.Empty;
+        }
+
+        var accountId = AccountHintResolver.ResolveAccountId(item.AccountHint, _accounts);
+        _itemAccounts[item.TempId] = accountId.HasValue
+            ? _accounts.FirstOrDefault(x => x.Id == accountId.Value)
+            : _accounts.FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(item.Merchant))
+        {
+            _itemMerchants[item.TempId] =
+                _merchants.FirstOrDefault(m => m.Name.Equals(item.Merchant, StringComparison.OrdinalIgnoreCase))
+                ?? _merchants.FirstOrDefault(m => m.Name.Contains(item.Merchant, StringComparison.OrdinalIgnoreCase))
+                ?? _merchants.FirstOrDefault(m => item.Merchant.Contains(m.Name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _itemCategories[item.TempId] = null;
+    }
 
     private bool CanSave()
-        => _item is not null
-           && _item.Amount > 0
+        => CurrentItem is not null
+           && CurrentItem.Amount > 0
            && _selectedAccount is not null
            && _selectedCategory is not null;
 
     private async Task SaveAsync()
     {
-        if (_item is null || _selectedAccount is null || _selectedCategory is null)
-            return;
+        if (!await SaveCurrentItem()) return;
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task SaveAndNext()
+    {
+        if (!await SaveCurrentItem()) return;
+        NextItem();
+    }
+
+    private async Task<bool> SaveCurrentItem()
+    {
+        if (CurrentItem is null || _selectedAccount is null || _selectedCategory is null) return false;
 
         _saving = true;
+        StateHasChanged();
 
         var dto = new TransactionDto
         {
-            Name = _item.Merchant ?? string.Empty,
-            Amount = _item.Amount,
-            Date = _item.DateLocal,
-            Description = _item.Description ?? string.Empty,
+            Name = CurrentItem.Merchant ?? string.Empty,
+            Amount = CurrentItem.Amount,
+            Date = CurrentItem.DateLocal,
+            Description = CurrentItem.Description ?? string.Empty,
             CategoryId = _selectedCategory.Id,
             AccountId = _selectedAccount.Id,
             MerchantId = _selectedMerchant?.Id
         };
 
         var result = await TransactionService.CreateAsync(dto);
+        _saving = false;
 
         if (result.Success)
         {
-            Snackbar.Add("Transaction added", Severity.Success);
-            MudDialog.Close(DialogResult.Ok(true));
-        }
-        else
-        {
-            Snackbar.Add(result.Message ?? "Error saving transaction.", Severity.Error);
+            _savedCount++;
+            Snackbar.Add("Transaction saved.", Severity.Success);
+            return true;
         }
 
-        _saving = false;
+        Snackbar.Add(result.Message ?? "Error saving transaction.", Severity.Error);
+        return false;
+    }
+
+    private void SkipItem() => NextItem();
+
+    private void NextItem()
+    {
+        if (_currentIndex < _items.Count - 1)
+            _currentIndex++;
+    }
+
+    private void PrevItem()
+    {
+        if (_currentIndex > 0)
+            _currentIndex--;
+    }
+
+    private void OnTypeChanged(TransactionTypeEnum type)
+    {
+        if (CurrentItem is null) return;
+        CurrentItem.Type = type;
+        _itemTypes[CurrentItem.TempId] = type;
+        _itemCategories[CurrentItem.TempId] = null;
     }
 
     private void OnDateChanged(DateTime? date)
     {
-        if (_item is null || date is null) return;
-
-        _item.DateLocal = new DateTime(date.Value.Year, date.Value.Month, date.Value.Day);
+        if (CurrentItem is null || date is null) return;
+        CurrentItem.DateLocal = new DateTime(date.Value.Year, date.Value.Month, date.Value.Day);
     }
 
     private void Clear()
     {
         _rawText = string.Empty;
-        _item = null;
-        _selectedCategory = null;
-        _selectedMerchant = null;
+        _items = new();
+        _currentIndex = 0;
+        _itemAccounts.Clear();
+        _itemCategories.Clear();
+        _itemMerchants.Clear();
+        _itemTypes.Clear();
+    }
+
+    private async Task CreateCategory()
+    {
+        var categoryType = _currentItemType == TransactionTypeEnum.Income
+            ? CategoryTypeEnum.Income
+            : CategoryTypeEnum.Expense;
+
+        var parameters = new DialogParameters
+        {
+            ["CategoryType"] = categoryType,
+            ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, async () =>
+            {
+                await ReloadCategories();
+                StateHasChanged();
+            })
+        };
+
+        await DialogService.ShowAsync<AddCategoryModal>("Create Category", parameters,
+            new DialogOptions { CloseButton = true, FullWidth = true, MaxWidth = MaxWidth.Small });
+    }
+
+    private async Task ReloadCategories()
+    {
+        var result = await CategoryService.GetAllWithChildAsync(false);
+        if (result.Success && result.Data is not null)
+            _categories = result.Data.ToList();
     }
 
     private void Cancel() => MudDialog.Cancel();

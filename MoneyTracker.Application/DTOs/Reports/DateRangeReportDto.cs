@@ -10,5 +10,6 @@ namespace MoneyTracker.Application.DTOs.Reports
         public List<ReportTransactionDto> Transactions { get; set; } = new();
         public List<ReportCategorySummaryDto> CategorySummary { get; set; } = new();
         public List<ReportCategorySummaryDto> IncomeCategorySummary { get; set; } = new();
+        public string? AiAnalysis { get; set; }
     }
 }
