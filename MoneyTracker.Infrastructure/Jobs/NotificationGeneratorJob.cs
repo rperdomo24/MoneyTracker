@@ -8,6 +8,7 @@ using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums;
 using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Enums.Loans;
+using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Persistence;
 
@@ -52,6 +53,7 @@ namespace MoneyTracker.Infrastructure.Jobs
             await CheckBudgetAlertsAsync(context, today);
             await CheckLoanRemindersAsync(context, today);
             await CheckCreditCardAlertsAsync(context, today);
+            await CheckCalendarRemindersAsync(context, today);
         }
 
         private async Task CheckBudgetAlertsAsync(Persistence.MoneyTrackerDbContext context, DateTime today)
@@ -277,6 +279,107 @@ namespace MoneyTracker.Infrastructure.Jobs
                 _logger.LogError(ex, "Error in credit card alert check");
             }
         }
+
+        private async Task CheckCalendarRemindersAsync(MoneyTrackerDbContext context, DateTime today)
+        {
+            try
+            {
+                var reminders = await context.CalendarReminders
+                    .IgnoreQueryFilters()
+                    .Where(r => !r.IsDeleted && r.Date.Date <= today.Date &&
+                                (!r.RecurrenceEndDate.HasValue || r.RecurrenceEndDate.Value.Date >= today.Date))
+                    .ToListAsync();
+
+                foreach (var reminder in reminders)
+                {
+                    try
+                    {
+                        var fires = reminder.IsRecurring && reminder.RecurrenceFrequency.HasValue
+                            ? IsOccurrenceToday(reminder.Date, reminder.RecurrenceFrequency.Value, today)
+                            : reminder.Date.Date == today.Date;
+
+                        if (!fires) continue;
+
+                        var key = $"calendar-reminder-{reminder.Id}-{today:yyyy-MM-dd}";
+                        if (await _notificationRepo.ExistsByDuplicateKeyTodayAsync(key)) continue;
+
+                        await _notificationRepo.AddAsync(new AppNotification
+                        {
+                            TenantId = reminder.TenantId,
+                            Title = $"Reminder: {reminder.Title}",
+                            Message = string.IsNullOrWhiteSpace(reminder.Notes)
+                                ? $"You have a reminder today: {reminder.Title}"
+                                : $"{reminder.Title} — {reminder.Notes}",
+                            Type = NotificationType.CalendarReminder,
+                            Link = "/calendar",
+                            DuplicateKey = key
+                        });
+
+                        var user = await _userManager.Users
+                            .FirstOrDefaultAsync(u => u.TenantId == reminder.TenantId);
+
+                        if (user?.Email is not null)
+                        {
+                            var html = BuildReminderEmail(reminder.Title, reminder.Notes, today);
+                            await _emailSender.SendAsync(user.Email, $"Reminder: {reminder.Title}", html);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing calendar reminder {Id}", reminder.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in calendar reminder check");
+            }
+        }
+
+        private static bool IsOccurrenceToday(DateTime reminderDate, RecurringFrequency frequency, DateTime today)
+        {
+            var current = reminderDate.Date;
+            while (current < today.Date)
+                current = StepReminderForward(current, frequency);
+            return current == today.Date;
+        }
+
+        private static DateTime StepReminderForward(DateTime date, RecurringFrequency frequency) =>
+            frequency switch
+            {
+                RecurringFrequency.Daily     => date.AddDays(1),
+                RecurringFrequency.Weekly    => date.AddDays(7),
+                RecurringFrequency.BiWeekly  => date.AddDays(14),
+                RecurringFrequency.Monthly   => date.AddMonths(1),
+                RecurringFrequency.BiMonthly => date.AddMonths(2),
+                RecurringFrequency.Quarterly => date.AddMonths(3),
+                RecurringFrequency.Yearly    => date.AddYears(1),
+                _                            => date.AddMonths(1)
+            };
+
+        private static string BuildReminderEmail(string title, string? notes, DateTime date) => $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:'Segoe UI',sans-serif;background:#f4f7f6;margin:0;padding:32px;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="background:#6366f1;padding:24px;text-align:center;">
+                  <h2 style="color:#fff;margin:0;">🔔 Reminder</h2>
+                </div>
+                <div style="padding:28px 32px;">
+                  <p style="font-size:18px;font-weight:600;color:#2A364E;margin:0 0 8px;">{title}</p>
+                  {(string.IsNullOrWhiteSpace(notes) ? "" : $"<p style=\"color:#555;font-size:15px;margin:0 0 16px;\">{notes}</p>")}
+                  <div style="background:#f0f0ff;border-left:4px solid #6366f1;padding:12px 16px;border-radius:4px;margin:16px 0;">
+                    <p style="margin:0;color:#6366f1;font-weight:600;">{date:dddd, MMMM dd, yyyy}</p>
+                  </div>
+                  <a href="/calendar" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">View Calendar</a>
+                </div>
+                <div style="background:#f4f7f6;padding:16px;text-align:center;">
+                  <p style="margin:0;font-size:12px;color:#999;">MoneyTracker &mdash; Calendar Reminders</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """;
 
         private static DateTime GetThisMonthOccurrence(DateTime today, int day)
         {

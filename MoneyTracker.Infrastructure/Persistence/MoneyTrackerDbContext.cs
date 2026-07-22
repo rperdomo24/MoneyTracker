@@ -50,6 +50,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<AiCallLog> AiCallLogs => Set<AiCallLog>();
         public DbSet<AiTextImportCache> AiTextImportCaches => Set<AiTextImportCache>();
         public DbSet<AiTrainingData> AiTrainingData => Set<AiTrainingData>();
+        public DbSet<CalendarReminder> CalendarReminders => Set<CalendarReminder>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -198,6 +199,15 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .HasIndex(e => new { e.TenantId, e.ServiceType, e.CalledAtUtc });
 
             modelBuilder.Entity<AiTrainingData>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<CalendarReminder>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<CalendarReminder>()
+                .HasIndex(e => new { e.TenantId, e.Date });
+
+            modelBuilder.Entity<CalendarReminder>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
             modelBuilder.Entity<AiTrainingData>()
