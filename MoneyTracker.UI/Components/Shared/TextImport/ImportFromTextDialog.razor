@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.DTOs.TextImport
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Ai
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Pages.Categories
@@ -149,7 +150,7 @@
                                              Label="Amount"
                                              Variant="Variant.Outlined"
                                              Value="CurrentItem.Amount"
-                                             ValueChanged="@((decimal v) => { CurrentItem.Amount = v; })"
+                                             ValueChanged="@((decimal v) => { CurrentItem.Amount = v; MarkEdited(); })"
                                              Min="0.01m"
                                              Format="F2"
                                              Adornment="Adornment.Start"
@@ -165,12 +166,12 @@
                             <MudTextField Label="Name"
                                           Variant="Variant.Outlined"
                                           Value="CurrentItem.Merchant"
-                                          ValueChanged="@((string v) => { CurrentItem.Merchant = v; })" />
+                                          ValueChanged="@((string v) => { CurrentItem.Merchant = v; MarkEdited(); })" />
 
                             <MudTextField Label="Description"
                                           Variant="Variant.Outlined"
                                           Value="CurrentItem.Description"
-                                          ValueChanged="@((string v) => { CurrentItem.Description = v; })" />
+                                          ValueChanged="@((string v) => { CurrentItem.Description = v; MarkEdited(); })" />
 
                             <AccountSelector @bind-SelectedAccount="_selectedAccount"
                                               Accounts="@_accounts"
@@ -264,12 +265,14 @@
     private List<ParsedTransactionSuggestionDto> _items = new();
     private int _currentIndex;
     private int _savedCount;
+    private int _trainingDataId;
 
     // Per-item selection state keyed by TempId
     private Dictionary<Guid, AccountDto?> _itemAccounts = new();
     private Dictionary<Guid, CategoryDto?> _itemCategories = new();
     private Dictionary<Guid, MerchantDto?> _itemMerchants = new();
     private Dictionary<Guid, TransactionTypeEnum> _itemTypes = new();
+    private Dictionary<Guid, bool> _itemEdited = new();
 
     private List<AccountDto> _accounts = new();
     private List<CategoryDto> _categories = new();
@@ -348,10 +351,12 @@
 
             _items = result.Data.Items;
             _currentIndex = 0;
+            _trainingDataId = result.Data.AiTrainingDataId;
             _itemAccounts.Clear();
             _itemCategories.Clear();
             _itemMerchants.Clear();
             _itemTypes.Clear();
+            _itemEdited.Clear();
 
             foreach (var item in _items)
                 ResolveItemDefaults(item);
@@ -437,6 +442,10 @@
         if (result.Success)
         {
             _savedCount++;
+            var wasEdited = CurrentItem is not null && _itemEdited.GetValueOrDefault(CurrentItem.TempId);
+            _ = TextImportService.UpdateTrainingFeedbackAsync(
+                _trainingDataId,
+                wasEdited ? AiUserFeedback.Edited : AiUserFeedback.Confirmed);
             Snackbar.Add("Transaction saved.", Severity.Success);
             return true;
         }
@@ -445,7 +454,12 @@
         return false;
     }
 
-    private void SkipItem() => NextItem();
+    private void SkipItem()
+    {
+        if (CurrentItem is not null)
+            _ = TextImportService.UpdateTrainingFeedbackAsync(_trainingDataId, AiUserFeedback.Skipped);
+        NextItem();
+    }
 
     private void NextItem()
     {
@@ -465,12 +479,20 @@
         CurrentItem.Type = type;
         _itemTypes[CurrentItem.TempId] = type;
         _itemCategories[CurrentItem.TempId] = null;
+        _itemEdited[CurrentItem.TempId] = true;
     }
 
     private void OnDateChanged(DateTime? date)
     {
         if (CurrentItem is null || date is null) return;
         CurrentItem.DateLocal = new DateTime(date.Value.Year, date.Value.Month, date.Value.Day);
+        _itemEdited[CurrentItem.TempId] = true;
+    }
+
+    private void MarkEdited()
+    {
+        if (CurrentItem is not null)
+            _itemEdited[CurrentItem.TempId] = true;
     }
 
     private void Clear()
@@ -478,10 +500,12 @@
         _rawText = string.Empty;
         _items = new();
         _currentIndex = 0;
+        _trainingDataId = 0;
         _itemAccounts.Clear();
         _itemCategories.Clear();
         _itemMerchants.Clear();
         _itemTypes.Clear();
+        _itemEdited.Clear();
     }
 
     private async Task CreateCategory()

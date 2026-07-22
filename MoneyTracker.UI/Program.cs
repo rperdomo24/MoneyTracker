@@ -213,6 +213,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IAiRangeReportCacheRepository, AiRangeReportCacheRepository>();
             builder.Services.AddScoped<IAiCallLogRepository, AiCallLogRepository>();
             builder.Services.AddScoped<IAiTextImportCacheRepository, AiTextImportCacheRepository>();
+            builder.Services.AddScoped<IAiTrainingDataRepository, AiTrainingDataRepository>();
             builder.Services.AddScoped<IReportService, ReportService>();
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 

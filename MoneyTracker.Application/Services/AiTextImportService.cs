@@ -5,6 +5,7 @@ using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.TextImport;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Ai;
 using MoneyTracker.Domain.Interfaces;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -20,6 +21,7 @@ namespace MoneyTracker.Application.Services
         private readonly IConfiguration _config;
         private readonly IAiCallLogRepository _callLogRepo;
         private readonly IAiTextImportCacheRepository _importCacheRepo;
+        private readonly IAiTrainingDataRepository _trainingRepo;
         private readonly ILogger<AiTextImportService> _logger;
 
         private static readonly JsonSerializerOptions _json = new()
@@ -78,12 +80,14 @@ namespace MoneyTracker.Application.Services
             IConfiguration config,
             IAiCallLogRepository callLogRepo,
             IAiTextImportCacheRepository importCacheRepo,
+            IAiTrainingDataRepository trainingRepo,
             ILogger<AiTextImportService> logger)
         {
             _http = http;
             _config = config;
             _callLogRepo = callLogRepo;
             _importCacheRepo = importCacheRepo;
+            _trainingRepo = trainingRepo;
             _logger = logger;
         }
 
@@ -101,11 +105,22 @@ namespace MoneyTracker.Application.Services
                     var cachedResult = ParseAiResponse(cached.Content);
                     if (cachedResult is not null && cachedResult.Items.Count > 0)
                     {
+                        var cachedModel = _config["GoogleAiSettings:Model"] ?? "gemini";
                         _ = _callLogRepo.AddAsync(new AiCallLog
                         {
                             Service = "TextImport",
-                            Model = _config["GoogleAiSettings:Model"] ?? "gemini",
+                            Model = cachedModel,
                             WasCacheHit = true,
+                            CalledAtUtc = DateTime.UtcNow
+                        });
+                        cachedResult.AiTrainingDataId = await _trainingRepo.AddAsync(new AiTrainingData
+                        {
+                            ServiceType = AiServiceType.TextImport,
+                            Model = cachedModel,
+                            InputType = AiInputType.SmsText,
+                            RawInput = rawText,
+                            OutputType = AiOutputType.ParsedTransactionsJson,
+                            RawOutput = cached.Content,
                             CalledAtUtc = DateTime.UtcNow
                         });
                         _logger.LogInformation("AI call [TextImport] cache hit hash={Hash}", inputHash[..8]);
@@ -113,7 +128,7 @@ namespace MoneyTracker.Application.Services
                     }
                 }
 
-                var jsonResponse = await CallGoogleAsync(rawText, inputHash);
+                var (jsonResponse, inputTokens, outputTokens) = await CallGoogleAsync(rawText, inputHash);
 
                 if (jsonResponse is null)
                     return OperationResult<TextImportAnalysisDto>.Fail("AI provider returned no response.");
@@ -122,6 +137,20 @@ namespace MoneyTracker.Application.Services
 
                 if (result is null || result.Items.Count == 0)
                     return OperationResult<TextImportAnalysisDto>.Fail("No recognizable transaction was found.");
+
+                var model = _config["GoogleAiSettings:Model"] ?? "gemini";
+                result.AiTrainingDataId = await _trainingRepo.AddAsync(new AiTrainingData
+                {
+                    ServiceType = AiServiceType.TextImport,
+                    Model = model,
+                    InputType = AiInputType.SmsText,
+                    RawInput = rawText,
+                    OutputType = AiOutputType.ParsedTransactionsJson,
+                    RawOutput = jsonResponse,
+                    InputTokens = inputTokens,
+                    OutputTokens = outputTokens,
+                    CalledAtUtc = DateTime.UtcNow
+                });
 
                 return OperationResult<TextImportAnalysisDto>.Ok(result, "Text analyzed successfully.");
             }
@@ -137,7 +166,7 @@ namespace MoneyTracker.Application.Services
             return Convert.ToHexString(bytes).ToLowerInvariant();
         }
 
-        private async Task<string?> CallGoogleAsync(string rawText, string inputHash)
+        private async Task<(string? text, int inputTokens, int outputTokens)> CallGoogleAsync(string rawText, string inputHash)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var model = _config["GoogleAiSettings:Model"] ?? "gemini-1.5-flash";
@@ -221,7 +250,13 @@ namespace MoneyTracker.Application.Services
             if (text is not null)
                 await _importCacheRepo.SaveAsync(inputHash, text);
 
-            return text;
+            return (text, inputTokens, outputTokens);
+        }
+
+        public async Task UpdateTrainingFeedbackAsync(int trainingDataId, AiUserFeedback feedback)
+        {
+            if (trainingDataId <= 0) return;
+            await _trainingRepo.UpdateFeedbackAsync(trainingDataId, feedback);
         }
 
         private static TextImportAnalysisDto? ParseAiResponse(string jsonText)

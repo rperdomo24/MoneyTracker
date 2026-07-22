@@ -49,6 +49,7 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<UserReportPreference> UserReportPreferences => Set<UserReportPreference>();
         public DbSet<AiCallLog> AiCallLogs => Set<AiCallLog>();
         public DbSet<AiTextImportCache> AiTextImportCaches => Set<AiTextImportCache>();
+        public DbSet<AiTrainingData> AiTrainingData => Set<AiTrainingData>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -189,6 +190,27 @@ namespace MoneyTracker.Infrastructure.Persistence
 
             modelBuilder.Entity<AiTextImportCache>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiTrainingData>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiTrainingData>()
+                .HasIndex(e => new { e.TenantId, e.ServiceType, e.CalledAtUtc });
+
+            modelBuilder.Entity<AiTrainingData>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.ServiceType).HasConversion<string>();
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.InputType).HasConversion<string>();
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.OutputType).HasConversion<string>();
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.UserFeedback).HasConversion<string>();
 
             modelBuilder.Entity<AppNotification>()
                 .HasIndex(e => e.TenantId);
