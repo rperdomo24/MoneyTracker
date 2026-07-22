@@ -103,7 +103,9 @@ namespace MoneyTracker.Application.Services
                 if (cached is not null)
                 {
                     var cachedResult = ParseAiResponse(cached.Content);
-                    if (cachedResult is not null && cachedResult.Items.Count > 0)
+                    if (cachedResult is null)
+                        _logger.LogWarning("AI cache hit but JSON was invalid/truncated for hash={Hash}. Falling through to fresh call.", inputHash[..8]);
+                    else if (cachedResult.Items.Count > 0)
                     {
                         var cachedModel = _config["GoogleAiSettings:Model"] ?? "gemini";
                         _ = _callLogRepo.AddAsync(new AiCallLog
@@ -156,7 +158,8 @@ namespace MoneyTracker.Application.Services
             }
             catch (Exception ex)
             {
-                return OperationResult<TextImportAnalysisDto>.Fail($"AI analysis failed: {ex.Message}");
+                _logger.LogError(ex, "AI text import failed [AnalyzeAsync]");
+                return OperationResult<TextImportAnalysisDto>.Fail("AI analysis failed. Check logs for details.");
             }
         }
 
@@ -195,7 +198,7 @@ namespace MoneyTracker.Application.Services
                 {
                     systemInstruction = new { parts = new[] { new { text = SystemPrompt } } },
                     contents = new[] { new { role = "user", parts = new[] { new { text = rawText } } } },
-                    generationConfig = new { maxOutputTokens = maxTokens, temperature = 0, responseMimeType = "application/json" }
+                    generationConfig = new { maxOutputTokens = maxTokens, temperature = 0, responseMimeType = "application/json", thinkingConfig = new { thinkingBudget = 0 } }
                 };
                 requestMessage.RequestUri = new Uri(url);
                 requestMessage.Content = new StringContent(JsonSerializer.Serialize(vertexBody), Encoding.UTF8, "application/json");
@@ -209,7 +212,7 @@ namespace MoneyTracker.Application.Services
                 {
                     system_instruction = new { parts = new[] { new { text = SystemPrompt } } },
                     contents = new[] { new { parts = new[] { new { text = rawText } } } },
-                    generationConfig = new { maxOutputTokens = maxTokens, temperature = 0, responseMimeType = "application/json" }
+                    generationConfig = new { maxOutputTokens = maxTokens, temperature = 0, responseMimeType = "application/json", thinkingConfig = new { thinkingBudget = 0 } }
                 };
                 requestMessage.RequestUri = new Uri(url);
                 requestMessage.Content = new StringContent(JsonSerializer.Serialize(studioBody), Encoding.UTF8, "application/json");
@@ -247,7 +250,7 @@ namespace MoneyTracker.Application.Services
             _logger.LogInformation("AI call [TextImport] model={Model} in={Input} out={Output} cached={Cached} ms={Ms}",
                 model, inputTokens, outputTokens, cachedTokens, sw.ElapsedMilliseconds);
 
-            if (text is not null)
+            if (text is not null && IsValidJson(text))
                 await _importCacheRepo.SaveAsync(inputHash, text);
 
             return (text, inputTokens, outputTokens);
@@ -259,36 +262,49 @@ namespace MoneyTracker.Application.Services
             await _trainingRepo.UpdateFeedbackAsync(trainingDataId, feedback);
         }
 
+        private static bool IsValidJson(string text)
+        {
+            try { using var _ = JsonDocument.Parse(text); return true; }
+            catch (JsonException) { return false; }
+        }
+
         private static TextImportAnalysisDto? ParseAiResponse(string jsonText)
         {
-            using var doc = JsonDocument.Parse(jsonText);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("items", out var itemsEl))
-                return null;
-
-            var dto = new TextImportAnalysisDto();
-
-            foreach (var el in itemsEl.EnumerateArray())
+            try
             {
-                var item = new ParsedTransactionSuggestionDto
+                using var doc = JsonDocument.Parse(jsonText);
+                var root = doc.RootElement;
+
+                if (!root.TryGetProperty("items", out var itemsEl))
+                    return null;
+
+                var dto = new TextImportAnalysisDto();
+
+                foreach (var el in itemsEl.EnumerateArray())
                 {
-                    Type = ParseType(el),
-                    Amount = el.TryGetProperty("amount", out var a) ? a.GetDecimal() : 0m,
-                    Currency = el.TryGetProperty("currency", out var c) ? c.GetString() ?? "USD" : "USD",
-                    DateLocal = ParseDate(el),
-                    Merchant = el.TryGetProperty("merchant", out var m) ? m.GetString() ?? string.Empty : string.Empty,
-                    Description = el.TryGetProperty("description", out var d) ? d.GetString() ?? string.Empty : string.Empty,
-                    Provider = el.TryGetProperty("provider", out var p) ? p.GetString() ?? string.Empty : string.Empty,
-                    AccountHint = el.TryGetProperty("accountHint", out var ah) ? ah.GetString() ?? string.Empty : string.Empty,
-                    Confidence = el.TryGetProperty("confidence", out var cf) ? cf.GetDecimal() : 0m,
-                    Warnings = ParseWarnings(el)
-                };
+                    var item = new ParsedTransactionSuggestionDto
+                    {
+                        Type = ParseType(el),
+                        Amount = el.TryGetProperty("amount", out var a) ? a.GetDecimal() : 0m,
+                        Currency = el.TryGetProperty("currency", out var c) ? c.GetString() ?? "USD" : "USD",
+                        DateLocal = ParseDate(el),
+                        Merchant = el.TryGetProperty("merchant", out var m) ? m.GetString() ?? string.Empty : string.Empty,
+                        Description = el.TryGetProperty("description", out var d) ? d.GetString() ?? string.Empty : string.Empty,
+                        Provider = el.TryGetProperty("provider", out var p) ? p.GetString() ?? string.Empty : string.Empty,
+                        AccountHint = el.TryGetProperty("accountHint", out var ah) ? ah.GetString() ?? string.Empty : string.Empty,
+                        Confidence = el.TryGetProperty("confidence", out var cf) ? cf.GetDecimal() : 0m,
+                        Warnings = ParseWarnings(el)
+                    };
 
-                dto.Items.Add(item);
+                    dto.Items.Add(item);
+                }
+
+                return dto;
             }
-
-            return dto;
+            catch (JsonException)
+            {
+                return null;
+            }
         }
 
         private static Domain.Enums.Transaction.TransactionTypeEnum ParseType(JsonElement el)
