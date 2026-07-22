@@ -56,13 +56,17 @@
                               Variant="Variant.Outlined"
                               Lines="@(_items.Count > 0 ? 3 : 5)"
                               FullWidth="true"
-                              HelperText="You can paste multiple messages at once" />
+                              MaxLength="MaxInputChars"
+                              Counter="MaxInputChars"
+                              HelperText="@(_rawText.Length > MaxInputChars - 200 ? $"Limit: {MaxInputChars} chars — split long batches" : "You can paste multiple messages at once")"
+                              Error="@(_rawText.Length >= MaxInputChars)"
+                              ErrorText="@($"Text exceeds {MaxInputChars} char limit. Split into smaller batches.")" />
 
                 <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                StartIcon="@(_analyzing ? null : Icons.Material.Filled.Search)"
-                               Disabled="@(string.IsNullOrWhiteSpace(_rawText) || _analyzing)"
+                               Disabled="@(string.IsNullOrWhiteSpace(_rawText) || _analyzing || _rawText.Length >= MaxInputChars)"
                                OnClick="AnalyzeAsync">
                         @if (_analyzing)
                         {
@@ -255,6 +259,8 @@
 </MudDialog>
 
 @code {
+    private const int MaxInputChars = 3000;
+
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
     private bool _loading = true;
@@ -331,6 +337,11 @@
     private async Task AnalyzeAsync()
     {
         if (string.IsNullOrWhiteSpace(_rawText)) return;
+        if (_rawText.Length >= MaxInputChars)
+        {
+            Snackbar.Add($"Text exceeds {MaxInputChars} char limit. Split into smaller batches.", Severity.Warning);
+            return;
+        }
 
         _analyzing = true;
         StateHasChanged();
