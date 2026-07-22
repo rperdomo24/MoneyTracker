@@ -8,6 +8,7 @@ using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers.CardBenefits;
 using MoneyTracker.Application.Mappers.Reports;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Ai;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
@@ -36,6 +37,7 @@ namespace MoneyTracker.Application.Services
         private readonly IAiReportCacheRepository _aiReportCacheRepository;
         private readonly IAiRangeReportCacheRepository _aiRangeReportCacheRepository;
         private readonly IAiCallLogRepository _aiCallLogRepository;
+        private readonly IAiTrainingDataRepository _aiTrainingDataRepository;
 
         public ReportService(
             ITransactionRepository transactionRepository,
@@ -45,7 +47,8 @@ namespace MoneyTracker.Application.Services
             IOptions<GoogleAiSettings> googleAiSettings,
             IAiReportCacheRepository aiReportCacheRepository,
             IAiRangeReportCacheRepository aiRangeReportCacheRepository,
-            IAiCallLogRepository aiCallLogRepository)
+            IAiCallLogRepository aiCallLogRepository,
+            IAiTrainingDataRepository aiTrainingDataRepository)
         {
             _transactionRepository = transactionRepository;
             _cardBenefitRepository = cardBenefitRepository;
@@ -55,6 +58,7 @@ namespace MoneyTracker.Application.Services
             _aiReportCacheRepository = aiReportCacheRepository;
             _aiRangeReportCacheRepository = aiRangeReportCacheRepository;
             _aiCallLogRepository = aiCallLogRepository;
+            _aiTrainingDataRepository = aiTrainingDataRepository;
         }
 
         public async Task<OperationResult<MonthlyReportDto>> GetMonthlyReportAsync(MonthlyReportFilterDto filter)
@@ -181,30 +185,72 @@ namespace MoneyTracker.Application.Services
                     return OperationResult<string>.Ok(cached.Content);
             }
 
-            var reportJson = JsonSerializer.Serialize(report, new JsonSerializerOptions
+            var topMerchants = report.Transactions
+                .Where(t => t.IsExpense && !string.IsNullOrWhiteSpace(t.Merchant))
+                .GroupBy(t => t.Merchant)
+                .Select(g => new { merchant = g.Key, total = g.Sum(t => t.Amount), count = g.Count() })
+                .OrderByDescending(m => m.total)
+                .Take(8);
+
+            var aiPayload = new
+            {
+                period = $"{report.From:dd/MM/yyyy} – {report.To:dd/MM/yyyy}",
+                summary = new
+                {
+                    income = report.Summary.TotalIncome,
+                    expenses = report.Summary.TotalExpenses,
+                    balance = report.Summary.FinalBalance,
+                    transactionCount = report.Summary.TransactionCount
+                },
+                topExpenseCategories = report.CategorySummary.Take(8).Select(c => new
+                {
+                    category = c.CategoryName,
+                    total = c.TotalSpent,
+                    count = c.TransactionCount
+                }),
+                topIncomeCategories = report.IncomeCategorySummary.Take(5).Select(c => new
+                {
+                    category = c.CategoryName,
+                    total = c.TotalSpent
+                }),
+                topMerchants,
+                unusualTransactions = report.Transactions
+                    .OrderByDescending(t => t.Amount)
+                    .Take(5)
+                    .Select(t => new
+                    {
+                        date = t.Date.ToString("MM-dd"),
+                        name = t.Name,
+                        amount = t.Amount,
+                        category = t.CategoryName,
+                        merchant = t.Merchant
+                    })
+            };
+
+            var reportJson = JsonSerializer.Serialize(aiPayload, new JsonSerializerOptions
             {
                 WriteIndented = false,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
             var prompt = $"""
-                Eres un asesor financiero personal. Analiza el siguiente reporte financiero JSON de rango de fechas y proporciona un análisis directo en español con estas secciones:
+                Eres un asesor financiero personal. Analiza el siguiente resumen financiero JSON de rango de fechas y proporciona un análisis directo en español con estas secciones:
 
                 1. **Resumen del período**: 2-3 oraciones sobre el panorama general (ingresos, gastos, balance) para el período {report.From:dd/MM/yyyy} – {report.To:dd/MM/yyyy}.
                 2. **Hábitos de gasto**: Categorías que consumieron más. ¿El patrón es preocupante?
                 3. **Comercios frecuentes**: Top 3 comercios donde más se gastó. ¿Alguno merece revisión?
-                4. **Movimientos a revisar**: Transacciones inusuales por monto, categoría o comercio desconocido.
+                4. **Movimientos a revisar**: Transacciones inusuales por monto o categoría desconocida.
                 5. **3 acciones concretas**: Qué hacer diferente. Sé específico con categorías y montos.
 
                 Reglas:
                 - Máximo 350 palabras.
                 - No repitas datos del JSON literalmente, interprétalos.
 
-                Reporte:
+                Datos:
                 {reportJson}
                 """;
 
-            var result = await CallGoogleAiAsync(prompt, "RangeReport");
+            var result = await CallGoogleAiAsync(prompt, "RangeReport", reportJson, AiServiceType.RangeReport);
             if (result.Success && !string.IsNullOrWhiteSpace(result.Data))
                 await _aiRangeReportCacheRepository.UpsertAsync(report.From, report.To, result.Data);
             return result;
@@ -219,40 +265,94 @@ namespace MoneyTracker.Application.Services
                     return OperationResult<string>.Ok(cached.Content);
             }
 
-            var reportJson = JsonSerializer.Serialize(report, new JsonSerializerOptions
+            var aiPayload = new
+            {
+                period = report.MonthName,
+                summary = new
+                {
+                    income = report.Summary.TotalIncome,
+                    expenses = report.Summary.TotalExpenses,
+                    balance = report.Summary.FinalBalance,
+                    transactionCount = report.Summary.TransactionCount
+                },
+                topExpenseCategories = report.CategorySummary.Take(8).Select(c => new
+                {
+                    category = c.CategoryName,
+                    total = c.TotalSpent,
+                    count = c.TransactionCount
+                }),
+                topIncomeCategories = report.IncomeCategorySummary.Take(5).Select(c => new
+                {
+                    category = c.CategoryName,
+                    total = c.TotalSpent
+                }),
+                topMerchants = report.MerchantSummary.Take(10).Select(m => new
+                {
+                    merchant = m.MerchantName,
+                    total = m.TotalSpent,
+                    count = m.TransactionCount,
+                    category = m.TopCategory
+                }),
+                cardUsage = report.CardSummary.Select(c => new
+                {
+                    card = c.CardName,
+                    bank = c.BankName,
+                    total = c.TotalSpent,
+                    estimatedBenefit = c.EstimatedBenefit
+                }),
+                benefitRules = report.BenefitRules.Where(b => b.IsActive).Take(10).Select(b => new
+                {
+                    card = b.AccountName,
+                    category = b.CategoryName,
+                    merchant = b.MerchantPattern,
+                    type = b.BenefitType.ToString(),
+                    rate = b.BenefitRateFormatted
+                }),
+                unusualTransactions = report.Transactions
+                    .OrderByDescending(t => t.Amount)
+                    .Take(5)
+                    .Select(t => new
+                    {
+                        date = t.Date.ToString("MM-dd"),
+                        name = t.Name,
+                        amount = t.Amount,
+                        category = t.CategoryName,
+                        merchant = t.Merchant,
+                        card = t.CardDisplayName ?? t.CardName
+                    })
+            };
+
+            var reportJson = JsonSerializer.Serialize(aiPayload, new JsonSerializerOptions
             {
                 WriteIndented = false,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
             var prompt = $"""
-                Eres un asesor financiero personal. Analiza el siguiente reporte mensual JSON y proporciona un análisis directo en español con estas secciones:
+                Eres un asesor financiero personal. Analiza el siguiente resumen financiero mensual y proporciona un análisis directo en español con estas secciones:
 
                 1. **Resumen del mes**: 2-3 oraciones sobre el panorama general (ingresos, gastos, balance).
                 2. **Hábitos de gasto**: Categorías y comercios que consumieron más. ¿El patrón es preocupante?
-                3. **Uso de tarjetas**: Basándote en `benefitRules`, ¿usé las tarjetas correctas? Calcula pérdidas concretas si usé la tarjeta equivocada. Si `cardDisplayName` está disponible, úsalo en lugar del nombre de cuenta.
+                3. **Uso de tarjetas**: Basándote en `benefitRules`, ¿usé las tarjetas correctas? Calcula pérdidas concretas si usé la tarjeta equivocada.
                 4. **Comercios frecuentes**: Top 3 comercios donde más gasté. ¿Alguno merece revisión o tiene una tarjeta óptima?
-                5. **Movimientos a revisar**: Transacciones inusuales por monto, categoría o comercio desconocido que merezcan atención.
+                5. **Movimientos a revisar**: Las 5 transacciones más altas — ¿alguna es inusual o duplicada?
                 6. **3 acciones concretas**: Qué hacer diferente el próximo mes. Sé específico con nombres de tarjetas y categorías.
 
                 Reglas:
                 - Máximo 400 palabras.
-                - No repitas datos del JSON literalmente, interprétalos.
-                - Si `cardDisplayName` existe en una transacción, úsalo en vez del campo `accountName`.
-                - Usa `merchantSummary` para el análisis de comercios.
-                - Detecta si algún gasto en `merchant` parece duplicado o inusualmente alto.
+                - No repitas datos literalmente, interprétalos.
 
-                Reporte:
+                Datos:
                 {reportJson}
                 """;
 
-            var result = await CallGoogleAiAsync(prompt, "MonthlyReport");
+            var result = await CallGoogleAiAsync(prompt, "MonthlyReport", reportJson, AiServiceType.MonthlyReport);
             if (result.Success && !string.IsNullOrWhiteSpace(result.Data))
                 await _aiReportCacheRepository.UpsertAsync(report.Year, report.Month, result.Data);
             return result;
         }
 
-        private async Task<OperationResult<string>> CallGoogleAiAsync(string prompt, string service)
+        private async Task<OperationResult<string>> CallGoogleAiAsync(string prompt, string service, string inputJson, AiServiceType serviceType)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
@@ -340,6 +440,19 @@ namespace MoneyTracker.Application.Services
                     CachedTokens = cachedTokens,
                     WasCacheHit = false,
                     DurationMs = sw.ElapsedMilliseconds,
+                    CalledAtUtc = DateTime.UtcNow
+                });
+
+                _ = _aiTrainingDataRepository.AddAsync(new AiTrainingData
+                {
+                    ServiceType = serviceType,
+                    Model = _googleAiSettings.Model ?? string.Empty,
+                    InputType = AiInputType.ReportJsonCompact,
+                    RawInput = inputJson,
+                    OutputType = AiOutputType.AnalysisMarkdown,
+                    RawOutput = text,
+                    InputTokens = inputTokens,
+                    OutputTokens = outputTokens,
                     CalledAtUtc = DateTime.UtcNow
                 });
 
