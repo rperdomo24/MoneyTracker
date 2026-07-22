@@ -1,0 +1,137 @@
+@using MoneyTracker.Application.DTOs.Calendar
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Transaction
+@inject ICalendarReminderService ReminderService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.NotificationsActive" Class="mr-2" />
+            @(IsEdit ? "Edit Reminder" : "New Reminder")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_dto.Title"
+                          Label="Title"
+                          Variant="Variant.Outlined"
+                          MaxLength="200"
+                          Required="true" />
+
+            <MudDatePicker @bind-Date="_selectedDate"
+                           Label="Date"
+                           Variant="Variant.Outlined"
+                           Required="true" />
+
+            <MudTextField @bind-Value="_dto.Notes"
+                          Label="Notes (optional)"
+                          Variant="Variant.Outlined"
+                          Lines="2"
+                          MaxLength="1000" />
+
+            <MudColorPicker @bind-Text="_dto.Color"
+                            Label="Color"
+                            Variant="Variant.Outlined"
+                            ColorPickerMode="ColorPickerMode.HEX"
+                            DisableAlpha="true" />
+
+            <MudSwitch @bind-Value="_dto.IsRecurring" Label="Recurring reminder" Color="Color.Primary" />
+
+            @if (_dto.IsRecurring)
+            {
+                <MudSelect @bind-Value="_dto.RecurrenceFrequency"
+                           Label="Repeat every"
+                           Variant="Variant.Outlined">
+                    @foreach (var freq in Enum.GetValues<RecurringFrequency>())
+                    {
+                        <MudSelectItem Value="@((RecurringFrequency?)freq)">@freq</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudDatePicker @bind-Date="_recurrenceEndDate"
+                               Label="Ends on (optional)"
+                               Variant="Variant.Outlined" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_saving">
+            @(_saving ? "Saving…" : "Save")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public CalendarReminderDto? Existing { get; set; }
+    [Parameter] public DateTime? DefaultDate { get; set; }
+
+    private CalendarReminderDto _dto = new();
+    private DateTime? _selectedDate;
+    private DateTime? _recurrenceEndDate;
+    private bool _saving;
+    private bool IsEdit => Existing is not null;
+
+    protected override void OnParametersSet()
+    {
+        if (Existing is not null)
+        {
+            _dto = new CalendarReminderDto
+            {
+                Id = Existing.Id,
+                Title = Existing.Title,
+                Date = Existing.Date,
+                Notes = Existing.Notes,
+                Color = Existing.Color,
+                IsRecurring = Existing.IsRecurring,
+                RecurrenceFrequency = Existing.RecurrenceFrequency,
+                RecurrenceEndDate = Existing.RecurrenceEndDate
+            };
+            _selectedDate = Existing.Date;
+            _recurrenceEndDate = Existing.RecurrenceEndDate;
+        }
+        else
+        {
+            _dto = new CalendarReminderDto { Color = "#6366f1" };
+            _selectedDate = DefaultDate ?? DateTime.Today;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_dto.Title))
+        {
+            Snackbar.Add("Title is required.", Severity.Warning);
+            return;
+        }
+
+        _dto.Date = _selectedDate ?? DateTime.Today;
+        _dto.RecurrenceEndDate = _recurrenceEndDate;
+
+        if (!_dto.IsRecurring)
+        {
+            _dto.RecurrenceFrequency = null;
+            _dto.RecurrenceEndDate = null;
+        }
+
+        _saving = true;
+        var result = IsEdit
+            ? await ReminderService.UpdateAsync(_dto)
+            : await ReminderService.CreateAsync(_dto);
+        _saving = false;
+
+        if (result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Saved.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error saving reminder.", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

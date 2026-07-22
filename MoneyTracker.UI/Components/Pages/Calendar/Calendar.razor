@@ -1,109 +1,583 @@
-﻿@page "/calendar"
-@using MudBlazor
+@page "/calendar"
+@using MoneyTracker.Application.DTOs.Calendar
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Calendar
+@using MoneyTracker.UI.Components.Pages.Calendar
+@inject ICalendarService CalendarService
+@inject ICalendarReminderService ReminderService
+@inject ITimeZoneService TimeZoneService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Calendar</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-1 pa-sm-6 mt-2 mt-sm-4">
-    <!-- Fecha seleccionada y controles -->
-    <MudGrid Justify="Justify.SpaceBetween">
-        <MudItem>
-            <MudText Typo="Typo.h5">@SelectedDate.ToString("MMMM dd, yyyy")</MudText>
-        </MudItem>
-        <MudItem>
-            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousDay" />
-            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextDay" />
-        </MudItem>
-    </MudGrid>
 
-    <!-- Calendario -->
-    <MudPaper Elevation="1" Class="pa-4 mt-2">
-        <MudDatePicker Date="@SelectedDate"
-                       PickerVariant="PickerVariant.Static"
-                       Color="Color.Primary"
-                       Orientation="Orientation.Portrait"
-                       ShowToolbar="false"
-                       Class="w-100" />
-    </MudPaper>
+    <MudStack Spacing="3">
 
-    <!-- Resumen financiero -->
-    <MudPaper Elevation="0" Class="pa-2 mt-2">
-        <MudGrid>
-            <MudItem xs="4">
-                <MudText Typo="Typo.caption">Balance by</MudText>
-                <MudText Typo="Typo.body2">@SelectedDate.ToString("MMM dd")</MudText>
+        @* Header *@
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Color="Color.Primary" Size="Size.Medium">
+                <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" />
+            </MudAvatar>
+            <MudStack Spacing="0" Style="flex:1;">
+                <MudText Typo="Typo.h6">Calendar</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @(new DateTime(_calendarYear, _calendarMonth, 1).ToString("MMMM yyyy"))
+                </MudText>
+            </MudStack>
+        </MudStack>
+
+        @* Filter chips *@
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="flex-wrap:wrap;">
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == null ? Color.Primary : Color.Default)"
+                     Variant="@(_activeFilter == null ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(null))">All</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == CalendarEventType.CreditCut ? Color.Warning : Color.Default)"
+                     Variant="@(_activeFilter == CalendarEventType.CreditCut ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(CalendarEventType.CreditCut))">✂ Statements</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == CalendarEventType.CreditDue ? Color.Error : Color.Default)"
+                     Variant="@(_activeFilter == CalendarEventType.CreditDue ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(CalendarEventType.CreditDue))">$ Payments</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == CalendarEventType.Recurring ? Color.Secondary : Color.Default)"
+                     Variant="@(_activeFilter == CalendarEventType.Recurring ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(CalendarEventType.Recurring))">🔁 Recurring</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == CalendarEventType.LoanInstallment ? Color.Tertiary : Color.Default)"
+                     Variant="@(_activeFilter == CalendarEventType.LoanInstallment ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(CalendarEventType.LoanInstallment))">🤝 Loans</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == CalendarEventType.GoalDeadline ? Color.Success : Color.Default)"
+                     Variant="@(_activeFilter == CalendarEventType.GoalDeadline ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(CalendarEventType.GoalDeadline))">🐷 Goals</MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_activeFilter == CalendarEventType.Reminder ? Color.Info : Color.Default)"
+                     Variant="@(_activeFilter == CalendarEventType.Reminder ? Variant.Filled : Variant.Outlined)"
+                     OnClick="@(() => SetFilter(CalendarEventType.Reminder))">🔔 Reminders</MudChip>
+        </MudStack>
+
+        <MudGrid Spacing="3">
+
+            @* Calendar column *@
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="1" Class="pa-3">
+                    <MudStack Spacing="2">
+
+                        @* Month navigation *@
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small" OnClick="PrevMonthAsync" />
+                            <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
+                                @(new DateTime(_calendarYear, _calendarMonth, 1).ToString("MMMM yyyy"))
+                            </MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" OnClick="NextMonthAsync" />
+                        </MudStack>
+
+                        @if (_loading)
+                        {
+                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                        }
+
+                        @* Grid *@
+                        <div class="cc-calendar-wrapper">
+                        <div class="cc-calendar-grid">
+                            @foreach (var h in new[] { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" })
+                            {
+                                <div class="cc-day-header">@h</div>
+                            }
+                            @foreach (var d in _calendarCells)
+                            {
+                                var filteredEvents = GetFilteredEvents(d);
+                                <div class="cc-cell @(d == 0 ? "cc-cell-empty" : "") @(IsCellSelected(d) ? "cc-cell-selected" : "") @(IsCellToday(d) ? "cc-cell-today" : "") @(filteredEvents.Count > 0 ? "cc-cell-has-events" : "")"
+                                     @onclick="@(() => SelectDay(d))">
+                                    @if (d > 0)
+                                    {
+                                        <span class="cc-day-num @(IsCellToday(d) ? "cc-day-today-circle" : "")">@d</span>
+                                        @if (filteredEvents.Count > 0)
+                                        {
+                                            <div class="cc-event-icons">
+                                                @foreach (var evt in filteredEvents.Take(2))
+                                                {
+                                                    <span class="cc-pill" style="background:@GetEventColor(evt);">
+                                                        @GetEventIcon(evt) @evt.Title.Split('·')[0].Trim()[..Math.Min(10, evt.Title.Split('·')[0].Trim().Length)]
+                                                    </span>
+                                                }
+                                                @if (filteredEvents.Count > 2)
+                                                {
+                                                    <span class="cc-more">+@(filteredEvents.Count - 2)</span>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                        </div>
+
+                        @* Legend *@
+                        <MudStack Row Spacing="2" Style="flex-wrap:wrap; margin-top:4px;">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <span style="width:24px;height:10px;border-radius:2px;background:var(--mud-palette-warning);display:inline-block;"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Statement</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <span style="width:24px;height:10px;border-radius:2px;background:var(--mud-palette-error);display:inline-block;"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Payment</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <span style="width:24px;height:10px;border-radius:2px;background:var(--mud-palette-secondary);display:inline-block;"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Recurring</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <span style="width:24px;height:10px;border-radius:2px;background:var(--mud-palette-tertiary);display:inline-block;"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Loan</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <span style="width:24px;height:10px;border-radius:2px;background:var(--mud-palette-success);display:inline-block;"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Goal</MudText>
+                            </MudStack>
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <span style="width:24px;height:10px;border-radius:2px;background:var(--mud-palette-info);display:inline-block;"></span>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Reminder</MudText>
+                            </MudStack>
+                        </MudStack>
+
+                        @* Mobile detail *@
+                        @if (_selectedDay > 0)
+                        {
+                            <div class="d-flex d-md-none cc-mobile-detail">
+                                <MudStack Spacing="1" Style="width:100%;">
+                                    <MudText Typo="Typo.caption" Class="font-weight-bold">
+                                        @GetSelectedDayLabel()
+                                    </MudText>
+                                    @{
+                                        var mobileEvts = GetFilteredEvents(_selectedDay);
+                                    }
+                                    @if (mobileEvts.Count > 0)
+                                    {
+                                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                            @foreach (var evt in mobileEvts)
+                                            {
+                                                <MudChip T="string" Size="Size.Small"
+                                                         Style="@($"background:{GetEventColor(evt)};color:white;")"
+                                                         Variant="Variant.Filled">
+                                                    @GetEventIcon(evt) @evt.Title
+                                                </MudChip>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">No events</MudText>
+                                    }
+                                </MudStack>
+                            </div>
+                        }
+
+                    </MudStack>
+                </MudPaper>
             </MudItem>
-            <MudItem xs="4">
-                <MudText Typo="Typo.caption" Color="Color.Warning">⚠️ Accounts</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Error">-$1.50</MudText>
+
+            @* Detail panel — desktop *@
+            <MudItem xs="12" md="4" Class="d-none d-md-flex" Style="min-width:0;">
+                <MudStack Spacing="2" Style="width:100%;min-width:0;overflow:hidden;">
+                    @if (_selectedDay > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
+                            @GetSelectedDayLabel()
+                        </MudText>
+
+                        var detailEvts = GetFilteredEvents(_selectedDay);
+                        @if (detailEvts.Count > 0)
+                        {
+                            @foreach (var evt in detailEvts)
+                            {
+                                <MudPaper Outlined="true" Class="pa-2" Style="border-radius:8px;overflow:hidden;width:100%;">
+                                    <MudStack Spacing="1">
+                                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                            <span style="font-size:1rem;">@GetEventIcon(evt)</span>
+                                            <MudText Typo="Typo.body2" Class="font-weight-medium"
+                                                     Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">
+                                                @evt.Title
+                                            </MudText>
+                                            <MudChip T="string" Size="Size.Small"
+                                                     Style="@($"background:{GetEventColor(evt)};color:white;font-size:0.6rem;height:18px;")">
+                                                @GetEventTypeLabel(evt.Type)
+                                            </MudChip>
+                                        </MudStack>
+                                        @if (!string.IsNullOrEmpty(evt.Subtitle))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@evt.Subtitle</MudText>
+                                        }
+                                        @if (evt.Amount.HasValue)
+                                        {
+                                            <MudText Typo="Typo.body2" Class="font-weight-bold">$@evt.Amount.Value.ToString("N2")</MudText>
+                                        }
+                                        @if (!string.IsNullOrEmpty(evt.NavigationUrl))
+                                        {
+                                            <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                                                       Href="@evt.NavigationUrl">
+                                                View →
+                                            </MudButton>
+                                        }
+                                        @if (evt.Type == CalendarEventType.Reminder && evt.EntityId.HasValue)
+                                        {
+                                            <MudStack Row Spacing="1">
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                                                           OnClick="@(() => EditReminderAsync(evt.EntityId.Value))">Edit</MudButton>
+                                                <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                                                           OnClick="@(() => DeleteReminderAsync(evt.EntityId.Value))">Delete</MudButton>
+                                            </MudStack>
+                                        }
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        }
+                        else
+                        {
+                            <MudStack AlignItems="AlignItems.Center" Class="pa-4" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Success" />
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">No events this day</MudText>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                           OnClick="@(() => OpenAddReminderAsync())">
+                                    + Add Reminder
+                                </MudButton>
+                            </MudStack>
+                        }
+                    }
+                    else
+                    {
+                        <MudStack AlignItems="AlignItems.Center" Class="pa-4" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Large" Style="opacity:0.25;" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Select a day</MudText>
+                        </MudStack>
+                    }
+                </MudStack>
             </MudItem>
-            <MudItem xs="4">
-                <MudText Typo="Typo.caption">Credit Cards</MudText>
-                <MudText Typo="Typo.body2">$0.00</MudText>
-            </MudItem>
+
         </MudGrid>
-    </MudPaper>
 
-    <!-- Lista de transacciones -->
-    <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Posted: @PostedTransactions.Count</MudText>
-    @foreach (var tx in PostedTransactions)
-    {
-        <MudPaper Class="pa-2 mb-2">
-            <MudGrid>
-                <MudItem xs="8">
-                    <MudText Typo="Typo.subtitle1">@tx.Description</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@tx.Account</MudText>
-                </MudItem>
-                <MudItem xs="4" Class="d-flex justify-end flex-column align-end">
-                    <MudText Typo="Typo.body1">$@tx.Amount.ToString("N2")</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Error">-@tx.Amount.ToString("N2")</MudText>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-    }
-
-    <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Upcoming: @UpcomingTransactions.Count</MudText>
-    @foreach (var tx in UpcomingTransactions)
-    {
-        <MudPaper Class="pa-2 mb-2">
-            <MudGrid>
-                <MudItem xs="8">
-                    <MudText Typo="Typo.subtitle1">@tx.Description</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@tx.Account</MudText>
-                </MudItem>
-                <MudItem xs="4" Class="d-flex justify-end flex-column align-end">
-                    <MudText Typo="Typo.body1">$@tx.Amount.ToString("N2")</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Error">-@tx.Amount.ToString("N2")</MudText>
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-    }
-
-    <!-- Botón flotante -->
-    <MudFab StartIcon="@Icons.Material.Filled.Add"
-            Color="Color.Primary"
-            Class="mud-fab-bottom-right mud-fab-fixed"
-            Style="bottom: 24px; right: 24px;" />
+    </MudStack>
 </MudContainer>
 
+@* FAB — add reminder *@
+<MudFab StartIcon="@Icons.Material.Filled.NotificationsActive"
+        Color="Color.Primary"
+        Style="position:fixed;bottom:24px;right:24px;z-index:100;"
+        OnClick="@(() => OpenAddReminderAsync())" />
+
+<style>
+    .cc-calendar-wrapper {
+        width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+    .cc-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 4px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .cc-day-header {
+        text-align: center;
+        font-size: 0.72rem;
+        font-weight: 600;
+        opacity: 0.6;
+        padding-bottom: 6px;
+        letter-spacing: 0.03em;
+        min-width: 0;
+    }
+    .cc-cell {
+        border: 1px solid var(--mud-palette-divider);
+        border-radius: 8px;
+        padding: 6px 3px 5px;
+        min-height: 82px;
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+        position: relative;
+        overflow: hidden;
+    }
+    .cc-cell:hover:not(.cc-cell-empty):not(.cc-cell-selected) {
+        background: var(--mud-palette-action-hover);
+        border-color: var(--mud-palette-primary);
+    }
+    .cc-cell-empty {
+        border-color: transparent;
+        cursor: default;
+        background: transparent;
+    }
+    .cc-cell-selected {
+        background: var(--mud-palette-primary) !important;
+        border-color: var(--mud-palette-primary) !important;
+    }
+    .cc-cell-today:not(.cc-cell-selected) {
+        border-color: var(--mud-palette-primary);
+        border-width: 2px;
+    }
+    .cc-day-num {
+        font-size: 0.82rem;
+        line-height: 1.4;
+        font-weight: 500;
+        flex-shrink: 0;
+    }
+    .cc-cell-selected .cc-day-num { color: white; font-weight: 700; }
+    .cc-day-today-circle {
+        background: var(--mud-palette-primary);
+        color: white !important;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+    .cc-cell-selected .cc-day-today-circle {
+        background: white;
+        color: var(--mud-palette-primary) !important;
+    }
+    .cc-event-icons {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        margin-top: 3px;
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        padding: 0 2px;
+        box-sizing: border-box;
+    }
+    .cc-pill {
+        display: block;
+        font-size: 0.58rem;
+        line-height: 1.5;
+        padding: 1px 3px;
+        border-radius: 3px;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .cc-cell-selected .cc-pill { opacity: 0.9; outline: 1px solid rgba(255,255,255,0.4); }
+    .cc-more { font-size: 0.58rem; opacity: 0.7; align-self: center; margin-top: 1px; }
+    .cc-cell-selected .cc-more { color: white; }
+    .cc-mobile-detail {
+        border-top: 1px solid var(--mud-palette-divider);
+        padding-top: 12px;
+        margin-top: 6px;
+    }
+    @@media (max-width: 599px) {
+        .cc-calendar-grid { gap: 2px; }
+        .cc-cell { min-height: 58px; padding: 4px 1px 3px; border-radius: 6px; }
+        .cc-pill { font-size: 0.5rem; padding: 0 2px; }
+        .cc-day-num { font-size: 0.72rem; }
+        .cc-day-today-circle { width: 18px; height: 18px; font-size: 0.65rem; }
+        .cc-day-header { font-size: 0.62rem; }
+    }
+    @@media (max-width: 400px) {
+        .cc-cell { min-height: 48px; }
+        .cc-pill { display: none; }
+        .cc-more { font-size: 0.5rem; }
+    }
+</style>
+
 @code {
-    private DateTime SelectedDate = DateTime.Today;
+    private Dictionary<int, List<CalendarEventDto>> _allEvents = new();
+    private List<int> _calendarCells = new();
+    private int _selectedDay;
+    private int _calendarYear;
+    private int _calendarMonth;
+    private CalendarEventType? _activeFilter;
+    private bool _loading;
 
-    private List<TransactionDto> PostedTransactions = new()
+    private DateTime LocalToday => TimeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
+
+    protected override void OnInitialized()
     {
-        new() { Description = "pupusas", Account = "Cash", Amount = 2.50m }
-    };
+        var today = LocalToday;
+        _calendarYear = today.Year;
+        _calendarMonth = today.Month;
+        _selectedDay = today.Day;
+        BuildCalendarCells();
+    }
 
-    private List<TransactionDto> UpcomingTransactions = new()
+    protected override async Task OnInitializedAsync() => await LoadMonthAsync();
+
+    private async Task LoadMonthAsync()
     {
-        new() { Description = "hola", Account = "Cash", Amount = 5.00m },
-        new() { Description = "suscripción", Account = "Credit", Amount = 9.99m }
-    };
+        _loading = true;
+        StateHasChanged();
 
-    private void PreviousDay() => SelectedDate = SelectedDate.AddDays(-1);
-    private void NextDay() => SelectedDate = SelectedDate.AddDays(1);
+        var result = await CalendarService.GetMonthEventsAsync(_calendarYear, _calendarMonth);
+        _allEvents = result.Success ? result.Data! : new();
 
-    public class TransactionDto
+        _loading = false;
+    }
+
+    private async Task PrevMonthAsync()
     {
-        public string Description { get; set; } = string.Empty;
-        public string Account { get; set; } = string.Empty;
-        public decimal Amount { get; set; }
+        var dt = new DateTime(_calendarYear, _calendarMonth, 1).AddMonths(-1);
+        _calendarYear = dt.Year;
+        _calendarMonth = dt.Month;
+        _selectedDay = -1;
+        BuildCalendarCells();
+        await LoadMonthAsync();
+    }
+
+    private async Task NextMonthAsync()
+    {
+        var dt = new DateTime(_calendarYear, _calendarMonth, 1).AddMonths(1);
+        _calendarYear = dt.Year;
+        _calendarMonth = dt.Month;
+        _selectedDay = -1;
+        BuildCalendarCells();
+        await LoadMonthAsync();
+    }
+
+    private void BuildCalendarCells()
+    {
+        _calendarCells = new List<int>();
+        var firstDow = (int)new DateTime(_calendarYear, _calendarMonth, 1).DayOfWeek;
+        for (var i = 0; i < firstDow; i++) _calendarCells.Add(0);
+        for (var d = 1; d <= DateTime.DaysInMonth(_calendarYear, _calendarMonth); d++) _calendarCells.Add(d);
+        while (_calendarCells.Count % 7 != 0) _calendarCells.Add(0);
+    }
+
+    private void SelectDay(int day)
+    {
+        if (day <= 0) return;
+        _selectedDay = day;
+    }
+
+    private void SetFilter(CalendarEventType? filter) => _activeFilter = filter;
+
+    private List<CalendarEventDto> GetFilteredEvents(int day)
+    {
+        if (day <= 0 || !_allEvents.TryGetValue(day, out var evts))
+            return new List<CalendarEventDto>();
+
+        return _activeFilter is null
+            ? evts
+            : evts.Where(e => e.Type == _activeFilter ||
+                               (_activeFilter == CalendarEventType.LoanInstallment &&
+                                e.Type == CalendarEventType.LoanDue)).ToList();
+    }
+
+    private bool IsCellToday(int d) =>
+        d > 0 && d == LocalToday.Day && _calendarYear == LocalToday.Year && _calendarMonth == LocalToday.Month;
+
+    private bool IsCellSelected(int d) => d == _selectedDay;
+
+    private string GetSelectedDayLabel()
+    {
+        if (_selectedDay <= 0) return string.Empty;
+        var selDate = new DateTime(_calendarYear, _calendarMonth, _selectedDay);
+        return selDate.Date == LocalToday ? $"Today · {selDate:MMM dd}" : selDate.ToString("MMM dd, yyyy");
+    }
+
+    private static string GetEventColor(CalendarEventDto evt) =>
+        evt.Type switch
+        {
+            CalendarEventType.CreditCut  => evt.Color ?? "var(--mud-palette-warning)",
+            CalendarEventType.CreditDue  => evt.Color ?? "var(--mud-palette-error)",
+            CalendarEventType.Recurring      => "#7c3aed",
+            CalendarEventType.LoanInstallment => "var(--mud-palette-tertiary)",
+            CalendarEventType.LoanDue        => "var(--mud-palette-error)",
+            CalendarEventType.GoalDeadline   => "var(--mud-palette-success)",
+            CalendarEventType.Reminder       => evt.Color ?? "var(--mud-palette-info)",
+            _ => "var(--mud-palette-info)"
+        };
+
+    private static string GetEventIcon(CalendarEventDto evt) =>
+        evt.Type switch
+        {
+            CalendarEventType.CreditCut       => "✂",
+            CalendarEventType.CreditDue       => "$",
+            CalendarEventType.Recurring       => "🔁",
+            CalendarEventType.LoanInstallment => "🤝",
+            CalendarEventType.LoanDue         => "🤝",
+            CalendarEventType.GoalDeadline    => "🐷",
+            CalendarEventType.Reminder        => "🔔",
+            _ => "•"
+        };
+
+    private static string GetEventTypeLabel(CalendarEventType type) =>
+        type switch
+        {
+            CalendarEventType.CreditCut => "Statement",
+            CalendarEventType.CreditDue => "Payment",
+            CalendarEventType.Recurring => "Recurring",
+            CalendarEventType.LoanInstallment => "Loan",
+            CalendarEventType.LoanDue => "Loan Due",
+            CalendarEventType.GoalDeadline => "Goal",
+            CalendarEventType.Reminder => "Reminder",
+            _ => string.Empty
+        };
+
+    private async Task OpenAddReminderAsync()
+    {
+        var defaultDate = _selectedDay > 0
+            ? new DateTime(_calendarYear, _calendarMonth, _selectedDay)
+            : (DateTime?)null;
+
+        var parameters = new DialogParameters<AddReminderDialog>
+        {
+            { x => x.DefaultDate, defaultDate }
+        };
+
+        var dialog = await DialogService.ShowAsync<AddReminderDialog>("New Reminder", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await LoadMonthAsync();
+    }
+
+    private async Task EditReminderAsync(int id)
+    {
+        // Load the full reminder from service via existing data
+        var monthReminders = await ReminderService.GetByMonthAsync(_calendarYear, _calendarMonth);
+        if (!monthReminders.Success) return;
+
+        var existing = monthReminders.Data!.FirstOrDefault(r => r.Id == id);
+        if (existing is null) return;
+
+        var parameters = new DialogParameters<AddReminderDialog>
+        {
+            { x => x.Existing, existing }
+        };
+
+        var dialog = await DialogService.ShowAsync<AddReminderDialog>("Edit Reminder", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await LoadMonthAsync();
+    }
+
+    private async Task DeleteReminderAsync(int id)
+    {
+        var result = await ReminderService.DeleteAsync(id);
+        if (result.Success)
+        {
+            Snackbar.Add("Reminder deleted.", Severity.Success);
+            await LoadMonthAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error deleting reminder.", Severity.Error);
+        }
     }
 }
