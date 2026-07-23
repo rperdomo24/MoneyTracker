@@ -1147,6 +1147,12 @@ namespace MoneyTracker.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("ContributionReminderAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<int?>("ContributionReminderDay")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

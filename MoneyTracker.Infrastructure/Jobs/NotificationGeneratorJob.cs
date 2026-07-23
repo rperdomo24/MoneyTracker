@@ -54,6 +54,7 @@ namespace MoneyTracker.Infrastructure.Jobs
             await CheckLoanRemindersAsync(context, today);
             await CheckCreditCardAlertsAsync(context, today);
             await CheckCalendarRemindersAsync(context, today);
+            await CheckSavingsGoalContributionRemindersAsync(context, today);
         }
 
         private async Task CheckBudgetAlertsAsync(Persistence.MoneyTrackerDbContext context, DateTime today)
@@ -335,6 +336,83 @@ namespace MoneyTracker.Infrastructure.Jobs
                 _logger.LogError(ex, "Error in calendar reminder check");
             }
         }
+
+        private async Task CheckSavingsGoalContributionRemindersAsync(MoneyTrackerDbContext context, DateTime today)
+        {
+            try
+            {
+                var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
+
+                var goals = await context.SavingsGoals
+                    .IgnoreQueryFilters()
+                    .Where(g => !g.IsDeleted && !g.IsCompleted && g.ContributionReminderDay.HasValue)
+                    .ToListAsync();
+
+                foreach (var goal in goals)
+                {
+                    try
+                    {
+                        var reminderDay = Math.Min(goal.ContributionReminderDay!.Value, daysInMonth);
+                        if (today.Day != reminderDay) continue;
+
+                        var key = $"goal-contribution-{goal.Id}-{today:yyyy-MM}";
+                        if (await _notificationRepo.ExistsByDuplicateKeyAsync(key)) continue;
+
+                        var amountText = goal.ContributionReminderAmount.HasValue
+                            ? $"${goal.ContributionReminderAmount.Value:N2}"
+                            : "your planned amount";
+
+                        await _notificationRepo.AddAsync(new AppNotification
+                        {
+                            TenantId = goal.TenantId,
+                            Title = $"Savings reminder: {goal.Name}",
+                            Message = $"Time to save {amountText} toward your goal '{goal.Name}'.",
+                            Type = NotificationType.GoalContributionReminder,
+                            Link = "/goals",
+                            DuplicateKey = key
+                        });
+
+                        var user = await _userManager.Users
+                            .FirstOrDefaultAsync(u => u.TenantId == goal.TenantId);
+
+                        if (user?.Email is not null)
+                        {
+                            var html = BuildGoalContributionEmail(goal.Name, goal.ContributionReminderAmount, today);
+                            await _emailSender.SendAsync(user.Email, $"Savings reminder: {goal.Name}", html);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing contribution reminder for goal {Id}", goal.Id);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in savings goal contribution reminder check");
+            }
+        }
+
+        private static string BuildGoalContributionEmail(string goalName, decimal? amount, DateTime date) => $"""
+            <!DOCTYPE html>
+            <html>
+            <body style="font-family:'Segoe UI',sans-serif;background:#f4f7f6;margin:0;padding:32px;">
+              <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="background:#10b981;padding:24px;text-align:center;">
+                  <h2 style="color:#fff;margin:0;">🪙 Savings Reminder</h2>
+                </div>
+                <div style="padding:28px 32px;">
+                  <p style="font-size:16px;color:#2A364E;">Time to save toward <strong>{goalName}</strong>!</p>
+                  {(amount.HasValue ? $"<div style=\"background:#f0fdf4;border-left:4px solid #10b981;padding:16px;border-radius:4px;margin:16px 0;\"><p style=\"margin:0;color:#10b981;font-size:24px;font-weight:bold;\">${amount.Value:N2}</p><p style=\"margin:4px 0 0;color:#666;\">Planned contribution for {date:MMMM yyyy}</p></div>" : "")}
+                  <a href="/goals" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">View Goals</a>
+                </div>
+                <div style="background:#f4f7f6;padding:16px;text-align:center;">
+                  <p style="margin:0;font-size:12px;color:#999;">MoneyTracker &mdash; Savings Goals</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """;
 
         private static bool IsOccurrenceToday(DateTime reminderDate, RecurringFrequency frequency, DateTime today)
         {
