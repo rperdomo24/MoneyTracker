@@ -1,11 +1,14 @@
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.Calendar;
+using MoneyTracker.Application.DTOs.Transactions;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Application.Common.Extensions;
 using MoneyTracker.Application.Mappers;
 using MoneyTracker.Application.Mappers.Calendar;
 using MoneyTracker.Domain.Enums.Account;
 using MoneyTracker.Domain.Enums.Calendar;
+using MoneyTracker.Domain.Enums.Filters;
 using MoneyTracker.Domain.Enums.Loans;
 using MoneyTracker.Domain.Enums.Transaction;
 
@@ -18,6 +21,7 @@ namespace MoneyTracker.Application.Services
         private readonly ILoanService _loanService;
         private readonly ISavingsGoalService _goalService;
         private readonly ICalendarReminderService _reminderService;
+        private readonly ITransactionService _transactionService;
         private readonly ITimeZoneService _timeZoneService;
         private readonly ILogger<CalendarService> _logger;
 
@@ -27,6 +31,7 @@ namespace MoneyTracker.Application.Services
             ILoanService loanService,
             ISavingsGoalService goalService,
             ICalendarReminderService reminderService,
+            ITransactionService transactionService,
             ITimeZoneService timeZoneService,
             ILogger<CalendarService> logger)
         {
@@ -35,6 +40,7 @@ namespace MoneyTracker.Application.Services
             _loanService = loanService;
             _goalService = goalService;
             _reminderService = reminderService;
+            _transactionService = transactionService;
             _timeZoneService = timeZoneService;
             _logger = logger;
         }
@@ -334,6 +340,69 @@ namespace MoneyTracker.Application.Services
         {
             if (!events.ContainsKey(day)) events[day] = new List<CalendarEventDto>();
             events[day].Add(evt);
+        }
+
+        public async Task<OperationResult<Dictionary<int, (decimal Income, decimal Expense)>>> GetMonthDayTotalsAsync(int year, int month)
+        {
+            try
+            {
+                // Pass local dates — TimeRangeService.GetCustomRangeUtc handles UTC conversion internally
+                var result = await _transactionService.GetFilteredAsync(new TransactionFilterDto
+                {
+                    TimePeriod  = TimePeriodFilter.Custom,
+                    FromDate    = new DateTime(year, month, 1),
+                    ToDate      = new DateTime(year, month, DateTime.DaysInMonth(year, month), 23, 59, 59),
+                    RowsPerPage = 2000,
+                    SkipSorting = true
+                });
+
+                if (!result.Success)
+                    return OperationResult<Dictionary<int, (decimal Income, decimal Expense)>>.Ok(new());
+
+                var totals = new Dictionary<int, (decimal Income, decimal Expense)>();
+
+                foreach (var tx in result.Data!.Transactions)
+                {
+                    // mirrors TransactionService.GetFilteredAsync: exclude transfers from balance
+                    if (!tx.IsIncome() && !tx.IsExpense()) continue;
+
+                    var day = tx.Date.Day; // already local via MapToDto
+                    totals.TryGetValue(day, out var existing);
+
+                    if (tx.IsIncome())
+                        totals[day] = (existing.Income + tx.Amount, existing.Expense);
+                    else
+                        totals[day] = (existing.Income, existing.Expense + Math.Abs(tx.Amount));
+                }
+
+                return OperationResult<Dictionary<int, (decimal Income, decimal Expense)>>.Ok(totals);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching month day totals for {Year}/{Month}", year, month);
+                return OperationResult<Dictionary<int, (decimal Income, decimal Expense)>>.Ok(new());
+            }
+        }
+
+        public async Task<OperationResult<TransactionSummaryDto>> GetDayBalanceAsync(DateOnly date)
+        {
+            try
+            {
+                // Pass local dates — TimeRangeService.GetCustomRangeUtc handles UTC conversion internally
+                return await _transactionService.GetFilteredAsync(new TransactionFilterDto
+                {
+                    TimePeriod  = TimePeriodFilter.Custom,
+                    FromDate    = date.ToDateTime(TimeOnly.MinValue),
+                    ToDate      = date.ToDateTime(new TimeOnly(23, 59, 59)),
+                    RowsPerPage = 500,
+                    SkipSorting = false
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching day balance for {Date}", date);
+                return OperationResult<TransactionSummaryDto>.Fail(OperationMessages.UnexpectedError);
+            }
         }
     }
 }
