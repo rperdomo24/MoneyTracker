@@ -8,6 +8,7 @@ namespace MoneyTracker.Domain.Enums.Calendar
         LoanInstallment = 3,
         LoanDue = 4,
         GoalDeadline = 5,
-        Reminder = 6
+        Reminder = 6,
+        GoalContribution = 7
     }
 }

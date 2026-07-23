@@ -11,6 +11,8 @@ namespace MoneyTracker.Domain.Entities
         public DateTime? TargetDate { get; set; }
         public string Color { get; set; } = "#6366f1";
         public string? Notes { get; set; }
+        public int? ContributionReminderDay { get; set; }
+        public decimal? ContributionReminderAmount { get; set; }
         public bool IsCompleted { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
