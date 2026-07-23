@@ -1,7 +1,10 @@
 @page "/calendar"
 @using MoneyTracker.Application.DTOs.Calendar
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Common.Extensions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Calendar
+@using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.UI.Components.Pages.Calendar
 @inject ICalendarService CalendarService
 @inject ICalendarReminderService ReminderService
@@ -111,6 +114,24 @@
                                                 }
                                             </div>
                                         }
+                                        @if (d > 0 && _monthDayTotals.TryGetValue(d, out var dayTotals))
+                                        {
+                                            var net = dayTotals.Income - dayTotals.Expense;
+                                            var netColor = net >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)";
+                                            <div class="cc-tx-bar">
+                                                @if (dayTotals.Income > 0)
+                                                {
+                                                    <span class="cc-tx-dot cc-tx-income"></span>
+                                                }
+                                                @if (dayTotals.Expense > 0)
+                                                {
+                                                    <span class="cc-tx-dot cc-tx-expense"></span>
+                                                }
+                                                <span class="cc-tx-net" style="color:@netColor;">
+                                                    @(net >= 0 ? "+" : "")@net.ToString("N0")
+                                                </span>
+                                            </div>
+                                        }
                                     }
                                 </div>
                             }
@@ -186,13 +207,95 @@
                 <MudStack Spacing="2" Style="width:100%;min-width:0;overflow:hidden;">
                     @if (_selectedDay > 0)
                     {
-                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
-                            @GetSelectedDayLabel()
-                        </MudText>
+                        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.subtitle2" Class="font-weight-bold">
+                                @GetSelectedDayLabel()
+                            </MudText>
+                            @if (_dayBalance is not null)
+                            {
+                                var net = _dayBalance.Balance;
+                                <MudText Typo="Typo.body2" Class="font-weight-bold"
+                                         Color="@(net >= 0 ? Color.Success : Color.Error)">
+                                    @(net >= 0 ? "+" : "")$@Math.Abs(net).ToString("N2")
+                                </MudText>
+                            }
+                        </MudStack>
 
+                        @* Daily balance summary *@
+                        @if (_loadingDayBalance)
+                        {
+                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                        }
+                        else if (_dayBalance is not null)
+                        {
+                            <MudPaper Elevation="0" Class="pa-2" Style="border-radius:8px;background:var(--mud-palette-background-grey);">
+                                <MudStack Row Justify="Justify.SpaceBetween">
+                                    <MudStack Spacing="0" AlignItems="AlignItems.Start">
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Income</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Success" Class="font-weight-bold">
+                                            +$@_dayBalance.TotalIncome.ToString("N2")
+                                        </MudText>
+                                    </MudStack>
+                                    <MudStack Spacing="0" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Expenses</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Error" Class="font-weight-bold">
+                                            -$@Math.Abs(_dayBalance.TotalExpense).ToString("N2")
+                                        </MudText>
+                                    </MudStack>
+                                    <MudStack Spacing="0" AlignItems="AlignItems.End">
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Net</MudText>
+                                        <MudText Typo="Typo.body2"
+                                                 Color="@(_dayBalance.Balance >= 0 ? Color.Success : Color.Error)"
+                                                 Class="font-weight-bold">
+                                            @(_dayBalance.Balance >= 0 ? "+" : "")$@_dayBalance.Balance.ToString("N2")
+                                        </MudText>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+
+                            @if (_dayBalance.Transactions.Count > 0)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary font-weight-bold">
+                                    Transactions (@_dayBalance.TotalCount)
+                                </MudText>
+                                @foreach (var tx in _dayBalance.Transactions.Take(10))
+                                {
+                                    var signed = tx.GetSignedAmount();
+                                    <MudPaper Outlined="true" Class="pa-2" Style="border-radius:6px;width:100%;">
+                                        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudStack Spacing="0" Style="flex:1;min-width:0;">
+                                                <MudText Typo="Typo.body2"
+                                                         Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                                    @tx.Name
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Class="mud-text-secondary"
+                                                         Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                                    @tx.Category?.Name · @tx.Account?.Name
+                                                </MudText>
+                                            </MudStack>
+                                            <MudText Typo="Typo.body2" Class="font-weight-bold"
+                                                     Color="@(signed >= 0 ? Color.Success : Color.Error)"
+                                                     Style="white-space:nowrap;">
+                                                @(signed >= 0 ? "+" : "")$@Math.Abs(signed).ToString("N2")
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                                @if (_dayBalance.TotalCount > 10)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" FullWidth="true"
+                                               Href="/transactions">
+                                        View all @_dayBalance.TotalCount transactions →
+                                    </MudButton>
+                                }
+                            }
+                        }
+
+                        @* Calendar events *@
                         var detailEvts = GetFilteredEvents(_selectedDay);
                         @if (detailEvts.Count > 0)
                         {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary font-weight-bold">Events</MudText>
                             @foreach (var evt in detailEvts)
                             {
                                 <MudPaper Outlined="true" Class="pa-2" Style="border-radius:8px;overflow:hidden;width:100%;">
@@ -236,7 +339,7 @@
                                 </MudPaper>
                             }
                         }
-                        else
+                        else if (_dayBalance is null || _dayBalance.Transactions.Count == 0)
                         {
                             <MudStack AlignItems="AlignItems.Center" Class="pa-4" Spacing="1">
                                 <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Color="Color.Success" />
@@ -377,6 +480,33 @@
     .cc-cell-selected .cc-pill { opacity: 0.9; outline: 1px solid rgba(255,255,255,0.4); }
     .cc-more { font-size: 0.58rem; opacity: 0.7; align-self: center; margin-top: 1px; }
     .cc-cell-selected .cc-more { color: white; }
+    .cc-tx-bar {
+        display: flex;
+        gap: 3px;
+        margin-top: auto;
+        padding-top: 3px;
+        justify-content: center;
+    }
+    .cc-tx-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .cc-tx-income  { background: var(--mud-palette-success); }
+    .cc-tx-expense { background: var(--mud-palette-error); }
+    .cc-cell-selected .cc-tx-income  { background: rgba(255,255,255,0.85); }
+    .cc-cell-selected .cc-tx-expense { background: rgba(255,255,255,0.55); }
+    .cc-tx-net {
+        font-size: 0.5rem;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 28px;
+    }
+    .cc-cell-selected .cc-tx-net { color: white !important; }
     .cc-mobile-detail {
         border-top: 1px solid var(--mud-palette-divider);
         padding-top: 12px;
@@ -405,6 +535,9 @@
     private int _calendarMonth;
     private CalendarEventType? _activeFilter;
     private bool _loading;
+    private bool _loadingDayBalance;
+    private TransactionSummaryDto? _dayBalance;
+    private Dictionary<int, (decimal Income, decimal Expense)> _monthDayTotals = new();
 
     private DateTime LocalToday => TimeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
 
@@ -424,8 +557,12 @@
         _loading = true;
         StateHasChanged();
 
-        var result = await CalendarService.GetMonthEventsAsync(_calendarYear, _calendarMonth);
-        _allEvents = result.Success ? result.Data! : new();
+        var eventsTask = CalendarService.GetMonthEventsAsync(_calendarYear, _calendarMonth);
+        var totalsTask = CalendarService.GetMonthDayTotalsAsync(_calendarYear, _calendarMonth);
+        await Task.WhenAll(eventsTask, totalsTask);
+
+        _allEvents = eventsTask.Result.Success ? eventsTask.Result.Data! : new();
+        _monthDayTotals = totalsTask.Result.Success ? totalsTask.Result.Data! : new();
 
         _loading = false;
     }
@@ -436,6 +573,7 @@
         _calendarYear = dt.Year;
         _calendarMonth = dt.Month;
         _selectedDay = -1;
+        _dayBalance = null;
         BuildCalendarCells();
         await LoadMonthAsync();
     }
@@ -446,6 +584,7 @@
         _calendarYear = dt.Year;
         _calendarMonth = dt.Month;
         _selectedDay = -1;
+        _dayBalance = null;
         BuildCalendarCells();
         await LoadMonthAsync();
     }
@@ -463,6 +602,21 @@
     {
         if (day <= 0) return;
         _selectedDay = day;
+        _ = LoadDayBalanceAsync(day);
+    }
+
+    private async Task LoadDayBalanceAsync(int day)
+    {
+        _dayBalance = null;
+        _loadingDayBalance = true;
+        StateHasChanged();
+
+        var date = new DateOnly(_calendarYear, _calendarMonth, day);
+        var result = await CalendarService.GetDayBalanceAsync(date);
+        _dayBalance = result.Success ? result.Data : null;
+
+        _loadingDayBalance = false;
+        StateHasChanged();
     }
 
     private void SetFilter(CalendarEventType? filter) => _activeFilter = filter;
