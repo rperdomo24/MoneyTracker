@@ -9,6 +9,8 @@ namespace MoneyTracker.Application.DTOs.Goals
         public DateTime? TargetDate { get; set; }
         public string Color { get; set; } = "#6366f1";
         public string? Notes { get; set; }
+        public int? ContributionReminderDay { get; set; }
+        public decimal? ContributionReminderAmount { get; set; }
         public bool IsCompleted { get; set; }
         public int ProgressPercent { get; set; }
         public List<SavingsContributionDto> Contributions { get; set; } = new();

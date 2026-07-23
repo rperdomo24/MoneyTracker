@@ -88,15 +88,19 @@ namespace MoneyTracker.Application.Services
             OperationResult<List<CalendarReminderDto>>)>
             LoadAllSourcesAsync(int year, int month)
         {
-            var accountsTask = _accountService.GetAllAsync();
+            // AccountService, RecurringService, ReminderService use IServiceScopeFactory — safe to parallelize.
+            // LoanService and SavingsGoalService use _context directly — must run sequentially to avoid
+            // EF Core concurrent-operation exception on the shared DbContext instance.
+            var accountsTask  = _accountService.GetAllAsync();
             var recurringTask = _recurringService.GetAllAsync();
-            var loansTask = _loanService.GetAllAsync();
-            var goalsTask = _goalService.GetAllAsync();
             var remindersTask = _reminderService.GetByMonthAsync(year, month);
 
-            await Task.WhenAll(accountsTask, recurringTask, loansTask, goalsTask, remindersTask);
+            await Task.WhenAll(accountsTask, recurringTask, remindersTask);
 
-            return (accountsTask.Result, recurringTask.Result, loansTask.Result, goalsTask.Result, remindersTask.Result);
+            var loansResult = await _loanService.GetAllAsync();
+            var goalsResult = await _goalService.GetAllAsync();
+
+            return (accountsTask.Result, recurringTask.Result, loansResult, goalsResult, remindersTask.Result);
         }
 
         private static void AddCreditCardEvents(
@@ -218,21 +222,44 @@ namespace MoneyTracker.Application.Services
             List<Application.DTOs.Goals.SavingsGoalDto> goals,
             DateOnly monthStart, DateOnly monthEnd)
         {
-            foreach (var goal in goals.Where(g => !g.IsCompleted && g.TargetDate.HasValue))
-            {
-                var targetDate = ToLocalDate(goal.TargetDate!.Value);
-                if (targetDate < monthStart || targetDate > monthEnd) continue;
+            var daysInMonth = monthEnd.Day;
 
-                AddEvent(events, targetDate.Day, new CalendarEventDto
+            foreach (var goal in goals.Where(g => !g.IsCompleted))
+            {
+                if (goal.TargetDate.HasValue)
                 {
-                    Type = CalendarEventType.GoalDeadline,
-                    Title = goal.Name,
-                    Subtitle = $"Goal deadline · {goal.ProgressPercent}% reached",
-                    Amount = goal.TargetAmount - goal.CurrentAmount,
-                    Color = goal.Color,
-                    EntityId = goal.Id,
-                    NavigationUrl = "/goals"
-                });
+                    var targetDate = ToLocalDate(goal.TargetDate.Value);
+                    if (targetDate >= monthStart && targetDate <= monthEnd)
+                    {
+                        AddEvent(events, targetDate.Day, new CalendarEventDto
+                        {
+                            Type = CalendarEventType.GoalDeadline,
+                            Title = goal.Name,
+                            Subtitle = $"Goal deadline · {goal.ProgressPercent}% reached",
+                            Amount = goal.TargetAmount - goal.CurrentAmount,
+                            Color = goal.Color,
+                            EntityId = goal.Id,
+                            NavigationUrl = "/goals"
+                        });
+                    }
+                }
+
+                if (goal.ContributionReminderDay.HasValue)
+                {
+                    var day = Math.Min(goal.ContributionReminderDay.Value, daysInMonth);
+                    AddEvent(events, day, new CalendarEventDto
+                    {
+                        Type = CalendarEventType.GoalContribution,
+                        Title = goal.Name,
+                        Subtitle = goal.ContributionReminderAmount.HasValue
+                            ? $"Save ${goal.ContributionReminderAmount.Value:N2} · {goal.ProgressPercent}% reached"
+                            : $"Contribution reminder · {goal.ProgressPercent}% reached",
+                        Amount = goal.ContributionReminderAmount,
+                        Color = goal.Color,
+                        EntityId = goal.Id,
+                        NavigationUrl = "/goals"
+                    });
+                }
             }
         }
 

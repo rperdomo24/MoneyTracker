@@ -21,6 +21,8 @@ namespace MoneyTracker.Application.Mappers.Goals
                 TargetDate = goal.TargetDate,
                 Color = goal.Color,
                 Notes = goal.Notes,
+                ContributionReminderDay = goal.ContributionReminderDay,
+                ContributionReminderAmount = goal.ContributionReminderAmount,
                 IsCompleted = goal.IsCompleted,
                 ProgressPercent = percent,
                 CreatedAt = goal.CreatedAt,
@@ -36,6 +38,8 @@ namespace MoneyTracker.Application.Mappers.Goals
             TargetDate = dto.TargetDate,
             Color = dto.Color,
             Notes = dto.Notes,
+            ContributionReminderDay = dto.ContributionReminderDay,
+            ContributionReminderAmount = dto.ContributionReminderAmount,
             IsCompleted = dto.IsCompleted
         };
 

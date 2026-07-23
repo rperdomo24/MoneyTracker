@@ -97,6 +97,8 @@ namespace MoneyTracker.Application.Services
                     : null;
                 entity.Color = dto.Color;
                 entity.Notes = dto.Notes;
+                entity.ContributionReminderDay = dto.ContributionReminderDay is >= 1 and <= 31 ? dto.ContributionReminderDay : null;
+                entity.ContributionReminderAmount = dto.ContributionReminderAmount > 0 ? dto.ContributionReminderAmount : null;
                 entity.UpdatedAt = DateTime.UtcNow;
 
                 await _repo.UpdateAsync(entity);
