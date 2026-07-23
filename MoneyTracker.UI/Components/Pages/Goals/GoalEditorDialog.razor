@@ -49,8 +49,32 @@
                           @bind-Value="_model.Notes"
                           Variant="Variant.Outlined"
                           Lines="3"
-                          Class="mb-2"
+                          Class="mb-4"
                           Placeholder="Optional notes about this goal" />
+
+            <MudDivider Class="mb-4" />
+            <MudText Typo="Typo.subtitle2" Class="mb-3">🪙 Contribution Reminder</MudText>
+
+            <MudNumericField Label="Remind me on day (1–31, optional)"
+                             @bind-Value="_model.ContributionReminderDay"
+                             Variant="Variant.Outlined"
+                             Min="1"
+                             Max="31"
+                             Class="mb-4"
+                             Placeholder="e.g., 15 = every 15th of the month"
+                             Clearable="true" />
+
+            <MudNumericField Label="Planned amount (optional)"
+                             @bind-Value="_model.ContributionReminderAmount"
+                             Variant="Variant.Outlined"
+                             Min="0.01m"
+                             Format="N2"
+                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                             Adornment="Adornment.Start"
+                             AdornmentText="$"
+                             Class="mb-2"
+                             Placeholder="0.00"
+                             Clearable="true" />
         </MudContainer>
     </DialogContent>
 
@@ -96,6 +120,8 @@
                 TargetDate = Goal.TargetDate,
                 Color = Goal.Color,
                 Notes = Goal.Notes,
+                ContributionReminderDay = Goal.ContributionReminderDay,
+                ContributionReminderAmount = Goal.ContributionReminderAmount,
                 IsCompleted = Goal.IsCompleted
             };
             _targetDate = Goal.TargetDate;

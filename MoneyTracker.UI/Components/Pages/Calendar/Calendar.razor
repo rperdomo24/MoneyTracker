@@ -629,8 +629,8 @@
         return _activeFilter is null
             ? evts
             : evts.Where(e => e.Type == _activeFilter ||
-                               (_activeFilter == CalendarEventType.LoanInstallment &&
-                                e.Type == CalendarEventType.LoanDue)).ToList();
+                               (_activeFilter == CalendarEventType.LoanInstallment && e.Type == CalendarEventType.LoanDue) ||
+                               (_activeFilter == CalendarEventType.GoalDeadline && e.Type == CalendarEventType.GoalContribution)).ToList();
     }
 
     private bool IsCellToday(int d) =>
@@ -653,8 +653,9 @@
             CalendarEventType.Recurring      => "#7c3aed",
             CalendarEventType.LoanInstallment => "var(--mud-palette-tertiary)",
             CalendarEventType.LoanDue        => "var(--mud-palette-error)",
-            CalendarEventType.GoalDeadline   => "var(--mud-palette-success)",
-            CalendarEventType.Reminder       => evt.Color ?? "var(--mud-palette-info)",
+            CalendarEventType.GoalDeadline    => "var(--mud-palette-success)",
+            CalendarEventType.GoalContribution => evt.Color ?? "var(--mud-palette-success)",
+            CalendarEventType.Reminder        => evt.Color ?? "var(--mud-palette-info)",
             _ => "var(--mud-palette-info)"
         };
 
@@ -667,6 +668,7 @@
             CalendarEventType.LoanInstallment => "🤝",
             CalendarEventType.LoanDue         => "🤝",
             CalendarEventType.GoalDeadline    => "🐷",
+            CalendarEventType.GoalContribution => "🪙",
             CalendarEventType.Reminder        => "🔔",
             _ => "•"
         };
@@ -679,8 +681,9 @@
             CalendarEventType.Recurring => "Recurring",
             CalendarEventType.LoanInstallment => "Loan",
             CalendarEventType.LoanDue => "Loan Due",
-            CalendarEventType.GoalDeadline => "Goal",
-            CalendarEventType.Reminder => "Reminder",
+            CalendarEventType.GoalDeadline    => "Goal",
+            CalendarEventType.GoalContribution => "Save",
+            CalendarEventType.Reminder        => "Reminder",
             _ => string.Empty
         };
 
