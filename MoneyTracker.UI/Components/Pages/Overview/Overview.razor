@@ -27,15 +27,21 @@
 
         @* Compact header *@
         <MudItem xs="12">
-            <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="px-1">
+            <MudStack Row="true"
+                      Wrap="Wrap.Wrap"
+                      Justify="Justify.SpaceBetween"
+                      AlignItems="AlignItems.Center"
+                      Class="px-1"
+                      Spacing="2">
                 <MudText Typo="Typo.h5" Style="font-weight:600;">@UserDisplayName</MudText>
-                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+                <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="flex-grow-1 flex-sm-grow-0">
                     <MudSelect T="TimePeriodFilter"
                                Label="Period"
                                Variant="Variant.Outlined"
                                Dense="true"
                                Margin="Margin.Dense"
                                Style="min-width:170px;"
+                               Class="flex-grow-1 flex-sm-grow-0"
                                Value="_selectedPeriod"
                                ValueChanged="OnPeriodChanged">
                         @foreach (var periodOption in _periodOptions)
@@ -195,6 +201,7 @@
     .overview-shell {
         width: calc(100% - 8px);
         max-width: 2200px;
+        overflow-x: hidden;
     }
 
     @@media (min-width: 2000px) {

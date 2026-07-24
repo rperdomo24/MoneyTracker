@@ -33,6 +33,14 @@
                            OnClick="ToggleDesktopNavAsync" />
         </MudHidden>
 
+        <!-- Mobile drawer toggle -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                           Color="Color.Inherit"
+                           Class="mr-1"
+                           OnClick="ToggleMobileNav" />
+        </MudHidden>
+
         <!-- Brand mark (Mobile) -->
         <MudHidden Breakpoint="Breakpoint.MdAndUp">
             <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
@@ -197,9 +205,31 @@
         </MudDrawer>
     </MudHidden>
 
+    <!-- LEFT DRAWER (Mobile): temporary overlay with full nav menu -->
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudDrawer Anchor="Anchor.Start"
+                   Variant="DrawerVariant.Temporary"
+                   OverlayAutoClose="true"
+                   Elevation="6"
+                   Width="280px"
+                   @bind-Open="_mobileNavOpen">
+
+            <!-- Drawer header -->
+            <div class="pa-2 d-flex align-center justify-center"
+                 style="min-height: 72px; border-bottom: 1px solid var(--mud-palette-divider);">
+                <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.HorizontalLogo, _isDarkMode)"
+                          Alt="Money Tracker"
+                          Width="140"
+                          Height="36" />
+            </div>
+
+            <NavMenu />
+        </MudDrawer>
+    </MudHidden>
+
     <!-- MAIN CONTENT -->
     <MudMainContent Class="main-content-custom">
-        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-1 pa-sm-6">
 
             @if (_showBreadcrumbs)
             {
@@ -427,6 +457,7 @@
     private ErrorBoundary? _errorBoundary;
     private bool _isDarkMode = true;
     private bool _desktopNavCollapsed;
+    private bool _mobileNavOpen;
     private bool _profileMenuOpen;
     private bool _showQuickBalance = true;
     private bool _quickBalanceLoaded;
@@ -476,6 +507,11 @@
     {
         _desktopNavCollapsed = !_desktopNavCollapsed;
         await SaveDesktopNavStateAsync();
+    }
+
+    private void ToggleMobileNav()
+    {
+        _mobileNavOpen = !_mobileNavOpen;
     }
 
     private async Task SetAccountsDrawerOpenAsync(bool open)
