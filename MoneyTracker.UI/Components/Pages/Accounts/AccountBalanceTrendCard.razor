@@ -6,6 +6,7 @@
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.Domain.Enums.Filters
 @inject ITransactionService TransactionService
+@inject ITimeZoneService TimeZoneService
 
 <MudPaper Class="pa-4 mb-4" Elevation="1">
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
@@ -118,7 +119,15 @@
                 return;
             }
 
-            BuildTrendSeries(transactions);
+            var today = TimeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
+            var range = ResolveDateRange(Filter, transactions, today);
+            var postRangeDelta = await GetPostRangeDeltaAsync(range.To, today);
+
+            var rangeTransactions = transactions
+                .Where(t => t.Date.Date >= range.From && t.Date.Date <= range.To)
+                .ToList();
+
+            BuildTrendSeries(rangeTransactions, range, postRangeDelta);
             _chartOptions = BuildOptions(IsDarkMode, IsTrendNegative());
         }
         catch
@@ -131,17 +140,18 @@
         }
     }
 
-    private void BuildTrendSeries(List<TransactionDto> transactions)
+    private void BuildTrendSeries(List<TransactionDto> transactions, (DateTime From, DateTime To) range, decimal postRangeDelta)
     {
         _chartData.Clear();
 
-        var range = ResolveDateRange(Filter, transactions);
         var deltasByDay = transactions
             .GroupBy(t => t.Date.Date)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.GetSignedAmount()));
 
         var periodDelta = transactions.Sum(t => t.GetSignedAmount());
-        var runningBalance = Account!.CurrentBalance - periodDelta;
+        var startBalance = Account!.CurrentBalance - periodDelta - postRangeDelta;
+        var endBalance = Account.CurrentBalance - postRangeDelta;
+        var runningBalance = startBalance;
 
         for (var day = range.From; day <= range.To; day = day.AddDays(1))
         {
@@ -157,18 +167,16 @@
             });
         }
 
-        var startBalance = Account.CurrentBalance - periodDelta;
-
         if (IsDebtAccount())
         {
             var startDebt = ToDebtValue(startBalance);
-            var endDebt = ToDebtValue(Account.CurrentBalance);
+            var endDebt = ToDebtValue(endBalance);
             _delta = startDebt - endDebt;
             _deltaPercent = startDebt == 0 ? 0 : (_delta / startDebt) * 100m;
         }
         else
         {
-            _delta = Account.CurrentBalance - startBalance;
+            _delta = endBalance - startBalance;
             _deltaPercent = startBalance == 0 ? 0 : (_delta / Math.Abs(startBalance)) * 100m;
         }
 
@@ -187,9 +195,31 @@
             SkipSorting = true
         };
 
-    private static (DateTime From, DateTime To) ResolveDateRange(TransactionFilterDto filter, List<TransactionDto> transactions)
+    private async Task<decimal> GetPostRangeDeltaAsync(DateTime rangeEnd, DateTime today)
     {
-        var today = DateTime.Today;
+        if (rangeEnd >= today)
+            return 0m;
+
+        var result = await TransactionService.GetFilteredAsync(new TransactionFilterDto
+        {
+            TimePeriod = TimePeriodFilter.Custom,
+            FromDate = rangeEnd.AddDays(1),
+            ToDate = today,
+            AccountIds = new List<int> { AccountId },
+            SearchText = string.Empty,
+            SkipSorting = true
+        });
+
+        if (!result.Success || result.Data is null)
+            return 0m;
+
+        return result.Data.Transactions
+            .Where(t => t.AccountId == AccountId)
+            .Sum(t => t.GetSignedAmount());
+    }
+
+    private static (DateTime From, DateTime To) ResolveDateRange(TransactionFilterDto filter, List<TransactionDto> transactions, DateTime today)
+    {
         if (filter.TimePeriod == TimePeriodFilter.Custom && filter.FromDate.HasValue && filter.ToDate.HasValue)
         {
             return (filter.FromDate.Value.Date, filter.ToDate.Value.Date);
