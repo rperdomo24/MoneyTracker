@@ -301,7 +301,9 @@
         if (IsDebtAccount())
             return ToDebtValue(Account.CurrentBalance) > 0;
 
-        return Account.CurrentBalance < 0;
+        return _chartData.Count > 0
+            ? _chartData.Any(point => point.Value < 0)
+            : Account.CurrentBalance < 0;
     }
 
     private static decimal ToDebtValue(decimal balance) => Math.Max(0m, -balance);
