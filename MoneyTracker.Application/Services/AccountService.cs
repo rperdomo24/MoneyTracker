@@ -162,7 +162,9 @@ namespace MoneyTracker.Application.Services
                 if (adjustment == 0)
                     return OperationResult.Ok(ServiceMessages.AccountAdjustNoChanges);
 
-                await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
+                var transactionResult = await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
+                if (!transactionResult.Success)
+                    return OperationResult.Fail(transactionResult.Message ?? OperationMessages.UnexpectedError);
 
                 var sign = adjustment > 0 ? "+" : "";
                 return OperationResult.Ok(string.Format(ServiceMessages.AccountBalanceAdjusted, sign, adjustment));
@@ -207,7 +209,7 @@ namespace MoneyTracker.Application.Services
             await _transactionService.CreateAsync(transactionDto);
         }
 
-        private async Task CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
+        private async Task<OperationResult<bool>> CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
         {
             var isIncome = adjustment >= 0;
             var categoryId = await _systemCategoryResolver.GetBalanceAdjustmentCategoryIdAsync(isIncome);
@@ -218,7 +220,7 @@ namespace MoneyTracker.Application.Services
             {
                 Name = transactionType,
                 AccountId = accountId,
-                Amount = isIncome ? Math.Abs(adjustment) : -Math.Abs(adjustment),
+                Amount = Math.Abs(adjustment),
                 CategoryId = categoryId,
                 Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
                 Description = $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - {accountName}",
@@ -231,7 +233,7 @@ namespace MoneyTracker.Application.Services
                 // transactionDto.Notes = reason;
             }
 
-            await _transactionService.CreateAsync(transactionDto);
+            return await _transactionService.CreateAsync(transactionDto);
         }
 
         public async Task<OperationResult<bool>> HasAccountByType(AccountType accountType)

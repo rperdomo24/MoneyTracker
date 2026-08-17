@@ -221,6 +221,48 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task AdjustBalanceAsync_WhenNegativeAdjustment_CreatesAdjustmentTransactionWithPositiveAmount()
+        {
+            // Account goes from 612.08 to 0, so adjustment is -612.08, but Amount must stay a positive magnitude
+            // (sign is derived from the category, same convention as CreateInitialBalanceTransactionAsync).
+            var now = new DateTime(2026, 3, 5, 11, 0, 0);
+            _timeZoneService.Setup(x => x.GetLocalTimeInConfiguredTimeZone()).Returns(now);
+            _accountRepo.Setup(x => x.GetByIdAsync(5))
+                .ReturnsAsync(new Account { Id = 5, Name = "Bank", Balance = 612.08m, Icon = "Wallet", Type = AccountType.Bank });
+            _systemCategoryResolver.Setup(x => x.GetBalanceAdjustmentCategoryIdAsync(false, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(2002);
+            _transactionService.Setup(x => x.CreateAsync(It.IsAny<TransactionDto>()))
+                .ReturnsAsync(OperationResult<bool>.Ok(true));
+            var service = CreateService();
+
+            var result = await service.AdjustBalanceAsync(5, 0m);
+
+            result.Success.Should().BeTrue();
+            result.Message.Should().StartWith("Balance adjusted by ");
+            _transactionService.Verify(x => x.CreateAsync(It.Is<TransactionDto>(t =>
+                t.AccountId == 5 &&
+                t.CategoryId == 2002 &&
+                t.Amount == 612.08m)), Times.Once);
+        }
+
+        [Fact]
+        public async Task AdjustBalanceAsync_WhenTransactionCreationFails_ReturnsFailResult()
+        {
+            _accountRepo.Setup(x => x.GetByIdAsync(6))
+                .ReturnsAsync(new Account { Id = 6, Name = "Bank", Balance = 612.08m, Icon = "Wallet", Type = AccountType.Bank });
+            _systemCategoryResolver.Setup(x => x.GetBalanceAdjustmentCategoryIdAsync(false, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(2002);
+            _transactionService.Setup(x => x.CreateAsync(It.IsAny<TransactionDto>()))
+                .ReturnsAsync(OperationResult<bool>.Fail("The amount must be greater than zero."));
+            var service = CreateService();
+
+            var result = await service.AdjustBalanceAsync(6, 0m);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be("The amount must be greater than zero.");
+        }
+
+        [Fact]
         public async Task SyncBalanceAsync_WhenBalanceCalculationFails_ReturnsFailResult()
         {
             _accountRepo.Setup(x => x.GetByIdAsync(8))
