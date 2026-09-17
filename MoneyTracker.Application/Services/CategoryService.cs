@@ -44,18 +44,20 @@ namespace MoneyTracker.Application.Services
                 .Select(e => e.MapToDto()).ToList();
 
             var usedIds = await _repository.GetUsedCategoryIdsAsync() ?? new HashSet<int>();
-            MarkUnused(result, usedIds);
+            var transactionCounts = await _repository.GetTransactionCountsByCategoryAsync() ?? new Dictionary<int, int>();
+            MarkUnused(result, usedIds, transactionCounts);
             MarkPossibleDuplicates(result);
 
             return OperationResult<List<CategoryDto>>.Ok(result);
         }
 
-        private static void MarkUnused(List<CategoryDto> categories, HashSet<int> usedIds)
+        private static void MarkUnused(List<CategoryDto> categories, HashSet<int> usedIds, Dictionary<int, int> transactionCounts)
         {
             foreach (var category in categories)
             {
                 category.IsUnused = !category.IsSystem && !usedIds.Contains(category.Id);
-                MarkUnused(category.Children, usedIds);
+                category.TransactionCount = transactionCounts.GetValueOrDefault(category.Id);
+                MarkUnused(category.Children, usedIds, transactionCounts);
             }
         }
 
@@ -162,6 +164,37 @@ namespace MoneyTracker.Application.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating category");
+                return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int>? transactionIdsToMove = null)
+        {
+            if (sourceId == targetId)
+                return OperationResult<bool>.Fail(OperationMessages.CategoryMergeSelf);
+
+            var source = await _repository.GetByIdAsync(sourceId);
+            if (source is null)
+                return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+            var target = await _repository.GetByIdAsync(targetId);
+            if (target is null)
+                return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+            if (source.IsSystem || target.IsSystem)
+                return OperationResult<bool>.Fail(OperationMessages.CategoryMergeSystem);
+
+            if (source.Type != target.Type)
+                return OperationResult<bool>.Fail(OperationMessages.CategoryMergeDifferentType);
+
+            try
+            {
+                await _repository.MergeAsync(sourceId, targetId, transactionIdsToMove);
+                return OperationResult<bool>.Ok(true, OperationMessages.CategoryMerged);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error merging category {SourceId} into {TargetId}", sourceId, targetId);
                 return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
             }
         }

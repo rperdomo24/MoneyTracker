@@ -159,6 +159,24 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task<Dictionary<int, int>> GetTransactionCountsByCategoryAsync()
+        {
+            try
+            {
+                return await _context.Transaction
+                    .AsNoTracking()
+                    .Where(t => !t.IsDeleted)
+                    .GroupBy(t => t.CategoryId)
+                    .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.CategoryId, x => x.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting transaction counts by category.");
+                return new Dictionary<int, int>();
+            }
+        }
+
         public async Task<HashSet<int>> GetUsedCategoryIdsAsync()
         {
             try
@@ -183,6 +201,68 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             {
                 _logger.LogError(ex, "Error getting used category IDs.");
                 return new HashSet<int>();
+            }
+        }
+
+        public async Task MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int>? transactionIdsToMove = null)
+        {
+            try
+            {
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+
+                // transactionIdsToMove == null means "move everything" (legacy/full merge).
+                // Transactions left out of the set keep pointing at the source category and,
+                // once it's deleted below, fall back to Uncategorized via the SetNull FK.
+                var candidateTransactions = _context.Transaction.Where(t => t.CategoryId == sourceId);
+                var transactionsToMove = await (transactionIdsToMove is null
+                        ? candidateTransactions
+                        : candidateTransactions.Where(t => transactionIdsToMove.Contains(t.Id)))
+                    .ToListAsync();
+                foreach (var t in transactionsToMove)
+                    t.CategoryId = targetId;
+
+                var sourceBudgets = await _context.Budgets
+                    .Where(b => b.CategoryId == sourceId && !b.IsDeleted)
+                    .ToListAsync();
+
+                var targetBudgetKeys = await _context.Budgets
+                    .Where(b => b.CategoryId == targetId && !b.IsDeleted)
+                    .Select(b => new { b.Year, b.Month })
+                    .ToListAsync();
+                var targetKeySet = targetBudgetKeys.Select(k => (k.Year, k.Month)).ToHashSet();
+
+                foreach (var budget in sourceBudgets)
+                {
+                    // Same-month budget already exists on the target: dropping the source
+                    // duplicate instead of moving it, since (CategoryId, Year, Month) is unique.
+                    if (targetKeySet.Contains((budget.Year, budget.Month)))
+                    {
+                        budget.IsDeleted = true;
+                        budget.DeletedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        budget.CategoryId = targetId;
+                    }
+                }
+
+                var children = await _context.Categories
+                    .Where(c => c.ParentId == sourceId)
+                    .ToListAsync();
+                foreach (var child in children)
+                    child.ParentId = targetId;
+
+                var source = await _context.Categories.FindAsync(sourceId);
+                if (source is not null)
+                    _context.Categories.Remove(source);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error merging category {SourceId} into {TargetId}.", sourceId, targetId);
+                throw;
             }
         }
 

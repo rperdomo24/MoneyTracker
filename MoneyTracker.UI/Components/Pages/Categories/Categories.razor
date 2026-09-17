@@ -2,12 +2,16 @@
 @using MoneyTracker.Application.Common
 @using MoneyTracker.Application.Constants
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Components.Pages.Budgets
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
 @inject ICategoryService CategoryService
+@inject ITransactionService TransactionService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject ICategoryFilterStateService CategoryFilterState
@@ -132,6 +136,7 @@
                             <th>Category</th>
                             <th>Type</th>
                             <th>Parent</th>
+                            <th style="text-align:center;">Transactions</th>
                             <th style="text-align:center;">Subcategories</th>
                             <th style="text-align:right;">Actions</th>
                         </tr>
@@ -192,6 +197,13 @@
                                     }
                                 </td>
                                 <td style="text-align:center;">
+                                    <MudLink Typo="Typo.body2"
+                                             Style="cursor:pointer;"
+                                             OnClick="@(() => ShowCategoryTransactions(row.Category.Id, row.Category.Name))">
+                                        @row.Category.TransactionCount
+                                    </MudLink>
+                                </td>
+                                <td style="text-align:center;">
                                     @if (!row.IsChild && row.Category.Children.Any())
                                     {
                                         <MudChip T="string" Size="Size.Small" Color="Color.Default">
@@ -220,6 +232,10 @@
                                                 Add Subcategory
                                             </MudMenuItem>
                                         }
+                                        <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                     OnClick="@(() => MergeCategory(row.Category.Id))">
+                                            Merge into...
+                                        </MudMenuItem>
                                         <MudDivider />
                                         <MudMenuItem Icon="@Icons.Material.Filled.Delete"
                                                      OnClick="@(() => DeleteCategory(row.Category.Id))">
@@ -315,7 +331,14 @@
                                                             }
                                                         </MudStack>
                                                         <MudText Typo="Typo.caption" Color="Color.Default" Style="opacity: 0.7;">
-                                                            @category.Children.Count subcategories
+                                                            @category.Children.Count subcategories ·
+                                                            <span @onclick:stopPropagation="true">
+                                                                <MudLink Style="cursor:pointer;"
+                                                                         Typo="Typo.caption"
+                                                                         OnClick="@(() => ShowCategoryTransactions(category.Id, category.Name))">
+                                                                    @category.TransactionCount transactions
+                                                                </MudLink>
+                                                            </span>
                                                         </MudText>
                                                     </MudStack>
                                                 </MudStack>
@@ -333,6 +356,10 @@
                                                     <MudMenuItem Icon="@Icons.Material.Filled.Add"
                                                                  OnClick="@(() => CreateSubcategory(category.Id))">
                                                         Add Subcategory
+                                                    </MudMenuItem>
+                                                    <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                                 OnClick="@(() => MergeCategory(category.Id))">
+                                                        Merge into...
                                                     </MudMenuItem>
                                                     <MudDivider />
                                                     <MudMenuItem Icon="@Icons.Material.Filled.Delete"
@@ -361,6 +388,12 @@
                                                                              Size="Size.Small" />
                                                                 </MudAvatar>
                                                                 <MudText Typo="Typo.body2">@subcategory.Name</MudText>
+                                                                <MudLink Style="cursor:pointer;"
+                                                                         Typo="Typo.caption"
+                                                                         Color="Color.Default"
+                                                                         OnClick="@(() => ShowCategoryTransactions(subcategory.Id, subcategory.Name))">
+                                                                    (@subcategory.TransactionCount)
+                                                                </MudLink>
                                                                 @if (subcategory.IsUnused)
                                                                 {
                                                                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
@@ -383,6 +416,10 @@
                                                                 <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                                              OnClick="@(() => EditCategory(subcategory.Id))">
                                                                     Edit
+                                                                </MudMenuItem>
+                                                                <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                                             OnClick="@(() => MergeCategory(subcategory.Id))">
+                                                                    Merge into...
                                                                 </MudMenuItem>
                                                                 <MudDivider />
                                                                 <MudMenuItem Icon="@Icons.Material.Filled.Delete"
@@ -418,6 +455,12 @@
                                             <MudText Typo="Typo.body1" Class="font-weight-medium">
                                                 @category.Name
                                             </MudText>
+                                            <MudLink Style="cursor:pointer;"
+                                                     Typo="Typo.caption"
+                                                     Color="Color.Default"
+                                                     OnClick="@(() => ShowCategoryTransactions(category.Id, category.Name))">
+                                                (@category.TransactionCount transactions)
+                                            </MudLink>
                                             @if (category.IsUnused)
                                             {
                                                 <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
@@ -444,6 +487,10 @@
                                             <MudMenuItem Icon="@Icons.Material.Filled.Add"
                                                          OnClick="@(() => CreateSubcategory(category.Id))">
                                                 Add Subcategory
+                                            </MudMenuItem>
+                                            <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                         OnClick="@(() => MergeCategory(category.Id))">
+                                                Merge into...
                                             </MudMenuItem>
                                             <MudDivider />
                                             <MudMenuItem Icon="@Icons.Material.Filled.Delete"
@@ -507,6 +554,7 @@
             UpdatedAt = category.UpdatedAt,
             IsUnused = category.IsUnused,
             IsPossibleDuplicate = category.IsPossibleDuplicate,
+            TransactionCount = category.TransactionCount,
             Children = category.Children.Where(matches).ToList()
         };
     }
@@ -660,6 +708,48 @@
         };
 
         await DialogService.ShowAsync<AddCategoryModal>("Create Subcategory", parameters, _dialogOptions);
+    }
+
+    private async Task MergeCategory(int id)
+    {
+        var parameters = new DialogParameters
+        {
+            ["SourceCategoryId"] = id,
+            ["OnCategoryUpdated"] = EventCallback.Factory.Create(this, LoadCategories)
+        };
+
+        await DialogService.ShowAsync<MergeCategoryModal>("Merge Category", parameters, _dialogOptions);
+    }
+
+    private async Task ShowCategoryTransactions(int categoryId, string categoryName)
+    {
+        try
+        {
+            var filter = new TransactionFilterDto
+            {
+                TimePeriod = TimePeriodFilter.AllTime,
+                CategoryIds = new List<int> { categoryId }
+            };
+
+            var result = await TransactionService.GetFilteredAsync(filter);
+            if (!result.Success || result.Data is null)
+            {
+                Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
+                return;
+            }
+
+            var parameters = new DialogParameters
+            {
+                ["Transactions"] = result.Data.Transactions,
+                ["CategoryName"] = categoryName
+            };
+
+            await DialogService.ShowAsync<BudgetTransactionsModal>("Transactions", parameters, _dialogOptions);
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
     }
 
     private void EditCategory(int id)

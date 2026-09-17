@@ -13,5 +13,7 @@ namespace MoneyTracker.Domain.Interfaces
         Task<List<Category>> GetAllAsync(bool includeChildren, bool incluideSystem);
         Task<bool> HasBudgetsAsync(int categoryId);
         Task<HashSet<int>> GetUsedCategoryIdsAsync();
+        Task<Dictionary<int, int>> GetTransactionCountsByCategoryAsync();
+        Task MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int>? transactionIdsToMove = null);
     }
 }

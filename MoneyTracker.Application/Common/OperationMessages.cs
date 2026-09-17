@@ -13,6 +13,10 @@
         public const string ValidationError = "Please fill out the form correctly.";
         public const string UpdateError = "An error occurred while updating the record.";
         public const string CategoryHasBudgets = "This category has active budgets. Remove or reassign them before deleting it.";
+        public const string CategoryMergeSelf = "Cannot merge a category into itself.";
+        public const string CategoryMergeSystem = "System categories cannot be merged.";
+        public const string CategoryMergeDifferentType = "Categories must be the same type to merge.";
+        public const string CategoryMerged = "Category merged successfully. Its transactions, budgets and subcategories were moved to the target category.";
 
 
         public const string TransferCreated = "Transfer created successfully";
