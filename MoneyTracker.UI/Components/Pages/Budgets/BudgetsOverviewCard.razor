@@ -6,21 +6,11 @@
 
 <MudPaper Elevation="1" Class="pa-4" Style="border-radius:16px;">
     <MudStack Spacing="3">
-        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
-            <MudStack Spacing="0">
-                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@MonthLabel</MudText>
-                <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                    @(IsExpenseTab ? "Expenses overview" : "Income overview")
-                </MudText>
-            </MudStack>
-
-            <MudButton Variant="Variant.Filled"
-                       Color="MudBlazor.Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       Size="MudBlazor.Size.Small"
-                       OnClick="OnAddBudget">
-                New budget
-            </MudButton>
+        <MudStack Spacing="0">
+            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@MonthLabel</MudText>
+            <MudText Typo="Typo.caption" Style="opacity:0.75;">
+                @(IsExpenseTab ? "Expenses overview" : "Income overview")
+            </MudText>
         </MudStack>
 
         <MudGrid Spacing="2">
@@ -158,13 +148,6 @@
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
                         No category activity yet for this month.
                     </MudText>
-
-                    <MudButton Variant="Variant.Filled"
-                               Color="MudBlazor.Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="OnAddBudget">
-                        New budget
-                    </MudButton>
                 </MudStack>
             </MudPaper>
         }
@@ -183,7 +166,6 @@
     [Parameter] public EventCallback<int> OnFilterModeSelected { get; set; }
     [Parameter] public EventCallback<string> OnSliceSelected { get; set; }
     [Parameter] public EventCallback OnToggleWithoutBudgetFilter { get; set; }
-    [Parameter] public EventCallback OnAddBudget { get; set; }
 
     private bool _hasChartData;
     private ApexChartOptions<BudgetSlicePoint> _chartOptions = BuildChartOptions(new List<string>());

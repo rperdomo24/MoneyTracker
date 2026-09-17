@@ -25,6 +25,13 @@
         <MudItem xs="12" md="4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                 <MudText Typo="Typo.h5" Class="font-weight-bold">Budgets</MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Size="Size.Small"
+                           OnClick="OpenAddBudgetModalFromTab">
+                    New budget
+                </MudButton>
             </MudStack>
         </MudItem>
 
@@ -198,8 +205,7 @@
                                  OnSliceSelected="OnSliceSelectedAsync"
                                  WithoutBudgetFilterActive="@(_viewMode == BudgetViewMode.WithoutBudget)"
                                  OnFilterModeSelected="OnOverviewFilterSelectedAsync"
-                                 OnToggleWithoutBudgetFilter="ToggleWithoutBudgetFilterAsync"
-                                 OnAddBudget="OpenAddBudgetModalFromTab" />
+                                 OnToggleWithoutBudgetFilter="ToggleWithoutBudgetFilterAsync" />
             </MudItem>
         }
 
@@ -352,8 +358,6 @@
         if (!firstRender || _initializedFromStorage)
             return;
 
-        _initializedFromStorage = true;
-
         var today = DateTime.Today;
 
         var saved = await BudgetFilterState.GetAsync();
@@ -365,11 +369,14 @@
             _onlyWithActivity = saved.OnlyWithActivity; // respeta lo guardado
             _searchText = saved.SearchText ?? string.Empty;
             _listExpanded = saved.ListExpanded;
+            _tableView = saved.TableView;
             _viewMode = Enum.IsDefined(typeof(BudgetViewMode), saved.ViewMode)
                 ? (BudgetViewMode)saved.ViewMode
                 : BudgetViewMode.All;
             _paycheckView = saved.PaycheckView is >= 0 and <= 2 ? saved.PaycheckView : 0;
         }
+
+        _initializedFromStorage = true;
 
         BuildMonthLabel();
         await LoadBudgets();
@@ -428,7 +435,11 @@
         await LoadBudgets();
     }
 
-    private void ToggleTableView() => _tableView = !_tableView;
+    private async Task ToggleTableView()
+    {
+        _tableView = !_tableView;
+        await PersistStateAsync();
+    }
 
     private async Task OnSliceSelectedAsync(string sliceKey)
     {
@@ -983,6 +994,9 @@
 
     private Task PersistStateAsync()
     {
+        if (!_initializedFromStorage)
+            return Task.CompletedTask;
+
         return BudgetFilterState.SaveAsync(new BudgetFilterDto
         {
             Year = _year,
@@ -992,7 +1006,8 @@
             SearchText = _searchText,
             ViewMode = (int)_viewMode,
             ListExpanded = _listExpanded,
-            PaycheckView = _paycheckView
+            PaycheckView = _paycheckView,
+            TableView = _tableView
         });
     }
 
