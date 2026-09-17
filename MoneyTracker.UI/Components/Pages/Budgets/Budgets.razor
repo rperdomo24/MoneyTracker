@@ -19,30 +19,87 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-2 pa-sm-6">
     <!-- Header -->
-    <MudGrid Spacing="2" Justify="Justify.Center" Class="mb-4">
+    <!-- Desktop: single row (Title | month nav + pill | Copy + New budget) -->
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudStack Row="true"
+                  Wrap="Wrap.NoWrap"
+                  Justify="Justify.SpaceBetween"
+                  AlignItems="AlignItems.Center"
+                  Class="mb-4"
+                  Style="overflow-x:auto;">
 
-        <!-- Title -->
-        <MudItem xs="12" md="4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                <MudText Typo="Typo.h5" Class="font-weight-bold">Budgets</MudText>
+            <MudText Typo="Typo.h5" Class="font-weight-bold flex-shrink-0">Budgets</MudText>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="flex-shrink-0">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                               Color="Color.Secondary"
+                               OnClick="PrevMonth" />
+
+                <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
+                    @_currentMonthLabel
+                </MudText>
+
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                               Color="Color.Secondary"
+                               OnClick="NextMonth" />
+
+                <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary">
+                    <MudButton Color="@(_paycheckView == 0 ? Color.Success : Color.Secondary)"
+                               Variant="@(_paycheckView == 0 ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetPaycheckViewAsync(0))">Full month</MudButton>
+                    <MudButton Color="@(_paycheckView == 1 ? Color.Success : Color.Secondary)"
+                               Variant="@(_paycheckView == 1 ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetPaycheckViewAsync(1))">Q1 (1-15)</MudButton>
+                    <MudButton Color="@(_paycheckView == 2 ? Color.Success : Color.Secondary)"
+                               Variant="@(_paycheckView == 2 ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetPaycheckViewAsync(2))">Q2 (16-End)</MudButton>
+                </MudButtonGroup>
+            </MudStack>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="flex-shrink-0">
+                <MudTooltip Text="Copy all budgets from this month to next month (skips already existing)">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.ContentCopy"
+                               Size="Size.Small"
+                               OnClick="CopyToNextMonthAsync"
+                               Disabled="@_copying">
+                        @if (_copying)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                        }
+                        Copy to next month
+                    </MudButton>
+                </MudTooltip>
+
                 <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
+                           Color="Color.Success"
                            StartIcon="@Icons.Material.Filled.Add"
                            Size="Size.Small"
                            OnClick="OpenAddBudgetModalFromTab">
                     New budget
                 </MudButton>
             </MudStack>
-        </MudItem>
+        </MudStack>
+    </MudHidden>
 
-        <!-- Desktop: month nav + switch (NO Add button) -->
-        <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudItem xs="12" md="8">
-                <MudStack Row="true"
-                          Wrap="Wrap.Wrap"
-                          Spacing="2"
-                          AlignItems="AlignItems.Center">
+    <!-- Mobile: title+action, then month nav+copy (compact) -->
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudStack Class="mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h5" Class="font-weight-bold">Budgets</MudText>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Size="Size.Small"
+                           OnClick="OpenAddBudgetModalFromTab">
+                    New budget
+                </MudButton>
+            </MudStack>
 
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                     <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
                                    Color="Color.Secondary"
                                    OnClick="PrevMonth" />
@@ -54,90 +111,31 @@
                     <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
                                    Color="Color.Secondary"
                                    OnClick="NextMonth" />
+                </MudStack>
 
-                    <MudSwitch T="bool"
-                               Color="Color.Secondary"
-                               @bind-Value="_onlyWithActivity"
-                               @bind-Value:after="OnOnlyWithActivityChanged"
-                               Label="Active categories only" />
-
-                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary">
-                        <MudButton Color="@(_paycheckView == 0 ? Color.Primary : Color.Secondary)"
-                                   Variant="@(_paycheckView == 0 ? Variant.Filled : Variant.Outlined)"
-                                   OnClick="@(() => SetPaycheckViewAsync(0))">Mes</MudButton>
-                        <MudButton Color="@(_paycheckView == 1 ? Color.Primary : Color.Secondary)"
-                                   Variant="@(_paycheckView == 1 ? Variant.Filled : Variant.Outlined)"
-                                   OnClick="@(() => SetPaycheckViewAsync(1))">Q1 (1-15)</MudButton>
-                        <MudButton Color="@(_paycheckView == 2 ? Color.Primary : Color.Secondary)"
-                                   Variant="@(_paycheckView == 2 ? Variant.Filled : Variant.Outlined)"
-                                   OnClick="@(() => SetPaycheckViewAsync(2))">Q2 (16-fin)</MudButton>
-                    </MudButtonGroup>
-
-                    <MudTooltip Text="Copy all budgets from this month to next month (skips already existing)">
-                        <MudButton Variant="Variant.Outlined"
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
                                    Color="Color.Secondary"
-                                   StartIcon="@Icons.Material.Filled.ContentCopy"
                                    Size="Size.Small"
+                                   Title="Copy to next month"
                                    OnClick="CopyToNextMonthAsync"
-                                   Disabled="@_copying">
-                            @if (_copying)
-                            {
-                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                            }
-                            Copy to next month
-                        </MudButton>
-                    </MudTooltip>
+                                   Disabled="@_copying" />
                 </MudStack>
-            </MudItem>
-        </MudHidden>
-
-        <!-- Mobile: month nav + switch (compact) -->
-        <MudHidden Breakpoint="Breakpoint.MdAndUp">
-            <MudItem xs="12">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                                       Color="Color.Secondary"
-                                       OnClick="PrevMonth" />
-
-                        <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
-                            @_currentMonthLabel
-                        </MudText>
-
-                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                                       Color="Color.Secondary"
-                                       OnClick="NextMonth" />
-                    </MudStack>
-
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIconButton Icon="@Icons.Material.Filled.ContentCopy"
-                                       Color="Color.Secondary"
-                                       Size="Size.Small"
-                                       Title="Copy to next month"
-                                       OnClick="CopyToNextMonthAsync"
-                                       Disabled="@_copying" />
-
-                        <MudSwitch T="bool"
-                                   Color="Color.Secondary"
-                                   @bind-Value="_onlyWithActivity"
-                                   @bind-Value:after="OnOnlyWithActivityChanged" />
-                    </MudStack>
-                </MudStack>
-
-                <MudText Typo="Typo.caption" Style="opacity:0.75;" Class="mt-1">
-                    Active categories only
-                </MudText>
-            </MudItem>
-        </MudHidden>
-
-    </MudGrid>
+            </MudStack>
+        </MudStack>
+    </MudHidden>
 
     <MudPaper Class="pa-3 mb-3" Elevation="0" Style="border-radius:16px; border:1px solid var(--mud-palette-divider);">
         <MudStack Spacing="2">
             <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                 <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Filters</MudText>
-                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudSwitch T="bool"
+                               Color="Color.Success"
+                               @bind-Value="_onlyWithActivity"
+                               @bind-Value:after="OnOnlyWithActivityChanged"
+                               Label="Active only"
+                               Class="ma-0" />
                     <MudTooltip Text="@(_tableView ? "Switch to card view" : "Switch to table view")">
                         <MudIconButton Icon="@(_tableView ? Icons.Material.Filled.ViewAgenda : Icons.Material.Filled.TableRows)"
                                        Color="Color.Secondary"
@@ -166,22 +164,19 @@
 
             <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
             <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.All)" Color="@GetViewModeColor(BudgetViewMode.All)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.All))">
-                All
+                All @GetViewModeCount(BudgetViewMode.All)
             </MudChip>
             <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.Budgeted)" Color="@GetViewModeColor(BudgetViewMode.Budgeted)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.Budgeted))">
-                Budgeted
+                Budgeted @GetViewModeCount(BudgetViewMode.Budgeted)
             </MudChip>
             <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.WithoutBudget)" Color="@GetViewModeColor(BudgetViewMode.WithoutBudget)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.WithoutBudget))">
-                Without budget
+                Without budget @GetViewModeCount(BudgetViewMode.WithoutBudget)
             </MudChip>
-            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.WaitingForBudget)" Color="@GetViewModeColor(BudgetViewMode.WaitingForBudget)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.WaitingForBudget))">
-                Waiting for budget
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.NearLimit)" Color="Color.Warning" OnClick="@(() => SetViewModeAsync(BudgetViewMode.NearLimit))">
+                Near limit @GetViewModeCount(BudgetViewMode.NearLimit)
             </MudChip>
-            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.OverBudget)" Color="@GetViewModeColor(BudgetViewMode.OverBudget)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.OverBudget))">
-                Over budget
-            </MudChip>
-            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.NearLimit)" Color="@GetViewModeColor(BudgetViewMode.NearLimit)" OnClick="@(() => SetViewModeAsync(BudgetViewMode.NearLimit))">
-                Near limit
+            <MudChip T="string" Variant="@GetViewModeVariant(BudgetViewMode.OverBudget)" Color="Color.Error" OnClick="@(() => SetViewModeAsync(BudgetViewMode.OverBudget))">
+                Over budget @GetViewModeCount(BudgetViewMode.OverBudget)
             </MudChip>
             </MudStack>
         </MudStack>
@@ -297,7 +292,6 @@
         All = 0,
         Budgeted = 1,
         WithoutBudget = 2,
-        WaitingForBudget = 3,
         OverBudget = 4,
         NearLimit = 5
     }
@@ -322,6 +316,8 @@
 
     private List<BudgetListItemVm> _expenseBudgets = new();
     private List<BudgetListItemVm> _incomeBudgets = new();
+    private List<BudgetListItemVm> _expenseBaseItems = new();
+    private List<BudgetListItemVm> _incomeBaseItems = new();
     private List<BudgetListItemVm> _expenseMissingBudgets = new();
     private List<BudgetListItemVm> _incomeMissingBudgets = new();
 
@@ -339,6 +335,9 @@
 
     private List<BudgetListItemVm> CurrentItems
         => _activeTabIndex == 0 ? _expenseBudgets : _incomeBudgets;
+
+    private List<BudgetListItemVm> CurrentBaseItems
+        => _activeTabIndex == 0 ? _expenseBaseItems : _incomeBaseItems;
 
     private List<BudgetListItemVm> CurrentMissingBudgetItems
         => _activeTabIndex == 0 ? _expenseMissingBudgets : _incomeMissingBudgets;
@@ -477,10 +476,12 @@
             if (_onlyWithActivity)
                 all = ApplyOnlyWithActivity(all);
 
-            var listItems = all;
+            var searched = ApplySearchFilter(all);
 
-            listItems = ApplyViewModeFilter(listItems);
-            listItems = ApplySearchFilter(listItems);
+            _expenseBaseItems = searched.Where(x => x.CategoryType == CategoryTypeEnum.Expense).ToList();
+            _incomeBaseItems = searched.Where(x => x.CategoryType == CategoryTypeEnum.Income).ToList();
+
+            var listItems = ApplyViewModeFilter(searched);
 
             _expenseBudgets = listItems.Where(x => x.CategoryType == CategoryTypeEnum.Expense).ToList();
             _incomeBudgets = listItems.Where(x => x.CategoryType == CategoryTypeEnum.Income).ToList();
@@ -510,6 +511,8 @@
     {
         _expenseBudgets = new();
         _incomeBudgets = new();
+        _expenseBaseItems = new();
+        _incomeBaseItems = new();
         _expenseMissingBudgets = new();
         _incomeMissingBudgets = new();
         _expenseSummary = new();
@@ -760,7 +763,7 @@
 
         var includeIds = new HashSet<int>();
         var matches = items
-            .Where(x => !x.HasBudget && Math.Abs(x.Used) > 0.01m)
+            .Where(x => !x.HasBudget)
             .ToList();
 
         foreach (var match in matches)
@@ -795,12 +798,14 @@
     }
 
     private List<BudgetListItemVm> ApplyViewModeFilter(List<BudgetListItemVm> items)
+        => ApplyViewModeFilterForMode(items, _viewMode);
+
+    private List<BudgetListItemVm> ApplyViewModeFilterForMode(List<BudgetListItemVm> items, BudgetViewMode mode)
     {
-        return _viewMode switch
+        return mode switch
         {
             BudgetViewMode.Budgeted => ApplyHierarchyFilter(items, x => x.IsBudgetedInView),
             BudgetViewMode.WithoutBudget => ApplyWithoutBudgetFilter(items),
-            BudgetViewMode.WaitingForBudget => ApplyHierarchyFilter(items, x => !x.HasBudget && Math.Abs(x.Used) <= 0.01m),
             BudgetViewMode.OverBudget => ApplyHierarchyFilter(items, x => x.IsOverBudget),
             BudgetViewMode.NearLimit => ApplyHierarchyFilter(items, x => x.IsNearLimit),
             _ => items
@@ -1201,6 +1206,11 @@
 
     private Color GetViewModeColor(BudgetViewMode mode)
         => _viewMode == mode ? Color.Primary : Color.Default;
+
+    private int GetViewModeCount(BudgetViewMode mode)
+        => mode == BudgetViewMode.All
+            ? CurrentBaseItems.Count
+            : ApplyViewModeFilterForMode(CurrentBaseItems, mode).Count;
 
     private void ClearOverviewSelection()
     {
