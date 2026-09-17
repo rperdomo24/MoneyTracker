@@ -208,6 +208,10 @@
         <MudItem xs="12" md="@(_listExpanded ? 12 : 7)">
             @* Temporarily hidden: the Missing budgets panel adds too much vertical space. *@
 
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-1">
+                <MudText Typo="Typo.caption" Style="opacity:0.75;">@CurrentItems.Count records in view</MudText>
+            </MudStack>
+
             <!-- Desktop Tabs -->
             <MudHidden Breakpoint="Breakpoint.SmAndDown">
                 <MudTabs Rounded="true"
@@ -217,7 +221,7 @@
                          ActivePanelIndexChanged="OnTabChanged"
                          ApplyEffectsToContainer="true">
 
-                    <MudTabPanel Text="Expenses" Icon="@Icons.Material.Filled.TrendingDown">
+                    <MudTabPanel Text="@($"Expenses ({_expenseBudgets.Count})")" Icon="@Icons.Material.Filled.TrendingDown">
                         <BudgetsList Items="@_expenseBudgets"
                                      Loading="@_loading"
                                      TableView="@_tableView"
@@ -229,7 +233,7 @@
                                      OnAddBudget="HandleAddBudget" />
                     </MudTabPanel>
 
-                    <MudTabPanel Text="Income" Icon="@Icons.Material.Filled.TrendingUp">
+                    <MudTabPanel Text="@($"Income ({_incomeBudgets.Count})")" Icon="@Icons.Material.Filled.TrendingUp">
                         <BudgetsList Items="@_incomeBudgets"
                                      Loading="@_loading"
                                      TableView="@_tableView"
@@ -627,7 +631,7 @@
                     Key = "without-budget",
                     CategoryId = -1,
                     CategoryIds = withoutBudgetItems.Select(x => x.CategoryId).Distinct().ToList(),
-                    Name = "Without budget",
+                    Name = "Unbudgeted",
                     Color = "#9e9e9e",
                     Used = withoutBudgetUsed,
                     IsWithoutBudget = true

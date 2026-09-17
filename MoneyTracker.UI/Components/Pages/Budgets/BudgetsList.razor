@@ -33,7 +33,7 @@
                 <tr>
                     <th style="min-width:180px;">Category</th>
                     <th style="text-align:right;">Budget</th>
-                    <th style="text-align:right;">Used</th>
+                    <th style="text-align:right;">Spent</th>
                     <th style="text-align:right;">Remaining</th>
                     <th style="min-width:140px;">Progress</th>
                     <th style="text-align:center;">Status</th>
@@ -57,7 +57,14 @@
                         <td>
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1"
                                       Style="@($"padding-left:{depth * 20}px;")">
-                                @if (depth > 0)
+                                @if (depth == 0 && rowChildren?.Count > 0)
+                                {
+                                    <MudIconButton Icon="@(_expandedParents.Contains(item.CategoryId) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                                   Size="Size.Small"
+                                                   Color="Color.Inherit"
+                                                   OnClick="@(() => ToggleParent(item.CategoryId))" />
+                                }
+                                else if (depth > 0)
                                 {
                                     <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight"
                                              Size="Size.Small" Style="opacity:0.5;" />
@@ -66,17 +73,32 @@
                                     <MudIcon Icon="@(item.CategoryIcon.ToIcon())" Color="Color.Surface" Size="Size.Small"
                                              Style="font-size:12px;" />
                                 </MudAvatar>
-                                <MudText Typo="Typo.body2" Class="@(depth == 0 ? "font-weight-bold" : "")">
-                                    @item.CategoryName
-                                </MudText>
-                                @if (item.HasBudget)
-                                {
-                                    <MudChip T="string" Size="Size.Small"
-                                             Color="@PaycheckChipColor(item.PaycheckPeriod)"
-                                             Style="height:18px; font-size:10px; padding: 0 6px; min-width:0;">
-                                        @PaycheckChipLabel(item.PaycheckPeriod)
-                                    </MudChip>
-                                }
+                                <MudStack Spacing="0">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body2" Class="@(depth == 0 ? "font-weight-bold" : "")">
+                                            @item.CategoryName
+                                        </MudText>
+                                        @if (depth == 0 && rowChildren?.Count > 0 && !isGroupOnly)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                                     Style="height:18px; font-size:10px; padding: 0 6px; min-width:0;">
+                                                +@rowChildren.Count
+                                            </MudChip>
+                                        }
+                                        @if (item.HasBudget)
+                                        {
+                                            <MudChip T="string" Size="Size.Small"
+                                                     Color="@PaycheckChipColor(item.PaycheckPeriod)"
+                                                     Style="height:18px; font-size:10px; padding: 0 6px; min-width:0;">
+                                                @PaycheckChipLabel(item.PaycheckPeriod)
+                                            </MudChip>
+                                        }
+                                    </MudStack>
+                                    @if (isGroupOnly && rowChildren?.Count > 0)
+                                    {
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;">@rowChildren.Count subcategories</MudText>
+                                    }
+                                </MudStack>
                             </MudStack>
                         </td>
                         <td style="text-align:right;">
@@ -145,10 +167,14 @@
                         .Sum(x => GetDisplayUsed(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId)));
                     var totalRemaining = totalBudget - totalUsed;
                     // totalBudget already uses QuincenaAmount when PaycheckView>0 via GetDisplayBudget
-                    var totalQuincena = 0m; // unused, totalBudget handles it
+                    var hasGroupDeficit = Items!
+                        .Where(x => x.ParentCategoryId is null)
+                        .Any(x => IsGroupOnly(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId))
+                                  && GetDisplayBudget(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId))
+                                     - GetDisplayUsed(x, tableChildrenByParent.GetValueOrDefault(x.CategoryId)) < 0);
                 }
                 <tr style="border-top: 2px solid var(--mud-palette-divider); font-weight: bold;">
-                    <td><MudText Typo="Typo.body2" Class="font-weight-bold">Total</MudText></td>
+                    <td><MudText Typo="Typo.body2" Class="font-weight-bold">Consolidated total</MudText></td>
                     <td style="text-align:right;">
                         <MudText Typo="Typo.body2" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(totalBudget)</MudText>
                     </td>
@@ -164,6 +190,16 @@
                     </td>
                     <td colspan="3"></td>
                 </tr>
+                @if (hasGroupDeficit)
+                {
+                    <tr>
+                        <td colspan="7">
+                            <MudText Typo="Typo.caption" Color="Color.Error" Style="opacity:0.85;">
+                                ● Consolidated deficit in subcategories
+                            </MudText>
+                        </td>
+                    </tr>
+                }
             </tfoot>
         </MudSimpleTable>
     }
@@ -211,7 +247,7 @@ else
                 .ToList()
         );
 
-    <MudStack Spacing="2" Class="mt-2">
+    <MudGrid Spacing="3" Class="mt-2">
         @foreach (var parent in parents)
         {
             var hasChildren = childrenByParent.TryGetValue(parent.CategoryId, out var children) && children.Count > 0;
@@ -224,7 +260,8 @@ else
             var healthLabel = GetHealthLabel(parent, children);
             var isGroupOnly = IsGroupOnly(parent, children);
 
-            <MudPaper Class="pa-4" Elevation="1" Style="border-radius:16px;">
+            <MudItem xs="12" md="@(isGroupOnly ? 12 : 6)">
+            <MudPaper Class="pa-4 h-100" Elevation="1" Style="border-radius:16px;">
                 <MudStack Spacing="2">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -235,7 +272,13 @@ else
                             </MudAvatar>
 
                             <MudStack Spacing="0">
-                                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@parent.CategoryName</MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@parent.CategoryName</MudText>
+                                    @if (hasChildren && !isGroupOnly)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">+@children!.Count</MudChip>
+                                    }
+                                </MudStack>
                                 <MudText Typo="Typo.caption" Style="opacity:0.75;">
                                     @if (isGroupOnly)
                                     {
@@ -244,13 +287,13 @@ else
                                     else if (displayRemaining < 0)
                                     {
                                         <span style="color: var(--mud-palette-error);">
-                                            @CurrencyHelper.FormatCurrency(Math.Abs(displayRemaining)) over
+                                            @CurrencyHelper.FormatCurrency(Math.Abs(displayRemaining)) overspent
                                         </span>
                                     }
                                     else
                                     {
                                         <span style="color: var(--mud-palette-success);">
-                                            @CurrencyHelper.FormatCurrency(displayRemaining) left
+                                            @CurrencyHelper.FormatCurrency(displayRemaining) available
                                         </span>
                                     }
 
@@ -308,6 +351,13 @@ else
                             <MudText Typo="Typo.caption" Style="opacity:0.7;">@(isGroupOnly ? "Total used" : "Used")</MudText>
                             <MudText Typo="Typo.subtitle1" Class="font-weight-medium">
                                 @CurrencyHelper.FormatCurrency(displayUsed)
+                            </MudText>
+                        </div>
+
+                        <div style="text-align:right;">
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">Remaining</MudText>
+                            <MudText Typo="Typo.subtitle1" Class="@($"font-weight-medium {CurrencyHelper.GetAmountClass(displayRemaining)}")">
+                                @CurrencyHelper.FormatSignedCurrency(displayRemaining)
                             </MudText>
                         </div>
                     </MudStack>
@@ -376,11 +426,12 @@ else
                     @if (hasChildren)
                     {
                         <MudCollapse Expanded="@isExpanded">
-                            <MudStack Spacing="1" Class="mt-2">
+                            <MudGrid Spacing="2" Class="mt-2">
                                 @foreach (var child in children!)
                                 {
+                                    <MudItem xs="12" md="6">
                                     <MudPaper Elevation="0"
-                                              Class="pa-3"
+                                              Class="pa-3 h-100"
                                               Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
                                         <MudGrid Spacing="2">
                                             <MudItem xs="12" sm="7">
@@ -470,14 +521,27 @@ else
                                             </MudItem>
                                         </MudGrid>
                                     </MudPaper>
+                                    </MudItem>
                                 }
-                            </MudStack>
+                            </MudGrid>
                         </MudCollapse>
                     }
+
+                    <MudDivider />
+                    <MudStack Row="true" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Secondary"
+                                   Size="Size.Small"
+                                   EndIcon="@Icons.Material.Filled.ChevronRight"
+                                   OnClick="@(() => OnViewTransactions.InvokeAsync(parent))">
+                            Details
+                        </MudButton>
+                    </MudStack>
                 </MudStack>
             </MudPaper>
+            </MudItem>
         }
-    </MudStack>
+    </MudGrid>
 }
 
 } @* end else (card view) *@
@@ -544,6 +608,7 @@ else
         {
             yield return (parent, 0);
             if (!childrenByParent.TryGetValue(parent.CategoryId, out var children)) continue;
+            if (!_expandedParents.Contains(parent.CategoryId)) continue;
             foreach (var child in children)
                 yield return (child, 1);
         }
@@ -670,7 +735,7 @@ else
 
         return item.HealthState switch
         {
-            BudgetHealthState.OverBudget => "Over",
+            BudgetHealthState.OverBudget => "Over budget",
             BudgetHealthState.Warning => "Near limit",
             BudgetHealthState.Healthy => "On track",
             _ => "No budget"
