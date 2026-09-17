@@ -21,10 +21,13 @@ namespace MoneyTracker.UI.Helpers.VM
         public decimal Amount { get; set; }
         public decimal Used { get; set; }
         public decimal DirectUsed { get; set; }
-        public decimal Remaining => Amount - Used;
+        public int PaycheckView { get; set; }
+        public decimal EffectiveAmount => QuincenaAmount(PaycheckView);
+        public bool IsBudgetedInView => EffectiveAmount > 0;
+        public decimal Remaining => EffectiveAmount - Used;
         public bool HasBudget => Amount > 0;
-        public bool IsOverBudget => HasBudget && Remaining < 0;
-        public bool IsNearLimit => HasBudget && !IsOverBudget && ProgressPercent >= 80;
+        public bool IsOverBudget => IsBudgetedInView && Remaining < 0;
+        public bool IsNearLimit => IsBudgetedInView && !IsOverBudget && ProgressPercent >= 80;
         public bool IncludeChildren { get; set; }
         public bool RolloverEnabled { get; set; }
         public string CategoryColor { get; set; } = "#757575";
@@ -51,7 +54,7 @@ namespace MoneyTracker.UI.Helpers.VM
         {
             get
             {
-                if (!HasBudget) return BudgetHealthState.NoBudget;
+                if (!IsBudgetedInView) return BudgetHealthState.NoBudget;
                 if (IsOverBudget) return BudgetHealthState.OverBudget;
                 if (IsNearLimit) return BudgetHealthState.Warning;
                 return BudgetHealthState.Healthy;
@@ -62,8 +65,8 @@ namespace MoneyTracker.UI.Helpers.VM
         {
             get
             {
-                if (Amount <= 0) return 0;
-                var pct = (int)Math.Round((double)(Used / Amount) * 100d);
+                if (EffectiveAmount <= 0) return 0;
+                var pct = (int)Math.Round((double)(Used / EffectiveAmount) * 100d);
                 return Math.Max(0, pct);
             }
         }

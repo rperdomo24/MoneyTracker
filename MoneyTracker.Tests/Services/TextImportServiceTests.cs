@@ -1,6 +1,9 @@
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using MoneyTracker.Application.Services;
+using MoneyTracker.Domain.Interfaces;
+using Moq;
 using System.Net;
 using System.Text;
 
@@ -21,7 +24,13 @@ namespace MoneyTracker.Tests.Services
                     ["GoogleAiSettings:MaxTokens"] = "1024"
                 })
                 .Build();
-            return new AiTextImportService(http, config);
+            return new AiTextImportService(
+                http,
+                config,
+                new Mock<IAiCallLogRepository>().Object,
+                new Mock<IAiTextImportCacheRepository>().Object,
+                new Mock<IAiTrainingDataRepository>().Object,
+                NullLogger<AiTextImportService>.Instance);
         }
 
         [Fact]

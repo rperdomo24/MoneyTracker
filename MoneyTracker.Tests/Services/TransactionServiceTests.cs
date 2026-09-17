@@ -312,5 +312,44 @@ namespace MoneyTracker.Tests.Services
             result.Data!.TotalCount.Should().Be(2);
             result.Data.ThisMonthAmount.Should().Be(80m);
         }
+
+        [Fact]
+        public async Task GetByCategoryForMonthAsync_WithHalfMonth_UsesQuincenaRange()
+        {
+            _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+
+            DateTime? capturedFrom = null;
+            DateTime? capturedTo = null;
+            _txRepo.Setup(t => t.GetByCategoryTreeAsync(7, It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                .Callback<int, DateTime, DateTime>((_, from, to) =>
+                {
+                    capturedFrom = from;
+                    capturedTo = to;
+                })
+                .ReturnsAsync(new List<Transaction>());
+
+            var svc = CreateService();
+
+            var result = await svc.GetByCategoryForMonthAsync(7, 2026, 3, halfMonth: 2);
+
+            result.Success.Should().BeTrue();
+            capturedFrom.Should().Be(new DateTime(2026, 3, 16, 0, 0, 0));
+            capturedTo.Should().Be(new DateTime(2026, 3, 31, 23, 59, 59));
+        }
+
+        [Fact]
+        public async Task GetByCategoryForMonthAsync_WhenRepositoryThrows_ReturnsUnexpectedError()
+        {
+            _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _txRepo.Setup(t => t.GetByCategoryTreeAsync(It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                .ThrowsAsync(new Exception("db down"));
+
+            var svc = CreateService();
+
+            var result = await svc.GetByCategoryForMonthAsync(7, 2026, 3);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.UnexpectedError);
+        }
     }
 }

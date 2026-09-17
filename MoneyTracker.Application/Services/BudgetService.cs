@@ -128,22 +128,7 @@ namespace MoneyTracker.Application.Services
             {
                 var budgets = await _budgetRepository.GetByMonthAsync(year, month);
 
-                DateTime localStart, localEnd;
-                if (halfMonth == 1)
-                {
-                    localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-                    localEnd = new DateTime(year, month, 15, 23, 59, 59, DateTimeKind.Unspecified);
-                }
-                else if (halfMonth == 2)
-                {
-                    localStart = new DateTime(year, month, 16, 0, 0, 0, DateTimeKind.Unspecified);
-                    localEnd = new DateTime(year, month, DateTime.DaysInMonth(year, month), 23, 59, 59, DateTimeKind.Unspecified);
-                }
-                else
-                {
-                    localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-                    localEnd = localStart.AddMonths(1).AddTicks(-1);
-                }
+                var (localStart, localEnd) = HalfMonthRangeHelper.GetLocalRange(year, month, halfMonth);
 
                 var fromUtc = _timeZoneService.ConvertToUtc(localStart);
                 var toUtc = _timeZoneService.ConvertToUtc(localEnd);
@@ -296,6 +281,7 @@ namespace MoneyTracker.Application.Services
                         IncludeChildren = b.IncludeChildren,
                         RolloverEnabled = b.RolloverEnabled,
                         RolloverMode = b.RolloverMode,
+                        PaycheckPeriod = b.PaycheckPeriod,
                         CreatedAt = _timeZoneService.GetNowInUtc(),
                         UpdatedAt = _timeZoneService.GetNowInUtc(),
                         IsDeleted = false

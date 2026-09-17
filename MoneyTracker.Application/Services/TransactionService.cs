@@ -547,12 +547,11 @@ namespace MoneyTracker.Application.Services
                 .ToList();
         }
 
-        public async Task<OperationResult<List<TransactionDto>>> GetByCategoryForMonthAsync(int categoryId, int year, int month)
+        public async Task<OperationResult<List<TransactionDto>>> GetByCategoryForMonthAsync(int categoryId, int year, int month, int halfMonth = 0)
         {
             try
             {
-                var localStart = new DateTime(year, month, 1);
-                var localEnd = localStart.AddMonths(1).AddTicks(-1);
+                var (localStart, localEnd) = HalfMonthRangeHelper.GetLocalRange(year, month, halfMonth);
 
                 var fromUtc = _timeZoneService.ConvertToUtc(localStart);
                 var toUtc = _timeZoneService.ConvertToUtc(localEnd);

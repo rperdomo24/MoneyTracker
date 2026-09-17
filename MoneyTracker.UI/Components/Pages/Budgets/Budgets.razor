@@ -187,7 +187,7 @@
         @if (!_listExpanded)
         {
             <MudItem xs="12" md="5">
-                <BudgetsOverviewCard @key="@($"{_year}-{_month}-{_activeTabIndex}-{_onlyWithActivity}-{_viewMode}")"
+                <BudgetsOverviewCard @key="@($"{_year}-{_month}-{_activeTabIndex}-{_onlyWithActivity}-{_viewMode}-{_paycheckView}")"
                                  MonthLabel="@_currentMonthLabel"
                                  IsExpenseTab="@(_activeTabIndex == 0)"
                                  Summary="@CurrentSummary"
@@ -461,7 +461,7 @@
             _expenseMissingBudgets = BuildMissingBudgetItems(allRaw, CategoryTypeEnum.Expense);
             _incomeMissingBudgets = BuildMissingBudgetItems(allRaw, CategoryTypeEnum.Income);
 
-            var all = allRaw;
+            var all = ApplyPaycheckViewFilter(allRaw, _paycheckView);
 
             if (_onlyWithActivity)
                 all = ApplyOnlyWithActivity(all);
@@ -513,7 +513,7 @@
     {
         var overviewItems = GetOverviewItems(all, type);
 
-        var totalBudgeted = overviewItems.Sum(x => x.Amount);
+        var totalBudgeted = overviewItems.Sum(x => x.EffectiveAmount);
 
         decimal totalUsedDisplay;
 
@@ -664,6 +664,45 @@
         }
     }
 
+    private static List<BudgetListItemVm> ApplyPaycheckViewFilter(List<BudgetListItemVm> items, int paycheckView)
+    {
+        if (paycheckView == 0)
+            return items;
+
+        var childrenByParent = items
+            .Where(x => x.ParentCategoryId.HasValue)
+            .GroupBy(x => x.ParentCategoryId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var memo = new Dictionary<int, bool>();
+
+        bool AppliesToViewTree(int categoryId)
+        {
+            if (memo.TryGetValue(categoryId, out var cached))
+                return cached;
+
+            var current = items.FirstOrDefault(x => x.CategoryId == categoryId);
+            if (current is null)
+                return memo[categoryId] = false;
+
+            if (current.Amount <= 0 || current.IsActiveInView(paycheckView))
+                return memo[categoryId] = true;
+
+            if (!childrenByParent.TryGetValue(categoryId, out var children))
+                return memo[categoryId] = false;
+
+            foreach (var child in children)
+            {
+                if (AppliesToViewTree(child.CategoryId))
+                    return memo[categoryId] = true;
+            }
+
+            return memo[categoryId] = false;
+        }
+
+        return items.Where(x => AppliesToViewTree(x.CategoryId)).ToList();
+    }
+
     private static List<BudgetListItemVm> ApplyOnlyWithActivity(List<BudgetListItemVm> items)
     {
         var childrenByParent = items
@@ -748,7 +787,7 @@
     {
         return _viewMode switch
         {
-            BudgetViewMode.Budgeted => ApplyHierarchyFilter(items, x => x.HasBudget),
+            BudgetViewMode.Budgeted => ApplyHierarchyFilter(items, x => x.IsBudgetedInView),
             BudgetViewMode.WithoutBudget => ApplyWithoutBudgetFilter(items),
             BudgetViewMode.WaitingForBudget => ApplyHierarchyFilter(items, x => !x.HasBudget && Math.Abs(x.Used) <= 0.01m),
             BudgetViewMode.OverBudget => ApplyHierarchyFilter(items, x => x.IsOverBudget),
@@ -916,7 +955,7 @@
         }
     }
 
-    private static BudgetListItemVm MapToVm(BudgetWithUsageDto x) => new()
+    private BudgetListItemVm MapToVm(BudgetWithUsageDto x) => new()
     {
         Id = x.Budget.Id,
         CategoryId = x.Budget.CategoryId,
@@ -932,7 +971,8 @@
         CategoryIcon = x.CategoryIcon,
         ParentCategoryId = x.ParentCategoryId,
         ChildrenCount = x.ChildrenCount,
-        PaycheckPeriod = x.Budget.PaycheckPeriod
+        PaycheckPeriod = x.Budget.PaycheckPeriod,
+        PaycheckView = _paycheckView
     };
 
     private void BuildMonthLabel()
@@ -1111,7 +1151,7 @@
 
     private async Task HandleViewTransactions(BudgetListItemVm item)
     {
-        var result = await TransactionService.GetByCategoryForMonthAsync(item.CategoryId, _year, _month);
+        var result = await TransactionService.GetByCategoryForMonthAsync(item.CategoryId, _year, _month, _paycheckView);
 
         if (!result.Success || result.Data is null)
         {

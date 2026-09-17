@@ -192,8 +192,9 @@ else
 {
     var parents = Items!
         .Where(x => x.ParentCategoryId is null)
-        .OrderByDescending(x => Math.Abs(x.Used) > 0.01m)
-        .ThenByDescending(x => x.Amount > 0)
+        .OrderBy(x => PaycheckSortRank(x.PaycheckPeriod))
+        .ThenByDescending(x => Math.Abs(x.Used) > 0.01m)
+        .ThenByDescending(x => x.EffectiveAmount > 0)
         .ThenBy(x => x.CategoryName)
         .ToList();
 
@@ -203,8 +204,9 @@ else
         .ToDictionary(
             g => g.Key,
             g => g
-                .OrderByDescending(x => Math.Abs(x.Used) > 0.01m)
-                .ThenByDescending(x => x.Amount > 0)
+                .OrderBy(x => PaycheckSortRank(x.PaycheckPeriod))
+                .ThenByDescending(x => Math.Abs(x.Used) > 0.01m)
+                .ThenByDescending(x => x.EffectiveAmount > 0)
                 .ThenBy(x => x.CategoryName)
                 .ToList()
         );
@@ -493,10 +495,17 @@ else
     [Parameter] public EventCallback<BudgetListItemVm> OnAddBudget { get; set; }
 
     private readonly HashSet<int> _expandedParents = new();
+    private int _lastPaycheckView = -1;
 
     protected override void OnParametersSet()
     {
         if (Items is null) return;
+
+        if (_lastPaycheckView != PaycheckView)
+        {
+            _expandedParents.Clear();
+            _lastPaycheckView = PaycheckView;
+        }
 
         var childrenByParent = Items
             .Where(x => x.ParentCategoryId is not null)
@@ -518,14 +527,18 @@ else
 
         var parents = Items
             .Where(x => x.ParentCategoryId is null)
-            .OrderByDescending(x => Math.Abs(x.Used) > 0.01m)
-            .ThenByDescending(x => x.Amount > 0)
+            .OrderBy(x => PaycheckSortRank(x.PaycheckPeriod))
+            .ThenByDescending(x => Math.Abs(x.Used) > 0.01m)
+            .ThenByDescending(x => x.EffectiveAmount > 0)
             .ThenBy(x => x.CategoryName);
 
         var childrenByParent = Items
             .Where(x => x.ParentCategoryId is not null)
             .GroupBy(x => x.ParentCategoryId!.Value)
-            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CategoryName).ToList());
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(x => PaycheckSortRank(x.PaycheckPeriod))
+                .ThenBy(x => x.CategoryName)
+                .ToList());
 
         foreach (var parent in parents)
         {
@@ -556,15 +569,22 @@ else
         _                         => Color.Default
     };
 
+    private static int PaycheckSortRank(PaycheckPeriod p) => p switch
+    {
+        PaycheckPeriod.FirstOnly  => 0,
+        PaycheckPeriod.SecondOnly => 1,
+        _                         => 2
+    };
+
     private static bool IsGroupOnly(BudgetListItemVm item, List<BudgetListItemVm>? children)
         => !item.HasBudget && children?.Any(x => x.HasBudget) == true;
 
     private decimal GetDisplayBudget(BudgetListItemVm item, List<BudgetListItemVm>? children)
     {
         if (!IsGroupOnly(item, children))
-            return PaycheckView > 0 ? item.QuincenaAmount(PaycheckView) : item.Amount;
+            return item.EffectiveAmount;
 
-        return (children ?? new()).Sum(x => PaycheckView > 0 ? x.QuincenaAmount(PaycheckView) : x.Amount);
+        return (children ?? new()).Sum(x => x.EffectiveAmount);
     }
 
     private static decimal GetDisplayUsed(BudgetListItemVm item, List<BudgetListItemVm>? children)
@@ -617,7 +637,7 @@ else
         if (!item.HasBudget)
             return 0d;
 
-        var denominator = PaycheckView > 0 ? item.QuincenaAmount(PaycheckView) : item.Amount;
+        var denominator = item.EffectiveAmount;
         var percent = denominator == 0 ? 0d : (double)(item.Used / denominator) * 100d;
         return Math.Clamp(percent, 0d, 100d);
     }
@@ -637,7 +657,7 @@ else
         if (!item.HasBudget)
             return Math.Abs(item.Used) > 0.01m ? "No budget set" : "Waiting for budget";
 
-        var denominator = PaycheckView > 0 ? item.QuincenaAmount(PaycheckView) : item.Amount;
+        var denominator = item.EffectiveAmount;
         if (denominator == 0) return "0% used";
         var pct = (int)Math.Round((double)(item.Used / denominator) * 100d);
         return $"{Math.Clamp(pct, 0, 100)}% used";

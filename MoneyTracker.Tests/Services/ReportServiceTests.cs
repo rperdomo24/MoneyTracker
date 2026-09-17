@@ -19,6 +19,10 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ITransactionRepository> _transactionRepo = new();
         private readonly Mock<ICardBenefitRepository> _cardBenefitRepo = new();
         private readonly Mock<ITimeZoneService> _timeZoneService = new();
+        private readonly Mock<IAiReportCacheRepository> _aiReportCacheRepo = new();
+        private readonly Mock<IAiRangeReportCacheRepository> _aiRangeReportCacheRepo = new();
+        private readonly Mock<IAiCallLogRepository> _aiCallLogRepo = new();
+        private readonly Mock<IAiTrainingDataRepository> _aiTrainingDataRepo = new();
 
         private ReportService CreateService()
             => new ReportService(
@@ -26,7 +30,11 @@ namespace MoneyTracker.Tests.Services
                 _cardBenefitRepo.Object,
                 _timeZoneService.Object,
                 NullLogger<ReportService>.Instance,
-                Options.Create(new GoogleAiSettings()));
+                Options.Create(new GoogleAiSettings()),
+                _aiReportCacheRepo.Object,
+                _aiRangeReportCacheRepo.Object,
+                _aiCallLogRepo.Object,
+                _aiTrainingDataRepo.Object);
 
         private void SetupTimeZone()
         {
