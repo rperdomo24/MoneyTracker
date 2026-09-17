@@ -68,6 +68,37 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task GetAllWithChildAsync_FlagsCategoriesWithSameNormalizedNameAsPossibleDuplicates()
+        {
+            _repo.Setup(x => x.GetAllAsync(true, true)).ReturnsAsync(new List<Category>
+            {
+                new()
+                {
+                    Id = 1, Name = "Comida", Type = CategoryTypeEnum.Expense, Icon = "Restaurant",
+                    Children = new List<Category>
+                    {
+                        new() { Id = 3, Name = "Super", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", ParentId = 1 },
+                        new() { Id = 4, Name = "  super ", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", ParentId = 1 }
+                    }
+                },
+                new() { Id = 2, Name = "Comída", Type = CategoryTypeEnum.Expense, Icon = "Payments" },
+                new() { Id = 5, Name = "Transporte", Type = CategoryTypeEnum.Expense, Icon = "Payments" }
+            });
+            _repo.Setup(x => x.GetUsedCategoryIdsAsync()).ReturnsAsync(new HashSet<int>());
+            var svc = CreateService();
+
+            var result = await svc.GetAllWithChildAsync();
+
+            result.Data!.Single(c => c.Id == 1).IsPossibleDuplicate.Should().BeTrue();
+            result.Data!.Single(c => c.Id == 2).IsPossibleDuplicate.Should().BeTrue();
+            result.Data!.Single(c => c.Id == 5).IsPossibleDuplicate.Should().BeFalse();
+
+            var food = result.Data!.Single(c => c.Id == 1);
+            food.Children.Single(c => c.Id == 3).IsPossibleDuplicate.Should().BeTrue();
+            food.Children.Single(c => c.Id == 4).IsPossibleDuplicate.Should().BeTrue();
+        }
+
+        [Fact]
         public async Task GetByIdAsync_WhenNotFound_ReturnsFailResult()
         {
             _repo.Setup(x => x.GetByIdAsync(99)).ReturnsAsync((Category?)null);

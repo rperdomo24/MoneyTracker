@@ -63,6 +63,12 @@
                    ValueChanged="@OnShowUnusedOnlyChanged"
                    Color="Color.Warning"
                    Label="@($"Unused only ({_categories.SelectMany(FlattenSelf).Count(c => c.IsUnused)})")" />
+
+        <MudSwitch T="bool"
+                   Value="_showDuplicatesOnly"
+                   ValueChanged="@OnShowDuplicatesOnlyChanged"
+                   Color="Color.Error"
+                   Label="@($"Possible duplicates ({_categories.SelectMany(FlattenSelf).Count(c => c.IsPossibleDuplicate)})")" />
     </MudStack>
 
     <!-- Categories Content -->
@@ -110,14 +116,10 @@
                 ).ToList();
 
             if (_showUnusedOnly)
-            {
-                filteredCategories = filteredCategories
-                    .Where(c => c.IsUnused || c.Children.Any(ch => ch.IsUnused))
-                    .Select(c => c.IsUnused
-                        ? c
-                        : CloneWithFilteredChildren(c))
-                    .ToList();
-            }
+                filteredCategories = ApplyFlagFilter(filteredCategories, c => c.IsUnused);
+
+            if (_showDuplicatesOnly)
+                filteredCategories = ApplyFlagFilter(filteredCategories, c => c.IsPossibleDuplicate);
 
             @if (_viewMode == 1)
             {
@@ -169,6 +171,12 @@
                                         {
                                             <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
                                                 Unused
+                                            </MudChip>
+                                        }
+                                        @if (row.Category.IsPossibleDuplicate)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.ContentCopy">
+                                                Possible duplicate
                                             </MudChip>
                                         }
                                     </MudStack>
@@ -266,13 +274,15 @@
                             </MudButton>
                         </MudStack>
 
+                        <MudGrid Spacing="2">
                         @foreach (var category in group.Where(c => c.ParentId == null))
                         {
                             @if (category.Children.Any())
                             {
+                                <MudItem xs="12" sm="6" md="6" lg="4">
                                 <MudExpansionPanels Elevation="0"
-                                                    Class="mb-2"
-                                                    Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
+                                                    Class="mb-0"
+                                                    Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px; height: 100%;">
                                     <MudExpansionPanel Expanded="false">
                                         <TitleContent>
                                             <MudStack Row="true"
@@ -295,6 +305,12 @@
                                                             {
                                                                 <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
                                                                     Unused
+                                                                </MudChip>
+                                                            }
+                                                            @if (category.IsPossibleDuplicate)
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.ContentCopy">
+                                                                    Possible duplicate
                                                                 </MudChip>
                                                             }
                                                         </MudStack>
@@ -328,7 +344,7 @@
                                         </TitleContent>
 
                                         <ChildContent>
-                                            <div style="margin-left: 60px; padding-top: 8px;">
+                                            <div style="margin-left: 16px; padding-top: 8px;">
                                                 @foreach (var subcategory in category.Children)
                                                 {
                                                     <MudPaper Elevation="0"
@@ -349,6 +365,12 @@
                                                                 {
                                                                     <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
                                                                         Unused
+                                                                    </MudChip>
+                                                                }
+                                                                @if (subcategory.IsPossibleDuplicate)
+                                                                {
+                                                                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.ContentCopy">
+                                                                        Possible duplicate
                                                                     </MudChip>
                                                                 }
                                                             </MudStack>
@@ -375,12 +397,14 @@
                                         </ChildContent>
                                     </MudExpansionPanel>
                                 </MudExpansionPanels>
+                                </MudItem>
                             }
                             else
                             {
+                                <MudItem xs="12" sm="6" md="6" lg="4">
                                 <MudPaper Elevation="0"
-                                          Class="px-4 py-3 mb-2"
-                                          Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px;">
+                                          Class="px-4 py-3"
+                                          Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px; height: 100%;">
                                     <MudStack Row="true"
                                               AlignItems="AlignItems.Center"
                                               Justify="Justify.SpaceBetween">
@@ -398,6 +422,12 @@
                                             {
                                                 <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
                                                     Unused
+                                                </MudChip>
+                                            }
+                                            @if (category.IsPossibleDuplicate)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.ContentCopy">
+                                                    Possible duplicate
                                                 </MudChip>
                                             }
                                         </MudStack>
@@ -423,8 +453,10 @@
                                         </MudMenu>
                                     </MudStack>
                                 </MudPaper>
+                                </MudItem>
                             }
                         }
+                        </MudGrid>
                     </div>
                 }
             }
@@ -443,6 +475,7 @@
     private int _viewMode = 0;
     private bool _stateLoaded = false;
     private bool _showUnusedOnly = false;
+    private bool _showDuplicatesOnly = false;
 
     private static IEnumerable<CategoryDto> FlattenSelf(CategoryDto category)
     {
@@ -451,7 +484,15 @@
             yield return child;
     }
 
-    private static CategoryDto CloneWithFilteredChildren(CategoryDto category)
+    private static List<CategoryDto> ApplyFlagFilter(List<CategoryDto> categories, Func<CategoryDto, bool> matches)
+    {
+        return categories
+            .Where(c => matches(c) || c.Children.Any(matches))
+            .Select(c => matches(c) ? c : CloneWithFilteredChildren(c, matches))
+            .ToList();
+    }
+
+    private static CategoryDto CloneWithFilteredChildren(CategoryDto category, Func<CategoryDto, bool> matches)
     {
         return new CategoryDto
         {
@@ -465,13 +506,19 @@
             SystemCategoryCode = category.SystemCategoryCode,
             UpdatedAt = category.UpdatedAt,
             IsUnused = category.IsUnused,
-            Children = category.Children.Where(ch => ch.IsUnused).ToList()
+            IsPossibleDuplicate = category.IsPossibleDuplicate,
+            Children = category.Children.Where(matches).ToList()
         };
     }
 
     private void OnShowUnusedOnlyChanged(bool value)
     {
         _showUnusedOnly = value;
+    }
+
+    private void OnShowDuplicatesOnlyChanged(bool value)
+    {
+        _showDuplicatesOnly = value;
     }
 
     private bool _editDrawerOpen = false;

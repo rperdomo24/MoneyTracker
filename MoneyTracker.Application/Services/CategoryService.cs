@@ -6,6 +6,8 @@ using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
+using System.Globalization;
+using System.Text;
 
 namespace MoneyTracker.Application.Services
 {
@@ -43,6 +45,7 @@ namespace MoneyTracker.Application.Services
 
             var usedIds = await _repository.GetUsedCategoryIdsAsync() ?? new HashSet<int>();
             MarkUnused(result, usedIds);
+            MarkPossibleDuplicates(result);
 
             return OperationResult<List<CategoryDto>>.Ok(result);
         }
@@ -54,6 +57,57 @@ namespace MoneyTracker.Application.Services
                 category.IsUnused = !category.IsSystem && !usedIds.Contains(category.Id);
                 MarkUnused(category.Children, usedIds);
             }
+        }
+
+        // Heuristic only: flags categories whose normalized name matches another one
+        // at the same level (top-level by Type, subcategories by parent). Manual review
+        // still required — this cannot detect semantic duplicates (e.g. "Comida" vs "Alimentación").
+        private static void MarkPossibleDuplicates(List<CategoryDto> categories)
+        {
+            var topLevelGroups = categories
+                .GroupBy(c => (c.Type, Name: NormalizeName(c.Name)));
+
+            foreach (var group in topLevelGroups)
+            {
+                var isDuplicate = group.Count() > 1;
+                foreach (var category in group)
+                    category.IsPossibleDuplicate = isDuplicate;
+            }
+
+            foreach (var category in categories)
+            {
+                var childGroups = category.Children.GroupBy(c => NormalizeName(c.Name));
+                foreach (var group in childGroups)
+                {
+                    var isDuplicate = group.Count() > 1;
+                    foreach (var child in group)
+                        child.IsPossibleDuplicate = isDuplicate;
+                }
+            }
+        }
+
+        private static string NormalizeName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return string.Empty;
+
+            var withoutDiacritics = RemoveDiacritics(name.Trim().ToLowerInvariant());
+            return string.Concat(withoutDiacritics.Where(char.IsLetterOrDigit));
+        }
+
+        private static string RemoveDiacritics(string text)
+        {
+            var normalized = text.Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder();
+
+            foreach (var c in normalized)
+            {
+                var category = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (category != UnicodeCategory.NonSpacingMark)
+                    builder.Append(c);
+            }
+
+            return builder.ToString().Normalize(NormalizationForm.FormC);
         }
 
         public async Task<OperationResult<CategoryDto?>> GetByIdAsync(int id)
