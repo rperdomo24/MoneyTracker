@@ -41,7 +41,19 @@ namespace MoneyTracker.Application.Services
             var result = entities
                 .Select(e => e.MapToDto()).ToList();
 
+            var usedIds = await _repository.GetUsedCategoryIdsAsync() ?? new HashSet<int>();
+            MarkUnused(result, usedIds);
+
             return OperationResult<List<CategoryDto>>.Ok(result);
+        }
+
+        private static void MarkUnused(List<CategoryDto> categories, HashSet<int> usedIds)
+        {
+            foreach (var category in categories)
+            {
+                category.IsUnused = !category.IsSystem && !usedIds.Contains(category.Id);
+                MarkUnused(category.Children, usedIds);
+            }
         }
 
         public async Task<OperationResult<CategoryDto?>> GetByIdAsync(int id)
@@ -104,6 +116,9 @@ namespace MoneyTracker.Application.Services
         {
             try
             {
+                if (await _repository.HasBudgetsAsync(id))
+                    return OperationResult<bool>.Fail(OperationMessages.CategoryHasBudgets);
+
                 await _repository.DeleteAsync(id);
                 return OperationResult<bool>.Ok(true, OperationMessages.Deleted);
             }

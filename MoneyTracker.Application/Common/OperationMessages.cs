@@ -12,6 +12,7 @@
         public const string AlreadyExists = "A record with the same name already exists.";
         public const string ValidationError = "Please fill out the form correctly.";
         public const string UpdateError = "An error occurred while updating the record.";
+        public const string CategoryHasBudgets = "This category has active budgets. Remove or reassign them before deleting it.";
 
 
         public const string TransferCreated = "Transfer created successfully";

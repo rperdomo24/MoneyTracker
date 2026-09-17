@@ -144,6 +144,48 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task<bool> HasBudgetsAsync(int categoryId)
+        {
+            try
+            {
+                return await _context.Budgets
+                    .AsNoTracking()
+                    .AnyAsync(b => b.CategoryId == categoryId && !b.IsDeleted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking budgets for category with ID {Id}.", categoryId);
+                return false;
+            }
+        }
+
+        public async Task<HashSet<int>> GetUsedCategoryIdsAsync()
+        {
+            try
+            {
+                var transactionCategoryIds = await _context.Transaction
+                    .AsNoTracking()
+                    .Where(t => !t.IsDeleted)
+                    .Select(t => t.CategoryId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var budgetCategoryIds = await _context.Budgets
+                    .AsNoTracking()
+                    .Where(b => !b.IsDeleted)
+                    .Select(b => b.CategoryId)
+                    .Distinct()
+                    .ToListAsync();
+
+                return transactionCategoryIds.Concat(budgetCategoryIds).ToHashSet();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting used category IDs.");
+                return new HashSet<int>();
+            }
+        }
+
         public async Task<bool> ExistsAsync(string name, int? excludeId = null)
         {
             try

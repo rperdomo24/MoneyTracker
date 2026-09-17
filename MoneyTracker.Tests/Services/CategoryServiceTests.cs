@@ -29,12 +29,42 @@ namespace MoneyTracker.Tests.Services
                 new() { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant" },
                 new() { Id = 2, Name = "Transfer", Type = CategoryTypeEnum.Transfer, Icon = "SwapHoriz" }
             });
+            _repo.Setup(x => x.GetUsedCategoryIdsAsync()).ReturnsAsync(new HashSet<int>());
             var svc = CreateService();
 
             var result = await svc.GetAllWithChildAsync(incluideSystem: false);
 
             result.Success.Should().BeTrue();
             result.Data.Should().ContainSingle(x => x.Type == CategoryTypeEnum.Expense);
+        }
+
+        [Fact]
+        public async Task GetAllWithChildAsync_MarksCategoriesWithoutTransactionsOrBudgetsAsUnused()
+        {
+            _repo.Setup(x => x.GetAllAsync(true, true)).ReturnsAsync(new List<Category>
+            {
+                new()
+                {
+                    Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant",
+                    Children = new List<Category>
+                    {
+                        new() { Id = 2, Name = "Groceries", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", ParentId = 1 }
+                    }
+                },
+                new() { Id = 3, Name = "Old Category", Type = CategoryTypeEnum.Expense, Icon = "Payments" }
+            });
+            _repo.Setup(x => x.GetUsedCategoryIdsAsync()).ReturnsAsync(new HashSet<int> { 1 });
+            var svc = CreateService();
+
+            var result = await svc.GetAllWithChildAsync();
+
+            var food = result.Data!.Single(c => c.Id == 1);
+            var groceries = food.Children.Single(c => c.Id == 2);
+            var oldCategory = result.Data!.Single(c => c.Id == 3);
+
+            food.IsUnused.Should().BeFalse();
+            groceries.IsUnused.Should().BeTrue();
+            oldCategory.IsUnused.Should().BeTrue();
         }
 
         [Fact]
@@ -112,6 +142,7 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task DeleteAsync_WhenRepositoryThrows_ReturnsUnexpectedError()
         {
+            _repo.Setup(x => x.HasBudgetsAsync(1)).ReturnsAsync(false);
             _repo.Setup(x => x.DeleteAsync(1)).ThrowsAsync(new Exception("db error"));
             var svc = CreateService();
 
@@ -119,6 +150,33 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.UnexpectedError);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WhenCategoryHasBudgets_ReturnsFailAndSkipsDelete()
+        {
+            _repo.Setup(x => x.HasBudgetsAsync(1)).ReturnsAsync(true);
+            var svc = CreateService();
+
+            var result = await svc.DeleteAsync(1);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.CategoryHasBudgets);
+            _repo.Verify(x => x.DeleteAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WhenNoBudgets_DeletesAndReturnsSuccess()
+        {
+            _repo.Setup(x => x.HasBudgetsAsync(1)).ReturnsAsync(false);
+            _repo.Setup(x => x.DeleteAsync(1)).Returns(Task.CompletedTask);
+            var svc = CreateService();
+
+            var result = await svc.DeleteAsync(1);
+
+            result.Success.Should().BeTrue();
+            result.Message.Should().Be(OperationMessages.Deleted);
+            _repo.Verify(x => x.DeleteAsync(1), Times.Once);
         }
     }
 }
