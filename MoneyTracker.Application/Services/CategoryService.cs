@@ -4,6 +4,7 @@ using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
+using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
 using System.Globalization;
@@ -37,7 +38,11 @@ namespace MoneyTracker.Application.Services
 
             if (!incluideSystem)
             {
-                entities = entities.Where(x => x.Type != CategoryTypeEnum.Transfer).ToList();
+                // incluideSystem=false hides system categories (Initial Balance, Balance
+                // Adjustment, Transfer, etc.) — except Uncategorized, which stays visible like
+                // a normal category since transactions dumped there still need to be reviewed
+                // and re-categorized by the user.
+                entities = entities.Where(x => !x.IsSystem || SystemCategoryCodes.IsUncategorized(x.SystemCategoryCode)).ToList();
             }
 
             var result = entities
@@ -170,27 +175,14 @@ namespace MoneyTracker.Application.Services
 
         public async Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int>? transactionIdsToMove = null)
         {
-            if (sourceId == targetId)
-                return OperationResult<bool>.Fail(OperationMessages.CategoryMergeSelf);
-
-            var source = await _repository.GetByIdAsync(sourceId);
-            if (source is null)
-                return OperationResult<bool>.Fail(OperationMessages.NotFound);
-
-            var target = await _repository.GetByIdAsync(targetId);
-            if (target is null)
-                return OperationResult<bool>.Fail(OperationMessages.NotFound);
-
-            if (source.IsSystem || target.IsSystem)
-                return OperationResult<bool>.Fail(OperationMessages.CategoryMergeSystem);
-
-            if (source.Type != target.Type)
-                return OperationResult<bool>.Fail(OperationMessages.CategoryMergeDifferentType);
+            var (source, _, error) = await ValidateMergePairAsync(sourceId, targetId);
+            if (error is not null)
+                return OperationResult<bool>.Fail(error);
 
             try
             {
-                await _repository.MergeAsync(sourceId, targetId, transactionIdsToMove);
-                return OperationResult<bool>.Ok(true, OperationMessages.CategoryMerged);
+                var wasFullMerge = await _repository.MergeAsync(sourceId, targetId, transactionIdsToMove);
+                return OperationResult<bool>.Ok(true, wasFullMerge ? OperationMessages.CategoryMerged : OperationMessages.CategoryPartiallyMoved);
             }
             catch (Exception ex)
             {
@@ -199,10 +191,64 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<CategoryMergePreviewDto>> GetMergePreviewAsync(int sourceId, int targetId)
+        {
+            var (source, _, error) = await ValidateMergePairAsync(sourceId, targetId);
+            if (error is not null)
+                return OperationResult<CategoryMergePreviewDto>.Fail(error);
+
+            var budgetPreview = await _repository.GetBudgetMergePreviewAsync(sourceId, targetId);
+
+            var preview = new CategoryMergePreviewDto
+            {
+                Budgets = budgetPreview
+                    .Select(b => new BudgetMergePreviewItemDto
+                    {
+                        Year = b.Year,
+                        Month = b.Month,
+                        Amount = b.Amount,
+                        WillBeDropped = b.WillBeDropped
+                    })
+                    .ToList(),
+                SubcategoryNames = source!.Children.Select(c => c.Name).ToList()
+            };
+
+            return OperationResult<CategoryMergePreviewDto>.Ok(preview, OperationMessages.DataRetrieved);
+        }
+
+        private async Task<(Domain.Entities.Category? Source, Domain.Entities.Category? Target, string? Error)> ValidateMergePairAsync(int sourceId, int targetId)
+        {
+            if (sourceId == targetId)
+                return (null, null, OperationMessages.CategoryMergeSelf);
+
+            var source = await _repository.GetByIdAsync(sourceId);
+            if (source is null)
+                return (null, null, OperationMessages.NotFound);
+
+            var target = await _repository.GetByIdAsync(targetId);
+            if (target is null)
+                return (null, null, OperationMessages.NotFound);
+
+            if (source.IsSystem || target.IsSystem)
+                return (null, null, OperationMessages.CategoryMergeSystem);
+
+            if (source.Type != target.Type)
+                return (null, null, OperationMessages.CategoryMergeDifferentType);
+
+            return (source, target, null);
+        }
+
         public async Task<OperationResult<bool>> DeleteAsync(int id)
         {
             try
             {
+                var category = await _repository.GetByIdAsync(id);
+                if (category is null)
+                    return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                if (category.IsSystem)
+                    return OperationResult<bool>.Fail(OperationMessages.CategoryDeleteSystem);
+
                 if (await _repository.HasBudgetsAsync(id))
                     return OperationResult<bool>.Fail(OperationMessages.CategoryHasBudgets);
 

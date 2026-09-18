@@ -143,7 +143,11 @@
 
             if (result.Success && result.Data != null)
             {
-                _categories = result.Data.Where(c => !c.IsSystem).ToList();
+                // Parent categories (with subcategories) can't be budgeted directly,
+                // but keep the budget's current category selectable even if it's a legacy parent budget.
+                _categories = result.Data
+                    .Where(c => !c.IsSystem && (!c.Children.Any() || c.Id == Budget.CategoryId))
+                    .ToList();
                 _selectedCategory = _categories.FirstOrDefault(c => c.Id == Budget.CategoryId);
             }
             else

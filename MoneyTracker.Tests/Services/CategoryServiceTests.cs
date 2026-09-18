@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.Services;
+using MoneyTracker.Domain.Const;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;
 using MoneyTracker.Domain.Interfaces;
@@ -21,13 +22,17 @@ namespace MoneyTracker.Tests.Services
         private CategoryService CreateService() => new(_repo.Object, _validator.Object, _logger.Object);
 
         [Fact]
-        public async Task GetAllWithChildAsync_WhenIncludeSystemFalse_FiltersTransferType()
+        public async Task GetAllWithChildAsync_WhenIncludeSystemFalse_HidesSystemCategoriesButKeepsUncategorized()
         {
-            // Include transfer and non-transfer categories to verify filtering behavior.
+            // Transfer and Initial Balance are IsSystem=true and must stay hidden (only Transfer
+            // used to get filtered before). Uncategorized is also IsSystem=true but must stay
+            // visible — transactions dumped there still need to be reviewed/re-categorized.
             _repo.Setup(x => x.GetAllAsync(true, true)).ReturnsAsync(new List<Category>
             {
-                new() { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant" },
-                new() { Id = 2, Name = "Transfer", Type = CategoryTypeEnum.Transfer, Icon = "SwapHoriz" }
+                new() { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", IsSystem = false },
+                new() { Id = 2, Name = "Transfer", Type = CategoryTypeEnum.Transfer, Icon = "SwapHoriz", IsSystem = true, SystemCategoryCode = SystemCategoryCodes.TransferOut },
+                new() { Id = 3, Name = "Initial Balance", Type = CategoryTypeEnum.Income, Icon = "AccountBalanceWallet", IsSystem = true, SystemCategoryCode = SystemCategoryCodes.InitialBalanceIncome },
+                new() { Id = 4, Name = "Uncategorized", Type = CategoryTypeEnum.Expense, Icon = "Help", IsSystem = true, SystemCategoryCode = SystemCategoryCodes.UncategorizedExpense }
             });
             _repo.Setup(x => x.GetUsedCategoryIdsAsync()).ReturnsAsync(new HashSet<int>());
             var svc = CreateService();
@@ -35,7 +40,7 @@ namespace MoneyTracker.Tests.Services
             var result = await svc.GetAllWithChildAsync(incluideSystem: false);
 
             result.Success.Should().BeTrue();
-            result.Data.Should().ContainSingle(x => x.Type == CategoryTypeEnum.Expense);
+            result.Data!.Select(x => x.Id).Should().BeEquivalentTo(new[] { 1, 4 });
         }
 
         [Fact]
@@ -226,7 +231,7 @@ namespace MoneyTracker.Tests.Services
         {
             _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Old Food", Type = CategoryTypeEnum.Expense });
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
-            _repo.Setup(x => x.MergeAsync(1, 2, null)).Returns(Task.CompletedTask);
+            _repo.Setup(x => x.MergeAsync(1, 2, null)).ReturnsAsync(true);
             var svc = CreateService();
 
             var result = await svc.MergeAsync(1, 2);
@@ -242,7 +247,7 @@ namespace MoneyTracker.Tests.Services
             _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Old Food", Type = CategoryTypeEnum.Expense });
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
             var selectedIds = new List<int> { 10, 11 };
-            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds)).Returns(Task.CompletedTask);
+            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds)).ReturnsAsync(true);
             var svc = CreateService();
 
             var result = await svc.MergeAsync(1, 2, selectedIds);
@@ -252,8 +257,69 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task MergeAsync_WhenRepositoryReportsPartialMove_ReturnsPartialMessageAndKeepsSourceCategory()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Old Food", Type = CategoryTypeEnum.Expense });
+            _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
+            var selectedIds = new List<int> { 10 };
+            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds)).ReturnsAsync(false);
+            var svc = CreateService();
+
+            var result = await svc.MergeAsync(1, 2, selectedIds);
+
+            result.Success.Should().BeTrue();
+            result.Message.Should().Be(OperationMessages.CategoryPartiallyMoved);
+        }
+
+        [Fact]
+        public async Task GetMergePreviewAsync_ReturnsBudgetsAndSubcategoryNames()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category
+            {
+                Id = 1,
+                Name = "Old Food",
+                Type = CategoryTypeEnum.Expense,
+                Children = new List<Category>
+                {
+                    new() { Id = 3, Name = "Fast Food" },
+                    new() { Id = 4, Name = "Snacks" }
+                }
+            });
+            _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
+            _repo.Setup(x => x.GetBudgetMergePreviewAsync(1, 2)).ReturnsAsync(new List<(int Year, int Month, decimal Amount, bool WillBeDropped)>
+            {
+                (2026, 1, 100m, false),
+                (2026, 2, 50m, true)
+            });
+
+            var svc = CreateService();
+
+            var result = await svc.GetMergePreviewAsync(1, 2);
+
+            result.Success.Should().BeTrue();
+            result.Data!.SubcategoryNames.Should().BeEquivalentTo(new[] { "Fast Food", "Snacks" });
+            result.Data.Budgets.Should().HaveCount(2);
+            result.Data.Budgets.Should().ContainSingle(b => b.Month == 2 && b.WillBeDropped);
+            result.Data.Budgets.Should().ContainSingle(b => b.Month == 1 && !b.WillBeDropped);
+        }
+
+        [Fact]
+        public async Task GetMergePreviewAsync_WhenDifferentType_ReturnsFail()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense });
+            _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Salary", Type = CategoryTypeEnum.Income });
+            var svc = CreateService();
+
+            var result = await svc.GetMergePreviewAsync(1, 2);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.CategoryMergeDifferentType);
+        }
+
+        [Fact]
         public async Task DeleteAsync_WhenRepositoryThrows_ReturnsUnexpectedError()
         {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, IsSystem = false });
             _repo.Setup(x => x.HasBudgetsAsync(1)).ReturnsAsync(false);
             _repo.Setup(x => x.DeleteAsync(1)).ThrowsAsync(new Exception("db error"));
             var svc = CreateService();
@@ -267,6 +333,7 @@ namespace MoneyTracker.Tests.Services
         [Fact]
         public async Task DeleteAsync_WhenCategoryHasBudgets_ReturnsFailAndSkipsDelete()
         {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, IsSystem = false });
             _repo.Setup(x => x.HasBudgetsAsync(1)).ReturnsAsync(true);
             var svc = CreateService();
 
@@ -278,8 +345,35 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task DeleteAsync_WhenCategoryNotFound_ReturnsNotFound()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync((Category?)null);
+            var svc = CreateService();
+
+            var result = await svc.DeleteAsync(1);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.NotFound);
+            _repo.Verify(x => x.DeleteAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WhenCategoryIsSystem_ReturnsFailAndSkipsDelete()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, IsSystem = true });
+            var svc = CreateService();
+
+            var result = await svc.DeleteAsync(1);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.CategoryDeleteSystem);
+            _repo.Verify(x => x.DeleteAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
         public async Task DeleteAsync_WhenNoBudgets_DeletesAndReturnsSuccess()
         {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, IsSystem = false });
             _repo.Setup(x => x.HasBudgetsAsync(1)).ReturnsAsync(false);
             _repo.Setup(x => x.DeleteAsync(1)).Returns(Task.CompletedTask);
             var svc = CreateService();

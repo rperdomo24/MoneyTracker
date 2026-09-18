@@ -15,8 +15,11 @@
         public const string CategoryHasBudgets = "This category has active budgets. Remove or reassign them before deleting it.";
         public const string CategoryMergeSelf = "Cannot merge a category into itself.";
         public const string CategoryMergeSystem = "System categories cannot be merged.";
+        public const string CategoryDeleteSystem = "System categories cannot be deleted.";
         public const string CategoryMergeDifferentType = "Categories must be the same type to merge.";
         public const string CategoryMerged = "Category merged successfully. Its transactions, budgets and subcategories were moved to the target category.";
+        public const string CategoryPartiallyMoved = "Selected transactions were moved. The source category was kept — it still has other transactions, budgets, or subcategories.";
+        public const string BudgetOnParentCategory = "Cannot create a budget directly on a category that has subcategories. Budget the subcategories individually instead.";
 
 
         public const string TransferCreated = "Transfer created successfully";

@@ -8,6 +8,7 @@
 @inject ICategoryService CategoryService
 @inject ITransactionService TransactionService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
@@ -20,11 +21,22 @@
     <DialogContent>
         @if (_source != null)
         {
-            <MudAlert Severity="Severity.Warning" Class="mb-4">
-                Merging moves budgets and subcategories from <strong>@_source.Name</strong> into
-                the target, then deletes <strong>@_source.Name</strong>. Unchecked transactions below
-                will become <em>Uncategorized</em> instead of moving. This cannot be undone.
-            </MudAlert>
+            @if (IsFullMove)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-4">
+                    All transactions in <strong>@_source.Name</strong> are selected, so this is a
+                    <strong>full merge</strong>: its budgets and subcategories move too, and
+                    <strong>@_source.Name</strong> gets deleted afterward. This cannot be undone.
+                </MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Only the checked transactions below will move to the target.
+                    <strong>@_source.Name</strong> is kept as-is — its budgets, subcategories, and
+                    unchecked transactions are not touched.
+                </MudAlert>
+            }
 
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
                 <MudAvatar Size="Size.Medium" Style="@($"background-color: {_source.Color};")">
@@ -35,12 +47,49 @@
                 <MudText Typo="Typo.body2" Color="Color.Default">Select target below</MudText>
             </MudStack>
 
-            <CategorySelector @bind-SelectedCategory="_target"
+            <CategorySelector SelectedCategory="_target"
+                               SelectedCategoryChanged="OnTargetChanged"
                                Categories="@_candidateTargets"
                                Label="Merge into"
                                Required="true"
                                Clearable="true"
                                ShowAddButton="false" />
+
+            @if (_target != null && IsFullMove)
+            {
+                <MudDivider Class="my-4" />
+
+                @if (_loadingPreview)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Class="pa-2">
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+                    </MudStack>
+                }
+                else if (_preview != null && (_preview.Budgets.Any() || _preview.SubcategoryNames.Any()))
+                {
+                    <MudStack Spacing="1" Class="mb-4">
+                        @if (_preview.Budgets.Any())
+                        {
+                            var dropped = _preview.Budgets.Count(b => b.WillBeDropped);
+                            var moved = _preview.Budgets.Count - dropped;
+                            <MudAlert Severity="@(dropped > 0 ? Severity.Warning : Severity.Info)" Dense="true">
+                                @moved budget(s) will move to @_target.Name.
+                                @if (dropped > 0)
+                                {
+                                    <text> @dropped will be dropped instead (target already has a budget for that same month).</text>
+                                }
+                            </MudAlert>
+                        }
+                        @if (_preview.SubcategoryNames.Any())
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                @_preview.SubcategoryNames.Count subcategor@(_preview.SubcategoryNames.Count == 1 ? "y" : "ies")
+                                will move under @_target.Name: @string.Join(", ", _preview.SubcategoryNames)
+                            </MudAlert>
+                        }
+                    </MudStack>
+                }
+            }
 
             <MudDivider Class="my-4" />
 
@@ -103,7 +152,7 @@
             Cancel
         </MudButton>
 
-        <MudButton Color="Color.Error"
+        <MudButton Color="@(IsFullMove ? Color.Error : Color.Primary)"
                    Variant="Variant.Filled"
                    OnClick="Confirm"
                    StartIcon="@Icons.Material.Filled.CallMerge"
@@ -112,11 +161,11 @@
             @if (_isMerging)
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                <span>Merging...</span>
+                <span>@(IsFullMove ? "Merging..." : "Moving...")</span>
             }
             else
             {
-                <span>Merge</span>
+                <span>@(IsFullMove ? "Merge (deletes source)" : "Move selected transactions")</span>
             }
         </MudButton>
     </DialogActions>
@@ -137,6 +186,11 @@
     private List<TransactionDto> _transactions = new();
     private HashSet<int> _selectedTransactionIds = new();
 
+    private bool _loadingPreview = false;
+    private CategoryMergePreviewDto? _preview;
+
+    private bool IsFullMove => _transactions.Count == 0 || _selectedTransactionIds.Count == _transactions.Count;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -144,7 +198,10 @@
             var result = await CategoryService.GetAllWithChildAsync(false);
             if (result.Success && result.Data != null)
             {
-                var flat = result.Data.SelectMany(c => new[] { c }.Concat(c.Children)).ToList();
+                var flat = result.Data
+                    .Where(c => c.ParentId == null)
+                    .SelectMany(c => new[] { c }.Concat(c.Children))
+                    .ToList();
                 _source = flat.FirstOrDefault(c => c.Id == SourceCategoryId);
 
                 if (_source != null)
@@ -203,6 +260,34 @@
             _selectedTransactionIds.Remove(id);
     }
 
+    private async Task OnTargetChanged(CategoryDto? target)
+    {
+        _target = target;
+        _preview = null;
+
+        if (_source == null || _target == null)
+            return;
+
+        _loadingPreview = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await CategoryService.GetMergePreviewAsync(_source.Id, _target.Id);
+            if (result.Success)
+                _preview = result.Data;
+        }
+        catch
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
+        finally
+        {
+            _loadingPreview = false;
+            StateHasChanged();
+        }
+    }
+
     private void SelectAllTransactions() => _selectedTransactionIds = _transactions.Select(t => t.Id).ToHashSet();
 
     private void ClearAllTransactions() => _selectedTransactionIds.Clear();
@@ -213,6 +298,19 @@
     {
         if (_isMerging || _source == null || _target == null)
             return;
+
+        if (IsFullMove)
+        {
+            var confirmed = await DialogService.ShowConfirmDialogAsync(
+                "Delete Source Category?",
+                $"This will delete '{_source.Name}' after moving its budgets and subcategories into '{_target.Name}'. This cannot be undone.",
+                "Delete and Merge",
+                Color.Error
+            );
+
+            if (!confirmed)
+                return;
+        }
 
         _isMerging = true;
         StateHasChanged();

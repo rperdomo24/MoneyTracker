@@ -128,6 +128,8 @@ namespace MoneyTracker.Tests.Services
             // Arrange: no existing budget for (category, year, month).
             _budgetRepo.Setup(x => x.GetByCategoryMonthAsync(1, 2025, 4))
                 .ReturnsAsync((Budget?)null);
+            _categoryRepo.Setup(x => x.GetByIdAsync(1))
+                .ReturnsAsync(new Domain.Entities.Category { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense });
 
             var dto = new BudgetDto
             {
@@ -158,6 +160,56 @@ namespace MoneyTracker.Tests.Services
                 b.UpdatedAt == nowUtc &&
                 b.IsDeleted == false)),
                 Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateOrUpdateAsync_NewBudgetOnParentCategory_ReturnsFail()
+        {
+            _budgetRepo.Setup(x => x.GetByCategoryMonthAsync(1, 2026, 3)).ReturnsAsync((Budget?)null);
+            _categoryRepo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Domain.Entities.Category
+            {
+                Id = 1,
+                Name = "Food",
+                Type = CategoryTypeEnum.Expense,
+                Children = new List<Domain.Entities.Category> { new() { Id = 2, Name = "Groceries" } }
+            });
+
+            var svc = CreateService();
+
+            var result = await svc.CreateOrUpdateAsync(new BudgetDto
+            {
+                CategoryId = 1,
+                Year = 2026,
+                Month = 3,
+                Amount = 100m
+            });
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.BudgetOnParentCategory);
+            _budgetRepo.Verify(x => x.AddAsync(It.IsAny<Budget>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateOrUpdateAsync_ExistingBudgetOnLegacyParentCategory_StillUpdates()
+        {
+            // Editing amount on a pre-existing budget must not be blocked even if
+            // its category now has children — the rule only stops NEW budgets.
+            var existing = new Budget { Id = 10, CategoryId = 1, Year = 2026, Month = 3, Amount = 100m };
+            _budgetRepo.Setup(x => x.GetByCategoryMonthAsync(1, 2026, 3)).ReturnsAsync(existing);
+
+            var svc = CreateService();
+
+            var result = await svc.CreateOrUpdateAsync(new BudgetDto
+            {
+                CategoryId = 1,
+                Year = 2026,
+                Month = 3,
+                Amount = 250m
+            });
+
+            result.Success.Should().BeTrue();
+            existing.Amount.Should().Be(250m);
+            _categoryRepo.Verify(x => x.GetByIdAsync(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]

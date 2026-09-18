@@ -14,6 +14,7 @@ namespace MoneyTracker.Domain.Interfaces
         Task<bool> HasBudgetsAsync(int categoryId);
         Task<HashSet<int>> GetUsedCategoryIdsAsync();
         Task<Dictionary<int, int>> GetTransactionCountsByCategoryAsync();
-        Task MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int>? transactionIdsToMove = null);
+        Task<bool> MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int>? transactionIdsToMove = null);
+        Task<List<(int Year, int Month, decimal Amount, bool WillBeDropped)>> GetBudgetMergePreviewAsync(int sourceId, int targetId);
     }
 }

@@ -70,6 +70,15 @@ namespace MoneyTracker.Application.Services
 
                 if (existing == null)
                 {
+                    // Only block NEW budgets on parent categories — editing a pre-existing
+                    // (legacy) parent-category budget's amount is still allowed.
+                    var category = await _categoryRepository.GetByIdAsync(dto.CategoryId);
+                    if (category is null)
+                        return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                    if (category.Children.Any())
+                        return OperationResult<bool>.Fail(OperationMessages.BudgetOnParentCategory);
+
                     var entity = new Budget
                     {
                         CategoryId = dto.CategoryId,

@@ -10,5 +10,6 @@ namespace MoneyTracker.Application.Interfaces
             AccountType fromType,
             AccountType toType,
             CancellationToken cancellationToken = default);
+        Task<int> GetUncategorizedCategoryIdAsync(bool isIncome, CancellationToken cancellationToken = default);
     }
 }

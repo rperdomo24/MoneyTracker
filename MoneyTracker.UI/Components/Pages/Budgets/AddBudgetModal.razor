@@ -139,8 +139,9 @@
 
             if (result.Success && result.Data != null)
             {
+                // Parent categories (with subcategories) can't be budgeted directly.
                 _categories = result.Data
-                    .Where(c => !c.IsSystem && c.Type == CategoryType)
+                    .Where(c => !c.IsSystem && c.Type == CategoryType && !c.Children.Any())
                     .ToList();
 
                 // ✅ If CategoryId is provided, preselect and lock

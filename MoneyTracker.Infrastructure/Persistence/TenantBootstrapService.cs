@@ -39,6 +39,8 @@ namespace MoneyTracker.Infrastructure.Persistence
                 Create(tenantId, SystemCategoryNames.PAYMENT_RECEIVED_NAME, CategoryTypeEnum.Transfer, true, CategoryIcon.Payments.ToString(), "#4CAF50", now, SystemCategoryCodes.PaymentReceived),
                 Create(tenantId, SystemCategoryNames.CREDIT_ADVANCE_NAME, CategoryTypeEnum.Transfer, true, CategoryIcon.CreditScore.ToString(), "#FF5722", now, SystemCategoryCodes.CreditAdvance),
                 Create(tenantId, SystemCategoryNames.ADVANCE_RECEIVED_NAME, CategoryTypeEnum.Transfer, true, CategoryIcon.Receipt.ToString(), "#4CAF50", now, SystemCategoryCodes.AdvanceReceived),
+                Create(tenantId, SystemCategoryNames.UNCATEGORIZED_NAME, CategoryTypeEnum.Income, true, CategoryIcon.Help.ToString(), "#9E9E9E", now, SystemCategoryCodes.UncategorizedIncome),
+                Create(tenantId, SystemCategoryNames.UNCATEGORIZED_NAME, CategoryTypeEnum.Expense, true, CategoryIcon.Help.ToString(), "#9E9E9E", now, SystemCategoryCodes.UncategorizedExpense),
                 Create(tenantId, "Salary", CategoryTypeEnum.Income, false, CategoryIcon.AttachMoney.ToString(), "#4CAF50", now),
                 Create(tenantId, "Freelance", CategoryTypeEnum.Income, false, CategoryIcon.WorkOutline.ToString(), "#66BB6A", now),
                 Create(tenantId, "Investments", CategoryTypeEnum.Income, false, CategoryIcon.TrendingUp.ToString(), "#81C784", now),
