@@ -179,7 +179,8 @@
                                           Categories="@(_categories ?? new())"
                                           FilterByType="@(_originalTransaction!.Category!.Type)"
                                           OnAddCategory="CreateCategory"
-                                          ShowAddButton="true" />
+                                          ShowAddButton="true"
+                                          LeafOnly="true" />
 
                         <MudAutocomplete T="MerchantDto?"
                                          Label="Merchant (Optional)"

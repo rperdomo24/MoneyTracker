@@ -67,8 +67,12 @@
     [Parameter] public bool ShowAddButton { get; set; } = true;
     [Parameter] public EventCallback OnAddCategory { get; set; }
 
+    // Transactions must be categorized into leaf categories only — a parent with
+    // subcategories is a grouping bucket, not something a transaction should point at.
+    [Parameter] public bool LeafOnly { get; set; } = false;
+
     private List<CategoryDto> FilteredCategories => Categories
-        .Where(c => (FilterByType == null || c.Type == FilterByType.Value) && !c.IsSystem)
+        .Where(c => (FilterByType == null || c.Type == FilterByType.Value) && !c.IsSystem && (!LeafOnly || c.Children.Count == 0))
         .OrderBy(c => c.Name)
         .ToList();
 

@@ -73,6 +73,32 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task GetAllWithChildAsync_ParentWithChildrenIsNeverUnused_EvenWithoutOwnUsage()
+        {
+            // A parent is a grouping bucket, not a leaf a transaction/budget points at directly —
+            // it must never be flagged unused (and therefore deletable) just because it has no
+            // transactions/budgets of its own.
+            _repo.Setup(x => x.GetAllAsync(true, true)).ReturnsAsync(new List<Category>
+            {
+                new()
+                {
+                    Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant",
+                    Children = new List<Category>
+                    {
+                        new() { Id = 2, Name = "Groceries", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", ParentId = 1 }
+                    }
+                }
+            });
+            _repo.Setup(x => x.GetUsedCategoryIdsAsync()).ReturnsAsync(new HashSet<int>());
+            var svc = CreateService();
+
+            var result = await svc.GetAllWithChildAsync();
+
+            var food = result.Data!.Single(c => c.Id == 1);
+            food.IsUnused.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task GetAllWithChildAsync_FlagsCategoriesWithSameNormalizedNameAsPossibleDuplicates()
         {
             _repo.Setup(x => x.GetAllAsync(true, true)).ReturnsAsync(new List<Category>
@@ -410,6 +436,25 @@ namespace MoneyTracker.Tests.Services
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.CategoryDeleteSystem);
             _repo.Verify(x => x.DeleteAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WhenCategoryHasChildren_ReturnsFailAndSkipsDelete()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category
+            {
+                Id = 1,
+                IsSystem = false,
+                Children = new List<Category> { new() { Id = 2, Name = "Sub" } }
+            });
+            var svc = CreateService();
+
+            var result = await svc.DeleteAsync(1);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.CategoryHasChildren);
+            _repo.Verify(x => x.DeleteAsync(It.IsAny<int>()), Times.Never);
+            _repo.Verify(x => x.HasBudgetsAsync(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]

@@ -60,7 +60,7 @@ namespace MoneyTracker.Application.Services
         {
             foreach (var category in categories)
             {
-                category.IsUnused = !category.IsSystem && !usedIds.Contains(category.Id);
+                category.IsUnused = !category.IsSystem && category.Children.Count == 0 && !usedIds.Contains(category.Id);
                 category.TransactionCount = transactionCounts.GetValueOrDefault(category.Id);
                 MarkUnused(category.Children, usedIds, transactionCounts);
             }
@@ -252,6 +252,9 @@ namespace MoneyTracker.Application.Services
 
                 if (category.IsSystem)
                     return OperationResult<bool>.Fail(OperationMessages.CategoryDeleteSystem);
+
+                if (category.Children.Any())
+                    return OperationResult<bool>.Fail(OperationMessages.CategoryHasChildren);
 
                 if (await _repository.HasBudgetsAsync(id))
                     return OperationResult<bool>.Fail(OperationMessages.CategoryHasBudgets);

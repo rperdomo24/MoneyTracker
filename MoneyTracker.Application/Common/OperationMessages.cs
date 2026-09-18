@@ -13,6 +13,7 @@
         public const string ValidationError = "Please fill out the form correctly.";
         public const string UpdateError = "An error occurred while updating the record.";
         public const string CategoryHasBudgets = "This category has active budgets. Remove or reassign them before deleting it.";
+        public const string CategoryHasChildren = "This category has subcategories. Move or delete them before deleting it.";
         public const string CategoryMergeSelf = "Cannot merge a category into itself.";
         public const string CategoryMergeSystem = "System categories cannot be merged.";
         public const string CategoryDeleteSystem = "System categories cannot be deleted.";
