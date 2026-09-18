@@ -1,7 +1,7 @@
 ﻿@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.Interfaces
-@using MoneyTracker.Application.Validators
+@using MoneyTracker.Application.Validators.Accounts
 @using MoneyTracker.Domain.Enums.Account
 @using MoneyTracker.UI.Components.Shared.Pickers
 @using MoneyTracker.UI.Helpers
@@ -83,7 +83,7 @@
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.AccountBalance" />
 
-                    <!-- Credit Limit (only for Credit cards) -->
+                    <!-- Credit Limit + card dates (only for Credit cards) -->
                     @if (_account.Type == AccountType.Credit)
                     {
                         <MudNumericField Label="Credit Limit"
@@ -96,7 +96,53 @@
                                          Adornment="Adornment.Start"
                                          AdornmentText="$"
                                          Placeholder="0.00" />
+
+                        <MudStack Row="true" Spacing="3" Class="mb-4">
+                            <MudNumericField T="int?"
+                                             Label="Cut Day (1–28)"
+                                             @bind-Value="_account.CutDay"
+                                             Variant="Variant.Outlined"
+                                             Min="1" Max="28"
+                                             Placeholder="e.g. 15"
+                                             HelperText="Day of month billing period closes" />
+                            <MudNumericField T="int?"
+                                             Label="Payment Day (1–28)"
+                                             @bind-Value="_account.PaymentDay"
+                                             Variant="Variant.Outlined"
+                                             Min="1" Max="28"
+                                             Placeholder="e.g. 5"
+                                             HelperText="Day of month payment is due" />
+                        </MudStack>
+
+                        <MudNumericField T="decimal?"
+                                         Label="Annual Interest Rate % (optional)"
+                                         @bind-Value="_account.AnnualInterestRate"
+                                         Variant="Variant.Outlined"
+                                         Min="0m" Max="200m"
+                                         Format="N2"
+                                         Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                         Class="mb-4"
+                                         Adornment="Adornment.End"
+                                         AdornmentText="%"
+                                         Placeholder="e.g. 42.50"
+                                         HelperText="Annual interest rate charged when not paid in full" />
                     }
+
+                    <!-- Bank & Card Details -->
+                    <MudTextField Label="Bank Name (optional)"
+                                  @bind-Value="_account.BankName"
+                                  For="@(() => _account.BankName)"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-4"
+                                  Placeholder="e.g., BAC Credomatic, Banco Cuscatlán" />
+
+                    <MudTextField Label="Card Display Name (optional)"
+                                  @bind-Value="_account.CardDisplayName"
+                                  For="@(() => _account.CardDisplayName)"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-4"
+                                  HelperText="Friendly name used in reports, e.g. BAC AMEX LifeMiles Avianca Black"
+                                  Placeholder="e.g., BAC AMEX LifeMiles" />
 
                     <!-- Color Picker -->
                     <ColorPicker @bind-SelectedColor="_account.Color"
@@ -108,6 +154,12 @@
                     <IconPicker TIcon="AccountIcon"
                                 @bind-SelectedIcon="_account.Icon"
                                 Label="Icon" />
+
+                    <!-- Net Worth toggle -->
+                    <MudSwitch @bind-Value="_account.IncludeInNetWorth"
+                               Label="Include in net worth & balance"
+                               Color="Color.Primary"
+                               Class="mt-2" />
                 </MudForm>
             </MudContainer>
         }

@@ -24,6 +24,21 @@
 
             public static string AccountsPanel(string userKey)
                 => $"mt:{userKey}:panels:accounts:is_open";
+
+            public static string Categories(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:categories";
+
+            public static string MonthlyReport(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:reports:monthly";
+
+            public static string RangeReport(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:reports:range";
+
+            public static string CreditCalendar(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:credit:calendar:filter";
+
+            public static string RecurringTransactions(string? userKey)
+                => $"{Prefix}:{NormalizeUserKey(userKey)}:recurring:filter";
         }
     }
 }

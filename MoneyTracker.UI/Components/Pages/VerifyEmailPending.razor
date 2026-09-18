@@ -2,48 +2,45 @@
 @attribute [AllowAnonymous]
 @layout Layout.AuthLayout
 
-<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-12">
-    <MudPaper Class="pa-6">
-        <MudText Typo="Typo.h5" Class="mb-2">Verify your email</MudText>
-        <MudText Typo="Typo.body2" Class="mb-3">
-            Your account exists but email confirmation is still pending.
-        </MudText>
+<MudText Typo="Typo.h5" Align="Align.Center" Class="font-weight-bold">Verify your email</MudText>
+<MudText Typo="Typo.body2" Align="Align.Center" Class="mb-3">
+    Your account exists but email confirmation is still pending.
+</MudText>
 
-        @if (!string.IsNullOrWhiteSpace(Info))
-        {
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@Info</MudAlert>
-        }
+@if (!string.IsNullOrWhiteSpace(Info))
+{
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">@Info</MudAlert>
+}
 
-        @if (!string.IsNullOrWhiteSpace(Error))
-        {
-            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@Error</MudAlert>
-        }
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@Error</MudAlert>
+}
 
-        <form method="post" action="/auth/resend-confirmation">
-            <AntiforgeryToken />
-            <MudTextField @bind-Value="_email"
-                          Label="Email"
-                          Variant="Variant.Outlined"
-                          Immediate="true" />
-            <input type="hidden" name="email" value="@_email" />
-            <MudButton ButtonType="ButtonType.Submit"
-                       Color="Color.Primary"
-                       Variant="Variant.Filled"
-                       FullWidth="true"
-                       Class="mt-4">
-                Resend confirmation email
-            </MudButton>
-        </form>
+<form method="post" action="/auth/resend-confirmation">
+    <AntiforgeryToken />
+    <MudTextField @bind-Value="_email"
+                  Label="Email"
+                  Variant="Variant.Outlined"
+                  Immediate="true"
+                  FullWidth="true" />
+    <input type="hidden" name="email" value="@_email" />
+    <MudButton ButtonType="ButtonType.Submit"
+               Color="Color.Primary"
+               Variant="Variant.Filled"
+               FullWidth="true"
+               Class="mt-4">
+        Resend confirmation email
+    </MudButton>
+</form>
 
-        <MudButton Href="/login"
-                   Color="Color.Secondary"
-                   Variant="Variant.Text"
-                   FullWidth="true"
-                   Class="mt-2">
-            Back to sign in
-        </MudButton>
-    </MudPaper>
-</MudContainer>
+<MudButton Href="/login"
+           Color="Color.Secondary"
+           Variant="Variant.Text"
+           FullWidth="true"
+           Class="mt-2">
+    Back to sign in
+</MudButton>
 
 @code {
     [SupplyParameterFromQuery] public string? Email { get; set; }

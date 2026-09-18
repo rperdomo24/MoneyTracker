@@ -3,13 +3,18 @@
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Components.Shared.Drawer
+@using MoneyTracker.UI.Components.Shared.GlobalSearch
+@using MoneyTracker.UI.Components.Shared.Notifications
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Components.Drawer
+@using MoneyTracker.UI.Services.Branding
 @inject ProtectedSessionStorage SessionStorage
 @inject AccountsDrawerState AccountsDrawer
 @inject IUserProfileService UserProfileService
 @inject IAccountService AccountService
+@inject IBrandingService BrandingService
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudDialogProvider />
@@ -20,21 +25,36 @@
     <!-- Top AppBar -->
     <MudAppBar Elevation="2" Color="Color.Default" Fixed="true">
 
-        <!-- Solo icono (SIN toggle) -->
+        <!-- Desktop drawer toggle -->
         <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudIcon Icon="@Icons.Material.Filled.Menu" Class="mr-2" />
+            <MudIconButton Icon="@(_desktopNavCollapsed ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)"
+                           Color="Color.Inherit"
+                           Class="mr-1"
+                           OnClick="ToggleDesktopNavAsync" />
         </MudHidden>
 
-        <MudIcon Icon="@Icons.Material.Filled.AttachMoney"
-                 Size="Size.Medium"
-                 Class="mr-2" />
-
-        <!-- App name (Desktop/Tablet only) -->
-        <MudHidden Breakpoint="Breakpoint.SmAndDown">
-            <MudText Typo="Typo.h6" Class="font-weight-bold">
-                Money Tracker
-            </MudText>
+        <!-- Mobile drawer toggle -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                           Color="Color.Inherit"
+                           Class="mr-1"
+                           OnClick="ToggleMobileNav" />
         </MudHidden>
+
+        <!-- Brand mark (Mobile) -->
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
+                      Alt="Money Tracker"
+                      Width="36"
+                      Height="36"
+                      Class="mr-2" />
+        </MudHidden>
+
+        <!-- Global Search -->
+        <MudIconButton Icon="@Icons.Material.Filled.Search"
+                       Color="Color.Inherit"
+                       OnClick="OpenGlobalSearch"
+                       title="Search (Ctrl+K)" />
 
         <MudSpacer />
 
@@ -72,23 +92,40 @@
                        OnClick="ToggleAccountsDrawer" />
 
         <!-- Notifications -->
-        <MudIconButton Icon="@Icons.Material.Filled.Notifications"
-                       Color="Color.Inherit"
-                       Class="mr-1"
-                       title="Notifications">
-            <MudBadge Content="3"
-                      Color="Color.Error"
-                      Overlap="true"
-                      Bordered="true">
-            </MudBadge>
-        </MudIconButton>
+        <NotificationsBell />
 
         <!-- User Menu -->
-        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
-                 Color="Color.Inherit"
+        <MudMenu Color="Color.Inherit"
                  Dense="true"
+                 @bind-Open="_profileMenuOpen"
                  AnchorOrigin="Origin.BottomRight"
                  TransformOrigin="Origin.TopRight">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           Class="text-none px-1"
+                           OnClick="OpenProfileMenu">
+                    <MudAvatar Size="Size.Small"
+                               Class="mr-2"
+                               Style="overflow: hidden; background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
+                        @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
+                        {
+                            <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
+                        }
+                    </MudAvatar>
+
+                    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                        <MudText Typo="Typo.body2" Class="mr-1">@UserDisplayName</MudText>
+                    </MudHidden>
+
+                    <MudIcon Icon="@(_profileMenuOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" Size="Size.Small" />
+                </MudButton>
+            </ActivatorContent>
+
             <ChildContent>
 
                 <MudMenuItem Icon="@DarkLightModeButtonIcon" OnClick="@DarkModeToggle">
@@ -125,32 +162,33 @@
 
     </MudAppBar>
 
-    <!-- LEFT DRAWER (Desktop/Tablet): SOLO ICONOS SIEMPRE -->
+    <!-- LEFT DRAWER (Desktop/Tablet): expanded menu -->
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
         <MudDrawer Open="true"
-                   Variant="DrawerVariant.Mini"
-                   MiniWidth="72px"
-                   Width="72px"
+                   Variant="DrawerVariant.Persistent"
+                   Width="@(_desktopNavCollapsed ? "88px" : "260px")"
                    ClipMode="DrawerClipMode.Always"
                    Elevation="2"
-                   Overlay="true"
-                   Class="drawer-custom">
+                   Overlay="false"
+                   Class="@DesktopDrawerClass">
 
-            <!-- Header mini -->
-            <div class="pa-3 d-flex align-center justify-center"
-                 style="min-height: 80px; border-bottom: 1px solid var(--mud-palette-divider);">
-                <MudAvatar Size="Size.Medium"
-                           @onclick="@OpenUserSettings"
-                           Style="cursor: pointer; overflow: hidden; background: linear-gradient(135deg, var(--mud-palette-primary), var(--mud-palette-secondary));">
-                    @if (!string.IsNullOrWhiteSpace(_userAvatarDataUrl))
-                    {
-                        <MudImage Src="@_userAvatarDataUrl" Alt="User avatar" />
-                    }
-                    else
-                    {
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Surface" />
-                    }
-                </MudAvatar>
+            <!-- Drawer header -->
+            <div class="pa-2 d-flex align-center justify-center"
+                 style="min-height: 72px; border-bottom: 1px solid var(--mud-palette-divider);">
+                @if (_desktopNavCollapsed)
+                {
+                    <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.IconLogo)"
+                              Alt="Money Tracker"
+                              Width="30"
+                              Height="30" />
+                }
+                else
+                {
+                    <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.HorizontalLogo, _isDarkMode)"
+                              Alt="Money Tracker"
+                              Width="140"
+                              Height="36" />
+                }
             </div>
 
             <!-- Navigation Menu -->
@@ -167,9 +205,31 @@
         </MudDrawer>
     </MudHidden>
 
+    <!-- LEFT DRAWER (Mobile): temporary overlay with full nav menu -->
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudDrawer Anchor="Anchor.Start"
+                   Variant="DrawerVariant.Temporary"
+                   OverlayAutoClose="true"
+                   Elevation="6"
+                   Width="280px"
+                   @bind-Open="_mobileNavOpen">
+
+            <!-- Drawer header -->
+            <div class="pa-2 d-flex align-center justify-center"
+                 style="min-height: 72px; border-bottom: 1px solid var(--mud-palette-divider);">
+                <MudImage Src="@BrandingService.GetAssetPath(BrandingAsset.HorizontalLogo, _isDarkMode)"
+                          Alt="Money Tracker"
+                          Width="140"
+                          Height="36" />
+            </div>
+
+            <NavMenu />
+        </MudDrawer>
+    </MudHidden>
+
     <!-- MAIN CONTENT -->
     <MudMainContent Class="main-content-custom">
-        <MudContainer MaxWidth="MaxWidth.False" Class="pa-6">
+        <MudContainer MaxWidth="MaxWidth.False" Class="pa-1 pa-sm-6">
 
             @if (_showBreadcrumbs)
             {
@@ -188,7 +248,23 @@
 
             <div class="page-content">
                 <CascadingValue Name="IsDarkMode" Value="_isDarkMode">
-                    @Body
+                    <ErrorBoundary @ref="_errorBoundary">
+                        <ChildContent>
+                            @Body
+                        </ChildContent>
+                        <ErrorContent>
+                            <MudPaper Class="ma-4 pa-6" Elevation="1">
+                                <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                                    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" />
+                                    <MudText Typo="Typo.h6">Something went wrong</MudText>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">An unexpected error occurred on this page.</MudText>
+                                    <MudButton Variant="Variant.Outlined" OnClick="@(() => _errorBoundary?.Recover())">
+                                        Try again
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        </ErrorContent>
+                    </ErrorBoundary>
                 </CascadingValue>
             </div>
         </MudContainer>
@@ -336,17 +412,21 @@
         background: var(--mud-palette-surface);
     }
 
-    /* ✅ IMPORTANTE: ocultar texto del NavMenu para que quede SOLO ICONOS */
-    .mud-drawer .mud-nav-link-text,
-    .mud-drawer .mud-navmenu .mud-nav-link-text {
+    .drawer-collapsed .mud-nav-link-text,
+    .drawer-collapsed .mud-nav-group-text,
+    .drawer-collapsed .mud-nav-group-expand-icon {
         display: none !important;
     }
 
-    /* Centrar items (se ve más “rail”) */
-    .mud-drawer .mud-nav-link {
+    .drawer-collapsed .mud-nav-link,
+    .drawer-collapsed .mud-nav-group {
         justify-content: center;
         padding-left: 0 !important;
         padding-right: 0 !important;
+    }
+
+    .drawer-custom {
+        transition: width 0.2s ease;
     }
 
     .blazor-error-ui {
@@ -372,8 +452,13 @@
 @code {
     private const string SessionKey_IsDarkMode = "isDarkMode";
     private const string SessionKey_AccountsDrawerOpen = "accountsDrawerOpen";
+    private const string SessionKey_DesktopNavCollapsed = "desktopNavCollapsed";
 
+    private ErrorBoundary? _errorBoundary;
     private bool _isDarkMode = true;
+    private bool _desktopNavCollapsed;
+    private bool _mobileNavOpen;
+    private bool _profileMenuOpen;
     private bool _showQuickBalance = true;
     private bool _quickBalanceLoaded;
     private decimal _quickBalanceAmount;
@@ -389,6 +474,10 @@
         get => AccountsDrawer.IsOpen;
         set => _ = SetAccountsDrawerOpenAsync(value);
     }
+
+    private string DesktopDrawerClass => _desktopNavCollapsed
+        ? "drawer-custom drawer-collapsed"
+        : "drawer-custom drawer-expanded";
 
     protected override void OnInitialized()
     {
@@ -414,12 +503,29 @@
     private Task ToggleAccountsDrawer()
         => AccountsDrawer.ToggleAsync();
 
+    private async Task ToggleDesktopNavAsync()
+    {
+        _desktopNavCollapsed = !_desktopNavCollapsed;
+        await SaveDesktopNavStateAsync();
+    }
+
+    private void ToggleMobileNav()
+    {
+        _mobileNavOpen = !_mobileNavOpen;
+    }
+
     private async Task SetAccountsDrawerOpenAsync(bool open)
     {
         if (open)
             await AccountsDrawer.OpenAsync();
         else
             await AccountsDrawer.CloseAsync();
+    }
+
+    private Task OpenProfileMenu()
+    {
+        _profileMenuOpen = true;
+        return Task.CompletedTask;
     }
 
     public void Dispose()
@@ -440,6 +546,22 @@
         {
             PaletteLight = _lightPalette,
             PaletteDark = _darkPalette,
+            Typography = new Typography
+            {
+                Default = new DefaultTypography
+                {
+                    FontFamily = ["Poppins", "Segoe UI", "sans-serif"]
+                },
+                H1 = new H1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H2 = new H2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H3 = new H3Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H4 = new H4Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H5 = new H5Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                H6 = new H6Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Body1 = new Body1Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Body2 = new Body2Typography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] },
+                Button = new ButtonTypography { FontFamily = ["Poppins", "Segoe UI", "sans-serif"] }
+            },
             LayoutProperties = new LayoutProperties
             {
                 AppbarHeight = "80px"
@@ -468,6 +590,10 @@
                 if (drawerResult.Success)
                     await SetAccountsDrawerOpenAsync(drawerResult.Value);
 
+                var desktopNavResult = await SessionStorage.GetAsync<bool>(SessionKey_DesktopNavCollapsed);
+                if (desktopNavResult.Success)
+                    _desktopNavCollapsed = desktopNavResult.Value;
+
                 StateHasChanged();
             }
             catch (Exception ex)
@@ -486,6 +612,18 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error saving accounts drawer state: {ex.Message}");
+        }
+    }
+
+    private async Task SaveDesktopNavStateAsync()
+    {
+        try
+        {
+            await SessionStorage.SetAsync(SessionKey_DesktopNavCollapsed, _desktopNavCollapsed);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving desktop nav state: {ex.Message}");
         }
     }
 
@@ -520,13 +658,25 @@
         _userAvatarDataUrl = result.Data.AvatarDataUrl;
     }
 
+    private async Task OpenGlobalSearch()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            Position = DialogPosition.TopCenter
+        };
+        await DialogService.ShowAsync<GlobalSearchDialog>("Search", options);
+    }
+
     private async Task LoadQuickBalanceAsync()
     {
         try
         {
             var result = await AccountService.GetAccountsWithBalancesAsync();
             _quickBalanceAmount = (result.Success && result.Data is not null)
-                ? result.Data.Sum(a => a.CurrentBalance)
+                ? result.Data.Where(a => a.IncludeInNetWorth).Sum(a => a.CurrentBalance)
                 : 0m;
         }
         catch
@@ -550,55 +700,55 @@
         return version != null ? $"{version.Major}.{version.Minor}.{version.Build}" : "1.0.0";
     }
 
-    private readonly PaletteLight _lightPalette = new()
-    {
-        Primary = "#3b3c3d",
-        Secondary = "#71c4ef",
-        Background = "#fffefb",
-        Surface = "#f5f4f1",
-        AppbarBackground = "#f5f4f1",
-        AppbarText = "#1d1c1c",
-        DrawerBackground = "#fffefb",
-        DrawerText = "#1d1c1c",
-        DrawerIcon = "#3b3c3d",
-        TextPrimary = "#1d1c1c",
-        TextSecondary = "#313d44",
-        ActionDefault = "#3b3c3d",
-        ActionDisabled = "#b6ccd8",
-        ActionDisabledBackground = "#d4eaf7",
-        Info = "#00668c",
-        Success = "#1fab89",
-        Warning = "#f39c12",
-        Error = "#e74c3c",
-        TableLines = "#cccbc8",
-        LinesDefault = "#cccbc8",
-        Divider = "#cccbc8"
-    };
+   private readonly PaletteLight _lightPalette = new()
+{
+    Primary = "#2143B5",          // Azul Cobalto (Logo)
+    Secondary = "#2A364E",        // Gris Slate Oscuro (Hierarchy)
+    Background = "#F4F7F6",       // Gris ultra claro para profundidad
+    Surface = "#FFFFFF",          // Blanco puro para tarjetas
+    AppbarBackground = "#FFFFFF",
+    AppbarText = "#2A364E",
+    DrawerBackground = "#FFFFFF",
+    DrawerText = "#2A364E",
+    DrawerIcon = "#2143B5",
+    TextPrimary = "#2A364E",      // Legibilidad máxima
+    TextSecondary = "#607186",    // Gris medio para labels
+    ActionDefault = "#2143B5",
+    ActionDisabled = "#B6CCD8",
+    ActionDisabledBackground = "#E0E6E9",
+    Info = "#2143B5",
+    Success = "#2BD48A",          // Verde Esmeralda (Logo)
+    Warning = "#F39C12",
+    Error = "#EF5350",            // Rojo suave para gastos
+    TableLines = "#E0E0E0",
+    LinesDefault = "#E0E0E0",
+    Divider = "#E0E0E0"
+};
 
-    private readonly PaletteDark _darkPalette = new()
-    {
-        Primary = "#0085ff",
-        Secondary = "#006fff",
-        Background = "#1E1E1E",
-        Surface = "#2d2d2d",
-        AppbarBackground = "#2d2d2d",
-        AppbarText = "#FFFFFF",
-        DrawerBackground = "#1E1E1E",
-        DrawerText = "#FFFFFF",
-        DrawerIcon = "#69b4ff",
-        TextPrimary = "#FFFFFF",
-        TextSecondary = "#9e9e9e",
-        ActionDefault = "#0085ff",
-        ActionDisabled = "#454545",
-        ActionDisabledBackground = "#2d2d2d",
-        Info = "#1e40af",
-        Success = "#3dcb6c",
-        Warning = "#ffb545",
-        Error = "#ff3f5f",
-        TableLines = "#454545",
-        LinesDefault = "#454545",
-        Divider = "#454545"
-    };
+   private readonly PaletteDark _darkPalette = new()
+{
+    Primary = "#2BD48A",          // Invertimos a Verde para resaltar en negro
+    Secondary = "#94A3B8",        // Gris azulado claro
+    Background = "#0D1117",       // Negro profundo estilo GitHub
+    Surface = "#161B22",          // Gris oscuro para tarjetas
+    AppbarBackground = "#161B22",
+    AppbarText = "#F4F7F6",
+    DrawerBackground = "#0D1117",
+    DrawerText = "#F4F7F6",
+    DrawerIcon = "#2BD48A",
+    TextPrimary = "#F4F7F6",
+    TextSecondary = "#94A3B8",
+    ActionDefault = "#2BD48A",
+    ActionDisabled = "#30363D",
+    ActionDisabledBackground = "#161B22",
+    Info = "#2143B5",
+    Success = "#2BD48A",
+    Warning = "#FFB545",
+    Error = "#FF3F5F",
+    TableLines = "#30363D",
+    LinesDefault = "#30363D",
+    Divider = "#30363D"
+};
 
     public string DarkLightModeButtonIcon => _isDarkMode
         ? Icons.Material.Rounded.LightMode

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Interfaces;
@@ -7,12 +8,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 {
     public class CategoryRepository : ICategoryRepository
     {
-        private readonly MoneyTrackerDbContext _context;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<CategoryRepository> _logger;
 
-        public CategoryRepository(MoneyTrackerDbContext context, ILogger<CategoryRepository> logger)
+        public CategoryRepository(IServiceScopeFactory scopeFactory, ILogger<CategoryRepository> logger)
         {
-            _context = context;
+            _scopeFactory = scopeFactory;
             _logger = logger;
         }
 
@@ -20,7 +21,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Categories
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Categories
                     .AsNoTracking()
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
@@ -38,7 +42,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                IQueryable<Category> query = _context.Categories
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                IQueryable<Category> query = context.Categories
                     .AsNoTracking()
                     .Where(c => !c.IsDeleted);
 
@@ -69,7 +76,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Categories
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Categories
                     .Include(c => c.Children)
                     .OrderBy(c => c.Type)
                     .ThenBy(c => c.Name)
@@ -87,7 +97,10 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                return await _context.Categories
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Categories
                     .Include(c => c.Children)
                     .FirstOrDefaultAsync(c => c.Id == id);
             }
@@ -102,8 +115,11 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                _context.Categories.Add(category);
-                await _context.SaveChangesAsync();
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                context.Categories.Add(category);
+                await context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -116,8 +132,11 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                _context.Categories.Update(category);
-                await _context.SaveChangesAsync();
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                context.Categories.Update(category);
+                await context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -130,12 +149,53 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
         {
             try
             {
-                var entity = await _context.Categories.FindAsync(id);
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                var entity = await context.Categories.FindAsync(id);
                 if (entity is null)
                     return;
 
-                _context.Categories.Remove(entity);
-                await _context.SaveChangesAsync();
+                // Every transaction that belonged to this category moves to Uncategorized
+                // (matching Income/Expense) so it stays selectable/reviewable — it must never
+                // point at a now-hidden category.
+                var affectedTransactions = await context.Transaction
+                    .Where(t => t.CategoryId == id)
+                    .ToListAsync();
+
+                if (affectedTransactions.Count > 0)
+                {
+                    var uncategorizedCode = entity.Type == Domain.Enums.Category.CategoryTypeEnum.Income
+                        ? Domain.Const.SystemCategoryCodes.UncategorizedIncome
+                        : Domain.Const.SystemCategoryCodes.UncategorizedExpense;
+
+                    var uncategorizedId = await context.Categories
+                        .Where(c => c.IsSystem && c.SystemCategoryCode == uncategorizedCode)
+                        .Select(c => c.Id)
+                        .FirstOrDefaultAsync();
+
+                    if (uncategorizedId <= 0)
+                        throw new InvalidOperationException($"Uncategorized system category not found for code '{uncategorizedCode}'.");
+
+                    foreach (var t in affectedTransactions)
+                        t.CategoryId = uncategorizedId;
+                }
+
+                // Subcategories lose their parent (become top-level) instead of moving anywhere
+                // — the parent "no longer exists" once soft-deleted, so nothing should still
+                // claim to be its child.
+                var children = await context.Categories
+                    .Where(c => c.ParentId == id)
+                    .ToListAsync();
+                foreach (var child in children)
+                    child.ParentId = null;
+
+                // Soft delete only — the row keeps existing, so it never conflicts with the
+                // Transaction/Budget FKs and stays recoverable. Never hard-remove here.
+                entity.IsDeleted = true;
+                entity.DeletedAt = DateTime.UtcNow;
+
+                await context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -144,11 +204,182 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task<bool> HasBudgetsAsync(int categoryId)
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Budgets
+                    .AsNoTracking()
+                    .AnyAsync(b => b.CategoryId == categoryId && !b.IsDeleted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking budgets for category with ID {Id}.", categoryId);
+                return false;
+            }
+        }
+
+        public async Task<Dictionary<int, int>> GetTransactionCountsByCategoryAsync()
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Transaction
+                    .AsNoTracking()
+                    .Where(t => !t.IsDeleted)
+                    .GroupBy(t => t.CategoryId)
+                    .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.CategoryId, x => x.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting transaction counts by category.");
+                return new Dictionary<int, int>();
+            }
+        }
+
+        public async Task<HashSet<int>> GetUsedCategoryIdsAsync()
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                var transactionCategoryIds = await context.Transaction
+                    .AsNoTracking()
+                    .Where(t => !t.IsDeleted)
+                    .Select(t => t.CategoryId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var budgetCategoryIds = await context.Budgets
+                    .AsNoTracking()
+                    .Where(b => !b.IsDeleted)
+                    .Select(b => b.CategoryId)
+                    .Distinct()
+                    .ToListAsync();
+
+                return transactionCategoryIds.Concat(budgetCategoryIds).ToHashSet();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting used category IDs.");
+                return new HashSet<int>();
+            }
+        }
+
+        public async Task MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int> transactionIdsToMove, bool isFullMerge)
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                await using var transaction = await context.Database.BeginTransactionAsync();
+
+                if (transactionIdsToMove.Count > 0)
+                {
+                    await context.Transaction
+                        .Where(t => t.CategoryId == sourceId && transactionIdsToMove.Contains(t.Id))
+                        .ExecuteUpdateAsync(s => s.SetProperty(t => t.CategoryId, targetId));
+                }
+
+                // Only a FULL merge (every transaction moved, nothing left behind) consolidates
+                // budgets/subcategories into the target. A PARTIAL move — the user left some
+                // transactions unchecked — just reassigns those and leaves the source category
+                // (its budgets, subcategories, and remaining transactions) completely untouched.
+                // Neither case deletes the source category — that's a separate, explicit user
+                // action (the regular Delete flow), never an automatic side effect of merging.
+                if (!isFullMerge)
+                {
+                    await transaction.CommitAsync();
+                    return;
+                }
+
+                var activeSourceBudgets = await context.Budgets
+                    .Where(b => b.CategoryId == sourceId && !b.IsDeleted)
+                    .ToListAsync();
+
+                var targetBudgetKeys = await context.Budgets
+                    .Where(b => b.CategoryId == targetId && !b.IsDeleted)
+                    .Select(b => new { b.Year, b.Month })
+                    .ToListAsync();
+                var targetKeySet = targetBudgetKeys.Select(k => (k.Year, k.Month)).ToHashSet();
+
+                foreach (var budget in activeSourceBudgets)
+                {
+                    if (targetKeySet.Contains((budget.Year, budget.Month)))
+                    {
+                        // Same-month budget already exists on the target: (CategoryId, Year, Month)
+                        // is unique, so the source duplicate is soft-deleted instead of moved.
+                        // Never hard-delete.
+                        budget.IsDeleted = true;
+                        budget.DeletedAt = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        budget.CategoryId = targetId;
+                    }
+                }
+
+                await context.Categories
+                    .Where(c => c.ParentId == sourceId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.ParentId, (int?)targetId));
+
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error merging category {SourceId} into {TargetId}.", sourceId, targetId);
+                throw;
+            }
+        }
+
+        public async Task<List<(int Year, int Month, decimal Amount, bool WillBeDropped)>> GetBudgetMergePreviewAsync(int sourceId, int targetId)
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                var sourceBudgets = await context.Budgets
+                    .AsNoTracking()
+                    .Where(b => b.CategoryId == sourceId && !b.IsDeleted)
+                    .Select(b => new { b.Year, b.Month, b.Amount })
+                    .ToListAsync();
+
+                var targetKeySet = await context.Budgets
+                    .AsNoTracking()
+                    .Where(b => b.CategoryId == targetId && !b.IsDeleted)
+                    .Select(b => new { b.Year, b.Month })
+                    .ToListAsync();
+                var targetKeys = targetKeySet.Select(k => (k.Year, k.Month)).ToHashSet();
+
+                return sourceBudgets
+                    .Select(b => (b.Year, b.Month, b.Amount, WillBeDropped: targetKeys.Contains((b.Year, b.Month))))
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting budget merge preview for category {SourceId} into {TargetId}.", sourceId, targetId);
+                return new List<(int Year, int Month, decimal Amount, bool WillBeDropped)>();
+            }
+        }
+
         public async Task<bool> ExistsAsync(string name, int? excludeId = null)
         {
             try
             {
-                return await _context.Categories
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Categories
                     .AsNoTracking() // Performance para consultas de solo lectura
                     .AnyAsync(c => c.Name == name && (!excludeId.HasValue || c.Id != excludeId.Value));
             }

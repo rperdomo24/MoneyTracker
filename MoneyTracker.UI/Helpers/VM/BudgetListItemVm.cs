@@ -20,22 +20,41 @@ namespace MoneyTracker.UI.Helpers.VM
         public RolloverMode RolloverMode { get; set; }
         public decimal Amount { get; set; }
         public decimal Used { get; set; }
-        public decimal Remaining => Amount - Used;
+        public decimal DirectUsed { get; set; }
+        public int PaycheckView { get; set; }
+        public decimal EffectiveAmount => QuincenaAmount(PaycheckView);
+        public bool IsBudgetedInView => EffectiveAmount > 0;
+        public decimal Remaining => EffectiveAmount - Used;
         public bool HasBudget => Amount > 0;
-        public bool IsOverBudget => HasBudget && Remaining < 0;
-        public bool IsNearLimit => HasBudget && !IsOverBudget && ProgressPercent >= 80;
+        public bool IsOverBudget => IsBudgetedInView && Remaining < 0;
+        public bool IsNearLimit => IsBudgetedInView && !IsOverBudget && ProgressPercent >= 80;
         public bool IncludeChildren { get; set; }
         public bool RolloverEnabled { get; set; }
         public string CategoryColor { get; set; } = "#757575";
         public CategoryIcon CategoryIcon { get; set; } = CategoryIcon.AccountBalanceWallet;
         public int? ParentCategoryId { get; set; }
         public int ChildrenCount { get; set; }
+        public PaycheckPeriod PaycheckPeriod { get; set; } = PaycheckPeriod.Both;
+
+        public decimal QuincenaAmount(int view) => view switch
+        {
+            1 => PaycheckPeriod == PaycheckPeriod.SecondOnly ? 0m : Amount / (PaycheckPeriod == PaycheckPeriod.Both ? 2m : 1m),
+            2 => PaycheckPeriod == PaycheckPeriod.FirstOnly ? 0m : Amount / (PaycheckPeriod == PaycheckPeriod.Both ? 2m : 1m),
+            _ => Amount
+        };
+
+        public bool IsActiveInView(int view) => view switch
+        {
+            1 => PaycheckPeriod != PaycheckPeriod.SecondOnly,
+            2 => PaycheckPeriod != PaycheckPeriod.FirstOnly,
+            _ => true
+        };
 
         public BudgetHealthState HealthState
         {
             get
             {
-                if (!HasBudget) return BudgetHealthState.NoBudget;
+                if (!IsBudgetedInView) return BudgetHealthState.NoBudget;
                 if (IsOverBudget) return BudgetHealthState.OverBudget;
                 if (IsNearLimit) return BudgetHealthState.Warning;
                 return BudgetHealthState.Healthy;
@@ -46,10 +65,9 @@ namespace MoneyTracker.UI.Helpers.VM
         {
             get
             {
-                if (Amount <= 0) return 0;
-
-                var pct = (int)Math.Round((double)(Used / Amount) * 100d);
-                return Math.Clamp(pct, 0, 100);
+                if (EffectiveAmount <= 0) return 0;
+                var pct = (int)Math.Round((double)(Used / EffectiveAmount) * 100d);
+                return Math.Max(0, pct);
             }
         }
     }

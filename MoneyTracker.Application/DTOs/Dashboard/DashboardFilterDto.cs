@@ -9,6 +9,7 @@ namespace MoneyTracker.Application.DTOs.Dashboard
         public DateTime? ToDate { get; set; }
         public List<int> AccountIds { get; set; } = new();
         public DashboardTransactionFilter TransactionFilter { get; set; } = DashboardTransactionFilter.All;
+        public bool ExcludeTransfers { get; set; } = false;
     }
 
     public enum DashboardTransactionFilter

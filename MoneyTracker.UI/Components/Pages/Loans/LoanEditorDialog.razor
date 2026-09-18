@@ -1,0 +1,294 @@
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Loans
+@using PaymentFrequency = MoneyTracker.Domain.Enums.Loans.PaymentFrequency
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@(Loan is null ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">@(Loan is null ? "New Loan" : "Edit Loan")</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="pa-0">
+
+            <MudTextField Label="Contact Name"
+                          @bind-Value="_contactName"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          Immediate="true"
+                          Class="mb-4"
+                          Placeholder="Who borrowed the money?" />
+
+            <MudTextField Label="Description (optional)"
+                          @bind-Value="_description"
+                          Variant="Variant.Outlined"
+                          Class="mb-4"
+                          Placeholder="e.g., Personal loan, Car repair" />
+
+            <!-- Amount + Interest row -->
+            <MudGrid Spacing="2" Class="mb-0">
+                <MudItem xs="12" sm="7">
+                    <MudNumericField Label="Principal Amount"
+                                     @bind-Value="_principalAmount"
+                                     Variant="Variant.Outlined"
+                                     Min="0.01m"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                     Adornment="Adornment.Start"
+                                     AdornmentText="$" />
+                </MudItem>
+                <MudItem xs="12" sm="5">
+                    <MudNumericField Label="Interest Rate %"
+                                     @bind-Value="_interestRate"
+                                     Variant="Variant.Outlined"
+                                     Min="0m"
+                                     Max="100m"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                     Adornment="Adornment.End"
+                                     AdornmentText="%" />
+                </MudItem>
+            </MudGrid>
+
+            @if (_principalAmount > 0)
+            {
+                var interest = Math.Round(_principalAmount * _interestRate / 100, 2);
+                var total = _principalAmount + interest;
+                <MudText Typo="Typo.caption" Style="opacity:0.6;" Class="mb-4 mt-1">
+                    Interest: $@interest.ToString("N2") &nbsp;·&nbsp; <strong>Total owed: $@total.ToString("N2")</strong>
+                </MudText>
+            }
+            else
+            {
+                <div class="mb-4"></div>
+            }
+
+            <!-- Installment plan -->
+            <MudGrid Spacing="2" Class="mb-0">
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int?"
+                                     Label="# Installments (optional)"
+                                     @bind-Value="_numberOfInstallments"
+                                     Variant="Variant.Outlined"
+                                     Min="1"
+                                     Placeholder="e.g., 6" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker Label="First Payment Date"
+                                   @bind-Date="_firstPaymentDate"
+                                   Variant="Variant.Outlined"
+                                   Disabled="@(_numberOfInstallments is null or 0)"
+                                   Clearable="true" />
+                </MudItem>
+            </MudGrid>
+
+            @if (_numberOfInstallments is > 0)
+            {
+                <MudSelect T="PaymentFrequency?"
+                           Label="Payment Frequency"
+                           @bind-Value="_paymentFrequency"
+                           Variant="Variant.Outlined"
+                           Class="mb-0 mt-2">
+                    <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Monthly">Monthly</MudSelectItem>
+                    <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Biweekly">Biweekly (every 2 weeks)</MudSelectItem>
+                    <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Weekly">Weekly</MudSelectItem>
+                </MudSelect>
+            }
+
+            @if (_numberOfInstallments is > 0 && _principalAmount > 0)
+            {
+                var interest = Math.Round(_principalAmount * _interestRate / 100, 2);
+                var total = _principalAmount + interest;
+                var quota = Math.Round(total / _numberOfInstallments!.Value, 2);
+                var freqLabel = _paymentFrequency switch {
+                    PaymentFrequency.Weekly => "Weekly",
+                    PaymentFrequency.Biweekly => "Biweekly",
+                    _ => "Monthly"
+                };
+                <MudText Typo="Typo.caption" Style="opacity:0.6;" Class="mb-4 mt-1">
+                    @freqLabel quota: <strong>$@quota.ToString("N2")</strong>
+                </MudText>
+            }
+            else
+            {
+                <div class="mb-4"></div>
+            }
+
+            <MudDatePicker Label="Start Date"
+                           @bind-Date="_startDate"
+                           Variant="Variant.Outlined"
+                           Class="mb-4" />
+
+            <MudDatePicker Label="Due Date (optional)"
+                           @bind-Date="_dueDate"
+                           Variant="Variant.Outlined"
+                           Class="mb-4"
+                           Clearable="true"
+                           Placeholder="Overall repayment deadline" />
+
+            @if (Loan is not null)
+            {
+                <MudSelect T="LoanStatus"
+                           Label="Status"
+                           @bind-Value="_status"
+                           Variant="Variant.Outlined"
+                           Class="mb-4">
+                    <MudSelectItem Value="LoanStatus.Active">Active</MudSelectItem>
+                    <MudSelectItem Value="LoanStatus.PaidOff">Paid Off</MudSelectItem>
+                    <MudSelectItem Value="LoanStatus.Forgiven">Forgiven</MudSelectItem>
+                </MudSelect>
+            }
+
+            <MudTextField Label="Notes (optional)"
+                          @bind-Value="_notes"
+                          Variant="Variant.Outlined"
+                          Lines="3"
+                          Class="mb-2"
+                          Placeholder="Any additional notes" />
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Save"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@(_isSaving || string.IsNullOrWhiteSpace(_contactName))">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>@(Loan is null ? "Create" : "Save")</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public LoanDto? Loan { get; set; }
+    [Parameter] public ILoanService LoanService { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private string _contactName = string.Empty;
+    private string? _description;
+    private decimal _principalAmount;
+    private decimal _interestRate;
+    private int? _numberOfInstallments;
+    private DateTime? _firstPaymentDate;
+    private PaymentFrequency? _paymentFrequency = PaymentFrequency.Monthly;
+    private DateTime? _startDate = DateTime.Today;
+    private DateTime? _dueDate;
+    private LoanStatus _status = LoanStatus.Active;
+    private string? _notes;
+    private bool _isSaving;
+
+    protected override void OnInitialized()
+    {
+        if (Loan is not null)
+        {
+            _contactName = Loan.ContactName;
+            _description = Loan.Description;
+            _principalAmount = Loan.PrincipalAmount;
+            _interestRate = Loan.InterestRate;
+            _numberOfInstallments = Loan.NumberOfInstallments;
+            _firstPaymentDate = Loan.FirstPaymentDate;
+            _paymentFrequency = Loan.PaymentFrequency ?? PaymentFrequency.Monthly;
+            _startDate = Loan.StartDate;
+            _dueDate = Loan.DueDate;
+            _status = Loan.Status;
+            _notes = Loan.Notes;
+        }
+    }
+
+    private async Task Save()
+    {
+        if (string.IsNullOrWhiteSpace(_contactName)) return;
+        if (_principalAmount <= 0)
+        {
+            Snackbar.Add("Amount must be greater than 0.", Severity.Warning);
+            return;
+        }
+        if (_numberOfInstallments is > 0 && _firstPaymentDate is null)
+        {
+            Snackbar.Add("First payment date is required when installments are set.", Severity.Warning);
+            return;
+        }
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (Loan is null)
+            {
+                var createDto = new CreateLoanDto
+                {
+                    ContactName = _contactName,
+                    Description = _description,
+                    PrincipalAmount = _principalAmount,
+                    InterestRate = _interestRate,
+                    NumberOfInstallments = _numberOfInstallments,
+                    FirstPaymentDate = _firstPaymentDate,
+                    PaymentFrequency = _numberOfInstallments is > 0 ? _paymentFrequency : null,
+                    StartDate = _startDate ?? DateTime.Today,
+                    DueDate = _dueDate,
+                    Notes = _notes
+                };
+                var result = await LoanService.CreateAsync(createDto);
+                if (result.Success)
+                {
+                    Snackbar.Add(result.Message ?? "Saved.", Severity.Success);
+                    await OnSaved.InvokeAsync();
+                    MudDialog.Close(DialogResult.Ok(true));
+                }
+                else Snackbar.Add(result.Message ?? "Failed to save.", Severity.Error);
+            }
+            else
+            {
+                var editDto = new LoanDto
+                {
+                    Id = Loan.Id,
+                    ContactName = _contactName,
+                    Description = _description,
+                    PrincipalAmount = _principalAmount,
+                    InterestRate = _interestRate,
+                    NumberOfInstallments = _numberOfInstallments,
+                    FirstPaymentDate = _firstPaymentDate,
+                    PaymentFrequency = _numberOfInstallments is > 0 ? _paymentFrequency : null,
+                    StartDate = _startDate ?? DateTime.Today,
+                    DueDate = _dueDate,
+                    Status = _status,
+                    Notes = _notes
+                };
+                var result = await LoanService.UpdateAsync(editDto);
+                if (result.Success)
+                {
+                    Snackbar.Add(result.Message ?? "Saved.", Severity.Success);
+                    await OnSaved.InvokeAsync();
+                    MudDialog.Close(DialogResult.Ok(true));
+                }
+                else Snackbar.Add(result.Message ?? "Failed to save.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

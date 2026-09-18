@@ -1,31 +1,56 @@
-﻿@if (SelectedCount > 0)
+@using MoneyTracker.UI.Helpers
+
+@if (SelectedCount > 0)
 {
     <MudPaper Elevation="8"
               Class="pa-3"
-              Style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1300; min-width: 300px;">
+              Style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1300; min-width: 340px;">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIconButton Icon="@Icons.Material.Filled.Close"
                                Size="Size.Small"
                                OnClick="OnClearSelection" />
-                <MudText Typo="Typo.body1" Class="font-weight-bold">
-                    @SelectedCount selected
-                </MudText>
+                <div>
+                    <MudText Typo="Typo.body1" Class="font-weight-bold">
+                        @SelectedCount selected
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="@GetSumClass()">
+                        @CurrencyHelper.FormatCurrency(Math.Abs(SelectedSum)) @(SelectedSum >= 0 ? "income" : "expense")
+                    </MudText>
+                </div>
             </MudStack>
 
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Error"
-                       StartIcon="@Icons.Material.Filled.Delete"
-                       Size="Size.Small"
-                       OnClick="OnDeleteSelected">
-                Delete
-            </MudButton>
+            <MudStack Row="true" Spacing="1">
+                @if (OnPrintSelected.HasDelegate)
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.Print"
+                               Size="Size.Small"
+                               OnClick="OnPrintSelected">
+                        Print
+                    </MudButton>
+                }
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.Delete"
+                           Size="Size.Small"
+                           OnClick="OnDeleteSelected">
+                    Delete
+                </MudButton>
+            </MudStack>
         </MudStack>
     </MudPaper>
 }
 
 @code {
     [Parameter] public int SelectedCount { get; set; }
+    [Parameter] public decimal SelectedSum { get; set; }
     [Parameter] public EventCallback OnClearSelection { get; set; }
     [Parameter] public EventCallback OnDeleteSelected { get; set; }
+    [Parameter] public EventCallback OnPrintSelected { get; set; }
+
+    private string GetSumClass()
+        => SelectedSum >= 0 ? "mud-success-text" : "mud-error-text";
 }

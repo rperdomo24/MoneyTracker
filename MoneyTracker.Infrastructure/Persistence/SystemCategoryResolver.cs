@@ -34,6 +34,9 @@ namespace MoneyTracker.Infrastructure.Persistence
             return (fromId, toId, transferTypeName);
         }
 
+        public Task<int> GetUncategorizedCategoryIdAsync(bool isIncome, CancellationToken cancellationToken = default)
+            => GetIdByCodeAsync(SystemCategoryCodes.GetUncategorizedCode(isIncome), cancellationToken);
+
         private async Task<int> GetIdByCodeAsync(string systemCategoryCode, CancellationToken cancellationToken)
         {
             var categoryId = await _dbContext.Categories

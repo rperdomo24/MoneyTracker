@@ -1,0 +1,202 @@
+@using MoneyTracker.Application.DTOs.Search
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject IGlobalSearchService SearchService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<MudDialog Style="min-width: min(600px, 95vw);">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Search" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Global Search</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudTextField @ref="_inputRef"
+                      @bind-Value="_query"
+                      Placeholder="Search transactions, accounts, categories..."
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true"
+                      DebounceInterval="300"
+                      OnDebounceIntervalElapsed="OnQueryChanged"
+                      Clearable="true"
+                      AutoFocus="true"
+                      Class="mb-2" />
+
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-4">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            </MudStack>
+        }
+        else if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">@_error</MudAlert>
+        }
+        else if (_result is not null && !_result.HasResults)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-4" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">No results for "@_query"</MudText>
+            </MudStack>
+        }
+        else if (_result is not null && _result.HasResults)
+        {
+            <MudList T="string" Dense="true" Class="pa-0">
+
+                @if (_result.Transactions.Count > 0)
+                {
+                    <MudListSubheader>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Style="font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Transactions</MudText>
+                        </MudStack>
+                    </MudListSubheader>
+
+                    @foreach (var t in _result.Transactions)
+                    {
+                        <MudListItem T="string" OnClick="@(() => GoTo($"/accounts/{t.AccountId}"))" Class="cursor-pointer rounded-lg mb-1" Style="border:1px solid var(--mud-palette-divider);">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@t.Name</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @t.AccountName &bull; @t.Date.ToString("MMM d, yyyy")
+                                        @if (t.CategoryName is not null) { <span> &bull; @t.CategoryName</span> }
+                                    </MudText>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(t.Amount)" Style="font-weight:600;white-space:nowrap;">
+                                    @CurrencyHelper.FormatCurrency(t.Amount)
+                                </MudText>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                }
+
+                @if (_result.Accounts.Count > 0)
+                {
+                    <MudListSubheader Class="mt-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Style="font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Accounts</MudText>
+                        </MudStack>
+                    </MudListSubheader>
+
+                    @foreach (var a in _result.Accounts)
+                    {
+                        <MudListItem T="string" OnClick="@(() => GoTo("/accounts"))" Class="cursor-pointer rounded-lg mb-1" Style="border:1px solid var(--mud-palette-divider);">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@a.Name</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @a.Type.ToLabel()
+                                        @if (!string.IsNullOrWhiteSpace(a.BankName)) { <span> &bull; @a.BankName</span> }
+                                    </MudText>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Class="@CurrencyHelper.GetAmountClass(a.Balance)" Style="font-weight:600;white-space:nowrap;">
+                                    @CurrencyHelper.FormatCurrency(a.Balance)
+                                </MudText>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                }
+
+                @if (_result.Categories.Count > 0)
+                {
+                    <MudListSubheader Class="mt-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.Category" Size="Size.Small" />
+                            <MudText Typo="Typo.caption" Style="font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Categories</MudText>
+                        </MudStack>
+                    </MudListSubheader>
+
+                    @foreach (var c in _result.Categories)
+                    {
+                        <MudListItem T="string" OnClick="@(() => GoTo("/categories"))" Class="cursor-pointer rounded-lg mb-1" Style="border:1px solid var(--mud-palette-divider);">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                @if (!string.IsNullOrWhiteSpace(c.Icon))
+                                {
+                                    <MudIcon Icon="@c.Icon" Size="Size.Small" Color="Color.Primary" />
+                                }
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@c.Name</MudText>
+                                    @if (c.ParentId is not null)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Subcategory</MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        </MudListItem>
+                    }
+                }
+
+            </MudList>
+        }
+        else if (string.IsNullOrWhiteSpace(_query))
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="pa-2">
+                Search across transactions, accounts, and categories.
+            </MudText>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Close">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private MudTextField<string>? _inputRef;
+    private string _query = string.Empty;
+    private GlobalSearchResultDto? _result;
+    private bool _loading;
+    private string? _error;
+
+    private async Task OnQueryChanged(string value)
+    {
+        _query = value;
+        _result = null;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length < 2)
+        {
+            StateHasChanged();
+            return;
+        }
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await SearchService.SearchAsync(value);
+            _result = result.Success ? result.Data : null;
+            _error = result.Success ? null : result.Message;
+        }
+        catch (Exception ex)
+        {
+            _error = "Search error — check app logs.";
+            Console.Error.WriteLine($"[GlobalSearch] {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoTo(string path)
+    {
+        MudDialog.Close();
+        Navigation.NavigateTo(path);
+    }
+
+    private void Close() => MudDialog.Close();
+
+    public void Dispose() { }
+}

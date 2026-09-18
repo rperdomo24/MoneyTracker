@@ -3,13 +3,13 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
-@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 
 <MudOverlay Visible="@IsOpen" LockScroll="true" DarkBackground="true" AutoClose="false" />
 
-<MudDrawer @bind-Open="@IsOpen"
+<MudDrawer Open="@IsOpen"
+           OpenChanged="OnDrawerOpenChanged"
            Anchor="Anchor.Right"
            Elevation="2"
            Variant="@DrawerVariant.Temporary"
@@ -127,46 +127,73 @@
                 }
 
                 <!-- Transaction Type -->
-                <MudSelect T="CategoryTypeEnum?"
+                <MudSelect T="CategoryTypeEnum"
                            Label="Transaction Type"
-                           @bind-Value="_tempFilter.Type"
-                           @bind-Value:after="OnTypeChanged"
+                           MultiSelection="true"
+                           @bind-SelectedValues="_tempSelectedTypes"
+                           @bind-SelectedValues:after="OnTypesChanged"
                            Variant="Variant.Outlined"
                            Clearable="true"
-                           AnchorOrigin="Origin.BottomCenter">
-                    <MudSelectItem Value="@((CategoryTypeEnum?)null)">
+                           AnchorOrigin="Origin.BottomCenter"
+                           MultiSelectionTextFunc="GetTypesText">
+                    <MudSelectItem Value="CategoryTypeEnum.Income">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Clear" Size="Size.Small" />
-                            <MudText>All Types</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Income)">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp"
-                                     Size="Size.Small"
-                                     Color="Color.Success" />
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" Color="Color.Success" />
                             <MudText>Income</MudText>
                         </MudStack>
                     </MudSelectItem>
-                    <MudSelectItem Value="@((CategoryTypeEnum?)CategoryTypeEnum.Expense)">
+                    <MudSelectItem Value="CategoryTypeEnum.Expense">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown"
-                                     Size="Size.Small"
-                                     Color="Color.Error" />
+                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Size="Size.Small" Color="Color.Error" />
                             <MudText>Expense</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                    <MudSelectItem Value="CategoryTypeEnum.Transfer">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Color="Color.Info" />
+                            <MudText>Transfer</MudText>
                         </MudStack>
                     </MudSelectItem>
                 </MudSelect>
 
-                <!-- Category (CategorySelector: type-to-search like Add Transaction) -->
-                <CategorySelector @bind-SelectedCategory="_selectedCategory"
-                                  Categories="@(_categories ?? new())"
-                                  FilterByType="@(_tempFilter.Type ?? CategoryTypeEnum.Expense)"
-                                  Label="Category"
-                                  Required="false"
-                                  Clearable="true"
-                                  ShowAddButton="false"
-                                  Disabled="@(!_tempFilter.Type.HasValue)" />
+                <!-- Category -->
+                <MudTextField @bind-Value="_categorySearch"
+                              Label="Category"
+                              Placeholder="Search categories..."
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Disabled="@IsTransferOnlyFilter()"
+                              Immediate="true"
+                              Clearable="true"
+                              Class="mb-1" />
+                @{
+                    var filteredCats = GetFilteredCategories().ToList();
+                }
+                @if (filteredCats.Any())
+                {
+                    <MudPaper Outlined="true" Style="max-height: 220px; overflow-y: auto;">
+                        @foreach (var cat in filteredCats)
+                        {
+                            <MudCheckBox T="bool"
+                                         Value="@_selectedCategoryIds.Contains(cat.Id)"
+                                         ValueChanged="@((bool _) => ToggleCategory(cat.Id))"
+                                         Dense="true"
+                                         Class="w-100 px-2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Small" Style="@($"background-color: {cat.Color}; width: 24px; height: 24px;")">
+                                        <MudIcon Icon="@cat.Icon.ToIcon()" Color="Color.Surface" Size="Size.Small" />
+                                    </MudAvatar>
+                                    <MudText Typo="Typo.body2">@cat.Name</MudText>
+                                </MudStack>
+                            </MudCheckBox>
+                        }
+                    </MudPaper>
+                }
+                @if (_selectedCategoryIds.Any())
+                {
+                    <MudText Typo="Typo.caption" Class="mt-1 mud-text-secondary">@_selectedCategoryIds.Count selected</MudText>
+                }
 
                 @if (HasActiveFilters())
                 {
@@ -218,19 +245,9 @@
     private List<CategoryDto>? _categories;
     private bool _loadingCategories = true;
 
-    // ✅ Bridge between CategorySelector (object) and Filter (CategoryId int?)
-    private CategoryDto? _selectedCategory
-    {
-        get
-        {
-            if (!_tempFilter.CategoryId.HasValue) return null;
-            return _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
-        }
-        set
-        {
-            _tempFilter.CategoryId = value?.Id;
-        }
-    }
+    private IReadOnlyCollection<CategoryTypeEnum> _tempSelectedTypes = Array.Empty<CategoryTypeEnum>();
+    private List<int> _selectedCategoryIds = new();
+    private string _categorySearch = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -254,19 +271,13 @@
             TimePeriod = Filter.TimePeriod,
             FromDate = Filter.FromDate,
             ToDate = Filter.ToDate,
-            Type = Filter.Type,
-            CategoryId = Filter.CategoryId,
+            Types = Filter.Types?.ToList() ?? new(),
+            CategoryIds = Filter.CategoryIds?.ToList() ?? new(),
             AccountIds = new List<int> { AccountId }
         };
 
-        // If category exists but type is null, keep it as-is (it will show once type selected)
-        // If type exists, ensure selected category matches the type
-        if (_tempFilter.CategoryId.HasValue && _tempFilter.Type.HasValue)
-        {
-            var cat = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
-            if (cat != null && cat.Type != _tempFilter.Type.Value)
-                _tempFilter.CategoryId = null;
-        }
+        _tempSelectedTypes = _tempFilter.Types.ToArray();
+        _selectedCategoryIds = _tempFilter.CategoryIds.ToList();
     }
 
     private async Task LoadCategories()
@@ -299,19 +310,47 @@
         }
     }
 
-    private void OnTypeChanged()
+    private void OnTypesChanged()
     {
-        // When type changes, clear category if it doesn't belong to that type
-        if (_tempFilter.CategoryId.HasValue && _tempFilter.Type.HasValue)
+        _tempFilter.Types = _tempSelectedTypes.ToList();
+        if (_tempFilter.CategoryIds?.Any() == true && _tempFilter.Types.Any())
         {
-            var selected = _categories?.FirstOrDefault(c => c.Id == _tempFilter.CategoryId.Value);
-            if (selected != null && selected.Type != _tempFilter.Type.Value)
-                _tempFilter.CategoryId = null;
+            var validIds = GetFilteredCategories().Select(c => c.Id).ToHashSet();
+            _tempFilter.CategoryIds = _tempFilter.CategoryIds.Where(id => validIds.Contains(id)).ToList();
+            _selectedCategoryIds = _tempFilter.CategoryIds.ToList();
         }
+    }
 
-        // If user cleared type => also clear category
-        if (!_tempFilter.Type.HasValue)
-            _tempFilter.CategoryId = null;
+    private void ToggleCategory(int id)
+    {
+        if (_selectedCategoryIds.Contains(id))
+            _selectedCategoryIds.Remove(id);
+        else
+            _selectedCategoryIds.Add(id);
+        _tempFilter.CategoryIds = _selectedCategoryIds.ToList();
+    }
+
+    private bool IsTransferOnlyFilter()
+        => _tempSelectedTypes.Any() && _tempSelectedTypes.All(t => t == CategoryTypeEnum.Transfer);
+
+    private IEnumerable<CategoryDto> GetFilteredCategories()
+    {
+        if (_categories == null) return Enumerable.Empty<CategoryDto>();
+        var cats = _categories.Where(c => !c.IsSystem);
+        if (_tempSelectedTypes.Any(t => t != CategoryTypeEnum.Transfer))
+        {
+            var nonTransferTypes = _tempSelectedTypes.Where(t => t != CategoryTypeEnum.Transfer).ToList();
+            cats = cats.Where(c => nonTransferTypes.Contains(c.Type));
+        }
+        if (!string.IsNullOrWhiteSpace(_categorySearch))
+            cats = cats.Where(c => c.Name.Contains(_categorySearch, StringComparison.OrdinalIgnoreCase));
+        return cats;
+    }
+
+    private string? GetTypesText(IReadOnlyList<string?>? selected)
+    {
+        if (selected == null || selected.Count == 0) return "All types";
+        return string.Join(", ", _tempSelectedTypes.Select(t => t.ToString()));
     }
 
     private void OnTimePeriodChanged()
@@ -336,12 +375,15 @@
         {
             TimePeriod = TimePeriodFilter.Last30Days,
             AccountIds = new List<int> { AccountId },
-            Type = null,
-            CategoryId = null,
+            Types = new(),
+            CategoryIds = new(),
             SearchText = string.Empty,
             FromDate = null,
             ToDate = null
         };
+        _tempSelectedTypes = Array.Empty<CategoryTypeEnum>();
+        _selectedCategoryIds = new List<int>();
+        _categorySearch = string.Empty;
 
         await ApplyFilters();
     }
@@ -350,8 +392,8 @@
     {
         return _tempFilter.TimePeriod != TimePeriodFilter.Last30Days ||
                !string.IsNullOrWhiteSpace(_tempFilter.SearchText) ||
-               _tempFilter.Type.HasValue ||
-               _tempFilter.CategoryId.HasValue;
+               _tempFilter.Types?.Any() == true ||
+               _tempFilter.CategoryIds?.Any() == true;
     }
 
     private int GetActiveFiltersCount()
@@ -359,9 +401,14 @@
         int count = 0;
         if (_tempFilter.TimePeriod != TimePeriodFilter.Last30Days) count++;
         if (!string.IsNullOrWhiteSpace(_tempFilter.SearchText)) count++;
-        if (_tempFilter.Type.HasValue) count++;
-        if (_tempFilter.CategoryId.HasValue) count++;
+        if (_tempFilter.Types?.Any() == true) count++;
+        if (_tempFilter.CategoryIds?.Any() == true) count++;
         return count;
+    }
+
+    private async Task OnDrawerOpenChanged(bool isOpen)
+    {
+        if (!isOpen) await Close();
     }
 
     private async Task Close()

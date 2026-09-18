@@ -70,6 +70,15 @@ namespace MoneyTracker.Application.Services
 
                 if (existing == null)
                 {
+                    // Only block NEW budgets on parent categories — editing a pre-existing
+                    // (legacy) parent-category budget's amount is still allowed.
+                    var category = await _categoryRepository.GetByIdAsync(dto.CategoryId);
+                    if (category is null)
+                        return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                    if (category.Children.Any())
+                        return OperationResult<bool>.Fail(OperationMessages.BudgetOnParentCategory);
+
                     var entity = new Budget
                     {
                         CategoryId = dto.CategoryId,
@@ -79,6 +88,7 @@ namespace MoneyTracker.Application.Services
                         IncludeChildren = dto.IncludeChildren,
                         RolloverEnabled = dto.RolloverEnabled,
                         RolloverMode = dto.RolloverMode,
+                        PaycheckPeriod = dto.PaycheckPeriod,
                         CreatedAt = _timeZoneService.GetNowInUtc(),
                         UpdatedAt = _timeZoneService.GetNowInUtc(),
                         IsDeleted = false
@@ -93,6 +103,7 @@ namespace MoneyTracker.Application.Services
                     existing.IncludeChildren = dto.IncludeChildren;
                     existing.RolloverEnabled = dto.RolloverEnabled;
                     existing.RolloverMode = dto.RolloverMode;
+                    existing.PaycheckPeriod = dto.PaycheckPeriod;
                     existing.UpdatedAt = _timeZoneService.GetNowInUtc();
 
                     await _budgetRepository.UpdateAsync(existing);
@@ -120,14 +131,13 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<List<BudgetWithUsageDto>>> GetMonthlyWithUsageAsync(int year, int month)
+        public async Task<OperationResult<List<BudgetWithUsageDto>>> GetMonthlyWithUsageAsync(int year, int month, int halfMonth = 0)
         {
             try
             {
                 var budgets = await _budgetRepository.GetByMonthAsync(year, month);
 
-                var localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-                var localEnd = localStart.AddMonths(1).AddTicks(-1);
+                var (localStart, localEnd) = HalfMonthRangeHelper.GetLocalRange(year, month, halfMonth);
 
                 var fromUtc = _timeZoneService.ConvertToUtc(localStart);
                 var toUtc = _timeZoneService.ConvertToUtc(localEnd);
@@ -224,7 +234,8 @@ namespace MoneyTracker.Application.Services
                             RolloverMode = MoneyTracker.Domain.Enums.Budgets.RolloverMode.None
                         };
 
-                    usedByCategoryId.TryGetValue(cat.Id, out var used);
+                    usedByCategoryId.TryGetValue(cat.Id, out var directUsed);
+                    var used = directUsed;
                     if (hasBudget && b!.IncludeChildren)
                     {
                         foreach (var childId in GetDescendants(cat.Id))
@@ -238,7 +249,8 @@ namespace MoneyTracker.Application.Services
                     {
                         Budget = budgetDto,
                         Category = cat.MapToDto(),
-                        Used = used
+                        Used = used,
+                        DirectUsed = directUsed
                     });
                 }
 
@@ -253,6 +265,46 @@ namespace MoneyTracker.Application.Services
             {
                 _logger.LogError(ex, OperationMessages.UnexpectedError);
                 return OperationResult<List<BudgetWithUsageDto>>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult<int>> CopyMonthAsync(int fromYear, int fromMonth, int toYear, int toMonth)
+        {
+            try
+            {
+                var budgets = await _budgetRepository.GetByMonthAsync(fromYear, fromMonth);
+                var active = budgets.Where(b => !b.IsDeleted).ToList();
+
+                int copied = 0;
+                foreach (var b in active)
+                {
+                    var existing = await _budgetRepository.GetByCategoryMonthAsync(b.CategoryId, toYear, toMonth);
+                    if (existing != null) continue;
+
+                    await _budgetRepository.AddAsync(new Budget
+                    {
+                        CategoryId = b.CategoryId,
+                        Year = toYear,
+                        Month = toMonth,
+                        Amount = b.Amount,
+                        IncludeChildren = b.IncludeChildren,
+                        RolloverEnabled = b.RolloverEnabled,
+                        RolloverMode = b.RolloverMode,
+                        PaycheckPeriod = b.PaycheckPeriod,
+                        CreatedAt = _timeZoneService.GetNowInUtc(),
+                        UpdatedAt = _timeZoneService.GetNowInUtc(),
+                        IsDeleted = false
+                    });
+                    copied++;
+                }
+
+                var toLabel = new DateTime(toYear, toMonth, 1).ToString("MMMM yyyy");
+                return OperationResult<int>.Ok(copied, $"{copied} budget(s) copied to {toLabel}.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<int>.Fail(OperationMessages.UnexpectedError);
             }
         }
     }

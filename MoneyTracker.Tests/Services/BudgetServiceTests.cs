@@ -128,6 +128,8 @@ namespace MoneyTracker.Tests.Services
             // Arrange: no existing budget for (category, year, month).
             _budgetRepo.Setup(x => x.GetByCategoryMonthAsync(1, 2025, 4))
                 .ReturnsAsync((Budget?)null);
+            _categoryRepo.Setup(x => x.GetByIdAsync(1))
+                .ReturnsAsync(new Domain.Entities.Category { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense });
 
             var dto = new BudgetDto
             {
@@ -158,6 +160,56 @@ namespace MoneyTracker.Tests.Services
                 b.UpdatedAt == nowUtc &&
                 b.IsDeleted == false)),
                 Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateOrUpdateAsync_NewBudgetOnParentCategory_ReturnsFail()
+        {
+            _budgetRepo.Setup(x => x.GetByCategoryMonthAsync(1, 2026, 3)).ReturnsAsync((Budget?)null);
+            _categoryRepo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Domain.Entities.Category
+            {
+                Id = 1,
+                Name = "Food",
+                Type = CategoryTypeEnum.Expense,
+                Children = new List<Domain.Entities.Category> { new() { Id = 2, Name = "Groceries" } }
+            });
+
+            var svc = CreateService();
+
+            var result = await svc.CreateOrUpdateAsync(new BudgetDto
+            {
+                CategoryId = 1,
+                Year = 2026,
+                Month = 3,
+                Amount = 100m
+            });
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.BudgetOnParentCategory);
+            _budgetRepo.Verify(x => x.AddAsync(It.IsAny<Budget>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateOrUpdateAsync_ExistingBudgetOnLegacyParentCategory_StillUpdates()
+        {
+            // Editing amount on a pre-existing budget must not be blocked even if
+            // its category now has children — the rule only stops NEW budgets.
+            var existing = new Budget { Id = 10, CategoryId = 1, Year = 2026, Month = 3, Amount = 100m };
+            _budgetRepo.Setup(x => x.GetByCategoryMonthAsync(1, 2026, 3)).ReturnsAsync(existing);
+
+            var svc = CreateService();
+
+            var result = await svc.CreateOrUpdateAsync(new BudgetDto
+            {
+                CategoryId = 1,
+                Year = 2026,
+                Month = 3,
+                Amount = 250m
+            });
+
+            result.Success.Should().BeTrue();
+            existing.Amount.Should().Be(250m);
+            _categoryRepo.Verify(x => x.GetByIdAsync(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
@@ -374,6 +426,114 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.UnexpectedError);
+        }
+
+        [Fact]
+        public async Task GetMonthlyWithUsageAsync_FirstHalf_ExcludesTransactionsFromSecondHalf()
+        {
+            var expense = new Domain.Entities.Category { Id = 60, Name = "Groceries", Type = CategoryTypeEnum.Expense };
+            _categoryRepo.Setup(c => c.GetAllAsync(true, true)).ReturnsAsync(new List<Domain.Entities.Category> { expense });
+            _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>());
+            _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+
+            DateTime? capturedFrom = null;
+            DateTime? capturedTo = null;
+            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
+                .Callback<DateTime?, DateTime?, List<int>, List<int>, bool>((from, to, _, _, _) =>
+                {
+                    capturedFrom = from;
+                    capturedTo = to;
+                })
+                .ReturnsAsync(new List<Domain.Entities.Transaction>
+                {
+                    new() { CategoryId = 60, Amount = -30m, IsDeleted = false }
+                });
+
+            var svc = CreateService();
+
+            var result = await svc.GetMonthlyWithUsageAsync(2026, 3, halfMonth: 1);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().ContainSingle();
+            result.Data![0].Used.Should().Be(30m, "transactions returned by the repository already belong to the requested half");
+            capturedFrom.Should().Be(new DateTime(2026, 3, 1, 0, 0, 0));
+            capturedTo.Should().Be(new DateTime(2026, 3, 15, 23, 59, 59));
+        }
+
+        [Fact]
+        public async Task GetMonthlyWithUsageAsync_SecondHalf_UsesRangeFrom16ToEndOfMonth()
+        {
+            var expense = new Domain.Entities.Category { Id = 61, Name = "Rent", Type = CategoryTypeEnum.Expense };
+            _categoryRepo.Setup(c => c.GetAllAsync(true, true)).ReturnsAsync(new List<Domain.Entities.Category> { expense });
+            _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>());
+            _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+
+            DateTime? capturedFrom = null;
+            DateTime? capturedTo = null;
+            _txRepo.Setup(t => t.GetFilteredAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
+                .Callback<DateTime?, DateTime?, List<int>, List<int>, bool>((from, to, _, _, _) =>
+                {
+                    capturedFrom = from;
+                    capturedTo = to;
+                })
+                .ReturnsAsync(new List<Domain.Entities.Transaction>());
+
+            var svc = CreateService();
+
+            await svc.GetMonthlyWithUsageAsync(2026, 3, halfMonth: 2);
+
+            capturedFrom.Should().Be(new DateTime(2026, 3, 16, 0, 0, 0));
+            capturedTo.Should().Be(new DateTime(2026, 3, 31, 23, 59, 59));
+        }
+
+        [Fact]
+        public async Task CopyMonthAsync_PreservesPaycheckPeriod()
+        {
+            _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>
+            {
+                new Budget
+                {
+                    Id = 1,
+                    CategoryId = 10,
+                    Year = 2026,
+                    Month = 3,
+                    Amount = 200m,
+                    PaycheckPeriod = PaycheckPeriod.FirstOnly,
+                    IsDeleted = false
+                }
+            });
+            _budgetRepo.Setup(b => b.GetByCategoryMonthAsync(10, 2026, 4)).ReturnsAsync((Budget?)null);
+            _tz.Setup(z => z.GetNowInUtc()).Returns(new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc));
+
+            var svc = CreateService();
+
+            var result = await svc.CopyMonthAsync(2026, 3, 2026, 4);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().Be(1);
+            _budgetRepo.Verify(x => x.AddAsync(It.Is<Budget>(b =>
+                b.CategoryId == 10 &&
+                b.PaycheckPeriod == PaycheckPeriod.FirstOnly)),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task CopyMonthAsync_WhenBudgetAlreadyExistsForTargetMonth_SkipsIt()
+        {
+            _budgetRepo.Setup(b => b.GetByMonthAsync(2026, 3, null)).ReturnsAsync(new List<Budget>
+            {
+                new Budget { Id = 1, CategoryId = 10, Year = 2026, Month = 3, Amount = 200m, IsDeleted = false }
+            });
+            _budgetRepo.Setup(b => b.GetByCategoryMonthAsync(10, 2026, 4))
+                .ReturnsAsync(new Budget { Id = 2, CategoryId = 10, Year = 2026, Month = 4, Amount = 200m });
+
+            var svc = CreateService();
+
+            var result = await svc.CopyMonthAsync(2026, 3, 2026, 4);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().Be(0);
+            _budgetRepo.Verify(x => x.AddAsync(It.IsAny<Budget>()), Times.Never);
         }
     }
 }

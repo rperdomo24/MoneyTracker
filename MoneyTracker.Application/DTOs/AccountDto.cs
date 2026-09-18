@@ -1,6 +1,5 @@
 ﻿using MoneyTracker.Domain.Enums.Account;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MoneyTracker.Application.DTOs
 {
@@ -25,6 +24,18 @@ namespace MoneyTracker.Application.DTOs
 
         public AccountType Type { get; set; }
 
+        [MaxLength(100)]
+        public string? BankName { get; set; }
+
+        [MaxLength(150)]
+        public string? CardDisplayName { get; set; }
+
+
+        public bool IncludeInNetWorth { get; set; } = true;
+
+        public int? CutDay { get; set; }
+        public int? PaymentDay { get; set; }
+        public decimal? AnnualInterestRate { get; set; }
 
         // View Model properties
         public decimal AvailableCredit => Type == AccountType.Credit
@@ -34,6 +45,5 @@ namespace MoneyTracker.Application.DTOs
         public bool IsOverLimit => Type == AccountType.Credit
             && Math.Abs(CurrentBalance) > CreditLimit;
 
-        public string FormattedBalance => CurrentBalance.ToString("C2");
     }
 }

@@ -93,22 +93,36 @@
                     <MudStack Spacing="1">
                         @foreach (var acc in section.OrderBy(a => a.Name))
                         {
-                            <MudButton Variant="Variant.Text"
-                                       Style="justify-content: space-between; width:100%; text-transform:none;"
-                                       OnClick="@(() => OpenViewAccount(acc.Id))">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                                      Style="@($"padding: 2px 0; opacity:{(acc.IncludeInNetWorth ? "1" : "0.55")};")">
 
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                    <MudAvatar Size="Size.Small" Style="@($"background:{acc.Color};")">
-                                        <MudIcon Icon="@acc.Icon.ToIcon()" Color="Color.Surface" />
-                                    </MudAvatar>
+                                <MudButton Variant="Variant.Text"
+                                           Style="justify-content: flex-start; text-transform:none; flex:1; min-width:0; padding: 4px 6px;"
+                                           OnClick="@(() => OpenViewAccount(acc.Id))">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudAvatar Size="Size.Small" Style="@($"background:{acc.Color}; flex-shrink:0;")">
+                                            <MudIcon Icon="@acc.Icon.ToIcon()" Color="Color.Surface" />
+                                        </MudAvatar>
+                                        <MudText Typo="Typo.body2" Style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                            @acc.Name
+                                        </MudText>
+                                    </MudStack>
+                                </MudButton>
 
-                                    <MudText Typo="Typo.body2" Class="text-nowrap">@acc.Name</MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0" Style="flex-shrink:0;">
+                                    <MudText Typo="Typo.body2" Class="@GetBalanceClass(acc.CurrentBalance)" Style="white-space:nowrap;">
+                                        @FormatMoney(acc.CurrentBalance)
+                                    </MudText>
+                                    <MudTooltip Text="@(acc.IncludeInNetWorth ? "Excluir del net worth" : "Incluir en net worth")">
+                                        <MudIconButton Icon="@(acc.IncludeInNetWorth ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                                       Size="Size.Small"
+                                                       Color="@(acc.IncludeInNetWorth ? Color.Default : Color.Error)"
+                                                       Style="padding: 2px;"
+                                                       OnClick="@(() => ToggleNetWorthAsync(acc))" />
+                                    </MudTooltip>
                                 </MudStack>
 
-                                <MudText Typo="Typo.body2" Class="@GetBalanceClass(acc.CurrentBalance)">
-                                    @FormatMoney(acc.CurrentBalance)
-                                </MudText>
-                            </MudButton>
+                            </MudStack>
                         }
                     </MudStack>
                 </MudPaper>
@@ -171,7 +185,7 @@
         {
             var result = await AccountService.GetAccountsWithBalancesAsync();
             _accounts = (result.Success && result.Data is not null) ? result.Data : new List<AccountDto>();
-            _netWorth = _accounts.Sum(a => a.CurrentBalance);
+            _netWorth = _accounts.Where(a => a.IncludeInNetWorth).Sum(a => a.CurrentBalance);
         }
         catch
         {
@@ -207,6 +221,17 @@
 
     private static bool IsDebt(AccountDto a)
         => a.Type is AccountType.Credit;
+
+    private async Task ToggleNetWorthAsync(AccountDto acc)
+    {
+        var result = await AccountService.ToggleNetWorthAsync(acc.Id);
+        if (result.Success)
+        {
+            acc.IncludeInNetWorth = result.Data;
+            _netWorth = _accounts.Where(a => a.IncludeInNetWorth).Sum(a => a.CurrentBalance);
+            StateHasChanged();
+        }
+    }
 
     private void OpenViewAccount(int accountId)
     {

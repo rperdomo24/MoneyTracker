@@ -12,6 +12,15 @@
         public const string AlreadyExists = "A record with the same name already exists.";
         public const string ValidationError = "Please fill out the form correctly.";
         public const string UpdateError = "An error occurred while updating the record.";
+        public const string CategoryHasBudgets = "This category has active budgets. Remove or reassign them before deleting it.";
+        public const string CategoryHasChildren = "This category has subcategories. Move or delete them before deleting it.";
+        public const string CategoryMergeSelf = "Cannot merge a category into itself.";
+        public const string CategoryMergeSystem = "System categories cannot be merged.";
+        public const string CategoryDeleteSystem = "System categories cannot be deleted.";
+        public const string CategoryMergeDifferentType = "Categories must be the same type to merge.";
+        public const string CategoryMerged = "Category merged successfully. Its transactions, budgets and subcategories were moved to the target category.";
+        public const string CategoryPartiallyMoved = "Selected transactions were moved. The source category was kept — it still has other transactions, budgets, or subcategories.";
+        public const string BudgetOnParentCategory = "Cannot create a budget directly on a category that has subcategories. Budget the subcategories individually instead.";
 
 
         public const string TransferCreated = "Transfer created successfully";

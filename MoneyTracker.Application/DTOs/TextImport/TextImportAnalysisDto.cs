@@ -4,5 +4,6 @@
     {
         public List<ParsedTransactionSuggestionDto> Items { get; set; } = new();
         public int TotalDetected => Items.Count;
+        public int AiTrainingDataId { get; set; }
     }
 }

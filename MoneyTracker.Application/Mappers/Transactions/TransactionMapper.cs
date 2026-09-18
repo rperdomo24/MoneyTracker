@@ -19,6 +19,8 @@ public static class TransactionMapper
             Description = entity.Description,
             AccountId = entity.AccountId,
             CategoryId = entity.CategoryId,
+            MerchantId = entity.MerchantId,
+            MerchantName = entity.Merchant?.Name,
             PaymentMethod = entity.PaymentMethod,
             Status = entity.Status,
             ScheduledDate = entity.ScheduledDate,
@@ -43,6 +45,7 @@ public static class TransactionMapper
             Description = dto.Description,
             AccountId = dto.AccountId,
             CategoryId = dto.CategoryId,
+            MerchantId = dto.MerchantId,
             PaymentMethod = dto.PaymentMethod,
             Status = dto.Status,
             ScheduledDate = dto.ScheduledDate,
@@ -60,8 +63,12 @@ public static class TransactionMapper
         entity.Date = timeZoneService.ConvertToUtc(dto.Date);
         entity.Amount = dto.GetSignedAmount();
         entity.Description = dto.Description;
+        entity.Category = null;
+        entity.Account = null;
+        entity.Merchant = null;
         entity.AccountId = dto.AccountId;
         entity.CategoryId = dto.CategoryId;
+        entity.MerchantId = dto.MerchantId;
         entity.PaymentMethod = dto.PaymentMethod;
         entity.Status = dto.Status;
         entity.ScheduledDate = dto.ScheduledDate;
@@ -85,6 +92,7 @@ public static class TransactionMapper
             Description = original.Description,
             CategoryId = original.CategoryId,
             AccountId = original.AccountId,
+            MerchantId = original.MerchantId,
             PaymentMethod = original.PaymentMethod,
             Status = TransactionStatus.Completed,
             IsSystemGenerated = false,

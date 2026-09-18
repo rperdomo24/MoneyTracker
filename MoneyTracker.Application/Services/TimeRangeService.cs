@@ -1,4 +1,5 @@
-﻿using MoneyTracker.Application.Interfaces;
+﻿using MoneyTracker.Application.Common;
+using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Enums.Filters;
 
 namespace MoneyTracker.Application.Services
@@ -48,9 +49,18 @@ namespace MoneyTracker.Application.Services
                 TimePeriodFilter.ThisMonth => GetMonthRangeUtc(userToday),
                 TimePeriodFilter.ThisYear => GetYearRangeUtc(userToday.Year),
 
+                TimePeriodFilter.Q1ThisMonth => GetHalfMonthRangeUtc(userToday.Year, userToday.Month, halfMonth: 1),
+                TimePeriodFilter.Q2ThisMonth => GetHalfMonthRangeUtc(userToday.Year, userToday.Month, halfMonth: 2),
+
                 TimePeriodFilter.AllTime => (null, null),
                 _ => (null, null)
             };
+        }
+
+        private (DateTime startDateUtc, DateTime endDateUtc) GetHalfMonthRangeUtc(int year, int month, int halfMonth)
+        {
+            var (localStart, localEnd) = HalfMonthRangeHelper.GetLocalRange(year, month, halfMonth);
+            return (_timeZoneService.ConvertToUtc(localStart), _timeZoneService.ConvertToUtc(localEnd));
         }
 
         private (DateTime startDateUtc, DateTime endDateUtc) GetMonthRangeUtc(DateTime monthDate)

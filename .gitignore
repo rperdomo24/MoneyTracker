@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# VS Code
+.vscode/
+
 # User-specific files
 *.rsuser
 *.suo
@@ -387,3 +390,7 @@ terraform/terraform.tfstate
 .env
 .env.*
 !.env.example
+
+# Local secrets
+appsettings.Development.json
+appsettings.*.json

@@ -17,6 +17,7 @@ namespace MoneyTracker.Domain.Entities
         public decimal Amount { get; set; }
 
         public bool IncludeChildren { get; set; } = true;
+        public PaycheckPeriod PaycheckPeriod { get; set; } = PaycheckPeriod.Both;
 
         public bool RolloverEnabled { get; set; } = false;
         public RolloverMode RolloverMode { get; set; } = RolloverMode.None;

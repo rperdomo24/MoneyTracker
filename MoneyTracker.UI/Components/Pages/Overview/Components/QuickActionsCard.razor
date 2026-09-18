@@ -1,4 +1,7 @@
 ﻿
+@using MoneyTracker.UI.Services.Branding
+@inject IBrandingService BrandingService
+
 <MudCard Class="dashboard-card">
     <MudCardContent>
         <MudStack Spacing="3">
@@ -122,7 +125,9 @@
 
     private void ExportData()
     {
-        // Export dashboard data
+        var pdfLogoPath = BrandingService.GetAssetPath(BrandingAsset.MonoLogo);
+        // QuestPDF example: page.Header().Image(pdfLogoPath);
+        Snackbar.Add($"PDF export branding ready: {pdfLogoPath}", Severity.Info);
     }
 
     private void HealthCheck()

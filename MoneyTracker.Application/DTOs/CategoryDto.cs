@@ -18,5 +18,8 @@ namespace MoneyTracker.Application.DTOs
 
         // View Model properties
         public bool IsExpanded { get; set; }
+        public bool IsUnused { get; set; }
+        public bool IsPossibleDuplicate { get; set; }
+        public int TransactionCount { get; set; }
     }
 }

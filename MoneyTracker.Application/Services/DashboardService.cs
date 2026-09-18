@@ -47,75 +47,6 @@ namespace MoneyTracker.Application.Services
             _errorLogService = errorLogService;
         }
 
-        public async Task<OperationResult<DashboardOverviewDto>> GetOverviewAsync(
-            DashboardFilterDto? filter = null,
-            int recentTransactionsCount = 10,
-            int balanceTrendMonths = 6)
-        {
-            try
-            {
-                _ = balanceTrendMonths;
-                filter ??= new DashboardFilterDto();
-                var now = _timeZoneService.ConvertFromUtc(DateTime.UtcNow);
-                var normalizedFilter = NormalizeOverviewFilter(filter, now);
-
-                var accountsResult = await _accountService.GetAccountsWithBalancesAsync();
-                if (!accountsResult.Success)
-                    return OperationResult<DashboardOverviewDto>.Fail(accountsResult.Message);
-                if (accountsResult.Data is null)
-                    return OperationResult<DashboardOverviewDto>.Fail("Accounts data is empty");
-
-                var accounts = accountsResult.Data;
-                var filteredAccounts = ApplyAccountFilter(accounts, filter.AccountIds);
-
-                var transactionsResult = await _transactionService.GetFilteredAsync(new TransactionFilterDto
-                {
-                    TimePeriod = normalizedFilter.TimePeriod,
-                    FromDate = normalizedFilter.FromDate,
-                    ToDate = normalizedFilter.ToDate,
-                    AccountIds = normalizedFilter.AccountIds,
-                    SkipSorting = true
-                });
-
-                if (!transactionsResult.Success)
-                    return OperationResult<DashboardOverviewDto>.Fail(transactionsResult.Message);
-                if (transactionsResult.Data is null)
-                    return OperationResult<DashboardOverviewDto>.Fail("Transactions data is empty");
-
-                var transactions = ApplyTransactionFilter(
-                    transactionsResult.Data.Transactions,
-                    normalizedFilter.TransactionFilter);
-
-                var netWorthTrend = await BuildBalanceTrendAsync(
-                    filteredAccounts,
-                    transactions,
-                    normalizedFilter,
-                    now);
-                var spendingTrend = BuildSpendingTrend(transactions, normalizedFilter, now);
-                var budgetSummary = await BuildBudgetSummaryAsync(now);
-
-                var overview = new DashboardOverviewDto
-                {
-                    Summary = BuildSummary(filteredAccounts),
-                    CashFlow = BuildCashFlow(transactions, now),
-                    BudgetSummary = budgetSummary,
-                    CategoryBreakdown = BuildCategoryBreakdown(transactions),
-                    RecentTransactions = BuildRecentTransactions(transactions, recentTransactionsCount, now),
-                    BalanceTrend = netWorthTrend,
-                    SpendingTrend = spendingTrend
-                };
-
-                return OperationResult<DashboardOverviewDto>.Ok(overview, "Dashboard overview retrieved successfully");
-            }
-            catch (Exception ex)
-            {
-                return await FailWithLoggedExceptionAsync<DashboardOverviewDto>(
-                    ex,
-                    OperationMessages.UnexpectedError,
-                    ServiceMessages.DashboardOverviewError);
-            }
-        }
-
         public async Task<OperationResult<DashboardWidgetsDto>> GetOverviewWidgetsAsync(
             DashboardFilterDto? filter = null,
             int recentTransactionsCount = 10)
@@ -282,8 +213,7 @@ namespace MoneyTracker.Application.Services
                     fromUtc,
                     toUtc,
                     normalizedFilter.AccountIds ?? new List<int>(),
-                    CategoryTypeEnum.Expense,
-                    top: 6);
+                    CategoryTypeEnum.Expense);
                 var breakdown = BuildCategoryBreakdown(aggregates);
                 return OperationResult<List<CategoryBreakdownDto>>.Ok(breakdown, "Category breakdown retrieved successfully");
             }
@@ -313,7 +243,7 @@ namespace MoneyTracker.Application.Services
                 {
                     DashboardTransactionFilter.Income => ((CategoryTypeEnum?)CategoryTypeEnum.Income, false),
                     DashboardTransactionFilter.Expense => ((CategoryTypeEnum?)CategoryTypeEnum.Expense, false),
-                    _ => ((CategoryTypeEnum?)null, true)
+                    _ => ((CategoryTypeEnum?)null, !normalizedFilter.ExcludeTransfers)
                 };
 
                 var recentEntries = await _transactionRepository.GetRecentDashboardEntriesAsync(
@@ -344,32 +274,7 @@ namespace MoneyTracker.Application.Services
                 if (!accountsResult.Success)
                     return OperationResult<DashboardSummaryDto>.Fail(accountsResult.Message);
 
-                var accounts = accountsResult.Data;
-
-                var assets = accounts
-                    .Where(a => a.Type != AccountType.Credit && a.CurrentBalance >= 0)
-                    .Sum(a => a.CurrentBalance);
-
-                var liabilities = Math.Abs(accounts
-                    .Where(a => a.Type == AccountType.Credit || a.CurrentBalance < 0)
-                    .Sum(a => Math.Min(a.CurrentBalance, 0)));
-
-                var netWorth = assets - liabilities;
-
-                // Simplified calculation - no recursive calls
-                var monthlyChange = 0m; // You can implement this separately later
-                var monthlyChangePercentage = 0m;
-
-                var summary = new DashboardSummaryDto
-                {
-                    TotalAssets = assets,
-                    TotalLiabilities = liabilities,
-                    NetWorth = netWorth,
-                    MonthlyChange = monthlyChange,
-                    MonthlyChangePercentage = monthlyChangePercentage,
-                    IsPositiveChange = monthlyChange >= 0,
-                    Last6MonthsNetWorth = new List<decimal>() // Empty for now
-                };
+                var summary = BuildSummary(accountsResult.Data ?? new List<AccountDto>());
 
                 return OperationResult<DashboardSummaryDto>.Ok(summary, "Dashboard summary retrieved successfully");
             }
@@ -437,8 +342,8 @@ namespace MoneyTracker.Application.Services
                         }
                     }
 
-                    // Low balance alerts for non-credit accounts
-                    if (account.Type != AccountType.Credit && account.CurrentBalance < 500 && account.CurrentBalance > 0)
+                    // Low balance alerts for checking/cash accounts only — savings accounts are excluded
+                    if (account.Type != AccountType.Credit && account.Type != AccountType.Savings && account.CurrentBalance < 500 && account.CurrentBalance > 0)
                     {
                         alerts.Add(new FinancialAlertDto
                         {
@@ -744,12 +649,14 @@ namespace MoneyTracker.Application.Services
 
         private DashboardSummaryDto BuildSummary(List<AccountDto> accounts)
         {
-            var assets = accounts
-                .Where(a => a.Type != AccountType.Credit && a.CurrentBalance >= 0)
+            var included = accounts.Where(a => a.IncludeInNetWorth).ToList();
+
+            var assets = included
+                .Where(a => a.CurrentBalance > 0)
                 .Sum(a => a.CurrentBalance);
 
-            var liabilities = Math.Abs(accounts
-                .Where(a => a.Type == AccountType.Credit || a.CurrentBalance < 0)
+            var liabilities = Math.Abs(included
+                .Where(a => a.CurrentBalance < 0)
                 .Sum(a => Math.Min(a.CurrentBalance, 0)));
 
             var netWorth = assets - liabilities;
@@ -972,7 +879,6 @@ namespace MoneyTracker.Application.Services
 
             return expenses
                 .Select(x => x.MapToCategoryBreakdown(totalExpenses))
-                .Take(6)
                 .ToList();
         }
 
@@ -1125,126 +1031,6 @@ namespace MoneyTracker.Application.Services
             }
 
             return trend;
-        }
-
-        private async Task<List<BalanceTrendDto>> BuildBalanceTrendAsync(
-            List<AccountDto> accounts,
-            List<TransactionDto> transactions,
-            DashboardFilterDto filter,
-            DateTime now)
-        {
-            if (accounts.Count == 0)
-                return new List<BalanceTrendDto>();
-
-            var (rangeStart, rangeEnd) = ResolveRangeLocal(filter, now);
-            var currentNetWorth = BuildSummary(accounts).NetWorth;
-            var rangeTransactions = transactions
-                .Where(t => t.Date >= rangeStart && t.Date <= rangeEnd)
-                .ToList();
-
-            var endNetWorth = currentNetWorth;
-            if (rangeEnd.Date < now.Date)
-            {
-                var postRangeResult = await _transactionService.GetFilteredAsync(new TransactionFilterDto
-                {
-                    TimePeriod = TimePeriodFilter.Custom,
-                    FromDate = rangeEnd.Date.AddDays(1),
-                    ToDate = now.Date,
-                    AccountIds = filter.AccountIds,
-                    SkipSorting = true
-                });
-
-                if (postRangeResult.Success && postRangeResult.Data is not null)
-                {
-                    var postRangeTransactions = ApplyTransactionFilter(
-                        postRangeResult.Data.Transactions,
-                        filter.TransactionFilter);
-
-                    endNetWorth -= postRangeTransactions.Sum(GetSignedDelta);
-                }
-            }
-
-            var startNetWorth = endNetWorth - rangeTransactions.Sum(GetSignedDelta);
-            var totalDays = (rangeEnd.Date - rangeStart.Date).TotalDays;
-            var useMonthlyBuckets = totalDays > 120;
-
-            return useMonthlyBuckets
-                ? BuildMonthlyTrend(rangeStart, rangeEnd, startNetWorth, rangeTransactions)
-                : BuildDailyTrend(rangeStart, rangeEnd, startNetWorth, rangeTransactions);
-        }
-
-        private static List<BalanceTrendDto> BuildDailyTrend(
-            DateTime rangeStart,
-            DateTime rangeEnd,
-            decimal startNetWorth,
-            List<TransactionDto> transactions)
-        {
-            var movementByDay = transactions
-                .GroupBy(t => t.Date.Date)
-                .ToDictionary(g => g.Key, g => g.Sum(GetSignedDelta));
-
-            var trend = new List<BalanceTrendDto>();
-            var runningNetWorth = startNetWorth;
-            for (var day = rangeStart.Date; day <= rangeEnd.Date; day = day.AddDays(1))
-            {
-                if (movementByDay.TryGetValue(day, out var delta))
-                {
-                    runningNetWorth += delta;
-                }
-
-                trend.Add(new BalanceTrendDto
-                {
-                    Date = day,
-                    TotalBalance = runningNetWorth
-                });
-            }
-
-            return trend;
-        }
-
-        private static List<BalanceTrendDto> BuildMonthlyTrend(
-            DateTime rangeStart,
-            DateTime rangeEnd,
-            decimal startNetWorth,
-            List<TransactionDto> transactions)
-        {
-            var movementByMonth = transactions
-                .GroupBy(t => new DateTime(t.Date.Year, t.Date.Month, 1))
-                .ToDictionary(g => g.Key, g => g.Sum(GetSignedDelta));
-
-            var trend = new List<BalanceTrendDto>();
-            var cursor = new DateTime(rangeStart.Year, rangeStart.Month, 1);
-            var endMonth = new DateTime(rangeEnd.Year, rangeEnd.Month, 1);
-            var runningNetWorth = startNetWorth;
-
-            while (cursor <= endMonth)
-            {
-                if (movementByMonth.TryGetValue(cursor, out var delta))
-                {
-                    runningNetWorth += delta;
-                }
-
-                trend.Add(new BalanceTrendDto
-                {
-                    Date = cursor,
-                    TotalBalance = runningNetWorth
-                });
-
-                cursor = cursor.AddMonths(1);
-            }
-
-            return trend;
-        }
-
-        private static decimal GetSignedDelta(TransactionDto transaction)
-        {
-            if (transaction.IsIncome())
-                return Math.Abs(transaction.Amount);
-
-            if (transaction.IsExpense())
-                return -Math.Abs(transaction.Amount);
-
-            return 0m;
         }
 
         private static (DateTime start, DateTime end) ResolveRangeLocal(DashboardFilterDto filter, DateTime now)
@@ -1403,8 +1189,9 @@ namespace MoneyTracker.Application.Services
                     return;
                 }
 
-                var budgetedChildren = GetBudgetOverviewItems(children)
-                    .Where(x => x.BudgetAmount > 0)
+                var budgetedChildren = children
+                    .Where(x => x.Budget.Amount > 0)
+                    .Select(MapBudgetOverviewItem)
                     .ToList();
 
                 if (budgetedChildren.Count > 0)
@@ -1424,7 +1211,7 @@ namespace MoneyTracker.Application.Services
                         RemainingAmount = groupedBudget - groupedUsed,
                         ProgressPercent = groupedProgress,
                         IsOverBudget = groupedUsed > groupedBudget,
-                        IsNearLimit = groupedBudget > 0 && groupedUsed <= groupedBudget && groupedProgress >= 80,
+                        IsNearLimit = groupedBudget > 0 && groupedUsed <= groupedBudget && groupedProgress >= 60,
                         IsGroupOnly = true
                     });
 
@@ -1455,7 +1242,7 @@ namespace MoneyTracker.Application.Services
                 RemainingAmount = item.Budget.Amount - usedAmount,
                 ProgressPercent = progress,
                 IsOverBudget = item.Budget.Amount > 0 && usedAmount > item.Budget.Amount,
-                IsNearLimit = item.Budget.Amount > 0 && usedAmount <= item.Budget.Amount && progress >= 80,
+                IsNearLimit = item.Budget.Amount > 0 && usedAmount <= item.Budget.Amount && progress >= 60,
                 IsGroupOnly = false
             };
         }
@@ -1674,7 +1461,8 @@ namespace MoneyTracker.Application.Services
                 FromDate = original.FromDate,
                 ToDate = original.ToDate,
                 TransactionFilter = original.TransactionFilter,
-                AccountIds = original.AccountIds?.ToList() ?? new List<int>()
+                AccountIds = original.AccountIds?.ToList() ?? new List<int>(),
+                ExcludeTransfers = original.ExcludeTransfers
             };
 
             var (rangeStart, rangeEnd) = ResolveRangeLocal(clone, now);

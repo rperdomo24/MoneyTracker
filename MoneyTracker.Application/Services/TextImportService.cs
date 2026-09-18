@@ -3,6 +3,7 @@ using MoneyTracker.Application.Common.TextImport;
 using MoneyTracker.Application.Common.TextImport.Parsers;
 using MoneyTracker.Application.DTOs.TextImport;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Domain.Enums.Ai;
 
 namespace MoneyTracker.Application.Services
 {
@@ -42,5 +43,8 @@ namespace MoneyTracker.Application.Services
 
             return Task.FromResult(OperationResult<TextImportAnalysisDto>.Ok(dto, "Text analyzed successfully."));
         }
+
+        public Task UpdateTrainingFeedbackAsync(int trainingDataId, AiUserFeedback feedback)
+            => Task.CompletedTask;
     }
 }

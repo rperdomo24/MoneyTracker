@@ -11,5 +11,6 @@
         public const string PAYMENT_RECEIVED_NAME = "Payment Received";
         public const string CREDIT_ADVANCE_NAME = "Credit Advance";
         public const string ADVANCE_RECEIVED_NAME = "Advance Received";
+        public const string UNCATEGORIZED_NAME = "Uncategorized";
     }
 }

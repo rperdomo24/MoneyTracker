@@ -14,9 +14,14 @@ namespace MoneyTracker.Domain.Const
         public const string PaymentReceived = "PAYMENT_RECEIVED";
         public const string CreditAdvance = "CREDIT_ADVANCE";
         public const string AdvanceReceived = "ADVANCE_RECEIVED";
+        public const string UncategorizedIncome = "UNCATEGORIZED_INCOME";
+        public const string UncategorizedExpense = "UNCATEGORIZED_EXPENSE";
 
         public static string GetInitialBalanceCode(bool isIncome)
             => isIncome ? InitialBalanceIncome : InitialBalanceExpense;
+
+        public static string GetUncategorizedCode(bool isIncome)
+            => isIncome ? UncategorizedIncome : UncategorizedExpense;
 
         public static string GetBalanceAdjustmentCode(bool isIncome)
             => isIncome ? BalanceAdjustmentIncome : BalanceAdjustmentExpense;
@@ -54,6 +59,12 @@ namespace MoneyTracker.Domain.Const
         public static bool IsCreditRelated(string? code)
             => code is CreditPayment or PaymentReceived or CreditAdvance or AdvanceReceived;
 
+        // Uncategorized is the one system category meant to stay visible/selectable like a
+        // normal category (transactions dumped there still need to be reviewed and
+        // re-categorized) — every other system category stays hidden everywhere.
+        public static bool IsUncategorized(string? code)
+            => code is UncategorizedIncome or UncategorizedExpense;
+
         public static string GetDisplayName(string code)
         {
             return code switch
@@ -68,6 +79,8 @@ namespace MoneyTracker.Domain.Const
                 PaymentReceived => SystemCategoryNames.PAYMENT_RECEIVED_NAME,
                 CreditAdvance => SystemCategoryNames.CREDIT_ADVANCE_NAME,
                 AdvanceReceived => SystemCategoryNames.ADVANCE_RECEIVED_NAME,
+                UncategorizedIncome => $"{SystemCategoryNames.UNCATEGORIZED_NAME} - Income",
+                UncategorizedExpense => $"{SystemCategoryNames.UNCATEGORIZED_NAME} - Expense",
                 _ => string.Empty
             };
         }

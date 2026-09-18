@@ -73,9 +73,16 @@
 - UI stack: Blazor Server + MudBlazor (`MudBlazor` package in `MoneyTracker.UI.csproj`).
 - Dialog structure in this repo uses:
   - `<MudDialog><TitleContent>...<DialogContent>...<DialogActions>...</MudDialog>`
+- Authentication pages must use `@layout Layout.AuthLayout`; keep shared shell/theme/branding in the layout, not duplicated per page.
+- Branding logos/icons/favicons must be resolved through `IBrandingService` + `BrandingAsset` (avoid hardcoded `/images/...` paths in components).
 - Snackbar pattern:
   - `ISnackbar` injected into pages/components.
   - Global provider in `MainLayout.razor` (`<MudSnackbarProvider />`).
+
+## Auth form postback rules
+- Forms posting to `/auth/*` endpoints must use plain HTML `<form method="post">` plus `<AntiforgeryToken />`.
+- Every server-bound value must be posted with an explicit `name` field (`<input name="...">` or hidden mirror input) so endpoint binding is reliable.
+- Do not rely on UI-only component state for values expected by auth endpoints; verify submitted payload fields match endpoint parameter names.
 
 ## Razor and MudBlazor guardrails
 - Use only documented MudBlazor component parameters for the installed version in this repo.
