@@ -180,7 +180,7 @@ namespace MoneyTracker.Tests.Services
         {
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 1);
+            var result = await svc.MergeAsync(1, 1, new List<int>(), true);
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.CategoryMergeSelf);
@@ -193,7 +193,7 @@ namespace MoneyTracker.Tests.Services
             _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync((Category?)null);
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 2);
+            var result = await svc.MergeAsync(1, 2, new List<int>(), true);
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.NotFound);
@@ -206,11 +206,11 @@ namespace MoneyTracker.Tests.Services
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Salary", Type = CategoryTypeEnum.Income });
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 2);
+            var result = await svc.MergeAsync(1, 2, new List<int>(), true);
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.CategoryMergeDifferentType);
-            _repo.Verify(x => x.MergeAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<List<int>?>()), Times.Never);
+            _repo.Verify(x => x.MergeAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<bool>()), Times.Never);
         }
 
         [Fact]
@@ -220,25 +220,66 @@ namespace MoneyTracker.Tests.Services
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Groceries", Type = CategoryTypeEnum.Expense });
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 2);
+            var result = await svc.MergeAsync(1, 2, new List<int>(), true);
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.CategoryMergeSystem);
         }
 
         [Fact]
-        public async Task MergeAsync_WhenValid_MergesAndReturnsSuccess()
+        public async Task MergeAsync_WhenSourceIsUncategorized_AllowsMerge()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category
+            {
+                Id = 1,
+                Name = "Uncategorized",
+                Type = CategoryTypeEnum.Expense,
+                IsSystem = true,
+                SystemCategoryCode = SystemCategoryCodes.UncategorizedExpense
+            });
+            _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Groceries", Type = CategoryTypeEnum.Expense });
+            _repo.Setup(x => x.MergeAsync(1, 2, It.IsAny<List<int>>(), true)).Returns(Task.CompletedTask);
+            var svc = CreateService();
+
+            var result = await svc.MergeAsync(1, 2, new List<int>(), true);
+
+            result.Success.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task MergeAsync_WhenTargetIsUncategorized_AllowsMerge()
+        {
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Groceries", Type = CategoryTypeEnum.Expense });
+            _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category
+            {
+                Id = 2,
+                Name = "Uncategorized",
+                Type = CategoryTypeEnum.Expense,
+                IsSystem = true,
+                SystemCategoryCode = SystemCategoryCodes.UncategorizedExpense
+            });
+            _repo.Setup(x => x.MergeAsync(1, 2, It.IsAny<List<int>>(), true)).Returns(Task.CompletedTask);
+            var svc = CreateService();
+
+            var result = await svc.MergeAsync(1, 2, new List<int>(), true);
+
+            result.Success.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task MergeAsync_WhenFullMerge_MergesAndReturnsSuccess()
         {
             _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Old Food", Type = CategoryTypeEnum.Expense });
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
-            _repo.Setup(x => x.MergeAsync(1, 2, null)).ReturnsAsync(true);
+            var selectedIds = new List<int> { 10, 11 };
+            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds, true)).Returns(Task.CompletedTask);
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 2);
+            var result = await svc.MergeAsync(1, 2, selectedIds, true);
 
             result.Success.Should().BeTrue();
             result.Message.Should().Be(OperationMessages.CategoryMerged);
-            _repo.Verify(x => x.MergeAsync(1, 2, null), Times.Once);
+            _repo.Verify(x => x.MergeAsync(1, 2, selectedIds, true), Times.Once);
         }
 
         [Fact]
@@ -247,28 +288,29 @@ namespace MoneyTracker.Tests.Services
             _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Old Food", Type = CategoryTypeEnum.Expense });
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
             var selectedIds = new List<int> { 10, 11 };
-            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds)).ReturnsAsync(true);
+            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds, true)).Returns(Task.CompletedTask);
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 2, selectedIds);
+            var result = await svc.MergeAsync(1, 2, selectedIds, true);
 
             result.Success.Should().BeTrue();
-            _repo.Verify(x => x.MergeAsync(1, 2, selectedIds), Times.Once);
+            _repo.Verify(x => x.MergeAsync(1, 2, selectedIds, true), Times.Once);
         }
 
         [Fact]
-        public async Task MergeAsync_WhenRepositoryReportsPartialMove_ReturnsPartialMessageAndKeepsSourceCategory()
+        public async Task MergeAsync_WhenPartialMove_ReturnsPartialMessageAndKeepsSourceCategory()
         {
             _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(new Category { Id = 1, Name = "Old Food", Type = CategoryTypeEnum.Expense });
             _repo.Setup(x => x.GetByIdAsync(2)).ReturnsAsync(new Category { Id = 2, Name = "Food", Type = CategoryTypeEnum.Expense });
             var selectedIds = new List<int> { 10 };
-            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds)).ReturnsAsync(false);
+            _repo.Setup(x => x.MergeAsync(1, 2, selectedIds, false)).Returns(Task.CompletedTask);
             var svc = CreateService();
 
-            var result = await svc.MergeAsync(1, 2, selectedIds);
+            var result = await svc.MergeAsync(1, 2, selectedIds, false);
 
             result.Success.Should().BeTrue();
             result.Message.Should().Be(OperationMessages.CategoryPartiallyMoved);
+            _repo.Verify(x => x.MergeAsync(1, 2, selectedIds, false), Times.Once);
         }
 
         [Fact]

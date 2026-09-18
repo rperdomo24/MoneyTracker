@@ -8,7 +8,6 @@
 @inject ICategoryService CategoryService
 @inject ITransactionService TransactionService
 @inject ISnackbar Snackbar
-@inject IDialogService DialogService
 
 <MudDialog>
     <TitleContent>
@@ -25,8 +24,9 @@
             {
                 <MudAlert Severity="Severity.Warning" Class="mb-4">
                     All transactions in <strong>@_source.Name</strong> are selected, so this is a
-                    <strong>full merge</strong>: its budgets and subcategories move too, and
-                    <strong>@_source.Name</strong> gets deleted afterward. This cannot be undone.
+                    <strong>full merge</strong>: its budgets and subcategories move too.
+                    <strong>@_source.Name</strong> will be left empty afterward — delete it separately
+                    from the categories list if you no longer need it. This cannot be undone.
                 </MudAlert>
             }
             else
@@ -152,7 +152,7 @@
             Cancel
         </MudButton>
 
-        <MudButton Color="@(IsFullMove ? Color.Error : Color.Primary)"
+        <MudButton Color="Color.Primary"
                    Variant="Variant.Filled"
                    OnClick="Confirm"
                    StartIcon="@Icons.Material.Filled.CallMerge"
@@ -165,7 +165,7 @@
             }
             else
             {
-                <span>@(IsFullMove ? "Merge (deletes source)" : "Move selected transactions")</span>
+                <span>@(IsFullMove ? "Merge" : "Move selected transactions")</span>
             }
         </MudButton>
     </DialogActions>
@@ -299,25 +299,12 @@
         if (_isMerging || _source == null || _target == null)
             return;
 
-        if (IsFullMove)
-        {
-            var confirmed = await DialogService.ShowConfirmDialogAsync(
-                "Delete Source Category?",
-                $"This will delete '{_source.Name}' after moving its budgets and subcategories into '{_target.Name}'. This cannot be undone.",
-                "Delete and Merge",
-                Color.Error
-            );
-
-            if (!confirmed)
-                return;
-        }
-
         _isMerging = true;
         StateHasChanged();
 
         try
         {
-            var result = await CategoryService.MergeAsync(_source.Id, _target.Id, _selectedTransactionIds.ToList());
+            var result = await CategoryService.MergeAsync(_source.Id, _target.Id, _selectedTransactionIds.ToList(), IsFullMove);
 
             if (result.Success)
             {

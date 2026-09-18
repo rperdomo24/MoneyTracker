@@ -273,7 +273,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
-        public async Task<bool> MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int>? transactionIdsToMove = null)
+        public async Task MergeAsync(int sourceId, int targetId, IReadOnlyCollection<int> transactionIdsToMove, bool isFullMerge)
         {
             try
             {
@@ -282,31 +282,23 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
                 await using var transaction = await context.Database.BeginTransactionAsync();
 
-                // transactionIdsToMove == null means "move everything" (legacy/full merge).
-                var allSourceTransactions = await context.Transaction
-                    .Where(t => t.CategoryId == sourceId)
-                    .ToListAsync();
-
-                var transactionsToMove = transactionIdsToMove is null
-                    ? allSourceTransactions
-                    : allSourceTransactions.Where(t => transactionIdsToMove.Contains(t.Id)).ToList();
+                if (transactionIdsToMove.Count > 0)
+                {
+                    await context.Transaction
+                        .Where(t => t.CategoryId == sourceId && transactionIdsToMove.Contains(t.Id))
+                        .ExecuteUpdateAsync(s => s.SetProperty(t => t.CategoryId, targetId));
+                }
 
                 // Only a FULL merge (every transaction moved, nothing left behind) consolidates
-                // budgets/subcategories and deletes the source category. A PARTIAL move — the
-                // user left some transactions unchecked — just reassigns those and leaves the
-                // source category (its budgets, subcategories, and remaining transactions)
-                // completely untouched. Deleting the source on a partial move would destroy a
-                // category the user explicitly chose to keep.
-                var isFullMerge = transactionsToMove.Count == allSourceTransactions.Count;
-
-                foreach (var t in transactionsToMove)
-                    t.CategoryId = targetId;
-
+                // budgets/subcategories into the target. A PARTIAL move — the user left some
+                // transactions unchecked — just reassigns those and leaves the source category
+                // (its budgets, subcategories, and remaining transactions) completely untouched.
+                // Neither case deletes the source category — that's a separate, explicit user
+                // action (the regular Delete flow), never an automatic side effect of merging.
                 if (!isFullMerge)
                 {
-                    await context.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    return false;
+                    return;
                 }
 
                 var activeSourceBudgets = await context.Budgets
@@ -335,25 +327,12 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                     }
                 }
 
-                var children = await context.Categories
+                await context.Categories
                     .Where(c => c.ParentId == sourceId)
-                    .ToListAsync();
-                foreach (var child in children)
-                    child.ParentId = targetId;
-
-                // Soft delete only — the source row stays (with any already soft-deleted
-                // budgets it still holds), so this can never conflict with the Budget Restrict
-                // FK. Never hard-remove the category.
-                var source = await context.Categories.FindAsync(sourceId);
-                if (source is not null)
-                {
-                    source.IsDeleted = true;
-                    source.DeletedAt = DateTime.UtcNow;
-                }
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.ParentId, (int?)targetId));
 
                 await context.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return true;
             }
             catch (Exception ex)
             {

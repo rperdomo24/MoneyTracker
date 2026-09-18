@@ -11,7 +11,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<bool>> UpdateAsync(CategoryDto dto);
         Task<OperationResult<bool>> DeleteAsync(int id);
         Task<OperationResult<List<CategoryDto>>> GetAllWithChildAsync(bool incluideSystem = true);
-        Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int>? transactionIdsToMove = null);
+        Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int> transactionIdsToMove, bool isFullMerge);
         Task<OperationResult<CategoryMergePreviewDto>> GetMergePreviewAsync(int sourceId, int targetId);
     }
 }

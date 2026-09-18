@@ -173,7 +173,7 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int>? transactionIdsToMove = null)
+        public async Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int> transactionIdsToMove, bool isFullMerge)
         {
             var (source, _, error) = await ValidateMergePairAsync(sourceId, targetId);
             if (error is not null)
@@ -181,8 +181,8 @@ namespace MoneyTracker.Application.Services
 
             try
             {
-                var wasFullMerge = await _repository.MergeAsync(sourceId, targetId, transactionIdsToMove);
-                return OperationResult<bool>.Ok(true, wasFullMerge ? OperationMessages.CategoryMerged : OperationMessages.CategoryPartiallyMoved);
+                await _repository.MergeAsync(sourceId, targetId, transactionIdsToMove, isFullMerge);
+                return OperationResult<bool>.Ok(true, isFullMerge ? OperationMessages.CategoryMerged : OperationMessages.CategoryPartiallyMoved);
             }
             catch (Exception ex)
             {
@@ -229,7 +229,11 @@ namespace MoneyTracker.Application.Services
             if (target is null)
                 return (null, null, OperationMessages.NotFound);
 
-            if (source.IsSystem || target.IsSystem)
+            // Uncategorized (Income/Expense) is IsSystem too, but it's just a holding bucket —
+            // transactions need to move in and out of it freely. Other system categories
+            // (Transfer, Initial Balance, Balance Adjustment) must stay non-mergeable.
+            if ((source.IsSystem && !SystemCategoryCodes.IsUncategorized(source.SystemCategoryCode)) ||
+                (target.IsSystem && !SystemCategoryCodes.IsUncategorized(target.SystemCategoryCode)))
                 return (null, null, OperationMessages.CategoryMergeSystem);
 
             if (source.Type != target.Type)
