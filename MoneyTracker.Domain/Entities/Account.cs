@@ -26,7 +26,20 @@ namespace MoneyTracker.Domain.Entities
         public string? Color { get; set; }
 
         public AccountType Type { get; set; }
+
+        [MaxLength(100)]
+        public string? BankName { get; set; }
+
+        [MaxLength(150)]
+        public string? CardDisplayName { get; set; }
+
         public bool IsDeleted { get; set; }
         public DateTime? DeletedAt { get; set; }
+
+        public bool IncludeInNetWorth { get; set; } = true;
+
+        public int? CutDay { get; set; }
+        public int? PaymentDay { get; set; }
+        public decimal? AnnualInterestRate { get; set; }
     }
 }

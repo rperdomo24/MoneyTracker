@@ -1,0 +1,216 @@
+@using MoneyTracker.Application.Common
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Helpers
+@inject ISnackbar Snackbar
+@inject ITransactionService TransactionService
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@(IsEditMode ? Icons.Material.Filled.Edit : Icons.Material.Filled.AddCircle)" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">@(IsEditMode ? "Edit Contribution" : "Add Contribution")</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="pa-0">
+            @if (!IsEditMode)
+            {
+                <MudText Typo="Typo.body2" Class="mb-4" Style="opacity:0.7;">
+                    Goal: <strong>@(Goal?.Name ?? "Unknown")</strong>
+                </MudText>
+            }
+
+            <MudNumericField Label="Amount"
+                             @bind-Value="_amount"
+                             Variant="Variant.Outlined"
+                             Min="0.01m"
+                             Format="N2"
+                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                             Adornment="Adornment.Start"
+                             AdornmentText="$"
+                             Class="mb-4"
+                             Placeholder="0.00" />
+
+            <MudDatePicker Label="Date"
+                           @bind-Date="_date"
+                           Variant="Variant.Outlined"
+                           Class="mb-4" />
+
+            <MudAutocomplete T="TransactionDto?"
+                             Label="Link to Transaction (optional)"
+                             @bind-Value="_linkedTransaction"
+                             SearchFunc="SearchTransactionsAsync"
+                             ToStringFunc="@(t => t is null ? string.Empty : t.Name)"
+                             Variant="Variant.Outlined"
+                             Clearable="true"
+                             Class="mb-4"
+                             AdornmentIcon="@Icons.Material.Filled.Search"
+                             Placeholder="Search any transaction...">
+                <ItemTemplate Context="tx">
+                    <MudStack Spacing="0" Class="py-1">
+                        <MudText Typo="Typo.body2">@tx!.Name</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                            @tx.Date.ToString("MMM d, yyyy") · @(tx.Account?.Name ?? "")
+                            <span style="color:@(tx.Amount >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)"); margin-left:4px;">
+                                @CurrencyHelper.FormatCurrency(Math.Abs(tx.Amount))
+                            </span>
+                        </MudText>
+                    </MudStack>
+                </ItemTemplate>
+                <NoItemsTemplate>
+                    <MudText Typo="Typo.caption" Class="pa-2" Style="opacity:0.6;">
+                        Type at least 2 characters to search
+                    </MudText>
+                </NoItemsTemplate>
+            </MudAutocomplete>
+
+            <MudTextField Label="Notes (optional)"
+                          @bind-Value="_notes"
+                          Variant="Variant.Outlined"
+                          Lines="2"
+                          Class="mb-2"
+                          Placeholder="Optional note" />
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Save"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   Disabled="@_isSaving">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>@(IsEditMode ? "Save" : "Add")</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public SavingsGoalDto Goal { get; set; } = default!;
+    [Parameter] public ISavingsGoalService GoalService { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+    [Parameter] public SavingsContributionDto? ExistingContribution { get; set; }
+
+    private bool IsEditMode => ExistingContribution is not null;
+
+    private decimal _amount = 0m;
+    private DateTime? _date = DateTime.Today;
+    private string? _notes;
+    private TransactionDto? _linkedTransaction;
+    private bool _isSaving = false;
+
+    protected override void OnParametersSet()
+    {
+        if (ExistingContribution is not null)
+        {
+            _amount = ExistingContribution.Amount;
+            _date = ExistingContribution.Date;
+            _notes = ExistingContribution.Notes;
+
+            if (ExistingContribution.LinkedTransactionId.HasValue && ExistingContribution.LinkedTransactionName is not null)
+            {
+                _linkedTransaction = new TransactionDto
+                {
+                    Id = ExistingContribution.LinkedTransactionId.Value,
+                    Name = ExistingContribution.LinkedTransactionName,
+                    Date = ExistingContribution.LinkedTransactionDate ?? DateTime.Today,
+                    Amount = ExistingContribution.LinkedTransactionAmount ?? 0m,
+                    Account = new AccountDto { Name = ExistingContribution.LinkedTransactionAccount ?? string.Empty }
+                };
+            }
+        }
+    }
+
+    private async Task<IEnumerable<TransactionDto?>> SearchTransactionsAsync(string value, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+            return Enumerable.Empty<TransactionDto?>();
+
+        var filter = new TransactionFilterDto { SearchText = value, TimePeriod = TimePeriodFilter.AllTime };
+        var result = await TransactionService.GetFilteredAsync(filter);
+        if (!result.Success || result.Data is null)
+            return Enumerable.Empty<TransactionDto?>();
+
+        return result.Data.Transactions.Take(10).Cast<TransactionDto?>();
+    }
+
+    private async Task Save()
+    {
+        if (_amount <= 0)
+        {
+            Snackbar.Add("Amount must be greater than 0.", Severity.Warning);
+            return;
+        }
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            OperationResult result;
+
+            if (IsEditMode)
+            {
+                var dto = new SavingsContributionDto
+                {
+                    Id = ExistingContribution!.Id,
+                    GoalId = ExistingContribution.GoalId,
+                    Amount = _amount,
+                    Date = _date ?? DateTime.Today,
+                    Notes = _notes,
+                    LinkedTransactionId = _linkedTransaction?.Id
+                };
+                result = await GoalService.UpdateContributionAsync(dto);
+                if (result.Success) Snackbar.Add("Contribution updated.", Severity.Success);
+            }
+            else
+            {
+                var dto = new SavingsContributionDto
+                {
+                    GoalId = Goal.Id,
+                    Amount = _amount,
+                    Date = _date ?? DateTime.Today,
+                    Notes = _notes,
+                    LinkedTransactionId = _linkedTransaction?.Id
+                };
+                result = await GoalService.AddContributionAsync(dto);
+                if (result.Success) Snackbar.Add("Contribution added.", Severity.Success);
+            }
+
+            if (result.Success)
+            {
+                await OnSaved.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to save contribution.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

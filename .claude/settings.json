@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude plugin *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(codegraph status *)",
+      "Bash(codegraph_explore --seeds Transaction,Account,Category,ApplicationUser --limit 400)",
+      "Bash(codegraph search *)",
+      "Bash(ls -la \"c:\\\\Users\\\\PERDOMO-PC\\\\.claude\\\\projects\\\\c--Users-PERDOMO-PC-source-repos-MoneyTracker\")",
+      "Read(//c/Users/PERDOMO-PC/.claude/projects/c--Users-PERDOMO-PC-source-repos-MoneyTracker/**)",
+      "Bash(codegraph_search \"TransactionService\")",
+      "Bash(git add *)",
+      "Bash(dotnet ef *)",
+      "mcp__context7__resolve-library-id",
+      "WebFetch(domain:www.nuget.org)",
+      "Bash(dotnet remove *)",
+      "Bash(ls -la \"c:\\\\Users\\\\PERDOMO-PC\\\\source\\\\repos\\\\MoneyTracker\\\\MoneyTracker.UI\\\\Components\\\\Pages\\\\Budgets\\\\\" 2>&1 | grep -E '\\\\.razor$|^d')",
+      "Read(//c/Users/PERDOMO-PC/source/repos/MoneyTracker/MoneyTracker.UI/Components/Pages/Budgets\" 2>&1 | grep -E '/**)",
+      "Bash(ls -la \"c:\\\\Users\\\\PERDOMO-PC\\\\source\\\\repos\\\\MoneyTracker\\\\MoneyTracker.UI\\\\Components\\\\Pages\\\\Transactions\\\\\" 2>&1 | grep -E '\\\\.razor$|^d')",
+      "Read(//c/Users/PERDOMO-PC/source/repos/MoneyTracker/MoneyTracker.UI/Components/Pages/Transactions\" 2>&1 | grep -E '/**)",
+      "Bash(powershell -Command \"if \\(Test-Path '.codegraph'\\) { 'found' } else { 'not found' }\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'MoneyTracker.Domain\\\\Entities' -Filter '*.cs' | Select-Object Name\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'MoneyTracker.Domain\\\\Interfaces' -Filter '*.cs' | Select-Object Name\")",
+      "Bash(git stash *)",
+      "mcp__codegraph__codegraph_explore",
+      "Bash(codegraph_search --query \"TransactionRule\" --kind \"class|interface\")",
+      "mcp__codegraph__codegraph_files",
+      "PowerShell($file = \"C:\\\\Users\\\\PERDOMO-PC\\\\source\\\\repos\\\\MoneyTracker\\\\MoneyTracker.UI\\\\obj\\\\Debug\\\\net9.0\\\\Microsoft.CodeAnalysis.Razor.Compiler\\\\Microsoft.NET.Sdk.Razor.SourceGenerators.RazorSourceGenerator\\\\Components\\\\Pages\\\\Transactions\\\\Transactions_razor.g.cs\"; if \\(Test-Path $file\\) { $lines = Get-Content $file; Write-Host \"Total lines: $\\($lines.Count\\)\"; $lines | Select-Object -Index \\(2505..2535\\) | ForEach-Object { $i = [array]::IndexOf\\($lines, $_\\) + 1; \"$i`: $_\" } } else { Write-Host \"File not found\" })",
+      "Bash(python3 -c ' *)",
+      "Bash(dotnet script *)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\PERDOMO-PC\\\\source\\\\repos\\\\MoneyTracker\\\\MoneyTracker.Application\\\\obj\\\\Debug\\\\net9.0\\\\MoneyTracker.Application.csproj.CoreCompileInputs.cache\" -ErrorAction SilentlyContinue)",
+      "PowerShell(dotnet build \"c:\\\\Users\\\\PERDOMO-PC\\\\source\\\\repos\\\\MoneyTracker\\\\MoneyTracker.UI\\\\MoneyTracker.UI.csproj\" 2>&1 | Where-Object { $_ -match \"error|Error|warning CS|succeeded|FAILED\" } | Select-Object -Last 20)",
+      "Bash(del \"c:\\\\Users\\\\PERDOMO-PC\\\\source\\\\repos\\\\MoneyTracker\\\\MoneyTracker.Domain\\\\Interfaces\\\\IGlobalSearchRepository.cs\")"
+    ]
+  }
+}

@@ -29,6 +29,7 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ICategoryRepository> _categoryRepo = new();
         private readonly Mock<ICategoryService> _categoryService = new();
         private readonly Mock<ISystemCategoryResolver> _systemCategoryResolver = new();
+        private readonly Mock<ITransactionRuleService> _ruleService = new();
 
         private TransactionService CreateService()
             => new(
@@ -41,7 +42,8 @@ namespace MoneyTracker.Tests.Services
                 _timeRange.Object,
                 _categoryRepo.Object,
                 _categoryService.Object,
-                _systemCategoryResolver.Object);
+                _systemCategoryResolver.Object,
+                _ruleService.Object);
 
         [Fact]
         public async Task CreateAsync_WhenValidationFails_ReturnsValidationMessage()
@@ -73,6 +75,7 @@ namespace MoneyTracker.Tests.Services
             _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
             _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
             _txRepo.Setup(x => x.AddAsync(It.IsAny<Transaction>())).Returns(Task.CompletedTask);
+            _txRepo.Setup(x => x.GetAccountBalanceAsync(10)).ReturnsAsync(-20m);
 
             var svc = CreateService();
             var dto = new TransactionDto
@@ -92,7 +95,7 @@ namespace MoneyTracker.Tests.Services
             result.Success.Should().BeTrue();
             result.Message.Should().Be(OperationMessages.Created);
             _txRepo.Verify(x => x.AddAsync(It.Is<Transaction>(t => t.AccountId == 10 && t.Amount == -20m)), Times.Once);
-            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == 80m)), Times.Once);
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == -20m)), Times.Once);
         }
 
         [Fact]
@@ -162,6 +165,7 @@ namespace MoneyTracker.Tests.Services
             var account = new Account { Id = 10, Name = "Cash", Balance = 100m, Icon = "Wallet", Type = AccountType.Cash };
             _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
             _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            _txRepo.Setup(x => x.GetAccountBalanceAsync(10)).ReturnsAsync(-40m);
 
             var svc = CreateService();
 
@@ -169,7 +173,7 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeTrue();
             result.Data.Should().Be(77);
-            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == 80m)), Times.Once);
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 10 && a.Balance == -40m)), Times.Once);
         }
 
         [Fact]
@@ -250,8 +254,8 @@ namespace MoneyTracker.Tests.Services
             {
                 TimePeriod = TimePeriodFilter.ThisMonth,
                 SearchText = "mark",
-                CategoryId = 2,
-                Type = CategoryTypeEnum.Expense
+                CategoryIds = new List<int> { 2 },
+                Types = new List<CategoryTypeEnum> { CategoryTypeEnum.Expense }
             };
 
             var result = await svc.GetFilteredAsync(filter);
@@ -307,6 +311,45 @@ namespace MoneyTracker.Tests.Services
             result.Data.Should().NotBeNull();
             result.Data!.TotalCount.Should().Be(2);
             result.Data.ThisMonthAmount.Should().Be(80m);
+        }
+
+        [Fact]
+        public async Task GetByCategoryForMonthAsync_WithHalfMonth_UsesQuincenaRange()
+        {
+            _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+
+            DateTime? capturedFrom = null;
+            DateTime? capturedTo = null;
+            _txRepo.Setup(t => t.GetByCategoryTreeAsync(7, It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                .Callback<int, DateTime, DateTime>((_, from, to) =>
+                {
+                    capturedFrom = from;
+                    capturedTo = to;
+                })
+                .ReturnsAsync(new List<Transaction>());
+
+            var svc = CreateService();
+
+            var result = await svc.GetByCategoryForMonthAsync(7, 2026, 3, halfMonth: 2);
+
+            result.Success.Should().BeTrue();
+            capturedFrom.Should().Be(new DateTime(2026, 3, 16, 0, 0, 0));
+            capturedTo.Should().Be(new DateTime(2026, 3, 31, 23, 59, 59));
+        }
+
+        [Fact]
+        public async Task GetByCategoryForMonthAsync_WhenRepositoryThrows_ReturnsUnexpectedError()
+        {
+            _tz.Setup(z => z.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _txRepo.Setup(t => t.GetByCategoryTreeAsync(It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                .ThrowsAsync(new Exception("db down"));
+
+            var svc = CreateService();
+
+            var result = await svc.GetByCategoryForMonthAsync(7, 2026, 3);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.UnexpectedError);
         }
     }
 }

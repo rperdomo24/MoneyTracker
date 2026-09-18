@@ -26,6 +26,7 @@ namespace MoneyTracker.Application.Services
         private readonly ITimeRangeService _timeRangeService;
         private readonly ICategoryService _categoryService;
         private readonly ISystemCategoryResolver _systemCategoryResolver;
+        private readonly ITransactionRuleService _ruleService;
 
         public TransactionService(
             ITransactionRepository repository,
@@ -37,7 +38,8 @@ namespace MoneyTracker.Application.Services
             ITimeRangeService timeRangeService,
             ICategoryRepository categoryRepository,
             ICategoryService categoryService,
-            ISystemCategoryResolver systemCategoryResolver)
+            ISystemCategoryResolver systemCategoryResolver,
+            ITransactionRuleService ruleService)
         {
             _repository = repository;
             _accountRepository = accountRepository;
@@ -48,6 +50,7 @@ namespace MoneyTracker.Application.Services
             _timeRangeService = timeRangeService;
             _categoryService = categoryService;
             _systemCategoryResolver = systemCategoryResolver;
+            _ruleService = ruleService;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -133,6 +136,8 @@ namespace MoneyTracker.Application.Services
                 if (!balanceResult.Success)
                     return OperationResult<bool>.Fail(balanceResult.Message ?? "Error updating account balance");
 
+                await _ruleService.ApplyRulesToNewTransactionAsync(transaction.Id);
+
                 return OperationResult<bool>.Ok(true, OperationMessages.Created);
             }
             catch (Exception ex)
@@ -210,16 +215,21 @@ namespace MoneyTracker.Application.Services
                 if (existing is null)
                     return OperationResult<bool>.Fail(OperationMessages.NotFound);
 
-                var revertResult = await UpdateAccountBalanceOnlyAsync(existing.AccountId, -existing.Amount);
-                if (!revertResult.Success)
-                    return OperationResult<bool>.Fail(revertResult.Message ?? "Error reverting account balance");
+                var oldAccountId = existing.AccountId;
 
                 TransactionMapper.UpdateEntity(existing, dto, _timeZoneService);
                 await _repository.UpdateAsync(existing);
 
-                var applyResult = await UpdateAccountBalanceOnlyAsync(existing.AccountId, existing.Amount);
+                var applyResult = await RecalculateAndSaveAccountBalanceAsync(existing.AccountId);
                 if (!applyResult.Success)
-                    return OperationResult<bool>.Fail(applyResult.Message ?? "Error applying account balance");
+                    return OperationResult<bool>.Fail(applyResult.Message ?? "Error updating account balance");
+
+                if (oldAccountId != existing.AccountId)
+                {
+                    var oldAccResult = await RecalculateAndSaveAccountBalanceAsync(oldAccountId);
+                    if (!oldAccResult.Success)
+                        return OperationResult<bool>.Fail(oldAccResult.Message ?? "Error updating old account balance");
+                }
 
                 return OperationResult<bool>.Ok(true, OperationMessages.Updated);
             }
@@ -248,26 +258,21 @@ namespace MoneyTracker.Application.Services
                 if (paired is null)
                     return OperationResult<bool>.Fail(OperationMessages.TransferPairNotFound);
 
-                var revertFirst = await UpdateAccountBalanceOnlyAsync(transaction.AccountId, -transaction.Amount);
-                if (!revertFirst.Success)
-                    return OperationResult<bool>.Fail(revertFirst.Message ?? "Error reverting source account balance");
-
-                var revertSecond = await UpdateAccountBalanceOnlyAsync(paired.AccountId, -paired.Amount);
-                if (!revertSecond.Success)
-                    return OperationResult<bool>.Fail(revertSecond.Message ?? "Error reverting destination account balance");
+                var oldTransactionAccountId = transaction.AccountId;
+                var oldPairedAccountId = paired.AccountId;
 
                 TransferMapper.UpdateTransferPair(transaction, paired, dto, _timeZoneService);
 
                 await _repository.UpdateAsync(transaction);
                 await _repository.UpdateAsync(paired);
 
-                var applyFirst = await UpdateAccountBalanceOnlyAsync(transaction.AccountId, transaction.Amount);
-                if (!applyFirst.Success)
-                    return OperationResult<bool>.Fail(applyFirst.Message ?? "Error applying source account balance");
-
-                var applySecond = await UpdateAccountBalanceOnlyAsync(paired.AccountId, paired.Amount);
-                if (!applySecond.Success)
-                    return OperationResult<bool>.Fail(applySecond.Message ?? "Error applying destination account balance");
+                var accountsToRecalculate = new HashSet<int> { transaction.AccountId, paired.AccountId, oldTransactionAccountId, oldPairedAccountId };
+                foreach (var accountId in accountsToRecalculate)
+                {
+                    var recalcResult = await RecalculateAndSaveAccountBalanceAsync(accountId);
+                    if (!recalcResult.Success)
+                        return OperationResult<bool>.Fail(recalcResult.Message ?? "Error updating account balance");
+                }
 
                 _logger.LogInformation(
                     "Transfer updated: Transaction {Id1} and paired {Id2}, Amount: {Amount}",
@@ -520,15 +525,15 @@ namespace MoneyTracker.Application.Services
             }
 
             // Category filter
-            if (filter.CategoryId.HasValue)
+            if (filter.CategoryIds?.Any() == true)
             {
-                filtered = filtered.Where(t => t.CategoryId == filter.CategoryId.Value);
+                filtered = filtered.Where(t => filter.CategoryIds.Contains(t.CategoryId));
             }
 
             // Category type filter
-            if (filter.Type.HasValue)
+            if (filter.Types?.Any() == true)
             {
-                filtered = filtered.Where(t => t.Category?.Type == filter.Type.Value);
+                filtered = filtered.Where(t => t.Category != null && filter.Types.Contains(t.Category.Type));
             }
 
             if (filter.SkipSorting)
@@ -542,12 +547,11 @@ namespace MoneyTracker.Application.Services
                 .ToList();
         }
 
-        public async Task<OperationResult<List<TransactionDto>>> GetByCategoryForMonthAsync(int categoryId, int year, int month)
+        public async Task<OperationResult<List<TransactionDto>>> GetByCategoryForMonthAsync(int categoryId, int year, int month, int halfMonth = 0)
         {
             try
             {
-                var localStart = new DateTime(year, month, 1);
-                var localEnd = localStart.AddMonths(1).AddTicks(-1);
+                var (localStart, localEnd) = HalfMonthRangeHelper.GetLocalRange(year, month, halfMonth);
 
                 var fromUtc = _timeZoneService.ConvertToUtc(localStart);
                 var toUtc = _timeZoneService.ConvertToUtc(localEnd);
@@ -572,11 +576,17 @@ namespace MoneyTracker.Application.Services
 
         private async Task<OperationResult> UpdateAccountBalanceOnlyAsync(int accountId, decimal delta)
         {
+            return await RecalculateAndSaveAccountBalanceAsync(accountId);
+        }
+
+        private async Task<OperationResult> RecalculateAndSaveAccountBalanceAsync(int accountId)
+        {
             var account = await _accountRepository.GetByIdAsync(accountId);
             if (account is null)
                 return OperationResult.Fail(OperationMessages.NotFound);
 
-            account.Balance += delta;
+            var trueBalance = await _repository.GetAccountBalanceAsync(accountId);
+            account.Balance = trueBalance;
 
             var updated = await _accountRepository.UpdateAsync(account);
             if (!updated)

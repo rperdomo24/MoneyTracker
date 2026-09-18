@@ -149,13 +149,45 @@
                                  Align="Align.Center">
                             @_account.Type.ToLabel()
                         </MudText>
+                        @if (!string.IsNullOrEmpty(_account.BankName))
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Style="opacity:0.6;" />
+                                <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.BankName</MudText>
+                            </MudStack>
+                        }
+                        else if (NeedsBankName)
+                        {
+                            <MudTooltip Text="Bank name not set — edit account to improve reports">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">Bank not set</MudText>
+                                </MudStack>
+                            </MudTooltip>
+                        }
+                        @if (!string.IsNullOrEmpty(_account.CardDisplayName))
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Style="opacity:0.6;" />
+                                <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.CardDisplayName</MudText>
+                            </MudStack>
+                        }
+                        else if (NeedsCardDisplayName)
+                        {
+                            <MudTooltip Text="Card display name not set — edit account to improve reports">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">Card name not set</MudText>
+                                </MudStack>
+                            </MudTooltip>
+                        }
                     </MudStack>
 
                     <MudText Typo="Typo.h3"
                              Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
                              Align="Align.Center"
                              Style="white-space: nowrap;">
-                        @_account.FormattedBalance
+                        @CurrencyHelper.FormatCurrency(_account.CurrentBalance)
                     </MudText>
 
                     @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
@@ -173,6 +205,40 @@
                                 Utilization: @($"{utilization:F1}%")
                             </MudText>
                         </MudStack>
+
+                        @if (_account.CutDay.HasValue || _account.PaymentDay.HasValue || _account.AnnualInterestRate.HasValue)
+                        {
+                            <MudDivider Style="width:60%; opacity:0.3;" Class="my-1" />
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.Center" Style="flex-wrap:wrap; gap:6px;">
+                                @if (_account.CutDay.HasValue)
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Style="opacity:0.6;" />
+                                        <MudText Typo="Typo.caption" Style="opacity:0.7;" Align="Align.Center">
+                                            Billing closes day @_account.CutDay
+                                        </MudText>
+                                    </MudStack>
+                                }
+                                @if (_account.PaymentDay.HasValue)
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Payment" Size="Size.Small" Style="opacity:0.6;" />
+                                        <MudText Typo="Typo.caption" Style="opacity:0.7;" Align="Align.Center">
+                                            Payment due day @_account.PaymentDay
+                                        </MudText>
+                                    </MudStack>
+                                }
+                                @if (_account.AnnualInterestRate.HasValue)
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Percent" Size="Size.Small" Style="opacity:0.6;" />
+                                        <MudText Typo="Typo.caption" Style="opacity:0.7;" Align="Align.Center">
+                                            @($"{_account.AnnualInterestRate:F2}")% APR
+                                        </MudText>
+                                    </MudStack>
+                                }
+                            </MudStack>
+                        }
                     }
 
                 </MudStack>
@@ -199,6 +265,38 @@
                             <MudText Typo="Typo.body2" Style="opacity: 0.7; white-space: nowrap;">
                                 @_account.Type.ToLabel()
                             </MudText>
+                            @if (!string.IsNullOrEmpty(_account.BankName))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Size="Size.Small" Style="opacity:0.6;" />
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.BankName</MudText>
+                                </MudStack>
+                            }
+                            else if (NeedsBankName)
+                            {
+                                <MudTooltip Text="Bank name not set — edit account to improve reports">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                        <MudText Typo="Typo.caption" Color="Color.Warning">Bank not set</MudText>
+                                    </MudStack>
+                                </MudTooltip>
+                            }
+                            @if (!string.IsNullOrEmpty(_account.CardDisplayName))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.CreditCard" Size="Size.Small" Style="opacity:0.6;" />
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">@_account.CardDisplayName</MudText>
+                                </MudStack>
+                            }
+                            else if (NeedsCardDisplayName)
+                            {
+                                <MudTooltip Text="Card display name not set — edit account to improve reports">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                                        <MudText Typo="Typo.caption" Color="Color.Warning">Card name not set</MudText>
+                                    </MudStack>
+                                </MudTooltip>
+                            }
                         </MudStack>
                     </MudStack>
 
@@ -206,7 +304,7 @@
                         <MudText Typo="Typo.h4"
                                  Class="@($"font-weight-bold {GetBalanceClass(_account.CurrentBalance)}")"
                                  Style="white-space: nowrap;">
-                            @_account.FormattedBalance
+                            @CurrencyHelper.FormatCurrency(_account.CurrentBalance)
                         </MudText>
 
                         @if (_account.Type == AccountType.Credit && _account.CreditLimit > 0)
@@ -225,6 +323,39 @@
                                 <MudText Typo="Typo.caption" Style="opacity: 0.6; white-space: nowrap;">
                                     Utilization: @($"{utilization:F1}%")
                                 </MudText>
+
+                                @if (_account.CutDay.HasValue || _account.PaymentDay.HasValue || _account.AnnualInterestRate.HasValue)
+                                {
+                                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Style="flex-wrap:wrap; gap:6px;">
+                                        @if (_account.CutDay.HasValue)
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Style="opacity:0.6;" />
+                                                <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
+                                                    Billing closes day @_account.CutDay
+                                                </MudText>
+                                            </MudStack>
+                                        }
+                                        @if (_account.PaymentDay.HasValue)
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Payment" Size="Size.Small" Style="opacity:0.6;" />
+                                                <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
+                                                    Payment due day @_account.PaymentDay
+                                                </MudText>
+                                            </MudStack>
+                                        }
+                                        @if (_account.AnnualInterestRate.HasValue)
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Percent" Size="Size.Small" Style="opacity:0.6;" />
+                                                <MudText Typo="Typo.caption" Style="opacity:0.7; white-space:nowrap;">
+                                                    @($"{_account.AnnualInterestRate:F2}")% APR
+                                                </MudText>
+                                            </MudStack>
+                                        }
+                                    </MudStack>
+                                }
                             </MudStack>
                         }
                     </MudStack>
@@ -600,6 +731,9 @@
 
     private bool IsDebtAccount()
         => _account?.Type == AccountType.Credit;
+
+    private bool NeedsBankName => _account?.Type is not AccountType.Cash;
+    private bool NeedsCardDisplayName => _account?.Type is AccountType.Credit or AccountType.Bank or AccountType.Checking or AccountType.Savings;
 }
 
 

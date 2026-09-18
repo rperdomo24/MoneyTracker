@@ -6,7 +6,7 @@
 
 <MudPaper Elevation="1" Class="pa-3 dashboard-card" Style="border-radius:16px;">
     <MudStack Spacing="2">
-        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
             <MudStack Spacing="0">
                 <MudText Typo="Typo.subtitle1" Class="font-weight-bold">Expenses by Category</MudText>
                 <MudText Typo="Typo.caption" Style="opacity:0.75;">
@@ -18,7 +18,7 @@
                        Size="MudBlazor.Size.Small"
                        StartIcon="@Icons.Material.Filled.ReceiptLong"
                        OnClick="NavigateToBudgets">
-                View budgets
+                View transactions
             </MudButton>
         </MudStack>
 
@@ -70,7 +70,7 @@
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.ReceiptLong"
                            OnClick="NavigateToBudgets">
-                    View budgets
+                    View transactions
                 </MudButton>
             </MudStack>
         }
@@ -148,7 +148,7 @@
     }
 
     private void NavigateToBudgets()
-        => NavigationManager.NavigateTo("/budgets");
+        => NavigationManager.NavigateTo("/transactions");
 
     private static List<CategoryBreakdownDto> BuildLegendCategories(
         List<CategoryBreakdownDto> source,

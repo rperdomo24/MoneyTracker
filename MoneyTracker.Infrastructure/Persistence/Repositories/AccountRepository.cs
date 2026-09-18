@@ -149,5 +149,27 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 return false;
             }
         }
+
+        public async Task<List<Account>> GetAllCreditAccountsWithDatesAsync()
+        {
+            try
+            {
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+
+                return await context.Accounts
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .Where(a => !a.IsDeleted
+                        && a.Type == AccountType.Credit
+                        && (a.CutDay != null || a.PaymentDay != null))
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching credit accounts with dates.");
+                return new List<Account>();
+            }
+        }
     }
 }

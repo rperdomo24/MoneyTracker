@@ -14,7 +14,11 @@
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
+@using MoneyTracker.UI.Services.Print
+@using System.Text
 @inject ITransactionFilterStateService TransactionFilterState
+@inject ITransactionPrintService PrintService
+@inject IJSRuntime JS
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
@@ -100,6 +104,22 @@
                         }
                     </MudButton>
 
+                    <MudTooltip Text="Export visible transactions to CSV">
+                        <MudIconButton Icon="@Icons.Material.Filled.Download"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Disabled="@(_transactionSummary?.Transactions is null or { Count: 0 })"
+                                       OnClick="ExportCsvAsync" />
+                    </MudTooltip>
+
+                    <MudTooltip Text="Print filtered transactions">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Secondary"
+                                       Disabled="@(_transactionSummary?.Transactions is null or { Count: 0 })"
+                                       OnClick="PrintFilteredAsync" />
+                    </MudTooltip>
+
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.Add"
@@ -143,8 +163,10 @@
                          OnEdit="EditTransaction"
                          OnDuplicate="DuplicateTransaction"
                          OnDelete="DeleteTransaction"
+                         SelectedSum="@_selectedSum"
                          OnClearFilters="ClearAllFilters"
                          OnDeleteSelected="DeleteSelectedTransactions"
+                         OnPrintSelected="PrintSelectedAsync"
                          OnPageChanged="HandlePageChanged"
                          OnRowsPerPageChanged="HandleRowsPerPageChanged" />
 
@@ -183,6 +205,7 @@
     private int _totalTransactions = 0;
 
     private HashSet<int> _selectedTransactionIds = new();
+    private decimal _selectedSum = 0;
 
     private bool _drawerOpen = false;
     private int _selectedTransactionId = 0;
@@ -220,7 +243,11 @@
 
         var saved = await TransactionFilterState.GetAsync();
         if (saved != null)
+        {
             _filterDto = saved;
+            if (saved.RowsPerPage > 0)
+                _rowsPerPage = saved.RowsPerPage;
+        }
 
         UpdateFilterStates();
 
@@ -354,6 +381,9 @@
     private Task OnSelectedTransactionsChanged(HashSet<int> selectedIds)
     {
         _selectedTransactionIds = selectedIds;
+        _selectedSum = _allTransactionsUnfiltered
+            ?.Where(t => selectedIds.Contains(t.Id))
+            .Sum(t => t.Amount) ?? 0;
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -366,13 +396,14 @@
         return Task.CompletedTask;
     }
 
-    private Task HandleRowsPerPageChanged(int newSize)
+    private async Task HandleRowsPerPageChanged(int newSize)
     {
         _rowsPerPage = newSize;
+        _filterDto.RowsPerPage = newSize;
         _currentPage = 1;
+        await TransactionFilterState.SaveAsync(_filterDto);
         GroupTransactions();
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private void EditTransaction(TransactionDto transaction)
@@ -529,4 +560,68 @@
     }
 
     private async Task OnTransactionChanged() => await LoadTransactionsAsync();
+
+    private async Task ExportCsvAsync()
+    {
+        var transactions = _transactionSummary?.Transactions;
+        if (transactions is null || transactions.Count == 0) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Date,Name,Merchant,Amount,Type,Category,Account,Description");
+
+        foreach (var t in transactions)
+        {
+            var date = t.Date.ToString("yyyy-MM-dd");
+            var name = CsvEscape(t.Name);
+            var merchant = CsvEscape(t.MerchantName ?? "");
+            var amount = t.Amount.ToString("F2");
+            var type = t.TransactionType.ToString();
+            var category = CsvEscape(t.Category?.Name ?? "");
+            var account = CsvEscape(t.Account?.Name ?? "");
+            var description = CsvEscape(t.Description ?? "");
+            sb.AppendLine($"{date},{name},{merchant},{amount},{type},{category},{account},{description}");
+        }
+
+        var filename = $"transactions_{DateTime.Today:yyyy-MM-dd}.csv";
+        await JS.InvokeVoidAsync("downloadTextFile", filename, sb.ToString());
+    }
+
+    private static string CsvEscape(string value)
+    {
+        const char q = '"';
+        if (!value.Contains(',') && !value.Contains(q) && !value.Contains('\n'))
+            return value;
+        return q + value.Replace(q.ToString(), q.ToString() + q.ToString()) + q;
+    }
+
+    private async Task PrintSelectedAsync()
+    {
+        var selected = _allTransactionsUnfiltered
+            ?.Where(t => _selectedTransactionIds.Contains(t.Id))
+            .ToList() ?? new();
+
+        if (selected.Count == 0) return;
+        await PrintTransactionsAsync(selected, "Selected Transactions");
+    }
+
+    private async Task PrintFilteredAsync()
+    {
+        var transactions = _transactionSummary?.Transactions;
+        if (transactions is null || transactions.Count == 0) return;
+        await PrintTransactionsAsync(transactions, "Filtered Transactions");
+    }
+
+    private async Task PrintTransactionsAsync(IList<TransactionDto> transactions, string title)
+    {
+        try
+        {
+            var bytes = PrintService.GenerateReport(transactions, title);
+            var filename = $"transactions_{DateTime.Today:yyyy-MM-dd}.pdf";
+            await JS.InvokeVoidAsync("downloadBinaryFile", filename, bytes);
+        }
+        catch
+        {
+            Snackbar.Add("Error generating PDF report", Severity.Error);
+        }
+    }
 }

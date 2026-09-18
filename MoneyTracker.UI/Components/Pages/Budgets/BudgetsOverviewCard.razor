@@ -6,58 +6,45 @@
 
 <MudPaper Elevation="1" Class="pa-4" Style="border-radius:16px;">
     <MudStack Spacing="3">
-        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
-            <MudStack Spacing="0">
-                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@MonthLabel</MudText>
-                <MudText Typo="Typo.caption" Style="opacity:0.75;">
-                    @(IsExpenseTab ? "Expenses overview" : "Income overview")
-                </MudText>
+        <MudStack Spacing="0">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.overline" Style="opacity:0.6;">Monthly summary</MudText>
+                <MudChip T="string" Size="MudBlazor.Size.Small" Variant="Variant.Filled" Color="@HealthChipColor">
+                    @HealthLabel
+                </MudChip>
             </MudStack>
-
-            <MudButton Variant="Variant.Filled"
-                       Color="MudBlazor.Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       Size="MudBlazor.Size.Small"
-                       OnClick="OnAddBudget">
-                New budget
-            </MudButton>
+            <MudText Typo="Typo.h6" Class="font-weight-bold">@MonthLabel</MudText>
+            <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                @(IsExpenseTab ? "Expenses overview" : "Income overview")
+            </MudText>
         </MudStack>
 
         <MudGrid Spacing="2">
-            <MudItem xs="6">
-                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
-                    <MudText Typo="Typo.caption" Style="opacity:0.75;">@(IsExpenseTab ? "Spent" : "Earned")</MudText>
-                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(Summary.TotalUsed)</MudText>
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="6">
+            <MudItem xs="4">
                 <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
                     <MudText Typo="Typo.caption" Style="opacity:0.75;">Budgeted</MudText>
                     <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(Summary.TotalBudgeted)</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.6;">Target</MudText>
                 </MudPaper>
             </MudItem>
 
-            <MudItem xs="6">
+            <MudItem xs="4">
                 <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
-                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Remaining</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">@(IsExpenseTab ? "Spent" : "Earned")</MudText>
+                    <MudText Typo="Typo.h6" Class="font-weight-bold">@CurrencyHelper.FormatCurrency(Summary.TotalUsed)</MudText>
+                    <MudText Typo="Typo.caption" Style="opacity:0.6;">@(IsExpenseTab ? "Total spent" : "Total earned")</MudText>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="4">
+                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
+                    <MudText Typo="Typo.caption" Style="opacity:0.75;">@(Summary.TotalRemaining < 0 ? "Deficit" : "Remaining")</MudText>
                     <MudText Typo="Typo.h6"
                              Class="font-weight-bold"
                              Style="@(Summary.TotalRemaining < 0 ? "color: var(--mud-palette-error);" : "color: var(--mud-palette-success);")">
                         @CurrencyHelper.FormatCurrency(Summary.TotalRemaining)
                     </MudText>
-                </MudPaper>
-            </MudItem>
-
-            <MudItem xs="6">
-                <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
-                    <MudText Typo="Typo.caption" Style="opacity:0.75;">Health</MudText>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudChip T="string" Size="MudBlazor.Size.Small" Variant="Variant.Filled" Color="@HealthChipColor">
-                            @HealthLabel
-                        </MudChip>
-                        <MudText Typo="Typo.body2" Style="opacity:0.75;">@StatusSummaryText</MudText>
-                    </MudStack>
+                    <MudText Typo="Typo.caption" Style="opacity:0.6;">@(Summary.TotalRemaining < 0 ? "Overspent" : "Available")</MudText>
                 </MudPaper>
             </MudItem>
         </MudGrid>
@@ -117,7 +104,10 @@
         {
             <MudPaper Elevation="0" Class="pa-3" Style="border-radius:12px; border:1px solid var(--mud-palette-divider);">
                 <MudStack Spacing="2">
-                    <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Top categories</MudText>
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.subtitle2" Class="font-weight-bold">Breakdown</MudText>
+                        <MudText Typo="Typo.caption" Style="opacity:0.6;">@($"{_legendSlices.Count} Groups")</MudText>
+                    </MudStack>
 
                     <ApexChart TItem="BudgetSlicePoint" @key="_chartRenderKey" Options="_chartOptions" Height="260" OnDataPointSelection="HandleDataPointSelection">
                         <ApexPointSeries TItem="BudgetSlicePoint"
@@ -142,9 +132,10 @@
                                     </MudButton>
                                 </MudStack>
 
-                                <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                    @($"{s.Percent}%")
-                                </MudText>
+                                <MudStack Spacing="0" AlignItems="AlignItems.End">
+                                    <MudText Typo="Typo.body2" Class="font-weight-medium">@($"{s.Percent}%")</MudText>
+                                    <MudText Typo="Typo.caption" Style="opacity:0.6;">@CurrencyHelper.FormatCurrency(s.Used)</MudText>
+                                </MudStack>
                             </MudStack>
                         }
                     </MudStack>
@@ -158,13 +149,6 @@
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
                         No category activity yet for this month.
                     </MudText>
-
-                    <MudButton Variant="Variant.Filled"
-                               Color="MudBlazor.Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="OnAddBudget">
-                        New budget
-                    </MudButton>
                 </MudStack>
             </MudPaper>
         }
@@ -183,7 +167,6 @@
     [Parameter] public EventCallback<int> OnFilterModeSelected { get; set; }
     [Parameter] public EventCallback<string> OnSliceSelected { get; set; }
     [Parameter] public EventCallback OnToggleWithoutBudgetFilter { get; set; }
-    [Parameter] public EventCallback OnAddBudget { get; set; }
 
     private bool _hasChartData;
     private ApexChartOptions<BudgetSlicePoint> _chartOptions = BuildChartOptions(new List<string>());
@@ -225,14 +208,6 @@
             : BudgetedCategoryCount > 0
                 ? "Healthy"
                 : "No budgets";
-
-    private string StatusSummaryText => OverBudgetCount > 0
-        ? "Some categories already need attention."
-        : NearLimitCount > 0
-            ? "A few categories are close to their limit."
-            : BudgetedCategoryCount > 0
-                ? "Your main categories are under control."
-                : "Create budgets to start tracking.";
 
     protected override void OnParametersSet()
     {
@@ -289,7 +264,34 @@
             },
             DataLabels = new DataLabels { Enabled = false },
             Colors = colors,
-            Legend = new Legend { Show = false }
+            Legend = new Legend { Show = false },
+            PlotOptions = new PlotOptions
+            {
+                Pie = new PlotOptionsPie
+                {
+                    Donut = new PlotOptionsDonut
+                    {
+                        Labels = new DonutLabels
+                        {
+                            Show = true,
+                            Value = new DonutLabelValue
+                            {
+                                Show = true,
+                                FontSize = "20px",
+                                FontWeight = "700",
+                                Formatter = "function (val) { return '$' + Math.round(val).toLocaleString('en-US'); }"
+                            },
+                            Total = new DonutLabelTotal
+                            {
+                                Show = true,
+                                ShowAlways = true,
+                                Label = "TOTAL",
+                                Formatter = "function (w) { var total = w.globals.seriesTotals.reduce(function (a, b) { return a + b; }, 0); return '$' + Math.round(total).toLocaleString('en-US'); }"
+                            }
+                        }
+                    }
+                }
+            }
         };
 
     private sealed class BudgetSlicePoint

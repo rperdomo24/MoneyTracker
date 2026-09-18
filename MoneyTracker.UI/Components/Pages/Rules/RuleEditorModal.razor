@@ -1,0 +1,274 @@
+@using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Merchants
+@using MoneyTracker.Application.DTOs.Rules
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Domain.Enums.Rules
+@inject IMerchantService MerchantService
+@inject ICategoryService CategoryService
+@inject ISnackbar Snackbar
+
+<MudDialog Style="min-width: 580px;">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Rule" Color="Color.Primary" />
+            <MudText Typo="Typo.h6" Class="font-weight-bold">@(_isEdit ? "Edit rule" : "New transaction rule")</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-6">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="4">
+                <!-- Rule name -->
+                <MudTextField Label="Rule name (optional)"
+                              Variant="Variant.Outlined"
+                              @bind-Value="_dto.Name"
+                              MaxLength="200"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Label" />
+
+                <!-- IF section -->
+                <div>
+                    <MudText Typo="Typo.overline" Class="mb-2">IF</MudText>
+
+                    @if (!_dto.Conditions.Any())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default" Class="mb-2">No conditions — add at least one.</MudText>
+                    }
+
+                    @foreach (var cond in _dto.Conditions)
+                    {
+                        <ConditionRow Condition="cond"
+                                      Merchants="_merchants"
+                                      Categories="_categories"
+                                      OnRemove="@(() => RemoveCondition(cond))" />
+                    }
+
+                    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AddCondition" Size="Size.Small">
+                        Add condition
+                    </MudButton>
+                </div>
+
+                <MudDivider />
+
+                <!-- THEN section -->
+                <div>
+                    <MudText Typo="Typo.overline" Class="mb-2">THEN</MudText>
+
+                    @if (!_dto.Actions.Any())
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Default" Class="mb-2">No actions — add at least one.</MudText>
+                    }
+
+                    @foreach (var action in _dto.Actions)
+                    {
+                        <ActionRow Action="action"
+                                   Merchants="_merchants"
+                                   Categories="_categories"
+                                   OnRemove="@(() => RemoveAction(action))" />
+                    }
+
+                    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AddAction" Size="Size.Small">
+                        Add action
+                    </MudButton>
+                </div>
+
+                <MudDivider />
+
+                <!-- FOR section -->
+                <div>
+                    <MudText Typo="Typo.overline" Class="mb-2">FOR</MudText>
+                    <MudRadioGroup @bind-Value="_forScope">
+                        <MudRadio Value="@ForScope.AllPastAndFuture" Color="Color.Primary">
+                            All past and future transactions
+                        </MudRadio>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-1">
+                            <MudRadio Value="@ForScope.StartingFrom" Color="Color.Primary">
+                                Starting from
+                            </MudRadio>
+                            @if (_forScope == ForScope.StartingFrom)
+                            {
+                                <MudDatePicker @bind-Date="_applyFromDate"
+                                               Variant="Variant.Outlined"
+                                               DateFormat="MM/dd/yyyy"
+                                               Style="max-width: 180px;" />
+                            }
+                        </MudStack>
+                    </MudRadioGroup>
+                </div>
+            </MudStack>
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="Cancel" Disabled="@_saving">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@(_saving ? null : Icons.Material.Filled.Save)"
+                   OnClick="SaveAsync"
+                   Disabled="@(_loading || _saving)">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ml-2">Saving...</MudText>
+            }
+            else
+            {
+                <span>@(_isEdit ? "Update" : "Create Rule")</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private enum ForScope { AllPastAndFuture, StartingFrom }
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public TransactionRuleDto? Rule { get; set; }
+    [Parameter] public ITransactionRuleService RuleService { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private TransactionRuleDto _dto = new();
+    private bool _isEdit => Rule != null && Rule.Id > 0;
+    private bool _loading = true;
+    private bool _saving = false;
+
+    private List<MerchantDto> _merchants = new();
+    private List<CategoryDto> _categories = new();
+
+    private ForScope _forScope = ForScope.AllPastAndFuture;
+    private DateTime? _applyFromDate = DateTime.Today;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReferenceDataAsync();
+
+        if (_isEdit && Rule != null)
+        {
+            _dto = new TransactionRuleDto
+            {
+                Id = Rule.Id,
+                Name = Rule.Name,
+                IsEnabled = Rule.IsEnabled,
+                ApplyToHistorical = Rule.ApplyToHistorical,
+                ApplyFromDate = Rule.ApplyFromDate,
+                Order = Rule.Order,
+                Conditions = Rule.Conditions.Select(c => new TransactionRuleConditionDto
+                {
+                    Id = c.Id, RuleId = c.RuleId, Field = c.Field, Operator = c.Operator, Value = c.Value
+                }).ToList(),
+                Actions = Rule.Actions.Select(a => new TransactionRuleActionDto
+                {
+                    Id = a.Id, RuleId = a.RuleId, ActionType = a.ActionType,
+                    MerchantId = a.MerchantId, CategoryId = a.CategoryId,
+                    StringValue = a.StringValue
+                }).ToList()
+            };
+
+            _forScope = Rule.ApplyToHistorical ? ForScope.AllPastAndFuture : ForScope.StartingFrom;
+            _applyFromDate = Rule.ApplyFromDate ?? DateTime.Today;
+        }
+        else
+        {
+            _dto = new TransactionRuleDto { IsEnabled = true };
+        }
+
+        _loading = false;
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        var merchantsTask = MerchantService.GetAllAsync();
+        var categoriesTask = CategoryService.GetAllWithChildAsync(false);
+
+        await Task.WhenAll(merchantsTask, categoriesTask);
+
+        var mResult = await merchantsTask;
+        _merchants = mResult.Success && mResult.Data != null ? mResult.Data : new();
+
+        var cResult = await categoriesTask;
+        _categories = cResult.Success && cResult.Data != null
+            ? cResult.Data.Where(c => !c.IsSystem).ToList()
+            : new();
+    }
+
+    private void AddCondition()
+    {
+        _dto.Conditions.Add(new TransactionRuleConditionDto
+        {
+            Field = RuleConditionField.Name,
+            Operator = RuleConditionOperator.Contains,
+            Value = string.Empty
+        });
+    }
+
+    private void RemoveCondition(TransactionRuleConditionDto cond) => _dto.Conditions.Remove(cond);
+
+    private void AddAction()
+    {
+        _dto.Actions.Add(new TransactionRuleActionDto
+        {
+            ActionType = RuleActionType.SetMerchant
+        });
+    }
+
+    private void RemoveAction(TransactionRuleActionDto action) => _dto.Actions.Remove(action);
+
+    private async Task SaveAsync()
+    {
+        if (_saving) return;
+
+        if (!_dto.Conditions.Any())
+        {
+            Snackbar.Add("Add at least one condition.", Severity.Warning);
+            return;
+        }
+        if (!_dto.Actions.Any())
+        {
+            Snackbar.Add("Add at least one action.", Severity.Warning);
+            return;
+        }
+
+        _dto.ApplyToHistorical = _forScope == ForScope.AllPastAndFuture;
+        _dto.ApplyFromDate = _forScope == ForScope.StartingFrom ? _applyFromDate : null;
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = _isEdit
+                ? await RuleService.UpdateAsync(_dto)
+                : await RuleService.CreateAsync(_dto);
+
+            if (result.Success)
+            {
+                Snackbar.Add(result.Message ?? (_isEdit ? "Rule updated" : "Rule created"), Severity.Success);
+                await OnSaved.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Error saving rule", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

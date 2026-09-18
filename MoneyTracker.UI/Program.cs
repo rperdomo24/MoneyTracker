@@ -1,4 +1,6 @@
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Diagnostics;
@@ -11,13 +13,19 @@ using MoneyTracker.Application.DTOs.Auth;
 using MoneyTracker.Application.DTOs;
 using MoneyTracker.Application.DTOs.Budgets;
 using MoneyTracker.Application.DTOs.Transactions;
+using MoneyTracker.Application.DTOs.CardBenefits;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Services;
-using MoneyTracker.Application.Validators;
+using MoneyTracker.Application.Validators.Accounts;
 using MoneyTracker.Application.Validators.Budgets;
 using MoneyTracker.Application.Validators.Auth;
+using MoneyTracker.Application.Validators.Categories;
+using MoneyTracker.Application.Validators.CardBenefits;
+using MoneyTracker.Application.Validators.Calendar;
+using MoneyTracker.Application.DTOs.Calendar;
 using MoneyTracker.Application.Validators.Transaction;
 using MoneyTracker.Domain.Interfaces;
+using MoneyTracker.Infrastructure.Jobs;
 using MoneyTracker.Infrastructure.Persistence;
 using MoneyTracker.Infrastructure.Persistence.Repositories;
 using MoneyTracker.Infrastructure.Services;
@@ -26,6 +34,7 @@ using MoneyTracker.UI.Endpoints;
 using MoneyTracker.UI.Services.Components.Drawer;
 using MoneyTracker.UI.Services.Filters;
 using MoneyTracker.UI.Services.Filters.Interface;
+using MoneyTracker.UI.Services.Print;
 using MoneyTracker.UI.Services.User;
 using MoneyTracker.UI.Services.Branding;
 using MoneyTracker.UI.Utility.Settings;
@@ -135,6 +144,12 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ITransactionFilterStateService, TransactionFilterStateService>();
             builder.Services.AddScoped<IBudgetFilterStateService, BudgetFilterStateService>();
             builder.Services.AddScoped<IDashboardFilterStateService, DashboardFilterStateService>();
+            builder.Services.AddScoped<ICategoryFilterStateService, CategoryFilterStateService>();
+            builder.Services.AddScoped<ICreditCalendarFilterStateService, CreditCalendarFilterStateService>();
+            builder.Services.AddScoped<IRecurringTransactionFilterStateService, RecurringTransactionFilterStateService>();
+            builder.Services.AddScoped<IUserReportPreferenceRepository, UserReportPreferenceRepository>();
+            builder.Services.AddScoped<IMonthlyReportStateService, MonthlyReportStateService>();
+            builder.Services.AddScoped<IRangeReportStateService, RangeReportStateService>();
             builder.Services.AddScoped<IAccountsPanelStateService, AccountsPanelStateService>();
             builder.Services.AddSingleton<IBrandingService, BrandingService>();
 
@@ -147,6 +162,7 @@ namespace MoneyTracker.UI
                 options.KnownProxies.Clear();
             });
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+            builder.Services.Configure<GoogleAiSettings>(builder.Configuration.GetSection("GoogleAiSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
             builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
             builder.Services.AddScoped<IAuthAuditService, AuthAuditService>();
@@ -160,7 +176,6 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<ICategoryService, CategoryService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<IUserInvitationService, UserInvitationService>();
-            builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
             builder.Services.AddScoped<IValidator<CreateTransferDto>, CreateTransferValidator>();
             builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
             builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
@@ -170,6 +185,7 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<CategoryDto>, CategoryValidator>();
             builder.Services.AddScoped<IValidator<AccountDto>, AccountValidator>();
             builder.Services.AddScoped<IValidator<TransactionDto>, TransactionValidator>();
+            builder.Services.AddScoped<IValidator<TransactionFilterDto>, TransactionFilterValidator>();
             builder.Services.AddScoped<IDashboardService, DashboardService>();
 
             builder.Services.AddScoped<IBudgetRepository, BudgetRepository>();
@@ -177,14 +193,67 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<CreateBudgetDto>, CreateBudgetValidator>();
             builder.Services.AddScoped<IValidator<UpdateBudgetDto>, UpdateBudgetValidator>();
 
-            builder.Services.AddScoped<ITextImportService, TextImportService>();
+            builder.Services.AddScoped<ICardBenefitRepository, CardBenefitRepository>();
+            builder.Services.AddScoped<ICardBenefitService, CardBenefitService>();
+            builder.Services.AddScoped<IMerchantRepository, MerchantRepository>();
+            builder.Services.AddScoped<IMerchantService, MerchantService>();
+            builder.Services.AddScoped<ITransactionRuleRepository, TransactionRuleRepository>();
+            builder.Services.AddScoped<ITransactionRuleService, TransactionRuleService>();
+            builder.Services.AddScoped<ISavingsGoalRepository, SavingsGoalRepository>();
+            builder.Services.AddScoped<ISavingsGoalService, SavingsGoalService>();
+            builder.Services.AddScoped<ILoanRepository, LoanRepository>();
+            builder.Services.AddScoped<ILoanService, LoanService>();
+            builder.Services.AddScoped<IGlobalSearchRepository, GlobalSearchRepository>();
+            builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
+            builder.Services.AddScoped<IRecurringTransactionRepository, RecurringTransactionRepository>();
+            builder.Services.AddScoped<IRecurringTransactionService, RecurringTransactionService>();
+            builder.Services.AddScoped<RecurringTransactionGeneratorJob>();
+            builder.Services.AddScoped<ICalendarReminderRepository, CalendarReminderRepository>();
+            builder.Services.AddScoped<ICalendarReminderService, CalendarReminderService>();
+            builder.Services.AddScoped<ICalendarService, CalendarService>();
+            builder.Services.AddScoped<IValidator<CalendarReminderDto>, CalendarReminderValidator>();
+            builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<NotificationGeneratorJob>();
+            builder.Services.AddScoped<IAiReportCacheRepository, AiReportCacheRepository>();
+            builder.Services.AddScoped<IAiRangeReportCacheRepository, AiRangeReportCacheRepository>();
+            builder.Services.AddScoped<IAiCallLogRepository, AiCallLogRepository>();
+            builder.Services.AddScoped<IAiTextImportCacheRepository, AiTextImportCacheRepository>();
+            builder.Services.AddScoped<IAiTrainingDataRepository, AiTrainingDataRepository>();
+            builder.Services.AddScoped<IReportService, ReportService>();
+            builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
+
+            builder.Services.AddHttpClient<ITextImportService, AiTextImportService>();
             builder.Services.AddScoped<IUserProfileService, UserProfileService>();
             builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
+            builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
+            builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
+            builder.Services.AddScoped<ILoginService, LoginService>();
+            builder.Services.AddScoped<ILoginOtpService, LoginOtpService>();
+            builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+            builder.Services.AddScoped<ISignOutService, SignOutService>();
             builder.Services.AddScoped<AccountsDrawerState>();
             builder.Services.AddScoped<AccountsRefreshBus>();
+            builder.Services.AddScoped<ITransactionPrintService, TransactionPrintService>();
+            builder.Services.AddScoped<ILoanPrintService, LoanPrintService>();
+            builder.Services.AddScoped<ITransactionAttachmentRepository, TransactionAttachmentRepository>();
+            builder.Services.AddScoped<ITransactionAttachmentService, TransactionAttachmentService>();
 
 
             builder.Services.AddScoped<ProtectedSessionStorage>();
+
+            builder.Services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(options =>
+                    options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+            builder.Services.AddHangfireServer(options =>
+            {
+                options.WorkerCount = 2;
+                options.Queues = ["default"];
+            });
+            builder.Services.AddScoped<CardReminderJob>();
 
             Log.Logger = new LoggerConfiguration()
                             .WriteTo.Console()
@@ -224,6 +293,26 @@ namespace MoneyTracker.UI
             app.UseAuthorization();
 
             app.UseAntiforgery();
+
+            app.UseHangfireDashboard("/hangfire", new DashboardOptions
+            {
+                Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
+            });
+
+            RecurringJob.AddOrUpdate<CardReminderJob>(
+                "card-reminders-daily",
+                job => job.ExecuteAsync(),
+                "0 8 * * *");
+
+            RecurringJob.AddOrUpdate<RecurringTransactionGeneratorJob>(
+                "recurring-transactions-daily",
+                job => job.ExecuteAsync(),
+                "0 6 * * *");
+
+            RecurringJob.AddOrUpdate<NotificationGeneratorJob>(
+                "notification-alerts-daily",
+                job => job.ExecuteAsync(),
+                "0 8 * * *");
 
             app.MapAuthEndpoints();
             app.MapDiagnosticsEndpoints();

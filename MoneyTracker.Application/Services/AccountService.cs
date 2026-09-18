@@ -162,7 +162,9 @@ namespace MoneyTracker.Application.Services
                 if (adjustment == 0)
                     return OperationResult.Ok(ServiceMessages.AccountAdjustNoChanges);
 
-                await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
+                var transactionResult = await CreateBalanceAdjustmentTransactionAsync(accountId, adjustment, account.Name, reason);
+                if (!transactionResult.Success)
+                    return OperationResult.Fail(transactionResult.Message ?? OperationMessages.UnexpectedError);
 
                 var sign = adjustment > 0 ? "+" : "";
                 return OperationResult.Ok(string.Format(ServiceMessages.AccountBalanceAdjusted, sign, adjustment));
@@ -207,7 +209,7 @@ namespace MoneyTracker.Application.Services
             await _transactionService.CreateAsync(transactionDto);
         }
 
-        private async Task CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
+        private async Task<OperationResult<bool>> CreateBalanceAdjustmentTransactionAsync(int accountId, decimal adjustment, string accountName, string reason)
         {
             var isIncome = adjustment >= 0;
             var categoryId = await _systemCategoryResolver.GetBalanceAdjustmentCategoryIdAsync(isIncome);
@@ -218,7 +220,7 @@ namespace MoneyTracker.Application.Services
             {
                 Name = transactionType,
                 AccountId = accountId,
-                Amount = isIncome ? Math.Abs(adjustment) : -Math.Abs(adjustment),
+                Amount = Math.Abs(adjustment),
                 CategoryId = categoryId,
                 Date = _timeZoneService.GetLocalTimeInConfiguredTimeZone(),
                 Description = $"{SystemCategoryNames.BALANCE_ADJUSTMENT_NAME} - {accountName}",
@@ -231,7 +233,7 @@ namespace MoneyTracker.Application.Services
                 // transactionDto.Notes = reason;
             }
 
-            await _transactionService.CreateAsync(transactionDto);
+            return await _transactionService.CreateAsync(transactionDto);
         }
 
         public async Task<OperationResult<bool>> HasAccountByType(AccountType accountType)
@@ -259,6 +261,51 @@ namespace MoneyTracker.Application.Services
                 return OperationResult.Fail(ServiceMessages.AccountBalanceSyncError);
 
             return OperationResult.Ok(ServiceMessages.AccountSynced);
+        }
+
+        public async Task<OperationResult<int>> SyncAllBalancesAsync()
+        {
+            try
+            {
+                var accounts = await _repository.GetAllAsync();
+                var failed = new List<string>();
+                int synced = 0;
+                foreach (var account in accounts)
+                {
+                    var balanceResult = await GetCurrentBalanceAsync(account.Id);
+                    if (!balanceResult.Success) { failed.Add(account.Name); continue; }
+                    account.Balance = balanceResult.Data;
+                    var updated = await _repository.UpdateAsync(account);
+                    if (updated) synced++; else failed.Add(account.Name);
+                }
+                var message = failed.Count == 0
+                    ? string.Format(ServiceMessages.AllAccountsSynced, synced)
+                    : string.Format(ServiceMessages.AllAccountsSyncedPartial, synced, string.Join(", ", failed));
+                return OperationResult<int>.Ok(synced, message);
+            }
+            catch (Exception ex)
+            {
+                return await FailWithLoggedExceptionAsync<int>(ex, OperationMessages.UnexpectedError, "Error syncing all account balances.");
+            }
+        }
+
+        public async Task<OperationResult<bool>> ToggleNetWorthAsync(int id)
+        {
+            try
+            {
+                var account = await _repository.GetByIdAsync(id);
+                if (account is null)
+                    return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                account.IncludeInNetWorth = !account.IncludeInNetWorth;
+                await _repository.UpdateAsync(account);
+                return OperationResult<bool>.Ok(account.IncludeInNetWorth,
+                    account.IncludeInNetWorth ? "Included in net worth." : "Excluded from net worth.");
+            }
+            catch (Exception ex)
+            {
+                return await FailWithLoggedExceptionAsync<bool>(ex, OperationMessages.UnexpectedError, "Error toggling net worth for account.");
+            }
         }
 
         private async Task<OperationResult> FailWithLoggedExceptionAsync(Exception ex, string failMessage, string logContext)

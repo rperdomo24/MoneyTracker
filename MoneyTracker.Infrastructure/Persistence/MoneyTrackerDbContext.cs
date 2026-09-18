@@ -32,6 +32,25 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
         public DbSet<AuthAuditLog> AuthAuditLogs => Set<AuthAuditLog>();
         public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
+        public DbSet<CardBenefit> CardBenefits => Set<CardBenefit>();
+        public DbSet<Merchant> Merchants => Set<Merchant>();
+        public DbSet<TransactionRule> TransactionRules => Set<TransactionRule>();
+        public DbSet<TransactionRuleCondition> TransactionRuleConditions => Set<TransactionRuleCondition>();
+        public DbSet<TransactionRuleAction> TransactionRuleActions => Set<TransactionRuleAction>();
+        public DbSet<SavingsGoal> SavingsGoals => Set<SavingsGoal>();
+        public DbSet<SavingsContribution> SavingsContributions => Set<SavingsContribution>();
+        public DbSet<Loan> Loans => Set<Loan>();
+        public DbSet<LoanPayment> LoanPayments => Set<LoanPayment>();
+        public DbSet<LoanInstallment> LoanInstallments => Set<LoanInstallment>();
+        public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
+        public DbSet<AppNotification> AppNotifications => Set<AppNotification>();
+        public DbSet<AiReportCache> AiReportCaches => Set<AiReportCache>();
+        public DbSet<AiRangeReportCache> AiRangeReportCaches => Set<AiRangeReportCache>();
+        public DbSet<UserReportPreference> UserReportPreferences => Set<UserReportPreference>();
+        public DbSet<AiCallLog> AiCallLogs => Set<AiCallLog>();
+        public DbSet<AiTextImportCache> AiTextImportCaches => Set<AiTextImportCache>();
+        public DbSet<AiTrainingData> AiTrainingData => Set<AiTrainingData>();
+        public DbSet<CalendarReminder> CalendarReminders => Set<CalendarReminder>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -119,13 +138,117 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
 
             modelBuilder.Entity<Category>()
-                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
 
             modelBuilder.Entity<Transaction>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
 
+            modelBuilder.Entity<RecurringTransaction>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<UserReportPreference>()
+                .HasIndex(e => e.TenantId)
+                .IsUnique();
+
+            modelBuilder.Entity<UserReportPreference>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiRangeReportCache>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiRangeReportCache>()
+                .HasIndex(e => new { e.TenantId, e.FromDate, e.ToDate })
+                .IsUnique();
+
+            modelBuilder.Entity<AiRangeReportCache>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiReportCache>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiReportCache>()
+                .HasIndex(e => new { e.TenantId, e.Year, e.Month })
+                .IsUnique();
+
+            modelBuilder.Entity<AiReportCache>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiCallLog>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiCallLog>()
+                .HasIndex(e => e.CalledAtUtc);
+
+            modelBuilder.Entity<AiCallLog>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiTextImportCache>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiTextImportCache>()
+                .HasIndex(e => new { e.TenantId, e.InputHash })
+                .IsUnique();
+
+            modelBuilder.Entity<AiTextImportCache>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiTrainingData>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AiTrainingData>()
+                .HasIndex(e => new { e.TenantId, e.ServiceType, e.CalledAtUtc });
+
+            modelBuilder.Entity<AiTrainingData>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<CalendarReminder>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<CalendarReminder>()
+                .HasIndex(e => new { e.TenantId, e.Date });
+
+            modelBuilder.Entity<CalendarReminder>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.ServiceType).HasConversion<string>();
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.InputType).HasConversion<string>();
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.OutputType).HasConversion<string>();
+
+            modelBuilder.Entity<AiTrainingData>()
+                .Property(e => e.UserFeedback).HasConversion<string>();
+
+            modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => new { e.TenantId, e.IsRead });
+
+            modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => e.DuplicateKey)
+                .HasFilter("\"DuplicateKey\" IS NOT NULL");
+
+            modelBuilder.Entity<AppNotification>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<AppNotification>()
+                .Property(e => e.Type)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<RecurringTransaction>()
+                .Property(e => e.Frequency)
+                .HasConversion<string>();
+
             modelBuilder.Entity<Budget>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+
+            modelBuilder.Entity<Budget>()
+                .Property(e => e.PaycheckPeriod)
+                .HasConversion<int>();
 
             modelBuilder.Entity<TransactionAttachment>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
@@ -188,6 +311,163 @@ namespace MoneyTracker.Infrastructure.Persistence
             modelBuilder.Entity<Budget>()
                 .Property(b => b.UpdatedAt)
                 .HasDefaultValueSql("now()");
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasOne(e => e.Account)
+                .WithMany()
+                .HasForeignKey(e => e.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CardBenefit>()
+                .HasOne(e => e.Category)
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Merchant
+            modelBuilder.Entity<Merchant>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<Merchant>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            // Transaction → Merchant FK
+            modelBuilder.Entity<Transaction>()
+                .HasOne(t => t.Merchant)
+                .WithMany()
+                .HasForeignKey(t => t.MerchantId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // TransactionRule
+            modelBuilder.Entity<TransactionRule>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<TransactionRule>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<TransactionRule>()
+                .HasMany(r => r.Conditions)
+                .WithOne(c => c.Rule)
+                .HasForeignKey(c => c.RuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TransactionRule>()
+                .HasMany(r => r.Actions)
+                .WithOne(a => a.Rule)
+                .HasForeignKey(a => a.RuleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<TransactionRuleAction>()
+                .HasOne(a => a.Merchant)
+                .WithMany()
+                .HasForeignKey(a => a.MerchantId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<TransactionRuleAction>()
+                .HasOne(a => a.Category)
+                .WithMany()
+                .HasForeignKey(a => a.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // SavingsGoal
+            modelBuilder.Entity<SavingsGoal>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<SavingsGoal>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<SavingsGoal>()
+                .Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<SavingsGoal>()
+                .Property(e => e.TargetAmount)
+                .HasColumnType("numeric(12,2)");
+
+            // SavingsContribution
+            modelBuilder.Entity<SavingsContribution>()
+                .HasOne(c => c.Goal)
+                .WithMany(g => g.Contributions)
+                .HasForeignKey(c => c.GoalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SavingsContribution>()
+                .Property(c => c.Amount)
+                .HasColumnType("numeric(12,2)");
+
+            modelBuilder.Entity<SavingsContribution>()
+                .HasOne(c => c.LinkedTransaction)
+                .WithMany()
+                .HasForeignKey(c => c.LinkedTransactionId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Loan
+            modelBuilder.Entity<Loan>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<Loan>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.ContactName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.PrincipalAmount)
+                .HasColumnType("numeric(12,2)");
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.InterestRate)
+                .HasColumnType("numeric(8,4)");
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.Status)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<Loan>()
+                .Property(e => e.PaymentFrequency)
+                .HasConversion<string>();
+
+            // LoanPayment
+            modelBuilder.Entity<LoanPayment>()
+                .HasOne(p => p.Loan)
+                .WithMany(l => l.Payments)
+                .HasForeignKey(p => p.LoanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LoanPayment>()
+                .HasOne(p => p.Transaction)
+                .WithMany()
+                .HasForeignKey(p => p.TransactionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<LoanPayment>()
+                .Property(p => p.Amount)
+                .HasColumnType("numeric(12,2)");
+
+            // LoanInstallment
+            modelBuilder.Entity<LoanInstallment>()
+                .HasOne(i => i.Loan)
+                .WithMany(l => l.Installments)
+                .HasForeignKey(i => i.LoanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LoanInstallment>()
+                .Property(i => i.ExpectedAmount)
+                .HasColumnType("numeric(12,2)");
+
+            modelBuilder.Entity<LoanInstallment>()
+                .HasIndex(i => new { i.LoanId, i.InstallmentNumber })
+                .IsUnique();
         }
 
         public override int SaveChanges()
