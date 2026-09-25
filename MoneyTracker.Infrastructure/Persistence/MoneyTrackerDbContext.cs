@@ -229,11 +229,14 @@ namespace MoneyTracker.Infrastructure.Persistence
                 .HasIndex(e => new { e.TenantId, e.IsRead });
 
             modelBuilder.Entity<AppNotification>()
+                .HasIndex(e => new { e.TenantId, e.IsDismissed, e.IsRead });
+
+            modelBuilder.Entity<AppNotification>()
                 .HasIndex(e => e.DuplicateKey)
                 .HasFilter("\"DuplicateKey\" IS NOT NULL");
 
             modelBuilder.Entity<AppNotification>()
-                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDismissed);
 
             modelBuilder.Entity<AppNotification>()
                 .Property(e => e.Type)

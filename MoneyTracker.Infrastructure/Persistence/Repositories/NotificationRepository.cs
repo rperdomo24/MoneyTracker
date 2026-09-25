@@ -71,6 +71,29 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true));
         }
 
+        public async Task DismissAsync(int id)
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+            var notification = await context.AppNotifications.FirstOrDefaultAsync(n => n.Id == id);
+            if (notification is null) return;
+            notification.IsDismissed = true;
+            notification.DismissedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+        }
+
+        public async Task DismissAllReadAsync()
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+            var now = DateTime.UtcNow;
+            await context.AppNotifications
+                .Where(n => n.IsRead && !n.IsDismissed)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(n => n.IsDismissed, true)
+                    .SetProperty(n => n.DismissedAt, now));
+        }
+
         public async Task AddAsync(AppNotification notification)
         {
             await using var scope = _scopeFactory.CreateAsyncScope();

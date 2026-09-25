@@ -28,13 +28,22 @@
     <MudDrawerHeader>
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
             <MudText Typo="Typo.h6" Class="font-weight-bold">Notifications</MudText>
-            @if (_unreadCount > 0)
-            {
-                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
-                           OnClick="MarkAllReadAsync">
-                    Mark all read
-                </MudButton>
-            }
+            <MudStack Row="true" Spacing="1">
+                @if (_unreadCount > 0)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="MarkAllReadAsync">
+                        Mark all read
+                    </MudButton>
+                }
+                @if (_notifications.Any(n => n.IsRead))
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Default"
+                               OnClick="ClearReadAsync">
+                        Clear read
+                    </MudButton>
+                }
+            </MudStack>
         </MudStack>
     </MudDrawerHeader>
 
@@ -87,6 +96,12 @@
                                 @FormatDate(n.CreatedAt)
                             </MudText>
                         </MudStack>
+                        <span @onclick:stopPropagation="true" style="flex-shrink:0;">
+                            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                           Size="Size.Small"
+                                           title="Dismiss"
+                                           OnClick="@(() => DismissAsync(n))" />
+                        </span>
                     </MudStack>
                 </MudListItem>
                 <MudDivider />
@@ -143,7 +158,12 @@
     {
         if (!n.IsRead)
         {
-            await NotificationService.MarkReadAsync(n.Id);
+            var result = await NotificationService.MarkReadAsync(n.Id);
+            if (!result.Success)
+            {
+                Snackbar.Add(result.Message ?? "Could not mark notification as read.", Severity.Error);
+                return;
+            }
             n.IsRead = true;
             _unreadCount = Math.Max(0, _unreadCount - 1);
             StateHasChanged();
@@ -158,9 +178,40 @@
 
     private async Task MarkAllReadAsync()
     {
-        await NotificationService.MarkAllReadAsync();
+        var result = await NotificationService.MarkAllReadAsync();
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Could not mark notifications as read.", Severity.Error);
+            return;
+        }
         _notifications.ForEach(n => n.IsRead = true);
         _unreadCount = 0;
+        StateHasChanged();
+    }
+
+    private async Task DismissAsync(NotificationDto n)
+    {
+        var result = await NotificationService.DismissAsync(n.Id);
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Could not dismiss notification.", Severity.Error);
+            return;
+        }
+        if (!n.IsRead)
+            _unreadCount = Math.Max(0, _unreadCount - 1);
+        _notifications.Remove(n);
+        StateHasChanged();
+    }
+
+    private async Task ClearReadAsync()
+    {
+        var result = await NotificationService.DismissReadAsync();
+        if (!result.Success)
+        {
+            Snackbar.Add(result.Message ?? "Could not clear read notifications.", Severity.Error);
+            return;
+        }
+        _notifications.RemoveAll(n => n.IsRead);
         StateHasChanged();
     }
 
@@ -170,6 +221,8 @@
         NotificationType.LoanReminder => Icons.Material.Filled.Handshake,
         NotificationType.CreditCardCut => Icons.Material.Filled.Receipt,
         NotificationType.CreditCardDue => Icons.Material.Filled.Payment,
+        NotificationType.CalendarReminder => Icons.Material.Filled.Event,
+        NotificationType.GoalContributionReminder => Icons.Material.Filled.Savings,
         _ => Icons.Material.Filled.Notifications
     };
 
@@ -179,6 +232,8 @@
         NotificationType.LoanReminder => Color.Primary,
         NotificationType.CreditCardCut => Color.Info,
         NotificationType.CreditCardDue => Color.Error,
+        NotificationType.CalendarReminder => Color.Secondary,
+        NotificationType.GoalContributionReminder => Color.Success,
         _ => Color.Default
     };
 

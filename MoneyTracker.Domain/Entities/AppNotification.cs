@@ -14,5 +14,7 @@ namespace MoneyTracker.Domain.Entities
         public string? Link { get; set; }
         public string? DuplicateKey { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsDismissed { get; set; } = false;
+        public DateTime? DismissedAt { get; set; }
     }
 }

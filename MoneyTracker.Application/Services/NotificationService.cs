@@ -100,5 +100,33 @@ namespace MoneyTracker.Application.Services
                 return OperationResult.Fail(OperationMessages.UnexpectedError);
             }
         }
+
+        public async Task<OperationResult> DismissAsync(int id)
+        {
+            try
+            {
+                await _repository.DismissAsync(id);
+                return OperationResult.Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error dismissing notification {Id}", id);
+                return OperationResult.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult> DismissReadAsync()
+        {
+            try
+            {
+                await _repository.DismissAllReadAsync();
+                return OperationResult.Ok();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error dismissing read notifications");
+                return OperationResult.Fail(OperationMessages.UnexpectedError);
+            }
+        }
     }
 }

@@ -10,5 +10,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<int>> GetUnreadCountAsync();
         Task<OperationResult> MarkReadAsync(int id);
         Task<OperationResult> MarkAllReadAsync();
+        Task<OperationResult> DismissAsync(int id);
+        Task<OperationResult> DismissReadAsync();
     }
 }

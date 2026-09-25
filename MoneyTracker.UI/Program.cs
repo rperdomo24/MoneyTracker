@@ -253,8 +253,6 @@ namespace MoneyTracker.UI
                 options.WorkerCount = 2;
                 options.Queues = ["default"];
             });
-            builder.Services.AddScoped<CardReminderJob>();
-
             Log.Logger = new LoggerConfiguration()
                             .WriteTo.Console()
                             .WriteTo.File("Logs/log.txt", rollingInterval: RollingInterval.Day)
@@ -299,10 +297,8 @@ namespace MoneyTracker.UI
                 Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
             });
 
-            RecurringJob.AddOrUpdate<CardReminderJob>(
-                "card-reminders-daily",
-                job => job.ExecuteAsync(),
-                "0 8 * * *");
+            // Credit card cut/payment alerts are covered by the daily notification digest below.
+            RecurringJob.RemoveIfExists("card-reminders-daily");
 
             RecurringJob.AddOrUpdate<RecurringTransactionGeneratorJob>(
                 "recurring-transactions-daily",

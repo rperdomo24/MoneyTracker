@@ -9,6 +9,8 @@ namespace MoneyTracker.Domain.Interfaces
         Task<int> GetUnreadCountAsync();
         Task MarkReadAsync(int id);
         Task MarkAllReadAsync();
+        Task DismissAsync(int id);
+        Task DismissAllReadAsync();
         Task AddAsync(AppNotification notification);
         Task<bool> ExistsByDuplicateKeyTodayAsync(string duplicateKey);
         Task<bool> ExistsByDuplicateKeyAsync(string duplicateKey);
