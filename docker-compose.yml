@@ -58,6 +58,10 @@ services:
       GoogleAiSettings__Location: ${GOOGLE_AI_LOCATION:-us-central1}
       GoogleAiSettings__ServiceAccountJsonPath: ${GOOGLE_AI_SA_JSON_PATH:-/run/secrets/gcp.json}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gcp.json}
+      # Gmail email import (redirect URI se deriva de ApplicationSettings__PublicBaseUrl)
+      GmailSettings__ClientId: ${GMAIL_CLIENT_ID}
+      GmailSettings__ClientSecret: ${GMAIL_CLIENT_SECRET}
+      GmailSettings__MaxMessagesPerSync: ${GMAIL_MAX_MESSAGES_PER_SYNC:-25}
     volumes:
       - ${LOGS_PATH:-./logs}:/app/Logs
       - ${GOOGLE_SA_JSON_LOCAL_PATH:-/dev/null}:/run/secrets/gcp.json:ro

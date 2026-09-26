@@ -263,6 +263,8 @@
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
+    [Parameter] public string? InitialText { get; set; }
+
     private bool _loading = true;
     private bool _analyzing;
     private bool _saving;
@@ -315,7 +317,16 @@
         _ => Color.Error
     };
 
-    protected override async Task OnInitializedAsync() => await LoadData();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+
+        if (!string.IsNullOrWhiteSpace(InitialText))
+        {
+            _rawText = InitialText.Length > MaxInputChars ? InitialText[..MaxInputChars] : InitialText;
+            await AnalyzeAsync();
+        }
+    }
 
     private async Task LoadData()
     {

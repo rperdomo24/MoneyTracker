@@ -24,6 +24,8 @@ using MoneyTracker.Application.Validators.CardBenefits;
 using MoneyTracker.Application.Validators.Calendar;
 using MoneyTracker.Application.DTOs.Calendar;
 using MoneyTracker.Application.Validators.Transaction;
+using MoneyTracker.Application.Validators.Gmail;
+using MoneyTracker.Application.DTOs.Gmail;
 using MoneyTracker.Domain.Interfaces;
 using MoneyTracker.Infrastructure.Jobs;
 using MoneyTracker.Infrastructure.Persistence;
@@ -163,6 +165,7 @@ namespace MoneyTracker.UI
             });
             builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
             builder.Services.Configure<GoogleAiSettings>(builder.Configuration.GetSection("GoogleAiSettings"));
+            builder.Services.Configure<GmailSettings>(builder.Configuration.GetSection("GmailSettings"));
             builder.Services.AddSingleton<ITimeZoneService, TimeZoneService>();
             builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
             builder.Services.AddScoped<IAuthAuditService, AuthAuditService>();
@@ -224,6 +227,16 @@ namespace MoneyTracker.UI
             builder.Services.AddScoped<IValidator<CardBenefitDto>, CardBenefitValidator>();
 
             builder.Services.AddHttpClient<ITextImportService, AiTextImportService>();
+            builder.Services.AddHttpClient<IGmailApiClient, MoneyTracker.Infrastructure.Integrations.Gmail.GmailApiClient>();
+            builder.Services.AddScoped<ITokenProtector, MoneyTracker.Infrastructure.Services.DataProtectionTokenProtector>();
+            builder.Services.AddScoped<IGmailConnectionRepository, GmailConnectionRepository>();
+            builder.Services.AddScoped<IEmailImportRuleRepository, EmailImportRuleRepository>();
+            builder.Services.AddScoped<IEmailImportItemRepository, EmailImportItemRepository>();
+            builder.Services.AddScoped<IEmailSyncEngine, MoneyTracker.Infrastructure.Integrations.Gmail.EmailSyncEngine>();
+            builder.Services.AddSingleton<IEmailSyncScheduler, MoneyTracker.Infrastructure.Integrations.Gmail.HangfireEmailSyncScheduler>();
+            builder.Services.AddScoped<IEmailImportService, EmailImportService>();
+            builder.Services.AddScoped<IValidator<EmailImportRuleDto>, EmailImportRuleValidator>();
+            builder.Services.AddScoped<EmailSyncJob>();
             builder.Services.AddScoped<IUserProfileService, UserProfileService>();
             builder.Services.AddScoped<IVerificationCodeService, VerificationCodeService>();
             builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
@@ -254,6 +267,7 @@ namespace MoneyTracker.UI
                 options.Queues = ["default"];
             });
             Log.Logger = new LoggerConfiguration()
+                            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", Serilog.Events.LogEventLevel.Warning)
                             .WriteTo.Console()
                             .WriteTo.File("Logs/log.txt", rollingInterval: RollingInterval.Day)
                             .CreateLogger();
@@ -312,6 +326,7 @@ namespace MoneyTracker.UI
 
             app.MapAuthEndpoints();
             app.MapDiagnosticsEndpoints();
+            app.MapGmailIntegrationEndpoints();
 
             app.MapStaticAssets();
             app.MapRazorComponents<App>()

@@ -8,6 +8,7 @@ namespace MoneyTracker.Domain.Enums
         CreditCardCut = 4,
         CreditCardDue = 5,
         CalendarReminder = 6,
-        GoalContributionReminder = 7
+        GoalContributionReminder = 7,
+        EmailTransactionsFound = 8
     }
 }

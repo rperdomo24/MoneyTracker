@@ -51,6 +51,9 @@ namespace MoneyTracker.Infrastructure.Persistence
         public DbSet<AiTextImportCache> AiTextImportCaches => Set<AiTextImportCache>();
         public DbSet<AiTrainingData> AiTrainingData => Set<AiTrainingData>();
         public DbSet<CalendarReminder> CalendarReminders => Set<CalendarReminder>();
+        public DbSet<GmailConnection> GmailConnections => Set<GmailConnection>();
+        public DbSet<EmailImportRule> EmailImportRules => Set<EmailImportRule>();
+        public DbSet<EmailImportItem> EmailImportItems => Set<EmailImportItem>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -471,6 +474,47 @@ namespace MoneyTracker.Infrastructure.Persistence
             modelBuilder.Entity<LoanInstallment>()
                 .HasIndex(i => new { i.LoanId, i.InstallmentNumber })
                 .IsUnique();
+
+            // GmailConnection
+            modelBuilder.Entity<GmailConnection>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<GmailConnection>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            // EmailImportRule
+            modelBuilder.Entity<EmailImportRule>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<EmailImportRule>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<EmailImportRule>()
+                .HasOne(e => e.DefaultAccount)
+                .WithMany()
+                .HasForeignKey(e => e.DefaultAccountId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // EmailImportItem
+            modelBuilder.Entity<EmailImportItem>()
+                .HasIndex(e => e.TenantId);
+
+            modelBuilder.Entity<EmailImportItem>()
+                .HasIndex(e => new { e.TenantId, e.GmailMessageId })
+                .IsUnique();
+
+            modelBuilder.Entity<EmailImportItem>()
+                .HasIndex(e => new { e.TenantId, e.Fingerprint });
+
+            modelBuilder.Entity<EmailImportItem>()
+                .HasIndex(e => new { e.TenantId, e.Status });
+
+            modelBuilder.Entity<EmailImportItem>()
+                .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value && !e.IsDeleted);
+
+            modelBuilder.Entity<EmailImportItem>()
+                .Property(e => e.Status)
+                .HasConversion<string>();
         }
 
         public override int SaveChanges()

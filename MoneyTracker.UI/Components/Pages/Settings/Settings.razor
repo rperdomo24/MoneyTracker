@@ -2,12 +2,18 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.Extensions.Options
 @using MoneyTracker.Application.DTOs.Auth
+@using MoneyTracker.Application.DTOs.Gmail
 @using MoneyTracker.Application.Constants.Configuration
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Components.Shared.EmailImport
+@using MoneyTracker.UI.Helpers
 @inject IUserProfileService UserProfileService
 @inject IUserInvitationService UserInvitationService
+@inject IEmailImportService EmailImportService
+@inject IAccountService AccountService
 @inject NavigationManager Navigation
 @inject IOptions<ApplicationSettings> ApplicationOptions
+@inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="pa-1 pa-sm-0 mt-4 mt-sm-6 mb-4 mb-sm-6">
@@ -128,6 +134,94 @@
             </MudAlert>
         }
     </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4" id="email-import">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudText Typo="Typo.subtitle1">Email import (Gmail)</MudText>
+            @if (_pendingCount > 0)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="ReviewPendingAsync">
+                    Review @_pendingCount pending
+                </MudButton>
+            }
+        </MudStack>
+
+        @if (_connection is null)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Connect your Gmail account to automatically detect bank transaction emails.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/integrations/gmail/connect">
+                Connect Gmail
+            </MudButton>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-2">Connected as <b>@_connection.Email</b></MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3 d-block">
+                Last sync: @(_connection.LastSyncAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "never")
+            </MudText>
+
+            <MudStack Row="true" Spacing="2" Class="mb-3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_syncing" OnClick="SyncNowAsync">
+                    @(_syncing ? "Syncing..." : "Sync now")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="_isBusy" OnClick="DisconnectAsync">
+                    Disconnect
+                </MudButton>
+            </MudStack>
+
+            <MudSwitch T="bool"
+                       Value="_autoSyncEnabled"
+                       ValueChanged="OnAutoSyncChanged"
+                       Label="Auto-sync in background"
+                       Color="Color.Primary"
+                       Disabled="_isBusy" />
+
+            @if (_autoSyncEnabled)
+            {
+                <MudNumericField T="int"
+                                 Value="_syncIntervalMinutes"
+                                 Label="Interval (minutes)"
+                                 Variant="Variant.Outlined"
+                                 Min="15"
+                                 Class="mt-2"
+                                 Style="max-width: 220px"
+                                 Immediate="false"
+                                 ValueChanged="OnIntervalChanged" />
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Bank rules</MudText>
+            @foreach (var rule in _rules)
+            {
+                <MudPaper Outlined="true" Class="pa-3 mb-2">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body1">@rule.BankLabel <MudText Typo="Typo.caption" Color="Color.Secondary" Inline="true">(@rule.SenderPattern)</MudText></MudText>
+                            @if (!string.IsNullOrWhiteSpace(rule.SubjectExcludeKeywords))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Excludes: @rule.SubjectExcludeKeywords</MudText>
+                            }
+                        </MudStack>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="@(() => DeleteRuleAsync(rule.Id))" />
+                    </MudStack>
+                </MudPaper>
+            }
+
+            <MudPaper Outlined="true" Class="pa-3 mt-2">
+                <MudStack Spacing="2">
+                    <MudTextField @bind-Value="_newRule.BankLabel" Label="Bank name" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_newRule.SenderPattern" Label="Sender email or domain" Variant="Variant.Outlined"
+                                  HelperText="e.g. notificaciones@bancocuscatlan.com or bancocuscatlan.com" />
+                    <MudTextField @bind-Value="_newRule.SubjectExcludeKeywords" Label="Exclude if subject contains (comma-separated)" Variant="Variant.Outlined"
+                                  HelperText="e.g. inicio de sesion, codigo de acceso" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isBusy" OnClick="AddRuleAsync">
+                        Add rule
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudPaper>
 </MudContainer>
 
 @code {
@@ -152,6 +246,17 @@
     private string? _latestInviteLink;
     private bool _isBusy;
 
+    [SupplyParameterFromQuery(Name = "emailImport")] private string? EmailImportStatus { get; set; }
+    [SupplyParameterFromQuery(Name = "message")] private string? EmailImportMessage { get; set; }
+
+    private GmailConnectionDto? _connection;
+    private List<EmailImportRuleDto> _rules = new();
+    private EmailImportRuleDto _newRule = new();
+    private int _pendingCount;
+    private bool _syncing;
+    private bool _autoSyncEnabled;
+    private int _syncIntervalMinutes = 30;
+
     private string DisplayNameOrFallback => string.IsNullOrWhiteSpace(_displayName) ? "User" : _displayName;
     private string PublicBaseUrl => string.IsNullOrWhiteSpace(ApplicationOptions.Value.PublicBaseUrl)
         ? Navigation.BaseUri.TrimEnd('/')
@@ -160,6 +265,128 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadUserAsync();
+        await LoadEmailImportAsync();
+
+        if (!string.IsNullOrWhiteSpace(EmailImportMessage))
+        {
+            Snackbar.Add(EmailImportMessage, EmailImportStatus == "connected" ? Severity.Success : Severity.Error);
+        }
+    }
+
+    private async Task LoadEmailImportAsync()
+    {
+        var connectionResult = await EmailImportService.GetConnectionAsync();
+        if (connectionResult.Success)
+        {
+            _connection = connectionResult.Data;
+            _autoSyncEnabled = _connection?.AutoSyncEnabled ?? false;
+            _syncIntervalMinutes = _connection?.SyncIntervalMinutes ?? 30;
+        }
+
+        var rulesResult = await EmailImportService.GetRulesAsync();
+        if (rulesResult.Success && rulesResult.Data is not null)
+            _rules = rulesResult.Data;
+
+        var pendingResult = await EmailImportService.GetPendingAsync();
+        if (pendingResult.Success && pendingResult.Data is not null)
+            _pendingCount = pendingResult.Data.Count;
+    }
+
+    private async Task SyncNowAsync()
+    {
+        _syncing = true;
+        var result = await EmailImportService.SyncNowAsync();
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        if (result.Success)
+        {
+            await LoadEmailImportAsync();
+        }
+        _syncing = false;
+    }
+
+    private async Task DisconnectAsync()
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Disconnect Gmail",
+            "This will stop email import and delete the stored connection. Continue?",
+            "Disconnect",
+            Color.Error,
+            "Cancel");
+        if (!confirmed) return;
+
+        _isBusy = true;
+        var result = await EmailImportService.DisconnectAsync();
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        if (result.Success)
+        {
+            _connection = null;
+            _rules = new();
+        }
+        _isBusy = false;
+    }
+
+    private async Task OnAutoSyncChanged(bool enabled)
+    {
+        _isBusy = true;
+        var previous = _autoSyncEnabled;
+        _autoSyncEnabled = enabled;
+
+        var result = await EmailImportService.SetAutoSyncAsync(enabled, _syncIntervalMinutes);
+        if (!result.Success)
+        {
+            _autoSyncEnabled = previous;
+        }
+
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        _isBusy = false;
+    }
+
+    private async Task OnIntervalChanged(int minutes)
+    {
+        _syncIntervalMinutes = minutes;
+        if (!_autoSyncEnabled) return;
+
+        var result = await EmailImportService.SetAutoSyncAsync(true, minutes);
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+    }
+
+    private async Task AddRuleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newRule.BankLabel) || string.IsNullOrWhiteSpace(_newRule.SenderPattern))
+        {
+            Snackbar.Add("Bank name and sender are required.", Severity.Error);
+            return;
+        }
+
+        _isBusy = true;
+        var result = await EmailImportService.SaveRuleAsync(_newRule);
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        if (result.Success)
+        {
+            _newRule = new();
+            var rulesResult = await EmailImportService.GetRulesAsync();
+            if (rulesResult.Success && rulesResult.Data is not null)
+                _rules = rulesResult.Data;
+        }
+        _isBusy = false;
+    }
+
+    private async Task DeleteRuleAsync(int id)
+    {
+        var result = await EmailImportService.DeleteRuleAsync(id);
+        Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
+        if (result.Success)
+        {
+            _rules = _rules.Where(r => r.Id != id).ToList();
+        }
+    }
+
+    private async Task ReviewPendingAsync()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+        var dialog = await DialogService.ShowAsync<EmailImportDialog>("Review bank emails", new DialogParameters(), options);
+        await dialog.Result;
+        await LoadEmailImportAsync();
     }
 
     private async Task LoadUserAsync()
