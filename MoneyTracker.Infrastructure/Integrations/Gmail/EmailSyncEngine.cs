@@ -105,7 +105,8 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
                 return false;
             }
 
-            var rule = rules.FirstOrDefault(r => message.From.Contains(r.SenderPattern, StringComparison.OrdinalIgnoreCase));
+            var rule = rules.FirstOrDefault(r => SplitKeywords(r.SenderPattern)
+                .Any(pattern => message.From.Contains(pattern, StringComparison.OrdinalIgnoreCase)));
             if (rule is null)
             {
                 _logger.LogInformation("Gmail message {MessageId} from '{From}' matched no rule", messageId, message.From);
@@ -196,7 +197,8 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
 
         private static string BuildGmailQuery(List<EmailImportRule> rules, DateTime? lastSyncAtUtc)
         {
-            var senders = string.Join(" OR ", rules.Select(r => $"from:{r.SenderPattern}"));
+            var senders = string.Join(" OR ",
+                rules.SelectMany(r => SplitKeywords(r.SenderPattern)).Select(p => $"from:{p}"));
 
             // Gmail's "after:" operator only reliably supports day granularity (YYYY/MM/DD), not epoch
             // seconds — using a raw timestamp silently rounds to a day boundary and can exclude same-day

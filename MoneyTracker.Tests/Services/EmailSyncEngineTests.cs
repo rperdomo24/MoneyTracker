@@ -53,6 +53,67 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task SyncTenantAsync_WhenSenderMatchesSecondPatternInCommaList_ProcessesMessage()
+        {
+            _ruleRepo.Setup(r => r.GetActiveByTenantAsync(TenantId))
+                .ReturnsAsync(new List<EmailImportRule>
+                {
+                    new() { TenantId = TenantId, SenderPattern = "bancocuscatlan.com, alertas@otrobanco.com", BankLabel = "Multi" }
+                });
+
+            _client.Setup(c => c.ListMessageIdsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()))
+                .ReturnsAsync(new List<string> { "msg-6" });
+            _itemRepo.Setup(r => r.ExistsByMessageIdAsync(TenantId, "msg-6")).ReturnsAsync(false);
+            _client.Setup(c => c.GetMessageAsync("refresh-token", "msg-6"))
+                .ReturnsAsync(new GmailMessageDto
+                {
+                    Id = "msg-6",
+                    From = "alertas@otrobanco.com",
+                    Subject = "Compra realizada",
+                    ReceivedAtUtc = DateTime.UtcNow,
+                    BodyText = "Compra por $15.00 en Tienda W"
+                });
+
+            var analysis = new TextImportAnalysisDto();
+            analysis.Items.Add(new ParsedTransactionSuggestionDto
+            {
+                Type = TransactionTypeEnum.Expense,
+                Amount = 15.00m,
+                Currency = "USD",
+                DateLocal = new DateTime(2026, 1, 10),
+                AccountHint = "9999"
+            });
+            _textImportService.Setup(s => s.AnalyzeAsync(It.IsAny<string>()))
+                .ReturnsAsync(OperationResult<TextImportAnalysisDto>.Ok(analysis));
+            _itemRepo.Setup(r => r.ExistsByFingerprintAsync(TenantId, It.IsAny<string>())).ReturnsAsync(false);
+
+            var found = await _engine.SyncTenantAsync(TenantId);
+
+            found.Should().Be(1);
+            _itemRepo.Verify(r => r.AddAsync(It.Is<EmailImportItem>(i => i.Status == EmailImportStatus.Pending)), Times.Once);
+        }
+
+        [Fact]
+        public async Task SyncTenantAsync_BuildsGmailQueryWithAllPatternsFromCommaList()
+        {
+            _ruleRepo.Setup(r => r.GetActiveByTenantAsync(TenantId))
+                .ReturnsAsync(new List<EmailImportRule>
+                {
+                    new() { TenantId = TenantId, SenderPattern = "bancocuscatlan.com, otrobanco.com" }
+                });
+
+            string? capturedQuery = null;
+            _client.Setup(c => c.ListMessageIdsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()))
+                .Callback<string, string, int>((_, query, _) => capturedQuery = query)
+                .ReturnsAsync(new List<string>());
+
+            await _engine.SyncTenantAsync(TenantId);
+
+            capturedQuery.Should().Contain("from:bancocuscatlan.com");
+            capturedQuery.Should().Contain("from:otrobanco.com");
+        }
+
+        [Fact]
         public async Task SyncTenantAsync_WhenNoConnection_ReturnsZero()
         {
             _connectionRepo.Setup(r => r.GetActiveByTenantAsync(TenantId)).ReturnsAsync((GmailConnection?)null);

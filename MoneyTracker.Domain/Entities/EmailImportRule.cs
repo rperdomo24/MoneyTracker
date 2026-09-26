@@ -9,7 +9,7 @@ namespace MoneyTracker.Domain.Entities
         public Guid TenantId { get; set; }
 
         [Required]
-        [MaxLength(320)]
+        [MaxLength(500)]
         public string SenderPattern { get; set; } = string.Empty;
 
         [Required]

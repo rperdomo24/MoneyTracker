@@ -9,7 +9,7 @@ namespace MoneyTracker.Application.Validators.Gmail
         {
             RuleFor(x => x.SenderPattern)
                 .NotEmpty().WithMessage("Sender or domain is required.")
-                .MaximumLength(320).WithMessage("Sender pattern cannot exceed 320 characters.");
+                .MaximumLength(500).WithMessage("Sender pattern cannot exceed 500 characters.");
 
             RuleFor(x => x.BankLabel)
                 .NotEmpty().WithMessage("Bank label is required.")

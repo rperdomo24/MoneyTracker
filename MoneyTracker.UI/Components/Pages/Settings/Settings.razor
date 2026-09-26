@@ -216,8 +216,8 @@
                 <MudStack Spacing="2">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">@(IsEditingRule ? "Edit rule" : "New rule")</MudText>
                     <MudTextField @bind-Value="_ruleForm.BankLabel" Label="Bank name" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_ruleForm.SenderPattern" Label="Sender email or domain" Variant="Variant.Outlined"
-                                  HelperText="e.g. notificaciones@bancocuscatlan.com or bancocuscatlan.com" />
+                    <MudTextField @bind-Value="_ruleForm.SenderPattern" Label="Sender email or domain (comma-separated)" Variant="Variant.Outlined"
+                                  HelperText="e.g. bancocuscatlan.com, notificaciones@otrobanco.com" />
                     <MudTextField @bind-Value="_ruleForm.SubjectExcludeKeywords" Label="Exclude if subject contains (comma-separated)" Variant="Variant.Outlined"
                                   HelperText="e.g. inicio de sesion, codigo de acceso" />
                     <MudStack Row="true" Spacing="2">
