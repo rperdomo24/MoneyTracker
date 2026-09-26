@@ -194,7 +194,8 @@
             <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Bank rules</MudText>
             @foreach (var rule in _rules)
             {
-                <MudPaper Outlined="true" Class="pa-3 mb-2">
+                <MudPaper Outlined="true" Class="@RuleRowClass(rule)" Style="cursor: pointer;" role="button" tabindex="0"
+                          @onclick="@(() => StartEditRule(rule))" @onkeydown="@(e => OnRuleRowKeyDown(e, rule))">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                         <MudStack Spacing="0">
                             <MudText Typo="Typo.body1">@rule.BankLabel <MudText Typo="Typo.caption" Color="Color.Secondary" Inline="true">(@rule.SenderPattern)</MudText></MudText>
@@ -203,21 +204,33 @@
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">Excludes: @rule.SubjectExcludeKeywords</MudText>
                             }
                         </MudStack>
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="@(() => DeleteRuleAsync(rule.Id))" />
+                        <span @onclick:stopPropagation="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                           OnClick="@(() => DeleteRuleAsync(rule.Id))" />
+                        </span>
                     </MudStack>
                 </MudPaper>
             }
 
             <MudPaper Outlined="true" Class="pa-3 mt-2">
                 <MudStack Spacing="2">
-                    <MudTextField @bind-Value="_newRule.BankLabel" Label="Bank name" Variant="Variant.Outlined" />
-                    <MudTextField @bind-Value="_newRule.SenderPattern" Label="Sender email or domain" Variant="Variant.Outlined"
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@(IsEditingRule ? "Edit rule" : "New rule")</MudText>
+                    <MudTextField @bind-Value="_ruleForm.BankLabel" Label="Bank name" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_ruleForm.SenderPattern" Label="Sender email or domain" Variant="Variant.Outlined"
                                   HelperText="e.g. notificaciones@bancocuscatlan.com or bancocuscatlan.com" />
-                    <MudTextField @bind-Value="_newRule.SubjectExcludeKeywords" Label="Exclude if subject contains (comma-separated)" Variant="Variant.Outlined"
+                    <MudTextField @bind-Value="_ruleForm.SubjectExcludeKeywords" Label="Exclude if subject contains (comma-separated)" Variant="Variant.Outlined"
                                   HelperText="e.g. inicio de sesion, codigo de acceso" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isBusy" OnClick="AddRuleAsync">
-                        Add rule
-                    </MudButton>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_isBusy" OnClick="SaveRuleAsync">
+                            @(IsEditingRule ? "Save changes" : "Add rule")
+                        </MudButton>
+                        @if (IsEditingRule)
+                        {
+                            <MudButton Variant="Variant.Text" Disabled="_isBusy" OnClick="ResetRuleForm">
+                                Cancel
+                            </MudButton>
+                        }
+                    </MudStack>
                 </MudStack>
             </MudPaper>
         }
@@ -251,7 +264,9 @@
 
     private GmailConnectionDto? _connection;
     private List<EmailImportRuleDto> _rules = new();
-    private EmailImportRuleDto _newRule = new();
+    private EmailImportRuleDto _ruleForm = new();
+    private int? _editingRuleId;
+    private bool IsEditingRule => _editingRuleId.HasValue;
     private int _pendingCount;
     private bool _syncing;
     private bool _autoSyncEnabled;
@@ -321,6 +336,7 @@
         {
             _connection = null;
             _rules = new();
+            ResetRuleForm();
         }
         _isBusy = false;
     }
@@ -350,20 +366,50 @@
         Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
     }
 
-    private async Task AddRuleAsync()
+    private string RuleRowClass(EmailImportRuleDto rule) =>
+        rule.Id == _editingRuleId ? "pa-3 mb-2 mud-border-primary" : "pa-3 mb-2";
+
+    private void OnRuleRowKeyDown(KeyboardEventArgs e, EmailImportRuleDto rule)
     {
-        if (string.IsNullOrWhiteSpace(_newRule.BankLabel) || string.IsNullOrWhiteSpace(_newRule.SenderPattern))
+        if (e.Key is "Enter" or " ")
+            StartEditRule(rule);
+    }
+
+    private void StartEditRule(EmailImportRuleDto rule)
+    {
+        _editingRuleId = rule.Id;
+        _ruleForm = new EmailImportRuleDto
+        {
+            Id = rule.Id,
+            SenderPattern = rule.SenderPattern,
+            BankLabel = rule.BankLabel,
+            SubjectIncludeKeywords = rule.SubjectIncludeKeywords,
+            SubjectExcludeKeywords = rule.SubjectExcludeKeywords,
+            DefaultAccountId = rule.DefaultAccountId,
+            IsActive = rule.IsActive
+        };
+    }
+
+    private void ResetRuleForm()
+    {
+        _editingRuleId = null;
+        _ruleForm = new();
+    }
+
+    private async Task SaveRuleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_ruleForm.BankLabel) || string.IsNullOrWhiteSpace(_ruleForm.SenderPattern))
         {
             Snackbar.Add("Bank name and sender are required.", Severity.Error);
             return;
         }
 
         _isBusy = true;
-        var result = await EmailImportService.SaveRuleAsync(_newRule);
+        var result = await EmailImportService.SaveRuleAsync(_ruleForm);
         Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error);
         if (result.Success)
         {
-            _newRule = new();
+            ResetRuleForm();
             var rulesResult = await EmailImportService.GetRulesAsync();
             if (rulesResult.Success && rulesResult.Data is not null)
                 _rules = rulesResult.Data;
@@ -378,6 +424,8 @@
         if (result.Success)
         {
             _rules = _rules.Where(r => r.Id != id).ToList();
+            if (_editingRuleId == id)
+                ResetRuleForm();
         }
     }
 

@@ -202,6 +202,35 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task SaveRuleAsync_WhenExistingRule_CallsUpdate()
+        {
+            var entity = new EmailImportRule
+            {
+                Id = 42,
+                SenderPattern = "old.com",
+                BankLabel = "Old Bank",
+                SubjectExcludeKeywords = "old"
+            };
+            _ruleRepo.Setup(r => r.GetByIdAsync(42)).ReturnsAsync(entity);
+            var dto = new EmailImportRuleDto
+            {
+                Id = 42,
+                SenderPattern = "newbank.com",
+                BankLabel = "New Bank",
+                SubjectExcludeKeywords = "new"
+            };
+
+            var result = await _service.SaveRuleAsync(dto);
+
+            result.Success.Should().BeTrue();
+            _ruleRepo.Verify(r => r.UpdateAsync(entity), Times.Once);
+            _ruleRepo.Verify(r => r.AddAsync(It.IsAny<EmailImportRule>()), Times.Never);
+            entity.SenderPattern.Should().Be("newbank.com");
+            entity.BankLabel.Should().Be("New Bank");
+            entity.SubjectExcludeKeywords.Should().Be("new");
+        }
+
+        [Fact]
         public async Task DeleteRuleAsync_WhenRuleMissing_ReturnsFail()
         {
             _ruleRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>())).ReturnsAsync((EmailImportRule?)null);
