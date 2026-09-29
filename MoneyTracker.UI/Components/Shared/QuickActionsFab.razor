@@ -4,17 +4,21 @@
 @using MoneyTracker.UI.Components.Pages.Accounts
 @using MoneyTracker.UI.Components.Pages.Transactions
 @using MoneyTracker.UI.Components.Shared.TextImport
+@using MoneyTracker.UI.Components.Shared.EmailImport
 @using MoneyTracker.UI.Helpers
 @inject IAccountService AccountService
+@inject IEmailImportService EmailImportService
 @inject IDialogService DialogService
 
 <div class="quick-actions-fab-container">
     <!-- Main FAB -->
-    <MudFab Color="Color.Primary"
-            StartIcon="@(_isExpanded ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
-            Size="Size.Large"
-            Class="@($"fab-main-button {(_isExpanded ? "expanded" : "")}")"
-            OnClick="@ToggleExpanded" />
+    <MudBadge Content="@_pendingReviewCount" Color="Color.Error" Overlap="true" Visible="@(_pendingReviewCount > 0)">
+        <MudFab Color="Color.Primary"
+                StartIcon="@(_isExpanded ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
+                Size="Size.Large"
+                Class="@($"fab-main-button {(_isExpanded ? "expanded" : "")}")"
+                OnClick="@ToggleExpanded" />
+    </MudBadge>
 
     @if (_isExpanded)
     {
@@ -53,6 +57,19 @@
                             Class="fab-action fab-action-4"
                             OnClick="@((MouseEventArgs e) => HandleImportFromTextClick(e))" />
                 </MudTooltip>
+
+                @if (_pendingReviewCount > 0)
+                {
+                    <MudTooltip Text="@($"Review {_pendingReviewCount} pending")" Placement="Placement.Left">
+                        <MudBadge Content="@_pendingReviewCount" Color="Color.Error" Overlap="true">
+                            <MudFab Color="Color.Warning"
+                                    StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                    Size="Size.Medium"
+                                    Class="fab-action fab-action-5"
+                                    OnClick="@((MouseEventArgs e) => HandleReviewPendingClick(e))" />
+                        </MudBadge>
+                    </MudTooltip>
+                }
             </MudHidden>
 
             <!-- TABLET/DESKTOP (>=600px): same buttons, optional labels below -->
@@ -80,6 +97,17 @@
                         Size="Size.Medium"
                         Class="fab-action fab-action-4"
                         OnClick="@((MouseEventArgs e) => HandleImportFromTextClick(e))" />
+
+                @if (_pendingReviewCount > 0)
+                {
+                    <MudBadge Content="@_pendingReviewCount" Color="Color.Error" Overlap="true">
+                        <MudFab Color="Color.Warning"
+                                StartIcon="@Icons.Material.Filled.MarkEmailRead"
+                                Size="Size.Medium"
+                                Class="fab-action fab-action-5"
+                                OnClick="@((MouseEventArgs e) => HandleReviewPendingClick(e))" />
+                    </MudBadge>
+                }
             </MudHidden>
         </div>
     }
@@ -89,6 +117,10 @@
     {
         <MudHidden Breakpoint="Breakpoint.Xs">
             <div class="fab-labels">
+                @if (_pendingReviewCount > 0)
+                {
+                    <div class="fab-label fab-label-5">Review pending</div>
+                }
                 <div class="fab-label fab-label-4">Import</div>
                 <div class="fab-label fab-label-3">Transfer</div>
                 <div class="fab-label fab-label-2">Add Income</div>
@@ -101,11 +133,32 @@
 @code {
     private bool _isExpanded = false;
     private bool _isProcessingAction = false;
+    private int _pendingReviewCount = 0;
 
     [Parameter] public bool ShowLabels { get; set; } = false;
     [Parameter] public EventCallback<TransactionTypeEnum> OnTransactionAction { get; set; }
     [Parameter] public EventCallback OnTransactionAdded { get; set; }
     [Parameter] public DialogOptions? DialogOptions { get; set; }
+    [Parameter] public int? PendingReviewCount { get; set; }
+    [Parameter] public EventCallback OnReviewCompleted { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!PendingReviewCount.HasValue)
+            await LoadPendingReviewCountAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (PendingReviewCount.HasValue)
+            _pendingReviewCount = PendingReviewCount.Value;
+    }
+
+    private async Task LoadPendingReviewCountAsync()
+    {
+        var result = await EmailImportService.GetPendingAsync();
+        _pendingReviewCount = result.Success && result.Data is not null ? result.Data.Count : 0;
+    }
 
     private DialogOptions _defaultDialogOptions => new()
     {
@@ -241,6 +294,32 @@
             options = options with { MaxWidth = MaxWidth.Medium, FullWidth = true };
 
             await DialogService.ShowAsync<ImportFromTextDialog>("Import from text", new DialogParameters(), options);
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
+    }
+
+    private async Task HandleReviewPendingClick(MouseEventArgs e)
+    {
+        if (_isProcessingAction) return;
+        _isProcessingAction = true;
+
+        try
+        {
+            CloseExpanded();
+            await Task.Delay(50);
+
+            var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+            var dialog = await DialogService.ShowAsync<EmailImportDialog>("Bank emails to review", new DialogParameters(), options);
+            await dialog.Result;
+
+            if (!PendingReviewCount.HasValue)
+                await LoadPendingReviewCountAsync();
+
+            if (OnReviewCompleted.HasDelegate)
+                await OnReviewCompleted.InvokeAsync();
         }
         finally
         {

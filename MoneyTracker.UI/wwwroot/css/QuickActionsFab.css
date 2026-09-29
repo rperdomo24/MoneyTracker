@@ -67,6 +67,10 @@
         animation-delay: 0.4s;
     }
 
+    .quick-actions-fab-container .fab-action-5 {
+        animation-delay: 0.5s;
+    }
+
 /* 🎭 Animaciones */
 @keyframes fab-fadeInUp {
     from {
@@ -135,6 +139,10 @@
 
 .quick-actions-fab-container .fab-label-4 {
     animation-delay: 0.45s;
+}
+
+.quick-actions-fab-container .fab-label-5 {
+    animation-delay: 0.55s;
 }
 
 @keyframes fab-slideInLabel {
