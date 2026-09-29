@@ -1,4 +1,5 @@
 @using MoneyTracker.Application.DTOs
+@using MoneyTracker.Application.DTOs.Gmail
 @using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.TextImport
 @using MoneyTracker.Application.DTOs.Transactions
@@ -50,44 +51,47 @@
         {
             <MudStack Spacing="3">
 
-                <!-- Input area -->
-                <MudTextField @bind-Value="_rawText"
-                              Label="Paste bank SMS, email or describe a transaction"
-                              Variant="Variant.Outlined"
-                              Lines="@(_items.Count > 0 ? 3 : 5)"
-                              FullWidth="true"
-                              MaxLength="MaxInputChars"
-                              Counter="MaxInputChars"
-                              HelperText="@(_rawText.Length > MaxInputChars - 200 ? $"Limit: {MaxInputChars} chars — split long batches" : "You can paste multiple messages at once")"
-                              Error="@(_rawText.Length >= MaxInputChars)"
-                              ErrorText="@($"Text exceeds {MaxInputChars} char limit. Split into smaller batches.")" />
+                @if (!IsReviewMode)
+                {
+                    <!-- Input area -->
+                    <MudTextField @bind-Value="_rawText"
+                                  Label="Paste bank SMS, email or describe a transaction"
+                                  Variant="Variant.Outlined"
+                                  Lines="@(_items.Count > 0 ? 3 : 5)"
+                                  FullWidth="true"
+                                  MaxLength="MaxInputChars"
+                                  Counter="MaxInputChars"
+                                  HelperText="@(_rawText.Length > MaxInputChars - 200 ? $"Limit: {MaxInputChars} chars — split long batches" : "You can paste multiple messages at once")"
+                                  Error="@(_rawText.Length >= MaxInputChars)"
+                                  ErrorText="@($"Text exceeds {MaxInputChars} char limit. Split into smaller batches.")" />
 
-                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@(_analyzing ? null : Icons.Material.Filled.Search)"
-                               Disabled="@(string.IsNullOrWhiteSpace(_rawText) || _analyzing || _rawText.Length >= MaxInputChars)"
-                               OnClick="AnalyzeAsync">
-                        @if (_analyzing)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                            <span>Analyzing...</span>
-                        }
-                        else
-                        {
-                            <span>Analyze</span>
-                        }
-                    </MudButton>
-
-                    @if (_items.Count > 0)
-                    {
-                        <MudButton Variant="Variant.Text"
-                                   Disabled="@(_analyzing || _saving)"
-                                   OnClick="Clear">
-                            Clear
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@(_analyzing ? null : Icons.Material.Filled.Search)"
+                                   Disabled="@(string.IsNullOrWhiteSpace(_rawText) || _analyzing || _rawText.Length >= MaxInputChars)"
+                                   OnClick="AnalyzeAsync">
+                            @if (_analyzing)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                <span>Analyzing...</span>
+                            }
+                            else
+                            {
+                                <span>Analyze</span>
+                            }
                         </MudButton>
-                    }
-                </MudStack>
+
+                        @if (_items.Count > 0)
+                        {
+                            <MudButton Variant="Variant.Text"
+                                       Disabled="@(_analyzing || _saving)"
+                                       OnClick="Clear">
+                                Clear
+                            </MudButton>
+                        }
+                    </MudStack>
+                }
 
                 <!-- Results -->
                 @if (CurrentItem is not null)
@@ -263,7 +267,11 @@
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
-    [Parameter] public string? InitialText { get; set; }
+    // Email review mode: pre-analyzed suggestions from EmailImportDialog (no paste/Analyze step).
+    [Parameter] public List<EmailReviewSuggestionDto>? ReviewBatch { get; set; }
+    [Parameter] public EventCallback<int> OnEmailImported { get; set; }
+
+    private bool IsReviewMode => ReviewBatch is not null;
 
     private bool _loading = true;
     private bool _analyzing;
@@ -281,6 +289,13 @@
     private Dictionary<Guid, MerchantDto?> _itemMerchants = new();
     private Dictionary<Guid, TransactionTypeEnum> _itemTypes = new();
     private Dictionary<Guid, bool> _itemEdited = new();
+
+    // Review mode only: which email each TempId came from, its training data id, and which
+    // emails have already been reported as imported (fires OnEmailImported once per email, on
+    // the first item saved for it, so a mid-batch close still leaves saved emails marked).
+    private Dictionary<Guid, int> _itemEmailId = new();
+    private Dictionary<Guid, int> _itemTrainingDataId = new();
+    private HashSet<int> _reportedImportedEmailIds = new();
 
     private List<AccountDto> _accounts = new();
     private List<CategoryDto> _categories = new();
@@ -321,11 +336,33 @@
     {
         await LoadData();
 
-        if (!string.IsNullOrWhiteSpace(InitialText))
+        if (IsReviewMode)
+            LoadReviewBatch();
+    }
+
+    private void LoadReviewBatch()
+    {
+        _items = new();
+        _itemEmailId.Clear();
+        _itemTrainingDataId.Clear();
+        _itemAccounts.Clear();
+        _itemCategories.Clear();
+        _itemMerchants.Clear();
+        _itemTypes.Clear();
+        _itemEdited.Clear();
+
+        foreach (var email in ReviewBatch!)
         {
-            _rawText = InitialText.Length > MaxInputChars ? InitialText[..MaxInputChars] : InitialText;
-            await AnalyzeAsync();
+            foreach (var item in email.Items)
+            {
+                _itemEmailId[item.TempId] = email.EmailImportItemId;
+                _itemTrainingDataId[item.TempId] = email.AiTrainingDataId;
+                _items.Add(item);
+                ResolveItemDefaults(item);
+            }
         }
+
+        _currentIndex = 0;
     }
 
     private async Task LoadData()
@@ -464,10 +501,12 @@
         if (result.Success)
         {
             _savedCount++;
-            var wasEdited = CurrentItem is not null && _itemEdited.GetValueOrDefault(CurrentItem.TempId);
+            var savedItem = CurrentItem!;
+            var wasEdited = _itemEdited.GetValueOrDefault(savedItem.TempId);
             _ = TextImportService.UpdateTrainingFeedbackAsync(
-                _trainingDataId,
+                ResolveTrainingDataId(savedItem.TempId),
                 wasEdited ? AiUserFeedback.Edited : AiUserFeedback.Confirmed);
+            await ReportEmailImportedAsync(savedItem.TempId);
             Snackbar.Add("Transaction saved.", Severity.Success);
             return true;
         }
@@ -479,8 +518,20 @@
     private void SkipItem()
     {
         if (CurrentItem is not null)
-            _ = TextImportService.UpdateTrainingFeedbackAsync(_trainingDataId, AiUserFeedback.Skipped);
+            _ = TextImportService.UpdateTrainingFeedbackAsync(ResolveTrainingDataId(CurrentItem.TempId), AiUserFeedback.Skipped);
         NextItem();
+    }
+
+    private int ResolveTrainingDataId(Guid tempId)
+        => IsReviewMode ? _itemTrainingDataId.GetValueOrDefault(tempId) : _trainingDataId;
+
+    private async Task ReportEmailImportedAsync(Guid tempId)
+    {
+        if (!IsReviewMode) return;
+        if (!_itemEmailId.TryGetValue(tempId, out var emailId)) return;
+        if (!_reportedImportedEmailIds.Add(emailId)) return;
+
+        await OnEmailImported.InvokeAsync(emailId);
     }
 
     private void NextItem()

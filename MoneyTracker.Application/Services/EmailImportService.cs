@@ -19,6 +19,7 @@ namespace MoneyTracker.Application.Services
         private readonly IEmailSyncScheduler _scheduler;
         private readonly ITenantContext _tenantContext;
         private readonly ITokenProtector _protector;
+        private readonly ITextImportService _textImportService;
         private readonly ILogger<EmailImportService> _logger;
 
         public EmailImportService(
@@ -30,6 +31,7 @@ namespace MoneyTracker.Application.Services
             IEmailSyncScheduler scheduler,
             ITenantContext tenantContext,
             ITokenProtector protector,
+            ITextImportService textImportService,
             ILogger<EmailImportService> logger)
         {
             _connectionRepo = connectionRepo;
@@ -40,6 +42,7 @@ namespace MoneyTracker.Application.Services
             _scheduler = scheduler;
             _tenantContext = tenantContext;
             _protector = protector;
+            _textImportService = textImportService;
             _logger = logger;
         }
 
@@ -240,6 +243,64 @@ namespace MoneyTracker.Application.Services
             {
                 _logger.LogError(ex, "Error fetching pending email import items");
                 return OperationResult<List<EmailImportItemDto>>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult<List<EmailReviewSuggestionDto>>> GetReviewSuggestionsAsync(IReadOnlyCollection<int> itemIds)
+        {
+            if (itemIds is null || itemIds.Count == 0)
+                return OperationResult<List<EmailReviewSuggestionDto>>.Fail("No emails selected.");
+
+            try
+            {
+                var idSet = itemIds.ToHashSet();
+                var pending = await _itemRepo.GetPendingAsync();
+                var items = pending.Where(i => idSet.Contains(i.Id)).ToList();
+
+                var suggestions = new List<EmailReviewSuggestionDto>();
+
+                foreach (var item in items)
+                {
+                    var parsed = item.MapToSuggestions();
+
+                    if (parsed.Count > 0)
+                    {
+                        suggestions.Add(new EmailReviewSuggestionDto
+                        {
+                            EmailImportItemId = item.Id,
+                            AiTrainingDataId = item.AiTrainingDataId ?? 0,
+                            Items = parsed
+                        });
+                        continue;
+                    }
+
+                    // Legacy/corrupt ParsedJson — fall back to a fresh AI call (same input shape as the
+                    // sync engine, so the cache can still hit). If it fails too, skip this email rather
+                    // than blocking the whole batch — it stays Pending for a later retry.
+                    var aiResult = await _textImportService.AnalyzeAsync(item.BuildAiInput());
+                    if (!aiResult.Success || aiResult.Data is null || aiResult.Data.Items.Count == 0)
+                    {
+                        _logger.LogWarning("Email import item {Id} had no usable ParsedJson and AI fallback failed; skipped from review batch", item.Id);
+                        continue;
+                    }
+
+                    suggestions.Add(new EmailReviewSuggestionDto
+                    {
+                        EmailImportItemId = item.Id,
+                        AiTrainingDataId = aiResult.Data.AiTrainingDataId,
+                        Items = aiResult.Data.Items
+                    });
+                }
+
+                if (suggestions.Count == 0)
+                    return OperationResult<List<EmailReviewSuggestionDto>>.Fail("Could not prepare any of the selected emails for review.");
+
+                return OperationResult<List<EmailReviewSuggestionDto>>.Ok(suggestions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error preparing email review batch");
+                return OperationResult<List<EmailReviewSuggestionDto>>.Fail(OperationMessages.UnexpectedError);
             }
         }
 

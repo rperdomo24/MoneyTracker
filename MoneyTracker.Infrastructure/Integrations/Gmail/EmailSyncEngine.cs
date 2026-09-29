@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MoneyTracker.Application.Constants.Configuration;
 using MoneyTracker.Application.Interfaces;
+using MoneyTracker.Application.Mappers.Gmail;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums;
 using MoneyTracker.Domain.Interfaces;
@@ -149,7 +150,7 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
                 return false;
             }
 
-            var aiInput = $"From: {message.From}\nSubject: {message.Subject}\nDate: {message.ReceivedAtUtc:O}\n\n{message.BodyText}";
+            var aiInput = item.BuildAiInput();
             var aiResult = await _textImportService.AnalyzeAsync(aiInput);
 
             if (!aiResult.Success && aiResult.Message != NoTransactionFoundMessage)

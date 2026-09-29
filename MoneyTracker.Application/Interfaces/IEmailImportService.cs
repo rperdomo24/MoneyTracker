@@ -16,6 +16,7 @@ namespace MoneyTracker.Application.Interfaces
 
         Task<OperationResult<int>> SyncNowAsync();
         Task<OperationResult<List<EmailImportItemDto>>> GetPendingAsync();
+        Task<OperationResult<List<EmailReviewSuggestionDto>>> GetReviewSuggestionsAsync(IReadOnlyCollection<int> itemIds);
         Task<OperationResult> MarkImportedAsync(int itemId);
         Task<OperationResult> DismissAsync(int itemId);
     }

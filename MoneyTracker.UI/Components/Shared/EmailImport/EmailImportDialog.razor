@@ -30,11 +30,18 @@
                 <MudCheckBox T="bool" Value="@_selectAll" ValueChanged="@ToggleSelectAll" Label="Select all" Dense="true" />
                 @if (_selectedIds.Count > 0)
                 {
-                    <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
-                               Disabled="@_bulkDismissing"
-                               OnClick="DismissSelectedAsync">
-                        Dismiss selected (@_selectedIds.Count)
-                    </MudButton>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   Disabled="@_reviewing"
+                                   OnClick="@(() => ReviewItemsAsync(_selectedIds.ToList()))">
+                            Review selected (@_selectedIds.Count)
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+                                   Disabled="@_bulkDismissing"
+                                   OnClick="DismissSelectedAsync">
+                            Dismiss selected (@_selectedIds.Count)
+                        </MudButton>
+                    </MudStack>
                 }
             </MudStack>
 
@@ -60,7 +67,9 @@
                                 </MudStack>
                             </MudStack>
                             <MudStack Row="true" Spacing="1">
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="@(() => ReviewAsync(item))">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                           Disabled="@_reviewing"
+                                           OnClick="@(() => ReviewItemsAsync(new List<int> { item.Id }))">
                                     Review
                                 </MudButton>
                                 <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => DismissAsync(item))">
@@ -85,6 +94,7 @@
     private bool _loading = true;
     private bool _selectAll = false;
     private bool _bulkDismissing = false;
+    private bool _reviewing = false;
     private List<EmailImportItemDto> _items = new();
     private HashSet<int> _selectedIds = new();
 
@@ -146,21 +156,51 @@
         }
     }
 
-    private async Task ReviewAsync(EmailImportItemDto item)
+    private async Task ReviewItemsAsync(List<int> itemIds)
     {
-        var aiInput = $"From: {item.From}\nSubject: {item.Subject}\nDate: {item.ReceivedAtUtc:O}\n\n{item.BodyText}";
+        if (_reviewing || itemIds.Count == 0) return;
+        _reviewing = true;
 
-        var parameters = new DialogParameters { ["InitialText"] = aiInput };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
-
-        var dialog = await DialogService.ShowAsync<ImportFromTextDialog>("Magic Import", parameters, options);
-        var result = await dialog.Result;
-
-        if (result is not null && !result.Canceled)
+        try
         {
-            await EmailImportService.MarkImportedAsync(item.Id);
-            _items.Remove(item);
-            _selectedIds.Remove(item.Id);
+            var suggestionsResult = await EmailImportService.GetReviewSuggestionsAsync(itemIds);
+            if (!suggestionsResult.Success || suggestionsResult.Data is null || suggestionsResult.Data.Count == 0)
+            {
+                Snackbar.Add(suggestionsResult.Message ?? "Could not prepare selected emails for review.", Severity.Error);
+                return;
+            }
+
+            if (suggestionsResult.Data.Count < itemIds.Count)
+            {
+                Snackbar.Add("Some selected emails could not be analyzed and were skipped.", Severity.Warning);
+            }
+
+            var importedEmailIds = new HashSet<int>();
+            var parameters = new DialogParameters
+            {
+                ["ReviewBatch"] = suggestionsResult.Data,
+                ["OnEmailImported"] = EventCallback.Factory.Create<int>(this, id =>
+                {
+                    importedEmailIds.Add(id);
+                    return EmailImportService.MarkImportedAsync(id);
+                })
+            };
+            var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+            var dialog = await DialogService.ShowAsync<ImportFromTextDialog>("Magic Import", parameters, options);
+            await dialog.Result;
+
+            foreach (var emailId in importedEmailIds)
+            {
+                _items.RemoveAll(i => i.Id == emailId);
+                _selectedIds.Remove(emailId);
+            }
+
+            _selectAll = _items.Count > 0 && _selectedIds.Count == _items.Count;
+        }
+        finally
+        {
+            _reviewing = false;
         }
     }
 
