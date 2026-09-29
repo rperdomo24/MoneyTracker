@@ -120,7 +120,7 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
-        public async Task SyncNowAsync_WhenConnected_RunsEngineAndUpdatesLastSync()
+        public async Task SyncNowAsync_WhenConnected_RunsEngine()
         {
             _connectionRepo.Setup(r => r.GetActiveAsync())
                 .ReturnsAsync(new GmailConnection { Id = 1, TenantId = TenantId });
@@ -130,7 +130,7 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeTrue();
             result.Data.Should().Be(3);
-            _connectionRepo.Verify(r => r.UpdateAsync(It.Is<GmailConnection>(c => c.LastSyncAtUtc != null)), Times.Once);
+            _syncEngine.Verify(e => e.SyncTenantAsync(TenantId), Times.Once);
         }
 
         [Fact]

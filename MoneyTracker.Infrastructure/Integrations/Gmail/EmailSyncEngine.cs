@@ -23,6 +23,7 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
         private readonly IGmailApiClient _client;
         private readonly ITextImportService _textImportService;
         private readonly ITokenProtector _protector;
+        private readonly ITimeZoneService _timeZoneService;
         private readonly GmailSettings _settings;
         private readonly ILogger<EmailSyncEngine> _logger;
 
@@ -38,6 +39,7 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
             IGmailApiClient client,
             ITextImportService textImportService,
             ITokenProtector protector,
+            ITimeZoneService timeZoneService,
             IOptions<GmailSettings> settings,
             ILogger<EmailSyncEngine> logger)
         {
@@ -47,6 +49,7 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
             _client = client;
             _textImportService = textImportService;
             _protector = protector;
+            _timeZoneService = timeZoneService;
             _settings = settings.Value;
             _logger = logger;
         }
@@ -91,6 +94,19 @@ namespace MoneyTracker.Infrastructure.Integrations.Gmail
                 {
                     _logger.LogError(ex, "Error processing Gmail message {MessageId} for tenant {TenantId}", messageId, tenantId);
                 }
+            }
+
+            // If Gmail returned exactly the cap, there are likely more matching messages in this
+            // window that we didn't fetch. Don't advance LastSyncAtUtc so the next sync re-scans
+            // the same window instead of silently losing the overflow.
+            if (messageIds.Count < _settings.MaxMessagesPerSync)
+            {
+                await _connectionRepo.UpdateLastSyncByTenantAsync(tenantId, _timeZoneService.GetNowInUtc());
+            }
+            else
+            {
+                _logger.LogWarning("Gmail sync tenant={TenantId} hit MaxMessagesPerSync ({Max}); LastSyncAtUtc not advanced, will re-scan same window next sync",
+                    tenantId, _settings.MaxMessagesPerSync);
             }
 
             return found;

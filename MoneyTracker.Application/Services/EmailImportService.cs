@@ -218,9 +218,6 @@ namespace MoneyTracker.Application.Services
 
                 var found = await _syncEngine.SyncTenantAsync(_tenantContext.TenantId.Value);
 
-                connection.LastSyncAtUtc = DateTime.UtcNow;
-                await _connectionRepo.UpdateAsync(connection);
-
                 return OperationResult<int>.Ok(found, found == 0
                     ? "No new transaction emails found."
                     : $"{found} new email(s) found.");

@@ -24,13 +24,11 @@ namespace MoneyTracker.Infrastructure.Jobs
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
             var engine = scope.ServiceProvider.GetRequiredService<IEmailSyncEngine>();
-            var connectionRepo = scope.ServiceProvider.GetRequiredService<IGmailConnectionRepository>();
             var notificationRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
 
             try
             {
                 var found = await engine.SyncTenantAsync(tenantId);
-                await connectionRepo.UpdateLastSyncByTenantAsync(tenantId, DateTime.UtcNow);
 
                 if (found <= 0) return;
 

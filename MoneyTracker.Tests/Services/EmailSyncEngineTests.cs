@@ -24,6 +24,7 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<IGmailApiClient> _client = new();
         private readonly Mock<ITextImportService> _textImportService = new();
         private readonly Mock<ITokenProtector> _protector = new();
+        private readonly Mock<ITimeZoneService> _timeZoneService = new();
         private readonly EmailSyncEngine _engine;
 
         private static readonly Guid TenantId = Guid.NewGuid();
@@ -31,6 +32,7 @@ namespace MoneyTracker.Tests.Services
         public EmailSyncEngineTests()
         {
             _protector.Setup(p => p.Unprotect(It.IsAny<string>())).Returns("refresh-token");
+            _timeZoneService.Setup(t => t.GetNowInUtc()).Returns(DateTime.UtcNow);
 
             _engine = new EmailSyncEngine(
                 _connectionRepo.Object,
@@ -39,6 +41,7 @@ namespace MoneyTracker.Tests.Services
                 _client.Object,
                 _textImportService.Object,
                 _protector.Object,
+                _timeZoneService.Object,
                 Options.Create(new GmailSettings { MaxMessagesPerSync = 25 }),
                 NullLogger<EmailSyncEngine>.Instance);
 
@@ -265,6 +268,31 @@ namespace MoneyTracker.Tests.Services
 
             found.Should().Be(1);
             _itemRepo.Verify(r => r.AddAsync(It.Is<EmailImportItem>(i => i.Status == EmailImportStatus.Pending)), Times.Once);
+        }
+
+        [Fact]
+        public async Task SyncTenantAsync_WhenMessageCountHitsMax_DoesNotAdvanceLastSyncAtUtc()
+        {
+            var maxIds = Enumerable.Range(0, 25).Select(i => $"msg-{i}").ToList();
+            _client.Setup(c => c.ListMessageIdsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()))
+                .ReturnsAsync(maxIds);
+            _itemRepo.Setup(r => r.ExistsByMessageIdAsync(TenantId, It.IsAny<string>())).ReturnsAsync(true);
+
+            await _engine.SyncTenantAsync(TenantId);
+
+            _connectionRepo.Verify(r => r.UpdateLastSyncByTenantAsync(TenantId, It.IsAny<DateTime>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task SyncTenantAsync_WhenMessageCountUnderMax_AdvancesLastSyncAtUtc()
+        {
+            _client.Setup(c => c.ListMessageIdsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()))
+                .ReturnsAsync(new List<string> { "msg-only-one" });
+            _itemRepo.Setup(r => r.ExistsByMessageIdAsync(TenantId, It.IsAny<string>())).ReturnsAsync(true);
+
+            await _engine.SyncTenantAsync(TenantId);
+
+            _connectionRepo.Verify(r => r.UpdateLastSyncByTenantAsync(TenantId, It.IsAny<DateTime>()), Times.Once);
         }
     }
 }
