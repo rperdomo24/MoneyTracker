@@ -9,6 +9,7 @@
 @inject IAccountService AccountService
 @inject IEmailImportService EmailImportService
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <div class="quick-actions-fab-container">
     <!-- Main FAB -->
@@ -70,6 +71,23 @@
                         </MudBadge>
                     </MudTooltip>
                 }
+                else if (_hasEmailConnection)
+                {
+                    <MudTooltip Text="@(_isSyncing ? "Syncing..." : "Check for new bank emails")" Placement="Placement.Left">
+                        @if (_isSyncing)
+                        {
+                            <MudProgressCircular Indeterminate="true" Color="Color.Info" Class="fab-action fab-action-5" />
+                        }
+                        else
+                        {
+                            <MudFab Color="Color.Info"
+                                    StartIcon="@Icons.Material.Filled.Sync"
+                                    Size="Size.Medium"
+                                    Class="fab-action fab-action-5"
+                                    OnClick="@((MouseEventArgs e) => HandleSyncEmailsClick(e))" />
+                        }
+                    </MudTooltip>
+                }
             </MudHidden>
 
             <!-- TABLET/DESKTOP (>=600px): same buttons, optional labels below -->
@@ -108,6 +126,21 @@
                                 OnClick="@((MouseEventArgs e) => HandleReviewPendingClick(e))" />
                     </MudBadge>
                 }
+                else if (_hasEmailConnection)
+                {
+                    if (_isSyncing)
+                    {
+                        <MudProgressCircular Indeterminate="true" Color="Color.Info" Class="fab-action fab-action-5" />
+                    }
+                    else
+                    {
+                        <MudFab Color="Color.Info"
+                                StartIcon="@Icons.Material.Filled.Sync"
+                                Size="Size.Medium"
+                                Class="fab-action fab-action-5"
+                                OnClick="@((MouseEventArgs e) => HandleSyncEmailsClick(e))" />
+                    }
+                }
             </MudHidden>
         </div>
     }
@@ -120,6 +153,10 @@
                 @if (_pendingReviewCount > 0)
                 {
                     <div class="fab-label fab-label-5">Review pending</div>
+                }
+                else if (_hasEmailConnection)
+                {
+                    <div class="fab-label fab-label-5">@(_isSyncing ? "Syncing..." : "Sync emails")</div>
                 }
                 <div class="fab-label fab-label-4">Import</div>
                 <div class="fab-label fab-label-3">Transfer</div>
@@ -134,6 +171,8 @@
     private bool _isExpanded = false;
     private bool _isProcessingAction = false;
     private int _pendingReviewCount = 0;
+    private bool _hasEmailConnection = false;
+    private bool _isSyncing = false;
 
     [Parameter] public bool ShowLabels { get; set; } = false;
     [Parameter] public EventCallback<TransactionTypeEnum> OnTransactionAction { get; set; }
@@ -146,6 +185,9 @@
     {
         if (!PendingReviewCount.HasValue)
             await LoadPendingReviewCountAsync();
+
+        var connectionResult = await EmailImportService.GetConnectionAsync();
+        _hasEmailConnection = connectionResult.Success && connectionResult.Data is not null;
     }
 
     protected override void OnParametersSet()
@@ -298,6 +340,33 @@
         finally
         {
             _isProcessingAction = false;
+        }
+    }
+
+    private async Task HandleSyncEmailsClick(MouseEventArgs e)
+    {
+        if (_isSyncing) return;
+        _isSyncing = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await EmailImportService.SyncNowAsync();
+            if (!result.Success)
+            {
+                Snackbar.Add(result.Message, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(result.Message, result.Data > 0 ? Severity.Success : Severity.Info);
+            await LoadPendingReviewCountAsync();
+
+            if (OnReviewCompleted.HasDelegate)
+                await OnReviewCompleted.InvokeAsync();
+        }
+        finally
+        {
+            _isSyncing = false;
         }
     }
 
