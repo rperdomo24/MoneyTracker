@@ -203,6 +203,35 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<TransactionDto?>> FindTransferMatchAsync(int accountId, decimal amount, DateTime dateLocal)
+        {
+            try
+            {
+                var localDay = dateLocal.Date;
+                var fromUtc = _timeZoneService.ConvertToUtc(localDay.AddDays(-1));
+                var toUtc = _timeZoneService.ConvertToUtc(localDay.AddDays(2));
+
+                var candidates = await _repository.GetFilteredAsync(
+                    fromUtc,
+                    toUtc,
+                    new List<int> { accountId },
+                    new List<int>(),
+                    skipSorting: true);
+
+                var match = candidates
+                    .Where(t => t.TransferPairId.HasValue && Math.Abs(t.Amount) == Math.Abs(amount))
+                    .Select(t => t.MapToDto(_timeZoneService))
+                    .FirstOrDefault();
+
+                return OperationResult<TransactionDto?>.Ok(match);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<TransactionDto?>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
         public async Task<OperationResult<bool>> UpdateAsync(TransactionDto dto)
         {
             var validation = await _validator.ValidateAsync(dto);

@@ -14,6 +14,7 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult<CategoryStatsDto>> GetCategoryStatsAsync(int categoryId);
         Task<OperationResult<TransactionSummaryDto>> GetFilteredAsync(TransactionFilterDto filter);
         Task<OperationResult<bool>> CreateTransferAsync(CreateTransferDto dto);
+        Task<OperationResult<TransactionDto?>> FindTransferMatchAsync(int accountId, decimal amount, DateTime dateLocal);
 
         Task<OperationResult<TransactionWithPairDto>> GetByIdWithPairAsync(int id);
         Task<OperationResult<bool>> UpdateTransferAsync(UpdateTransferDto dto);

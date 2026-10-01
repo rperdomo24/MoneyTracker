@@ -34,9 +34,9 @@ namespace MoneyTracker.Application.Services
             Extract ALL financial transactions from the bank SMS or notification text provided.
 
             CLASSIFICATION RULES:
-            - "Debito", "compra", "Alerta de compra", "realizaste una transferencia", "transferencia con tu Cuenta" → type: "Expense"
+            - "Debito", "compra", "Alerta de compra" → type: "Expense"
             - "Credito", "Abono", "ha recibido", "recibido un abono", "DEP.EFECTIVO", "Has recibido" → type: "Income"
-            - "Transfer365 a Cuenta De Ahorro a nombre de" (sending to another person) → type: "Transfer"
+            - Outgoing transfers ("realizaste una transferencia", "transferencia con tu Cuenta", "Transferencias locales", "Transfer365 a Cuenta De Ahorro a nombre de") → type: "Transfer". The user decides in the app whether the destination is one of their own accounts or another person.
             - Ignore OTP codes, security tokens, login codes ("codigo", "token para", "iniciar sesion"), and promotional messages.
 
             EXTRACTION RULES:
@@ -47,6 +47,7 @@ namespace MoneyTracker.Application.Services
             - description: 1 short sentence describing the transaction.
             - provider: detected bank name. Examples: "CUSCATLAN", "NIU", "DAVIVIENDA", "PRF", "AMEX", "VISA".
             - accountHint: last 4 digits of card or account number visible in text (e.g. "0488", "9511", "2603"). Empty string if none visible.
+            - destinationAccountHint: for transfers only, last 4 digits of the RECEIVING account if visible in text. Empty string otherwise.
             - confidence: 0.0–1.0. High (0.9+) when amount+date+type all clear. Lower when fields missing.
             - warnings: list field names you could NOT extract. Empty array if all extracted.
 
@@ -68,6 +69,7 @@ namespace MoneyTracker.Application.Services
                   "description": "brief description",
                   "provider": "BANKNAME",
                   "accountHint": "1234",
+                  "destinationAccountHint": "",
                   "confidence": 0.95,
                   "warnings": []
                 }
@@ -292,6 +294,7 @@ namespace MoneyTracker.Application.Services
                         Description = el.TryGetProperty("description", out var d) ? d.GetString() ?? string.Empty : string.Empty,
                         Provider = el.TryGetProperty("provider", out var p) ? p.GetString() ?? string.Empty : string.Empty,
                         AccountHint = el.TryGetProperty("accountHint", out var ah) ? ah.GetString() ?? string.Empty : string.Empty,
+                        DestinationAccountHint = el.TryGetProperty("destinationAccountHint", out var dah) ? dah.GetString() ?? string.Empty : string.Empty,
                         Confidence = el.TryGetProperty("confidence", out var cf) ? cf.GetDecimal() : 0m,
                         Warnings = ParseWarnings(el)
                     };

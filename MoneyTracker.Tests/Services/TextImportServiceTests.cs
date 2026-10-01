@@ -88,6 +88,52 @@ namespace MoneyTracker.Tests.Services
             result.Message.Should().Be("No recognizable transaction was found.");
         }
 
+        [Fact]
+        public async Task AnalyzeAsync_WhenTransferHasDestinationHint_ParsesDestinationAccountHint()
+        {
+            var fakeJson = """
+                {
+                  "candidates": [{
+                    "content": {
+                      "parts": [{
+                        "text": "{\"items\":[{\"type\":\"Transfer\",\"amount\":283.00,\"currency\":\"USD\",\"dateLocal\":\"2026-09-30T21:40:00\",\"merchant\":\"Roberto\",\"description\":\"Transferencias locales\",\"provider\":\"CUSCATLAN\",\"accountHint\":\"0488\",\"destinationAccountHint\":\"1234\",\"confidence\":0.95,\"warnings\":[]}]}"
+                      }]
+                    }
+                  }]
+                }
+                """;
+
+            var service = BuildService(OkResponse(fakeJson));
+            var result = await service.AnalyzeAsync("Transferencias locales CUSCATLAN 0488 a cuenta 1234 por USD283.00");
+
+            result.Success.Should().BeTrue();
+            result.Data!.Items.Should().ContainSingle();
+            result.Data.Items[0].Type.Should().Be(MoneyTracker.Domain.Enums.Transaction.TransactionTypeEnum.Transfer);
+            result.Data.Items[0].DestinationAccountHint.Should().Be("1234");
+        }
+
+        [Fact]
+        public async Task AnalyzeAsync_WhenDestinationHintMissing_DefaultsToEmpty()
+        {
+            var fakeJson = """
+                {
+                  "candidates": [{
+                    "content": {
+                      "parts": [{
+                        "text": "{\"items\":[{\"type\":\"Transfer\",\"amount\":10.00,\"currency\":\"USD\",\"dateLocal\":\"2026-09-30T10:00:00\",\"merchant\":\"X\",\"description\":\"d\",\"provider\":\"CUSCATLAN\",\"accountHint\":\"0488\",\"confidence\":0.9,\"warnings\":[]}]}"
+                      }]
+                    }
+                  }]
+                }
+                """;
+
+            var service = BuildService(OkResponse(fakeJson));
+            var result = await service.AnalyzeAsync("Transferencias locales CUSCATLAN 0488 por USD10.00");
+
+            result.Success.Should().BeTrue();
+            result.Data!.Items[0].DestinationAccountHint.Should().BeEmpty();
+        }
+
         private static HttpResponseMessage OkResponse(string json)
             => new(HttpStatusCode.OK)
             {

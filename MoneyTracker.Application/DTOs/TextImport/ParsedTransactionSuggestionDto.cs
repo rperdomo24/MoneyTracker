@@ -16,6 +16,7 @@ namespace MoneyTracker.Application.DTOs.TextImport
 
         public string Provider { get; set; } = string.Empty; // "CUSCATLAN" | "AMEX"
         public string AccountHint { get; set; } = string.Empty; // last4 / "0175" / "0731" etc.
+        public string DestinationAccountHint { get; set; } = string.Empty; // transfers: last4 of the receiving account, if visible
 
         public int? SuggestedAccountId { get; set; }
         public int? SuggestedCategoryId { get; set; }

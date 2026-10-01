@@ -99,6 +99,58 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task FindTransferMatchAsync_WhenPairedTransactionWithSameAmountExists_ReturnsIt()
+        {
+            _tz.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _tz.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _txRepo.Setup(x => x.GetFilteredAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
+                .ReturnsAsync(new List<Transaction>
+                {
+                    new() { Id = 1, AccountId = 10, Name = "Expense", Amount = -283m, Date = new DateTime(2026, 9, 30) },
+                    new() { Id = 2, AccountId = 10, Name = "Transfer from Cusca", Amount = 283m, TransferPairId = 3, Date = new DateTime(2026, 9, 30) }
+                });
+            var svc = CreateService();
+
+            var result = await svc.FindTransferMatchAsync(10, 283m, new DateTime(2026, 9, 30, 21, 40, 0));
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.Id.Should().Be(2);
+        }
+
+        [Fact]
+        public async Task FindTransferMatchAsync_WhenNoPairedTransactionMatches_ReturnsNullData()
+        {
+            _tz.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _tz.Setup(x => x.ConvertFromUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _txRepo.Setup(x => x.GetFilteredAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
+                .ReturnsAsync(new List<Transaction>
+                {
+                    new() { Id = 1, AccountId = 10, Amount = -283m, Date = new DateTime(2026, 9, 30) },
+                    new() { Id = 2, AccountId = 10, Amount = 50m, TransferPairId = 3, Date = new DateTime(2026, 9, 30) }
+                });
+            var svc = CreateService();
+
+            var result = await svc.FindTransferMatchAsync(10, 283m, new DateTime(2026, 9, 30));
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task FindTransferMatchAsync_WhenRepositoryThrows_ReturnsFail()
+        {
+            _tz.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _txRepo.Setup(x => x.GetFilteredAsync(It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<List<int>>(), It.IsAny<List<int>>(), It.IsAny<bool>()))
+                .ThrowsAsync(new Exception("boom"));
+            var svc = CreateService();
+
+            var result = await svc.FindTransferMatchAsync(10, 283m, new DateTime(2026, 9, 30));
+
+            result.Success.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task DeleteAsync_WhenNotFound_ReturnsFailResult()
         {
             _txRepo.Setup(x => x.GetByIdAsync(99)).ReturnsAsync((Transaction?)null);

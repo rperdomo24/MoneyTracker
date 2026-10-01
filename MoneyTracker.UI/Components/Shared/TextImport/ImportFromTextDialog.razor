@@ -1,3 +1,4 @@
+@using MoneyTracker.Application.Common
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Gmail
 @using MoneyTracker.Application.DTOs.Merchants
@@ -181,30 +182,74 @@
                                           Value="CurrentItem.Description"
                                           ValueChanged="@((string v) => { CurrentItem.Description = v; MarkEdited(); })" />
 
+                            @if (CurrentMatch is not null)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
+                                        <span>Already recorded: @CurrentMatch.Name (@CurrentMatch.Date.ToString("yyyy-MM-dd"))</span>
+                                        @if (IsReviewMode)
+                                        {
+                                            <MudButton Size="Size.Small"
+                                                       Variant="Variant.Outlined"
+                                                       Color="Color.Info"
+                                                       Disabled="@_saving"
+                                                       OnClick="DismissDuplicateAsync">
+                                                Dismiss email
+                                            </MudButton>
+                                        }
+                                    </MudStack>
+                                </MudAlert>
+                            }
+
                             <AccountSelector @bind-SelectedAccount="_selectedAccount"
                                               Accounts="@_accounts"
-                                              Label="Account"
+                                              Label="@(IsTransfer ? "From account" : "Account")"
                                               Required="true"
                                               ShowBalance="true" />
 
-                            <CategorySelector @bind-SelectedCategory="_selectedCategory"
-                                              Categories="@_categories"
-                                              FilterByType="@(_currentItemType == TransactionTypeEnum.Income
-                                                    ? CategoryTypeEnum.Income
-                                                    : CategoryTypeEnum.Expense)"
-                                              ShowAddButton="true"
-                                              OnAddCategory="CreateCategory" />
+                            @if (IsTransfer)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudSelect T="int"
+                                               Label="To account*"
+                                               Variant="Variant.Outlined"
+                                               Value="@(_selectedToAccount?.Id ?? -1)"
+                                               ValueChanged="OnToAccountChanged"
+                                               ToStringFunc="@ToAccountLabel">
+                                        @foreach (var acc in ToAccountOptions)
+                                        {
+                                            <MudSelectItem T="int" Value="@acc.Id">@acc.Name</MudSelectItem>
+                                        }
+                                        <MudSelectItem T="int" Value="@SomeoneElseValue">Someone else (expense)</MudSelectItem>
+                                    </MudSelect>
+                                    <MudTooltip Text="Swap from / to">
+                                        <MudIconButton Icon="@Icons.Material.Filled.SwapVert"
+                                                       Size="Size.Small"
+                                                       OnClick="SwapAccounts" />
+                                    </MudTooltip>
+                                </MudStack>
+                            }
+                            else
+                            {
+                                <CategorySelector @bind-SelectedCategory="_selectedCategory"
+                                                  Categories="@_categories"
+                                                  FilterByType="@(_currentItemType == TransactionTypeEnum.Income
+                                                        ? CategoryTypeEnum.Income
+                                                        : CategoryTypeEnum.Expense)"
+                                                  ShowAddButton="true"
+                                                  OnAddCategory="CreateCategory" />
 
-                            <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
-                                       Label="Merchant (Optional)"
-                                       Variant="Variant.Outlined"
-                                       Clearable="true"
-                                       ToStringFunc="@(m => m?.Name ?? string.Empty)">
-                                @foreach (var m in _merchants)
-                                {
-                                    <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
-                                }
-                            </MudSelect>
+                                <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
+                                           Label="Merchant (Optional)"
+                                           Variant="Variant.Outlined"
+                                           Clearable="true"
+                                           ToStringFunc="@(m => m?.Name ?? string.Empty)">
+                                    @foreach (var m in _merchants)
+                                    {
+                                        <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
+                                    }
+                                </MudSelect>
+                            }
 
                         </MudStack>
                     </MudPaper>
@@ -284,7 +329,11 @@
     private int _trainingDataId;
 
     // Per-item selection state keyed by TempId
+    private const int SomeoneElseValue = 0;
+
     private Dictionary<Guid, AccountDto?> _itemAccounts = new();
+    private Dictionary<Guid, AccountDto?> _itemToAccounts = new();
+    private Dictionary<Guid, TransactionDto?> _itemMatches = new();
     private Dictionary<Guid, CategoryDto?> _itemCategories = new();
     private Dictionary<Guid, MerchantDto?> _itemMerchants = new();
     private Dictionary<Guid, TransactionTypeEnum> _itemTypes = new();
@@ -309,6 +358,25 @@
         get => CurrentItem is not null ? _itemAccounts.GetValueOrDefault(CurrentItem.TempId) : null;
         set { if (CurrentItem is not null) _itemAccounts[CurrentItem.TempId] = value; }
     }
+
+    private AccountDto? _selectedToAccount
+    {
+        get => CurrentItem is not null ? _itemToAccounts.GetValueOrDefault(CurrentItem.TempId) : null;
+        set { if (CurrentItem is not null) _itemToAccounts[CurrentItem.TempId] = value; }
+    }
+
+    private TransactionDto? CurrentMatch
+        => CurrentItem is not null ? _itemMatches.GetValueOrDefault(CurrentItem.TempId) : null;
+
+    private bool IsTransfer => _currentItemType == TransactionTypeEnum.Transfer;
+
+    private IEnumerable<AccountDto> ToAccountOptions
+        => _accounts.Where(a => a.Id != _selectedAccount?.Id);
+
+    private string ToAccountLabel(int id)
+        => id == SomeoneElseValue
+            ? "Someone else (expense)"
+            : _accounts.FirstOrDefault(a => a.Id == id)?.Name ?? string.Empty;
 
     private CategoryDto? _selectedCategory
     {
@@ -337,15 +405,17 @@
         await LoadData();
 
         if (IsReviewMode)
-            LoadReviewBatch();
+            await LoadReviewBatchAsync();
     }
 
-    private void LoadReviewBatch()
+    private async Task LoadReviewBatchAsync()
     {
         _items = new();
         _itemEmailId.Clear();
         _itemTrainingDataId.Clear();
         _itemAccounts.Clear();
+        _itemToAccounts.Clear();
+        _itemMatches.Clear();
         _itemCategories.Clear();
         _itemMerchants.Clear();
         _itemTypes.Clear();
@@ -363,6 +433,21 @@
         }
 
         _currentIndex = 0;
+        await DetectMatchesAsync();
+    }
+
+    // Flags items whose transfer was already recorded (e.g. the second email of the same transfer).
+    private async Task DetectMatchesAsync()
+    {
+        foreach (var item in _items)
+        {
+            if (item.Type is not (TransactionTypeEnum.Transfer or TransactionTypeEnum.Income)) continue;
+            if (!_itemAccounts.TryGetValue(item.TempId, out var account) || account is null) continue;
+
+            var result = await TransactionService.FindTransferMatchAsync(account.Id, item.Amount, item.DateLocal);
+            if (result.Success && result.Data is not null)
+                _itemMatches[item.TempId] = result.Data;
+        }
     }
 
     private async Task LoadData()
@@ -412,6 +497,8 @@
             _currentIndex = 0;
             _trainingDataId = result.Data.AiTrainingDataId;
             _itemAccounts.Clear();
+            _itemToAccounts.Clear();
+            _itemMatches.Clear();
             _itemCategories.Clear();
             _itemMerchants.Clear();
             _itemTypes.Clear();
@@ -419,6 +506,8 @@
 
             foreach (var item in _items)
                 ResolveItemDefaults(item);
+
+            await DetectMatchesAsync();
 
             var msg = _items.Count == 1
                 ? "Transaction detected. Review and save."
@@ -448,6 +537,14 @@
             ? _accounts.FirstOrDefault(x => x.Id == accountId.Value)
             : _accounts.FirstOrDefault();
 
+        _itemToAccounts[item.TempId] = null;
+        if (!string.IsNullOrWhiteSpace(item.DestinationAccountHint))
+        {
+            var toId = AccountHintResolver.ResolveAccountId(item.DestinationAccountHint, _accounts);
+            if (toId.HasValue && toId.Value != _itemAccounts[item.TempId]?.Id)
+                _itemToAccounts[item.TempId] = _accounts.FirstOrDefault(x => x.Id == toId.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(item.Merchant))
         {
             _itemMerchants[item.TempId] =
@@ -460,10 +557,15 @@
     }
 
     private bool CanSave()
-        => CurrentItem is not null
-           && CurrentItem.Amount > 0
-           && _selectedAccount is not null
-           && _selectedCategory is not null;
+    {
+        if (CurrentItem is null || CurrentItem.Amount <= 0 || _selectedAccount is null)
+            return false;
+
+        if (IsTransfer)
+            return _selectedToAccount is not null && _selectedToAccount.Id != _selectedAccount.Id;
+
+        return _selectedCategory is not null;
+    }
 
     private async Task SaveAsync()
     {
@@ -479,40 +581,94 @@
 
     private async Task<bool> SaveCurrentItem()
     {
-        if (CurrentItem is null || _selectedAccount is null || _selectedCategory is null) return false;
+        if (!CanSave()) return false;
+
+        var item = CurrentItem!;
+        var account = _selectedAccount!;
 
         _saving = true;
         StateHasChanged();
 
-        var dto = new TransactionDto
+        OperationResult<bool> result;
+        if (IsTransfer)
         {
-            Name = CurrentItem.Merchant ?? string.Empty,
-            Amount = CurrentItem.Amount,
-            Date = CurrentItem.DateLocal,
-            Description = CurrentItem.Description ?? string.Empty,
-            CategoryId = _selectedCategory.Id,
-            AccountId = _selectedAccount.Id,
-            MerchantId = _selectedMerchant?.Id
-        };
+            result = await TransactionService.CreateTransferAsync(new CreateTransferDto
+            {
+                FromAccountId = account.Id,
+                ToAccountId = _selectedToAccount!.Id,
+                Amount = item.Amount,
+                Date = item.DateLocal,
+                Description = item.Description
+            });
+        }
+        else
+        {
+            result = await TransactionService.CreateAsync(new TransactionDto
+            {
+                Name = item.Merchant ?? string.Empty,
+                Amount = item.Amount,
+                Date = item.DateLocal,
+                Description = item.Description ?? string.Empty,
+                CategoryId = _selectedCategory!.Id,
+                AccountId = account.Id,
+                MerchantId = _selectedMerchant?.Id
+            });
+        }
 
-        var result = await TransactionService.CreateAsync(dto);
         _saving = false;
 
         if (result.Success)
         {
             _savedCount++;
-            var savedItem = CurrentItem!;
-            var wasEdited = _itemEdited.GetValueOrDefault(savedItem.TempId);
+            var wasEdited = _itemEdited.GetValueOrDefault(item.TempId);
             _ = TextImportService.UpdateTrainingFeedbackAsync(
-                ResolveTrainingDataId(savedItem.TempId),
+                ResolveTrainingDataId(item.TempId),
                 wasEdited ? AiUserFeedback.Edited : AiUserFeedback.Confirmed);
-            await ReportEmailImportedAsync(savedItem.TempId);
-            Snackbar.Add("Transaction saved.", Severity.Success);
+            await ReportEmailImportedAsync(item.TempId);
+            Snackbar.Add(IsTransfer ? "Transfer saved." : "Transaction saved.", Severity.Success);
             return true;
         }
 
         Snackbar.Add(result.Message ?? "Error saving transaction.", Severity.Error);
         return false;
+    }
+
+    private async Task DismissDuplicateAsync()
+    {
+        if (CurrentItem is null) return;
+
+        _ = TextImportService.UpdateTrainingFeedbackAsync(ResolveTrainingDataId(CurrentItem.TempId), AiUserFeedback.Skipped);
+        await ReportEmailImportedAsync(CurrentItem.TempId);
+        Snackbar.Add("Email dismissed.", Severity.Info);
+
+        if (_currentIndex < _items.Count - 1)
+            NextItem();
+        else
+            MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void OnToAccountChanged(int id)
+    {
+        if (CurrentItem is null) return;
+
+        if (id == SomeoneElseValue)
+        {
+            // Money leaves to a third party: it is a regular expense, not a paired transfer.
+            _itemToAccounts[CurrentItem.TempId] = null;
+            OnTypeChanged(TransactionTypeEnum.Expense);
+            return;
+        }
+
+        _selectedToAccount = _accounts.FirstOrDefault(a => a.Id == id);
+        MarkEdited();
+    }
+
+    private void SwapAccounts()
+    {
+        if (CurrentItem is null) return;
+
+        (_selectedAccount, _selectedToAccount) = (_selectedToAccount, _selectedAccount);
+        MarkEdited();
     }
 
     private void SkipItem()
@@ -575,6 +731,8 @@
         _currentIndex = 0;
         _trainingDataId = 0;
         _itemAccounts.Clear();
+        _itemToAccounts.Clear();
+        _itemMatches.Clear();
         _itemCategories.Clear();
         _itemMerchants.Clear();
         _itemTypes.Clear();
