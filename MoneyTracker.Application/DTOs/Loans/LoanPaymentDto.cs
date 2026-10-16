@@ -4,6 +4,7 @@ namespace MoneyTracker.Application.DTOs.Loans
     {
         public int Id { get; set; }
         public int LoanId { get; set; }
+        public string? LoanContactName { get; set; }
         public int? TransactionId { get; set; }
         public string? TransactionName { get; set; }
         public string? TransactionDescription { get; set; }

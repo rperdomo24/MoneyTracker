@@ -9,11 +9,14 @@
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.Application.DTOs.Goals
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.Domain.Enums.Loans
 @inject ITransactionService TransactionService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
 @inject IMerchantService MerchantService
 @inject ISavingsGoalService GoalService
+@inject ILoanService LoanService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -215,6 +218,53 @@
                         <MudDivider Class="my-2" />
                     }
 
+                    @* ========== LOAN PAYMENT LINK ========== *@
+                    @if (_transactionType == TransactionTypeEnum.Income && _activeLoans.Any())
+                    {
+                        @if (!_activeGoals.Any())
+                        {
+                            <MudDivider Class="my-2" />
+                        }
+                        <MudCheckBox @bind-Value="_linkToLoan"
+                                     @bind-Value:after="OnLinkToLoanChanged"
+                                     Color="Color.Success"
+                                     Dense="true">
+                            <MudText Typo="Typo.body2">Count toward a loan payment</MudText>
+                        </MudCheckBox>
+
+                        @if (_linkToLoan)
+                        {
+                            <MudSelect T="int?"
+                                       Label="Loan"
+                                       @bind-Value="_selectedLoanId"
+                                       @bind-Value:after="OnLoanSelected"
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       Clearable="true"
+                                       Class="mt-2">
+                                @foreach (var l in _activeLoans)
+                                {
+                                    <MudSelectItem T="int?" Value="@((int?)l.Id)">
+                                        @l.ContactName
+                                        <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
+                                            (@CurrencyHelper.FormatCurrency(l.Balance) pending)
+                                        </MudText>
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudNumericField Label="Payment amount"
+                                             @bind-Value="_loanPaymentAmount"
+                                             Variant="Variant.Outlined"
+                                             Min="0.01m"
+                                             Format="N2"
+                                             Culture="@System.Globalization.CultureInfo.InvariantCulture"
+                                             Adornment="Adornment.Start"
+                                             AdornmentText="$"
+                                             Class="mt-2" />
+                        }
+                        <MudDivider Class="my-2" />
+                    }
+
                     @* ========== QUICK ADD MODE ========== *@
                     <MudCheckBox @bind-Value="_quickAddMode"
                                  Color="Color.Primary"
@@ -300,6 +350,12 @@
     private int? _selectedGoalId;
     private decimal _goalContributionAmount = 0;
 
+    // Loan link
+    private List<LoanDto> _activeLoans = new();
+    private bool _linkToLoan = false;
+    private int? _selectedLoanId;
+    private decimal _loanPaymentAmount = 0;
+
     private readonly DialogOptions _dialogOptions = new()
     {
         CloseButton = true,
@@ -347,6 +403,10 @@
             var goalsResult = await GoalService.GetAllAsync();
             if (goalsResult.Success && goalsResult.Data is not null)
                 _activeGoals = goalsResult.Data.Where(g => !g.IsCompleted).ToList();
+
+            var loansResult = await LoanService.GetAllAsync();
+            if (loansResult.Success && loansResult.Data is not null)
+                _activeLoans = loansResult.Data.Where(l => l.Status == LoanStatus.Active && l.Balance > 0).ToList();
         }
         catch (Exception ex)
         {
@@ -388,6 +448,28 @@
             _selectedGoalId = null;
             _goalContributionAmount = 0;
         }
+    }
+
+    private void OnLinkToLoanChanged()
+    {
+        if (_linkToLoan)
+            _loanPaymentAmount = _amount;
+        else
+            ResetLoanLink();
+    }
+
+    private void OnLoanSelected()
+    {
+        var loan = _activeLoans.FirstOrDefault(l => l.Id == _selectedLoanId);
+        if (loan is not null)
+            _loanPaymentAmount = Math.Min(_amount, loan.Balance);
+    }
+
+    private void ResetLoanLink()
+    {
+        _linkToLoan = false;
+        _selectedLoanId = null;
+        _loanPaymentAmount = 0;
     }
 
     private void OnFromAccountChanged(AccountDto? value)
@@ -509,11 +591,27 @@
                         GoalId = _selectedGoalId.Value,
                         Amount = _goalContributionAmount,
                         Date = _transactionDate!.Value,
-                        Notes = $"From transaction: {_transactionName}"
+                        Notes = $"From transaction: {_transactionName}",
+                        LinkedTransactionId = transactionDto.Id
                     };
                     var goalResult = await GoalService.AddContributionAsync(contribution);
                     if (!goalResult.Success)
                         Snackbar.Add("Transaction saved but failed to link to goal.", Severity.Warning);
+                }
+
+                if (_linkToLoan && _selectedLoanId.HasValue && _loanPaymentAmount > 0)
+                {
+                    var payment = new AddLoanPaymentDto
+                    {
+                        LoanId = _selectedLoanId.Value,
+                        TransactionId = transactionDto.Id,
+                        Amount = _loanPaymentAmount,
+                        Date = _transactionDate!.Value,
+                        Notes = $"From transaction: {_transactionName}"
+                    };
+                    var loanResult = await LoanService.AddPaymentAsync(payment);
+                    if (!loanResult.Success)
+                        Snackbar.Add(loanResult.Message ?? "Transaction saved but failed to link to loan.", Severity.Warning);
                 }
 
                 await OnTransactionAdded.InvokeAsync();
@@ -558,6 +656,7 @@
         _linkToGoal = false;
         _selectedGoalId = null;
         _goalContributionAmount = 0;
+        ResetLoanLink();
         // _selectedCategory = null;
         _selectedAccount = PreselectedAccountId.HasValue
             ? _accounts?.FirstOrDefault(a => a.Id == PreselectedAccountId.Value)
@@ -628,6 +727,7 @@
         _transactionName = string.Empty;
         _selectedCategory = null;
         _selectedMerchant = null;
+        ResetLoanLink();
 
         _fromAccount = null;
         _toAccount = null;

@@ -368,6 +368,51 @@ namespace MoneyTracker.Tests.Services
             _repo.Verify(r => r.UpdateAsync(It.IsAny<Loan>()), Times.Never);
         }
 
+        // ── GetPaymentByTransactionIdAsync ─────────────────────────────────────
+
+        [Fact]
+        public async Task GetPaymentByTransactionIdAsync_WhenLinked_ReturnsMappedPayment()
+        {
+            var payment = new LoanPayment
+            {
+                Id = 3,
+                LoanId = 5,
+                Loan = new Loan { Id = 5, ContactName = "Ana" },
+                TransactionId = 40,
+                Amount = 25m
+            };
+            _repo.Setup(r => r.GetPaymentByTransactionIdAsync(40)).ReturnsAsync(payment);
+
+            var result = await CreateService().GetPaymentByTransactionIdAsync(40);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().NotBeNull();
+            result.Data!.LoanContactName.Should().Be("Ana");
+            result.Data.Amount.Should().Be(25m);
+        }
+
+        [Fact]
+        public async Task GetPaymentByTransactionIdAsync_WhenNotLinked_ReturnsNullData()
+        {
+            _repo.Setup(r => r.GetPaymentByTransactionIdAsync(41)).ReturnsAsync((LoanPayment?)null);
+
+            var result = await CreateService().GetPaymentByTransactionIdAsync(41);
+
+            result.Success.Should().BeTrue();
+            result.Data.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetPaymentByTransactionIdAsync_WhenRepositoryThrows_ReturnsFailResult()
+        {
+            _repo.Setup(r => r.GetPaymentByTransactionIdAsync(It.IsAny<int>())).ThrowsAsync(new Exception("boom"));
+
+            var result = await CreateService().GetPaymentByTransactionIdAsync(42);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.UnexpectedError);
+        }
+
         // ── ReopenAsync ────────────────────────────────────────────────────────
 
         [Fact]

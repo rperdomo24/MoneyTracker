@@ -100,6 +100,7 @@ namespace MoneyTracker.Application.Mappers
         {
             Id = payment.Id,
             LoanId = payment.LoanId,
+            LoanContactName = payment.Loan?.ContactName,
             TransactionId = payment.TransactionId,
             TransactionName = payment.Transaction?.Name,
             TransactionDescription = payment.Transaction?.Description,

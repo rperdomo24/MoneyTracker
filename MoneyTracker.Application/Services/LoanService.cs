@@ -254,6 +254,20 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<LoanPaymentDto?>> GetPaymentByTransactionIdAsync(int transactionId)
+        {
+            try
+            {
+                var payment = await _repo.GetPaymentByTransactionIdAsync(transactionId);
+                return OperationResult<LoanPaymentDto?>.Ok(payment?.MapToDto());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<LoanPaymentDto?>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
         public async Task<OperationResult> MarkPaidOffAsync(int id)
         {
             try

@@ -30,6 +30,7 @@ namespace MoneyTracker.Tests.Services
         private readonly Mock<ICategoryService> _categoryService = new();
         private readonly Mock<ISystemCategoryResolver> _systemCategoryResolver = new();
         private readonly Mock<ITransactionRuleService> _ruleService = new();
+        private readonly Mock<ILoanRepository> _loanRepo = new();
 
         private TransactionService CreateService()
             => new(
@@ -43,7 +44,8 @@ namespace MoneyTracker.Tests.Services
                 _categoryRepo.Object,
                 _categoryService.Object,
                 _systemCategoryResolver.Object,
-                _ruleService.Object);
+                _ruleService.Object,
+                _loanRepo.Object);
 
         [Fact]
         public async Task CreateAsync_WhenValidationFails_ReturnsValidationMessage()
@@ -151,6 +153,40 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task CreateAsync_WhenValid_SetsDtoIdFromCreatedTransaction()
+        {
+            _validator.Setup(x => x.ValidateAsync(It.IsAny<TransactionDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ValidationResult());
+            _tz.Setup(x => x.ConvertToUtc(It.IsAny<DateTime>())).Returns((DateTime d) => d);
+            _tz.Setup(x => x.GetNowInUtc()).Returns(new DateTime(2026, 3, 5, 18, 0, 0, DateTimeKind.Utc));
+            _categoryService.Setup(x => x.GetByIdAsync(1))
+                .ReturnsAsync(OperationResult<CategoryDto?>.Ok(new CategoryDto { Id = 1, Type = CategoryTypeEnum.Income }));
+
+            var account = new Account { Id = 10, Name = "Cash", Balance = 0m, Icon = "Wallet", Type = AccountType.Cash };
+            _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            _txRepo.Setup(x => x.AddAsync(It.IsAny<Transaction>()))
+                .Callback<Transaction>(t => t.Id = 77)
+                .Returns(Task.CompletedTask);
+            _txRepo.Setup(x => x.GetAccountBalanceAsync(10)).ReturnsAsync(50m);
+
+            var dto = new TransactionDto
+            {
+                Name = "Payback",
+                AccountId = 10,
+                CategoryId = 1,
+                Amount = 50m,
+                Date = new DateTime(2026, 3, 5),
+                Category = new CategoryDto { Id = 1, Type = CategoryTypeEnum.Income }
+            };
+
+            var result = await CreateService().CreateAsync(dto);
+
+            result.Success.Should().BeTrue();
+            dto.Id.Should().Be(77);
+        }
+
+        [Fact]
         public async Task DeleteAsync_WhenNotFound_ReturnsFailResult()
         {
             _txRepo.Setup(x => x.GetByIdAsync(99)).ReturnsAsync((Transaction?)null);
@@ -160,6 +196,26 @@ namespace MoneyTracker.Tests.Services
 
             result.Success.Should().BeFalse();
             result.Message.Should().Be(OperationMessages.NotFound);
+            _loanRepo.Verify(x => x.DeletePaymentsByTransactionIdAsync(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task DeleteAsync_WhenFound_DeletesLinkedLoanPaymentsAndTransaction()
+        {
+            _txRepo.Setup(x => x.GetByIdAsync(5))
+                .ReturnsAsync(new Transaction { Id = 5, AccountId = 10, Amount = 50m });
+            _txRepo.Setup(x => x.DeleteAsync(5)).Returns(Task.CompletedTask);
+            _txRepo.Setup(x => x.GetAccountBalanceAsync(10)).ReturnsAsync(0m);
+            _loanRepo.Setup(x => x.DeletePaymentsByTransactionIdAsync(5)).Returns(Task.CompletedTask);
+            var account = new Account { Id = 10, Name = "Cash", Balance = 50m, Icon = "Wallet", Type = AccountType.Cash };
+            _accountRepo.Setup(x => x.GetByIdAsync(10)).ReturnsAsync(account);
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+
+            var result = await CreateService().DeleteAsync(5);
+
+            result.Success.Should().BeTrue();
+            _loanRepo.Verify(x => x.DeletePaymentsByTransactionIdAsync(5), Times.Once);
+            _txRepo.Verify(x => x.DeleteAsync(5), Times.Once);
         }
 
         [Fact]

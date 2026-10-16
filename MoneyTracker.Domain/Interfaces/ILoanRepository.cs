@@ -13,6 +13,8 @@ namespace MoneyTracker.Domain.Interfaces
         Task<LoanPayment?> GetPaymentByIdAsync(int paymentId);
         Task UpdatePaymentAsync(LoanPayment payment);
         Task DeletePaymentAsync(int paymentId);
+        Task<LoanPayment?> GetPaymentByTransactionIdAsync(int transactionId);
+        Task DeletePaymentsByTransactionIdAsync(int transactionId);
         Task AddInstallmentsAsync(IEnumerable<LoanInstallment> installments);
         Task UpdateInstallmentAsync(LoanInstallment installment);
         Task DeleteInstallmentsByLoanAsync(int loanId);

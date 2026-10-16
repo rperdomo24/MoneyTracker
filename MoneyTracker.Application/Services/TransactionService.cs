@@ -27,6 +27,7 @@ namespace MoneyTracker.Application.Services
         private readonly ICategoryService _categoryService;
         private readonly ISystemCategoryResolver _systemCategoryResolver;
         private readonly ITransactionRuleService _ruleService;
+        private readonly ILoanRepository _loanRepository;
 
         public TransactionService(
             ITransactionRepository repository,
@@ -39,7 +40,8 @@ namespace MoneyTracker.Application.Services
             ICategoryRepository categoryRepository,
             ICategoryService categoryService,
             ISystemCategoryResolver systemCategoryResolver,
-            ITransactionRuleService ruleService)
+            ITransactionRuleService ruleService,
+            ILoanRepository loanRepository)
         {
             _repository = repository;
             _accountRepository = accountRepository;
@@ -51,6 +53,7 @@ namespace MoneyTracker.Application.Services
             _categoryService = categoryService;
             _systemCategoryResolver = systemCategoryResolver;
             _ruleService = ruleService;
+            _loanRepository = loanRepository;
         }
 
         public async Task<OperationResult<List<TransactionDto>>> GetAllAsync()
@@ -131,6 +134,7 @@ namespace MoneyTracker.Application.Services
                 transaction.CreatedAt = _timeZoneService.GetNowInUtc();
 
                 await _repository.AddAsync(transaction);
+                dto.Id = transaction.Id;
 
                 var balanceResult = await UpdateAccountBalanceOnlyAsync(transaction.AccountId, transaction.Amount);
                 if (!balanceResult.Success)
@@ -324,6 +328,7 @@ namespace MoneyTracker.Application.Services
                 if (existing is null)
                     return OperationResult<bool>.Fail(OperationMessages.NotFound);
 
+                await _loanRepository.DeletePaymentsByTransactionIdAsync(id);
                 await _repository.DeleteAsync(id);
 
                 var revertResult = await UpdateAccountBalanceOnlyAsync(existing.AccountId, -existing.Amount);

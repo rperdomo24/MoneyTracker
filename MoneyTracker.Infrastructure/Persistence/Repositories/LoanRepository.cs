@@ -128,6 +128,41 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
             }
         }
 
+        public async Task<LoanPayment?> GetPaymentByTransactionIdAsync(int transactionId)
+        {
+            try
+            {
+                return await _context.LoanPayments
+                    .AsNoTracking()
+                    .Include(p => p.Loan)
+                    .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting loan payment by transaction ID {Id}.", transactionId);
+                throw;
+            }
+        }
+
+        public async Task DeletePaymentsByTransactionIdAsync(int transactionId)
+        {
+            try
+            {
+                var payments = await _context.LoanPayments
+                    .Where(p => p.TransactionId == transactionId)
+                    .ToListAsync();
+                if (payments.Count == 0) return;
+
+                _context.LoanPayments.RemoveRange(payments);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting loan payments for transaction ID {Id}.", transactionId);
+                throw;
+            }
+        }
+
         public async Task UpdatePaymentAsync(LoanPayment payment)
         {
             try
