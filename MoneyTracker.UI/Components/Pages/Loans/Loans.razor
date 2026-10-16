@@ -105,7 +105,7 @@
             {
                 var isActive = _loanStatusFilter == opt.Value;
                 <MudChip T="string"
-                         Color="@(isActive ? Color.Primary : Color.Default)"
+                         Color="@GetStatusColor(opt.Value)"
                          Variant="@(isActive ? Variant.Filled : Variant.Outlined)"
                          Size="Size.Small"
                          OnClick="@(() => SetLoanFilter(opt.Value))"
@@ -163,10 +163,9 @@
         <MudGrid Spacing="2">
             @foreach (var loan in _displayedLoans)
             {
-                var borderColor = loan.IsOverdue ? "var(--mud-palette-error)"
-                    : loan.Status == LoanStatus.PaidOff ? "var(--mud-palette-success)"
-                    : loan.Status == LoanStatus.Forgiven ? "var(--mud-palette-default)"
-                    : "var(--mud-palette-primary)";
+                var borderColor = loan.IsOverdue
+                    ? "var(--mud-palette-error)"
+                    : $"var(--mud-palette-{GetStatusColor(loan.Status).ToString().ToLowerInvariant()})";
 
                 var contactLoanCount = GetContactLoans(loan.ContactName).Count;
 
@@ -241,7 +240,7 @@
                                     </MudText>
                                 </MudStack>
                                 <MudProgressLinear Value="@((double)loan.ProgressPercent)"
-                                                   Color="@(loan.Status == LoanStatus.PaidOff ? Color.Success : Color.Primary)"
+                                                   Color="@GetStatusColor(loan.Status)"
                                                    Rounded="true"
                                                    Size="Size.Medium" />
                             </MudStack>
@@ -379,6 +378,15 @@
         new LoanFilterOption("Paid Off", LoanStatus.PaidOff,  Icons.Material.Filled.CheckCircle,   _allLoans.Count(l => l.Status == LoanStatus.PaidOff)),
         new LoanFilterOption("Forgiven", LoanStatus.Forgiven, Icons.Material.Filled.Handshake,     _allLoans.Count(l => l.Status == LoanStatus.Forgiven)),
         new LoanFilterOption("All",      null,                Icons.Material.Filled.List,           _allLoans.Count),
+    };
+
+    // Single source of truth for status colors; null = "All" filter.
+    private static Color GetStatusColor(LoanStatus? status) => status switch
+    {
+        LoanStatus.Active => Color.Warning,
+        LoanStatus.PaidOff => Color.Success,
+        LoanStatus.Forgiven => Color.Default,
+        _ => Color.Primary
     };
 
     private void SetLoanFilter(LoanStatus? status)
