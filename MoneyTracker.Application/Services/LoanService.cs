@@ -71,6 +71,7 @@ namespace MoneyTracker.Application.Services
                     return OperationResult.Fail("First payment date is required when installments are set.");
 
                 var entity = dto.MapToEntity();
+                ApplyRepaymentPlan(entity);
                 await _repo.AddAsync(entity);
 
                 if (entity.NumberOfInstallments is > 0)
@@ -114,6 +115,7 @@ namespace MoneyTracker.Application.Services
                     entity.InterestRate != dto.InterestRate;
 
                 entity.UpdateEntity(dto);
+                ApplyRepaymentPlan(entity);
                 await _repo.UpdateAsync(entity);
 
                 if (installmentsChanged && entity.NumberOfInstallments is > 0 && entity.FirstPaymentDate is not null)
@@ -135,6 +137,25 @@ namespace MoneyTracker.Application.Services
                 _logger.LogError(ex, OperationMessages.UnexpectedError);
                 return OperationResult.Fail(OperationMessages.UnexpectedError);
             }
+        }
+
+        /// <summary>
+        /// Keeps repayment fields consistent: with installments, DueDate is the last installment date;
+        /// without them, all installment fields are cleared.
+        /// </summary>
+        private static void ApplyRepaymentPlan(Loan entity)
+        {
+            if (entity.NumberOfInstallments is > 0 && entity.FirstPaymentDate is not null)
+            {
+                var last = LoanMapper.GenerateInstallments(entity).LastOrDefault();
+                if (last is not null)
+                    entity.DueDate = last.DueDate;
+                return;
+            }
+
+            entity.NumberOfInstallments = null;
+            entity.FirstPaymentDate = null;
+            entity.PaymentFrequency = null;
         }
 
         public async Task<OperationResult> DeleteAsync(int id)
@@ -166,8 +187,8 @@ namespace MoneyTracker.Application.Services
                 if (loan is null)
                     return OperationResult.Fail(OperationMessages.NotFound);
 
-                if (loan.Status == LoanStatus.PaidOff)
-                    return OperationResult.Fail("Cannot add payments to a paid-off loan.");
+                if (loan.Status != LoanStatus.Active)
+                    return OperationResult.Fail("Cannot add payments to a closed loan.");
 
                 var payment = new LoanPayment
                 {
@@ -245,6 +266,61 @@ namespace MoneyTracker.Application.Services
                 entity.UpdatedAt = DateTime.UtcNow;
                 await _repo.UpdateAsync(entity);
                 return OperationResult.Ok("Loan marked as paid off.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult> ForgiveAsync(int id, string? reason)
+        {
+            try
+            {
+                var entity = await _repo.GetByIdAsync(id);
+                if (entity is null)
+                    return OperationResult.Fail(OperationMessages.NotFound);
+
+                if (entity.Status != LoanStatus.Active)
+                    return OperationResult.Fail("Only active loans can be forgiven.");
+
+                entity.Status = LoanStatus.Forgiven;
+                entity.UpdatedAt = DateTime.UtcNow;
+
+                if (!string.IsNullOrWhiteSpace(reason))
+                {
+                    var line = $"Forgiven on {DateTime.UtcNow:yyyy-MM-dd}: {reason.Trim()}";
+                    entity.Notes = string.IsNullOrWhiteSpace(entity.Notes)
+                        ? line
+                        : $"{entity.Notes}{Environment.NewLine}{line}";
+                }
+
+                await _repo.UpdateAsync(entity);
+                return OperationResult.Ok("Loan forgiven.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
+        public async Task<OperationResult> ReopenAsync(int id)
+        {
+            try
+            {
+                var entity = await _repo.GetByIdAsync(id);
+                if (entity is null)
+                    return OperationResult.Fail(OperationMessages.NotFound);
+
+                if (entity.Status == LoanStatus.Active)
+                    return OperationResult.Fail("Loan is already active.");
+
+                entity.Status = LoanStatus.Active;
+                entity.UpdatedAt = DateTime.UtcNow;
+                await _repo.UpdateAsync(entity);
+                return OperationResult.Ok("Loan reopened.");
             }
             catch (Exception ex)
             {

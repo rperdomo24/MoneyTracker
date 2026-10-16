@@ -67,80 +67,79 @@
                 <div class="mb-4"></div>
             }
 
-            <!-- Installment plan -->
-            <MudGrid Spacing="2" Class="mb-0">
-                <MudItem xs="12" sm="6">
-                    <MudNumericField T="int?"
-                                     Label="# Installments (optional)"
-                                     @bind-Value="_numberOfInstallments"
-                                     Variant="Variant.Outlined"
-                                     Min="1"
-                                     Placeholder="e.g., 6" />
-                </MudItem>
-                <MudItem xs="12" sm="6">
-                    <MudDatePicker Label="First Payment Date"
-                                   @bind-Date="_firstPaymentDate"
-                                   Variant="Variant.Outlined"
-                                   Disabled="@(_numberOfInstallments is null or 0)"
-                                   Clearable="true" />
-                </MudItem>
-            </MudGrid>
-
-            @if (_numberOfInstallments is > 0)
-            {
-                <MudSelect T="PaymentFrequency?"
-                           Label="Payment Frequency"
-                           @bind-Value="_paymentFrequency"
+            <MudDatePicker Label="Date Lent"
+                           @bind-Date="_startDate"
                            Variant="Variant.Outlined"
-                           Class="mb-0 mt-2">
-                    <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Monthly">Monthly</MudSelectItem>
-                    <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Biweekly">Biweekly (every 2 weeks)</MudSelectItem>
-                    <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Weekly">Weekly</MudSelectItem>
-                </MudSelect>
-            }
+                           HelperText="When the money was handed over"
+                           Class="mb-4" />
 
-            @if (_numberOfInstallments is > 0 && _principalAmount > 0)
+            <!-- Repayment mode -->
+            <MudText Typo="Typo.subtitle2" Class="mb-1">How will it be repaid?</MudText>
+            <MudToggleGroup T="string"
+                            Value="@_repaymentMode"
+                            ValueChanged="OnRepaymentModeChanged"
+                            SelectionMode="SelectionMode.SingleSelection"
+                            Color="Color.Primary"
+                            CheckMark="true"
+                            Class="mb-4">
+                <MudToggleItem Value="@ModeSingle" Text="Single payment" />
+                <MudToggleItem Value="@ModeInstallments" Text="Installments" />
+            </MudToggleGroup>
+
+            @if (_repaymentMode == ModeInstallments)
             {
-                var interest = Math.Round(_principalAmount * _interestRate / 100, 2);
-                var total = _principalAmount + interest;
-                var quota = Math.Round(total / _numberOfInstallments!.Value, 2);
-                var freqLabel = _paymentFrequency switch {
-                    PaymentFrequency.Weekly => "Weekly",
-                    PaymentFrequency.Biweekly => "Biweekly",
-                    _ => "Monthly"
-                };
-                <MudText Typo="Typo.caption" Style="opacity:0.6;" Class="mb-4 mt-1">
-                    @freqLabel quota: <strong>$@quota.ToString("N2")</strong>
-                </MudText>
+                <MudGrid Spacing="2" Class="mb-0">
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField T="int?"
+                                         Label="# Installments"
+                                         @bind-Value="_numberOfInstallments"
+                                         Variant="Variant.Outlined"
+                                         Min="1"
+                                         Immediate="true"
+                                         Placeholder="e.g., 6" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="PaymentFrequency?"
+                                   Label="Frequency"
+                                   @bind-Value="_paymentFrequency"
+                                   Variant="Variant.Outlined">
+                            <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Monthly">Monthly</MudSelectItem>
+                            <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Biweekly">Biweekly (every 2 weeks)</MudSelectItem>
+                            <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Weekly">Weekly</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+
+                <MudDatePicker Label="First Payment"
+                               @bind-Date="_firstPaymentDate"
+                               Variant="Variant.Outlined"
+                               HelperText="Due date of installment #1"
+                               Class="mt-2 mb-2" />
+
+                @if (_numberOfInstallments is > 0 && _principalAmount > 0 && _firstPaymentDate.HasValue)
+                {
+                    var interest = Math.Round(_principalAmount * _interestRate / 100, 2);
+                    var quota = Math.Round((_principalAmount + interest) / _numberOfInstallments!.Value, 2);
+                    var last = GetLastInstallmentDate();
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-4">
+                        @_numberOfInstallments @FrequencyLabel() payment@(_numberOfInstallments == 1 ? "" : "s") of
+                        <strong>$@quota.ToString("N2")</strong><br />
+                        @_firstPaymentDate.Value.ToString("d MMM yyyy") → @last.ToString("d MMM yyyy")
+                    </MudAlert>
+                }
+                else
+                {
+                    <div class="mb-4"></div>
+                }
             }
             else
             {
-                <div class="mb-4"></div>
-            }
-
-            <MudDatePicker Label="Start Date"
-                           @bind-Date="_startDate"
-                           Variant="Variant.Outlined"
-                           Class="mb-4" />
-
-            <MudDatePicker Label="Due Date (optional)"
-                           @bind-Date="_dueDate"
-                           Variant="Variant.Outlined"
-                           Class="mb-4"
-                           Clearable="true"
-                           Placeholder="Overall repayment deadline" />
-
-            @if (Loan is not null)
-            {
-                <MudSelect T="LoanStatus"
-                           Label="Status"
-                           @bind-Value="_status"
-                           Variant="Variant.Outlined"
-                           Class="mb-4">
-                    <MudSelectItem Value="LoanStatus.Active">Active</MudSelectItem>
-                    <MudSelectItem Value="LoanStatus.PaidOff">Paid Off</MudSelectItem>
-                    <MudSelectItem Value="LoanStatus.Forgiven">Forgiven</MudSelectItem>
-                </MudSelect>
+                <MudDatePicker Label="Due Date (optional)"
+                               @bind-Date="_dueDate"
+                               Variant="Variant.Outlined"
+                               Class="mb-4"
+                               Clearable="true"
+                               HelperText="Deadline to repay the full amount" />
             }
 
             <MudTextField Label="Notes (optional)"
@@ -191,6 +190,10 @@
     private string? _notes;
     private bool _isSaving;
 
+    private const string ModeSingle = "single";
+    private const string ModeInstallments = "installments";
+    private string _repaymentMode = ModeSingle;
+
     protected override void OnInitialized()
     {
         if (Loan is not null)
@@ -206,8 +209,35 @@
             _dueDate = Loan.DueDate;
             _status = Loan.Status;
             _notes = Loan.Notes;
+            _repaymentMode = Loan.NumberOfInstallments is > 0 ? ModeInstallments : ModeSingle;
         }
     }
+
+    private void OnRepaymentModeChanged(string? mode)
+    {
+        if (string.IsNullOrEmpty(mode) || mode == _repaymentMode) return;
+
+        _repaymentMode = mode;
+        if (mode == ModeInstallments && _firstPaymentDate is null)
+            _firstPaymentDate = AddPeriods(_startDate ?? DateTime.Today, 1);
+    }
+
+    private DateTime AddPeriods(DateTime from, int periods) => _paymentFrequency switch
+    {
+        PaymentFrequency.Weekly => from.AddDays(7 * periods),
+        PaymentFrequency.Biweekly => from.AddDays(14 * periods),
+        _ => from.AddMonths(periods)
+    };
+
+    private DateTime GetLastInstallmentDate()
+        => AddPeriods(_firstPaymentDate!.Value, (_numberOfInstallments ?? 1) - 1);
+
+    private string FrequencyLabel() => _paymentFrequency switch
+    {
+        PaymentFrequency.Weekly => "weekly",
+        PaymentFrequency.Biweekly => "biweekly",
+        _ => "monthly"
+    };
 
     private async Task Save()
     {
@@ -217,11 +247,22 @@
             Snackbar.Add("Amount must be greater than 0.", Severity.Warning);
             return;
         }
-        if (_numberOfInstallments is > 0 && _firstPaymentDate is null)
+        var useInstallments = _repaymentMode == ModeInstallments;
+        if (useInstallments && _numberOfInstallments is not > 0)
+        {
+            Snackbar.Add("Enter the number of installments.", Severity.Warning);
+            return;
+        }
+        if (useInstallments && _firstPaymentDate is null)
         {
             Snackbar.Add("First payment date is required when installments are set.", Severity.Warning);
             return;
         }
+
+        var installments = useInstallments ? _numberOfInstallments : null;
+        var firstPayment = useInstallments ? _firstPaymentDate : null;
+        var frequency = useInstallments ? _paymentFrequency : null;
+        var dueDate = useInstallments ? null : _dueDate;
 
         _isSaving = true;
         StateHasChanged();
@@ -236,11 +277,11 @@
                     Description = _description,
                     PrincipalAmount = _principalAmount,
                     InterestRate = _interestRate,
-                    NumberOfInstallments = _numberOfInstallments,
-                    FirstPaymentDate = _firstPaymentDate,
-                    PaymentFrequency = _numberOfInstallments is > 0 ? _paymentFrequency : null,
+                    NumberOfInstallments = installments,
+                    FirstPaymentDate = firstPayment,
+                    PaymentFrequency = frequency,
                     StartDate = _startDate ?? DateTime.Today,
-                    DueDate = _dueDate,
+                    DueDate = dueDate,
                     Notes = _notes
                 };
                 var result = await LoanService.CreateAsync(createDto);
@@ -261,11 +302,11 @@
                     Description = _description,
                     PrincipalAmount = _principalAmount,
                     InterestRate = _interestRate,
-                    NumberOfInstallments = _numberOfInstallments,
-                    FirstPaymentDate = _firstPaymentDate,
-                    PaymentFrequency = _numberOfInstallments is > 0 ? _paymentFrequency : null,
+                    NumberOfInstallments = installments,
+                    FirstPaymentDate = firstPayment,
+                    PaymentFrequency = frequency,
                     StartDate = _startDate ?? DateTime.Today,
-                    DueDate = _dueDate,
+                    DueDate = dueDate,
                     Status = _status,
                     Notes = _notes
                 };

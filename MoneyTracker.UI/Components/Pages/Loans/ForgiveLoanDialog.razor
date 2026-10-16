@@ -1,0 +1,103 @@
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Helpers
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Handshake" Size="Size.Medium" />
+            <MudText Typo="Typo.h6">Forgive Loan</MudText>
+        </MudStack>
+    </TitleContent>
+
+    <DialogContent>
+        <MudContainer MaxWidth="MaxWidth.Small" Class="pa-0">
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+                You'll write off <strong>@CurrencyHelper.FormatCurrency(Loan.Balance)</strong> from <strong>@Loan.ContactName</strong>.
+            </MudAlert>
+
+            <MudStack Spacing="0" Class="mb-4">
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Style="opacity:0.7;">Paid</MudText>
+                    <MudText Typo="Typo.body2">@CurrencyHelper.FormatCurrency(Loan.TotalPaid)</MudText>
+                </MudStack>
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Style="opacity:0.7;">Owed</MudText>
+                    <MudText Typo="Typo.body2">@CurrencyHelper.FormatCurrency(Loan.TotalOwed)</MudText>
+                </MudStack>
+            </MudStack>
+
+            <MudTextField Label="Reason (optional)"
+                          @bind-Value="_reason"
+                          Variant="Variant.Outlined"
+                          Lines="3"
+                          MaxLength="200"
+                          Counter="200"
+                          Class="mb-2"
+                          Placeholder="e.g., family help, uncollectable" />
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton Color="Color.Default" Variant="Variant.Text" OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Warning"
+                   Variant="Variant.Filled"
+                   OnClick="Save"
+                   StartIcon="@Icons.Material.Filled.Handshake"
+                   Disabled="@_isSaving">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                <span>Saving...</span>
+            }
+            else
+            {
+                <span>Forgive</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public LoanDto Loan { get; set; } = default!;
+    [Parameter] public ILoanService LoanService { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private string? _reason;
+    private bool _isSaving;
+
+    private async Task Save()
+    {
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await LoanService.ForgiveAsync(Loan.Id, _reason);
+
+            if (result.Success)
+            {
+                Snackbar.Add("Loan forgiven.", Severity.Success);
+                await OnSaved.InvokeAsync();
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to forgive loan.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("An error occurred.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

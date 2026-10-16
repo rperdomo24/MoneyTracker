@@ -14,6 +14,8 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult> UpdatePaymentAsync(UpdateLoanPaymentDto dto);
         Task<OperationResult> DeletePaymentAsync(int paymentId);
         Task<OperationResult> MarkPaidOffAsync(int id);
+        Task<OperationResult> ForgiveAsync(int id, string? reason);
+        Task<OperationResult> ReopenAsync(int id);
         Task<OperationResult> RegenerateInstallmentsAsync(int loanId);
         Task<OperationResult> UpdateInstallmentAsync(LoanInstallmentDto dto);
     }
