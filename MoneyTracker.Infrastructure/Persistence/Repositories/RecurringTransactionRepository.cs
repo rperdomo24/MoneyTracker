@@ -85,23 +85,16 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
 
         public async Task<List<RecurringTransaction>> GetDueAsync(DateTime asOfDate)
         {
-            try
-            {
-                var cutoff = DateTime.SpecifyKind(asOfDate.Date, DateTimeKind.Utc);
-                await using var scope = _scopeFactory.CreateAsyncScope();
-                var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
-                return await context.RecurringTransactions
-                    .IgnoreQueryFilters()
-                    .Include(r => r.Account)
-                    .Include(r => r.Category)
-                    .Where(r => !r.IsDeleted && r.IsActive && r.NextDate <= cutoff)
-                    .ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching due recurring transactions");
-                return [];
-            }
+            // Errors propagate on purpose: the generator job must fail (and be retried) instead of reporting "nothing due".
+            var cutoff = DateTime.SpecifyKind(asOfDate.Date, DateTimeKind.Utc);
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetRequiredService<MoneyTrackerDbContext>();
+            return await context.RecurringTransactions
+                .IgnoreQueryFilters()
+                .Include(r => r.Account)
+                .Include(r => r.Category)
+                .Where(r => !r.IsDeleted && r.IsActive && r.NextDate <= cutoff)
+                .ToListAsync();
         }
     }
 }

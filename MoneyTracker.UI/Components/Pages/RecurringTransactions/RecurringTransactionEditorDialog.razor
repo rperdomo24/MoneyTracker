@@ -12,7 +12,7 @@
 <MudDialog>
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            <MudIcon Icon="@Icons.Material.Filled.Repeat" Color="Color.Primary" />
+            <MudIcon Icon="@(Recurring is null ? Icons.Material.Filled.Add : Icons.Material.Filled.Edit)" Color="Color.Primary" />
             <MudText Typo="Typo.h6" Class="font-weight-bold">
                 @(Recurring is null ? "New Recurring Transaction" : "Edit Recurring Transaction")
             </MudText>
@@ -53,10 +53,11 @@
                                      Variant="Variant.Outlined"
                                      Required="true"
                                      Min="0.01m"
-                                     Format="F2"
+                                     Format="N2"
+                                     Culture="@System.Globalization.CultureInfo.InvariantCulture"
                                      Adornment="Adornment.Start"
                                      AdornmentText="$"
-                                     HideSpinButtons="false" />
+                                     HideSpinButtons="true" />
 
                     <CategorySelector @bind-SelectedCategory="_selectedCategory"
                                       Categories="@_categories"
@@ -90,7 +91,7 @@
                     <MudStack Spacing="1">
                         <MudSwitch @bind-Value="_isInstallment"
                                    Color="Color.Primary"
-                                   Label="Fixed installments (tasa 0, quota plan, etc.)" />
+                                   Label="Fixed installments (0% interest, payment plan, etc.)" />
 
                         @if (_isInstallment)
                         {
@@ -174,7 +175,7 @@
             }
             else
             {
-                <span>Save</span>
+                <span>@(Recurring is null ? "Create" : "Save")</span>
             }
         </MudButton>
     </DialogActions>
@@ -291,9 +292,9 @@
                 Snackbar.Add(result.Message ?? "Error saving recurring transaction", Severity.Error);
             }
         }
-        catch (Exception ex)
+        catch
         {
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            Snackbar.Add("An error occurred while saving.", Severity.Error);
         }
         finally
         {

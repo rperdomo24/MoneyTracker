@@ -24,7 +24,7 @@ namespace MoneyTracker.UI.Services.Filters
         public async Task<RecurringTransactionFilter> GetAsync()
         {
             var value = await _storage.GetAsync<RecurringTransactionFilter?>(Key);
-            return value ?? RecurringTransactionFilter.All;
+            return value ?? RecurringTransactionFilter.ActiveOnly;
         }
 
         public Task ClearAsync()
