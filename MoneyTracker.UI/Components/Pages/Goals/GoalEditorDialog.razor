@@ -2,6 +2,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.UI.Components.Shared.Pickers
 @inject ISnackbar Snackbar
+@inject ITimeZoneService TimeZoneService
 
 <MudDialog>
     <TitleContent>
@@ -32,10 +33,11 @@
                              Class="mb-4"
                              Placeholder="0.00" />
 
-            <MudDatePicker Label="Target Date (optional)"
+            <MudDatePicker Label="Reach this goal by (optional)"
+                           HelperText="Used to show days left and how much to save per month"
                            @bind-Date="_targetDate"
                            Variant="Variant.Outlined"
-                           MinDate="@DateTime.Today"
+                           MinDate="@Today"
                            Class="mb-4"
                            Clearable="true" />
 
@@ -107,6 +109,8 @@
     private SavingsGoalDto _model = new();
     private DateTime? _targetDate;
     private bool _isSaving = false;
+
+    private DateTime Today => TimeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
 
     protected override void OnInitialized()
     {

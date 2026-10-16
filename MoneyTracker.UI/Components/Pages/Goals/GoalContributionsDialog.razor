@@ -120,9 +120,11 @@
 
     private async Task EditContribution(SavingsContributionDto c)
     {
+        if (Goal is null) return;
+
         var parameters = new DialogParameters
         {
-            [nameof(AddContributionDialog.Goal)] = Goal!,
+            [nameof(AddContributionDialog.Goal)] = Goal,
             [nameof(AddContributionDialog.GoalService)] = GoalService,
             [nameof(AddContributionDialog.ExistingContribution)] = c,
             [nameof(AddContributionDialog.OnSaved)] = EventCallback.Factory.Create(this, RefreshGoal)
@@ -134,7 +136,9 @@
 
     private async Task RefreshGoal()
     {
-        var result = await GoalService.GetByIdAsync(Goal!.Id);
+        if (Goal is null) return;
+
+        var result = await GoalService.GetByIdAsync(Goal.Id);
         if (result.Success && result.Data is not null)
         {
             Goal = result.Data;
@@ -145,16 +149,30 @@
 
     private async Task DeleteContribution(SavingsContributionDto c)
     {
-        var result = await GoalService.DeleteContributionAsync(c.Id);
-        if (result.Success)
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Delete Contribution",
+            $"Delete the {CurrencyHelper.FormatCurrency(c.Amount)} contribution from {c.Date:MMM d, yyyy}?",
+            confirmText: "Delete",
+            color: Color.Error);
+
+        if (!confirmed) return;
+
+        try
         {
-            Goal!.Contributions.Remove(c);
-            await OnChanged.InvokeAsync();
-            StateHasChanged();
+            var result = await GoalService.DeleteContributionAsync(c.Id);
+            if (result.Success)
+            {
+                Snackbar.Add("Contribution removed.", Severity.Success);
+                await RefreshGoal();
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? "Failed to remove contribution.", Severity.Error);
+            }
         }
-        else
+        catch
         {
-            Snackbar.Add(result.Message ?? "Error deleting contribution", Severity.Error);
+            Snackbar.Add("An error occurred.", Severity.Error);
         }
     }
 

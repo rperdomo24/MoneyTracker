@@ -11,11 +11,13 @@ namespace MoneyTracker.Application.Services
     public class SavingsGoalService : ISavingsGoalService
     {
         private readonly ISavingsGoalRepository _repo;
+        private readonly ITimeZoneService _timeZoneService;
         private readonly ILogger<SavingsGoalService> _logger;
 
-        public SavingsGoalService(ISavingsGoalRepository repo, ILogger<SavingsGoalService> logger)
+        public SavingsGoalService(ISavingsGoalRepository repo, ITimeZoneService timeZoneService, ILogger<SavingsGoalService> logger)
         {
             _repo = repo;
+            _timeZoneService = timeZoneService;
             _logger = logger;
         }
 
@@ -24,7 +26,8 @@ namespace MoneyTracker.Application.Services
             try
             {
                 var goals = await _repo.GetAllAsync();
-                return OperationResult<List<SavingsGoalDto>>.Ok(goals.Select(g => g.MapToDto()).ToList());
+                var today = _timeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
+                return OperationResult<List<SavingsGoalDto>>.Ok(goals.Select(g => g.MapToDto(today)).ToList());
             }
             catch (Exception ex)
             {
@@ -41,7 +44,8 @@ namespace MoneyTracker.Application.Services
                 if (goal is null)
                     return OperationResult<SavingsGoalDto>.Fail(OperationMessages.NotFound);
 
-                return OperationResult<SavingsGoalDto>.Ok(goal.MapToDto());
+                var today = _timeZoneService.GetLocalTimeInConfiguredTimeZone().Date;
+                return OperationResult<SavingsGoalDto>.Ok(goal.MapToDto(today));
             }
             catch (Exception ex)
             {

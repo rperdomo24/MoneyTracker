@@ -13,6 +13,10 @@ namespace MoneyTracker.Application.DTOs.Goals
         public decimal? ContributionReminderAmount { get; set; }
         public bool IsCompleted { get; set; }
         public int ProgressPercent { get; set; }
+        public decimal AmountRemaining { get; set; }
+        public int? DaysRemaining { get; set; }
+        public bool IsOverdue { get; set; }
+        public decimal? MonthlyPaceNeeded { get; set; }
         public List<SavingsContributionDto> Contributions { get; set; } = new();
         public DateTime CreatedAt { get; set; }
     }
