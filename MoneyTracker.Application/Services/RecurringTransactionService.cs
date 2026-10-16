@@ -3,6 +3,7 @@ using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.RecurringTransactions;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
+using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Application.Services
@@ -125,7 +126,7 @@ namespace MoneyTracker.Application.Services
             }
         }
 
-        public async Task<OperationResult> ToggleActiveAsync(int id)
+        public async Task<OperationResult> SetStatusAsync(int id, RecurringStatus status)
         {
             try
             {
@@ -133,16 +134,30 @@ namespace MoneyTracker.Application.Services
                 if (entity is null)
                     return OperationResult.Fail(OperationMessages.NotFound);
 
-                entity.IsActive = !entity.IsActive;
+                var message = GetTransitionMessage(entity.Status, status);
+                if (message is null)
+                    return OperationResult.Fail($"Cannot change a {entity.Status.ToString().ToLowerInvariant()} recurring transaction to {status.ToString().ToLowerInvariant()}.");
+
+                entity.Status = status;
                 entity.UpdatedAt = DateTime.UtcNow;
                 await _repository.UpdateAsync(entity);
-                return OperationResult.Ok(entity.IsActive ? "Activated." : "Paused.");
+                return OperationResult.Ok(message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error toggling recurring transaction {Id}", id);
+                _logger.LogError(ex, "Error changing status of recurring transaction {Id} to {Status}", id, status);
                 return OperationResult.Fail(OperationMessages.UnexpectedError);
             }
         }
+
+        // Allowed: Active <-> Paused, Active/Paused -> Completed, Completed -> Active (reopen). Null = not allowed.
+        private static string? GetTransitionMessage(RecurringStatus from, RecurringStatus to) => (from, to) switch
+        {
+            (RecurringStatus.Active, RecurringStatus.Paused) => "Paused.",
+            (RecurringStatus.Paused, RecurringStatus.Active) => "Resumed.",
+            (RecurringStatus.Active or RecurringStatus.Paused, RecurringStatus.Completed) => "Marked as completed.",
+            (RecurringStatus.Completed, RecurringStatus.Active) => "Reopened.",
+            _ => null
+        };
     }
 }

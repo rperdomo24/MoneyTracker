@@ -31,7 +31,7 @@ namespace MoneyTracker.Domain.Entities
         public int? TotalOccurrences { get; set; }
         public int OccurrencesGenerated { get; set; } = 0;
 
-        public bool IsActive { get; set; } = true;
+        public RecurringStatus Status { get; set; } = RecurringStatus.Active;
 
         [MaxLength(500)]
         public string? Description { get; set; }

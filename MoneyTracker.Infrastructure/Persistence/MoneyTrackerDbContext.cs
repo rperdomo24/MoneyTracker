@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Persistence
@@ -248,6 +249,13 @@ namespace MoneyTracker.Infrastructure.Persistence
             modelBuilder.Entity<RecurringTransaction>()
                 .Property(e => e.Frequency)
                 .HasConversion<string>();
+
+            modelBuilder.Entity<RecurringTransaction>()
+                .Property(e => e.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(RecurringStatus.Active)
+                .HasSentinel(RecurringStatus.Active);
 
             modelBuilder.Entity<Budget>()
                 .HasQueryFilter(e => CurrentTenantId.HasValue && e.TenantId == CurrentTenantId.Value);

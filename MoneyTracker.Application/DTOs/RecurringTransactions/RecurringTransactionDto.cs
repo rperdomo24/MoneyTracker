@@ -20,7 +20,7 @@ namespace MoneyTracker.Application.DTOs.RecurringTransactions
         public DateTime? EndDate { get; set; }
         public int? TotalOccurrences { get; set; }
         public int OccurrencesGenerated { get; set; }
-        public bool IsActive { get; set; } = true;
+        public RecurringStatus Status { get; set; } = RecurringStatus.Active;
         public string? Description { get; set; }
         public PaymentMethodEnum? PaymentMethod { get; set; }
     }

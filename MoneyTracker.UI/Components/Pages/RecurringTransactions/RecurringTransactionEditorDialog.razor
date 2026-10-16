@@ -1,8 +1,10 @@
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.RecurringTransactions
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.Application.Mappers
 @using MoneyTracker.Domain.Enums.Transaction
 @using MoneyTracker.UI.Components.Shared.Selectors
+@using MoneyTracker.UI.Helpers
 @inject IRecurringTransactionService RecurringService
 @inject IAccountService AccountService
 @inject ICategoryService CategoryService
@@ -31,6 +33,9 @@
             <MudForm @ref="_form">
                 <MudStack Spacing="3">
 
+                    @* ── What ── *@
+                    <MudText Typo="Typo.overline" Style="opacity:0.7;">What</MudText>
+
                     <MudTextField T="string"
                                   Label="Name"
                                   @bind-Value="_dto.Name"
@@ -41,121 +46,142 @@
                                   Immediate="true"
                                   Placeholder="e.g., Netflix, Rent, Salary..." />
 
-                    <AccountSelector @bind-SelectedAccount="_selectedAccount"
-                                     Accounts="@_accounts"
-                                     Label="Account"
-                                     Required="true"
-                                     ShowBalance="false" />
-
                     <MudNumericField T="decimal"
                                      Label="Amount"
                                      @bind-Value="_dto.Amount"
                                      Variant="Variant.Outlined"
                                      Required="true"
                                      Min="0.01m"
+                                     Immediate="true"
                                      Format="N2"
                                      Culture="@System.Globalization.CultureInfo.InvariantCulture"
                                      Adornment="Adornment.Start"
                                      AdornmentText="$"
                                      HideSpinButtons="true" />
 
+                    <AccountSelector @bind-SelectedAccount="_selectedAccount"
+                                     Accounts="@_accounts"
+                                     Label="Account"
+                                     Required="true"
+                                     ShowBalance="false" />
+
                     <CategorySelector @bind-SelectedCategory="_selectedCategory"
                                       Categories="@_categories"
                                       ShowAddButton="false" />
 
-                    <MudSelect T="RecurringFrequency"
-                               Label="Frequency"
-                               @bind-Value="_dto.Frequency"
-                               Variant="Variant.Outlined"
-                               Required="true">
-                        <MudSelectItem Value="RecurringFrequency.Daily">Daily</MudSelectItem>
-                        <MudSelectItem Value="RecurringFrequency.Weekly">Weekly</MudSelectItem>
-                        <MudSelectItem Value="RecurringFrequency.BiWeekly">Bi-Weekly (every 2 weeks)</MudSelectItem>
-                        <MudSelectItem Value="RecurringFrequency.Monthly">Monthly</MudSelectItem>
-                        <MudSelectItem Value="RecurringFrequency.BiMonthly">Bi-Monthly (every 2 months)</MudSelectItem>
-                        <MudSelectItem Value="RecurringFrequency.Quarterly">Quarterly</MudSelectItem>
-                        <MudSelectItem Value="RecurringFrequency.Yearly">Yearly</MudSelectItem>
-                    </MudSelect>
-
-                    <MudDatePicker Label="Start Date"
-                                   @bind-Date="_startDate"
-                                   Variant="Variant.Outlined"
-                                   Required="true"
-                                   Editable="true"
-                                   DateFormat="MM/dd/yyyy"
-                                   AutoClose="true" />
-
                     <MudDivider />
 
-                    @* Installment / limit section *@
-                    <MudStack Spacing="1">
-                        <MudSwitch @bind-Value="_isInstallment"
-                                   Color="Color.Primary"
-                                   Label="Fixed installments (0% interest, payment plan, etc.)" />
+                    @* ── When ── *@
+                    <MudText Typo="Typo.overline" Style="opacity:0.7;">When</MudText>
 
-                        @if (_isInstallment)
-                        {
-                            <MudNumericField T="int?"
-                                             Label="Total installments"
-                                             @bind-Value="_dto.TotalOccurrences"
-                                             Variant="Variant.Outlined"
-                                             Min="1"
-                                             Placeholder="e.g., 6"
-                                             HelperText="Auto-pauses after this many payments" />
-
-                            @if (Recurring is not null && _dto.TotalOccurrences.HasValue)
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="RecurringFrequency"
+                                       Label="Repeats"
+                                       @bind-Value="_dto.Frequency"
+                                       Variant="Variant.Outlined"
+                                       Required="true">
+                                @foreach (var option in _frequencyOptions)
+                                {
+                                    <MudSelectItem @key="option.Value" T="RecurringFrequency" Value="@option.Value">@option.Label</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            @if (Recurring is null)
                             {
-                                var remaining = _dto.TotalOccurrences.Value - Recurring.OccurrencesGenerated;
-                                var pct = Recurring.TotalOccurrences.HasValue
-                                    ? (double)Recurring.OccurrencesGenerated / Recurring.TotalOccurrences.Value * 100
-                                    : 0;
-                                <MudStack Spacing="1">
-                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                                        @Recurring.OccurrencesGenerated of @_dto.TotalOccurrences paid · @(remaining > 0 ? $"{remaining} remaining" : "Completed")
-                                    </MudText>
-                                    <MudProgressLinear Value="@pct" Color="Color.Primary" Size="Size.Small" Rounded="true" />
+                                <MudDatePicker Label="First charge date"
+                                               @bind-Date="_startDate"
+                                               Variant="Variant.Outlined"
+                                               Required="true"
+                                               Editable="true"
+                                               DateFormat="MM/dd/yyyy"
+                                               AutoClose="true" />
+                            }
+                            else
+                            {
+                                <MudStack Spacing="0" Class="pt-2">
+                                    <MudText Typo="Typo.caption" Style="opacity:0.7;">Next charge</MudText>
+                                    <MudText Typo="Typo.body1" Class="font-weight-medium">@FormatDate(PreviewStart)</MudText>
                                 </MudStack>
                             }
-                        }
-                        else
-                        {
-                            <MudDatePicker Label="End date (optional)"
-                                           @bind-Date="_endDate"
-                                           Variant="Variant.Outlined"
-                                           Editable="true"
-                                           DateFormat="MM/dd/yyyy"
-                                           AutoClose="true"
-                                           Clearable="true"
-                                           HelperText="Auto-pauses after this date" />
-                        }
-                    </MudStack>
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_upcoming.Count > 0)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Wrap="Wrap.Wrap">
+                            <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Style="opacity:0.6;" />
+                            <MudText Typo="Typo.caption" Style="opacity:0.7;">
+                                Upcoming: @string.Join(" · ", _upcoming.Select(d => d.ToString("MMM d, yyyy")))
+                            </MudText>
+                        </MudStack>
+                    }
 
                     <MudDivider />
 
-                    <MudSelect T="PaymentMethodEnum?"
-                               Label="Payment Method (Optional)"
-                               @bind-Value="_dto.PaymentMethod"
-                               Variant="Variant.Outlined"
-                               Clearable="true">
-                        @foreach (var method in Enum.GetValues<PaymentMethodEnum>())
-                        {
-                            <MudSelectItem T="PaymentMethodEnum?" Value="@((PaymentMethodEnum?)method)">
-                                @method.ToString()
-                            </MudSelectItem>
-                        }
-                    </MudSelect>
+                    @* ── Ends ── *@
+                    <MudText Typo="Typo.overline" Style="opacity:0.7;">How does it end?</MudText>
 
+                    <MudToggleGroup T="EndMode"
+                                    Value="@_endMode"
+                                    ValueChanged="OnEndModeChanged"
+                                    SelectionMode="SelectionMode.SingleSelection"
+                                    Color="Color.Primary"
+                                    CheckMark="true"
+                                    FixedContent="true">
+                        <MudToggleItem Value="@EndMode.Never" Text="Never" />
+                        <MudToggleItem Value="@EndMode.OnDate" Text="On a date" />
+                        <MudToggleItem Value="@EndMode.AfterCount" Text="Installments" />
+                    </MudToggleGroup>
+
+                    @if (_endMode == EndMode.OnDate)
+                    {
+                        <MudDatePicker Label="Last charge on or before"
+                                       @bind-Date="_endDate"
+                                       Variant="Variant.Outlined"
+                                       Editable="true"
+                                       DateFormat="MM/dd/yyyy"
+                                       MinDate="@PreviewStart"
+                                       AutoClose="true"
+                                       Clearable="true" />
+                    }
+                    else if (_endMode == EndMode.AfterCount)
+                    {
+                        <MudNumericField T="int?"
+                                         Label="Number of installments"
+                                         @bind-Value="_dto.TotalOccurrences"
+                                         Variant="Variant.Outlined"
+                                         Min="@MinPayments"
+                                         Immediate="true"
+                                         HideSpinButtons="true"
+                                         Placeholder="e.g., 6" />
+
+                        @if (Recurring is not null && _dto.TotalOccurrences.HasValue)
+                        {
+                            var remaining = _dto.TotalOccurrences.Value - Recurring.OccurrencesGenerated;
+                            var pct = (double)Recurring.OccurrencesGenerated / _dto.TotalOccurrences.Value * 100;
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @Recurring.OccurrencesGenerated of @_dto.TotalOccurrences paid · @(remaining > 0 ? $"{remaining} remaining" : "Completed")
+                                </MudText>
+                                <MudProgressLinear Value="@pct" Color="Color.Info" Size="Size.Small" Rounded="true" />
+                            </MudStack>
+                        }
+                    }
+
+                    <MudText Typo="Typo.caption" Style="opacity:0.7;">@EndSummary</MudText>
+
+                    <MudDivider />
+
+                    @* ── Optional ── *@
                     <MudTextField T="string"
-                                  Label="Description (Optional)"
+                                  Label="Note (optional)"
                                   @bind-Value="_dto.Description"
                                   Variant="Variant.Outlined"
                                   Lines="2"
                                   MaxLength="500"
                                   Placeholder="Add additional details..." />
-
-                    <MudSwitch @bind-Value="_dto.IsActive"
-                               Color="Color.Success"
-                               Label="Active" />
 
                 </MudStack>
             </MudForm>
@@ -186,18 +212,40 @@
     [Parameter] public RecurringTransactionDto? Recurring { get; set; }
     [Parameter] public EventCallback OnSaved { get; set; }
 
+    private enum EndMode { Never, OnDate, AfterCount }
+
+    private static readonly (RecurringFrequency Value, string Label)[] _frequencyOptions =
+    {
+        (RecurringFrequency.Daily, "Daily"),
+        (RecurringFrequency.Weekly, "Weekly"),
+        (RecurringFrequency.BiWeekly, "Bi-Weekly (every 2 weeks)"),
+        (RecurringFrequency.Monthly, "Monthly"),
+        (RecurringFrequency.BiMonthly, "Bi-Monthly (every 2 months)"),
+        (RecurringFrequency.Quarterly, "Quarterly"),
+        (RecurringFrequency.Yearly, "Yearly")
+    };
+
     private MudForm _form = default!;
     private bool _loading = true;
     private bool _saving = false;
-    private bool _isInstallment = false;
+    private EndMode _endMode = EndMode.Never;
 
-    private RecurringTransactionDto _dto = new() { IsActive = true, Frequency = RecurringFrequency.Monthly };
+    private RecurringTransactionDto _dto = new() { Status = RecurringStatus.Active, Frequency = RecurringFrequency.Monthly };
     private DateTime? _startDate;
     private DateTime? _endDate;
     private AccountDto? _selectedAccount;
     private CategoryDto? _selectedCategory;
     private List<AccountDto> _accounts = new();
     private List<CategoryDto> _categories = new();
+
+    // Editing: the schedule already runs, so previews start from the stored next charge, not the original start date.
+    private DateTime? PreviewStart => Recurring is not null
+        ? TimeZoneService.ConvertFromUtc(Recurring.NextDate).Date
+        : _startDate?.Date;
+
+    private int MinPayments => Math.Max(1, Recurring?.OccurrencesGenerated ?? 0);
+
+    private List<DateTime> _upcoming => UpcomingCharges(3).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -223,7 +271,7 @@
                 TotalOccurrences = Recurring.TotalOccurrences,
                 OccurrencesGenerated = Recurring.OccurrencesGenerated,
                 EndDate = Recurring.EndDate,
-                IsActive = Recurring.IsActive,
+                Status = Recurring.Status,
                 Description = Recurring.Description,
                 PaymentMethod = Recurring.PaymentMethod
             };
@@ -231,13 +279,99 @@
             _endDate = Recurring.EndDate.HasValue
                 ? TimeZoneService.ConvertFromUtc(Recurring.EndDate.Value).Date
                 : null;
-            _isInstallment = Recurring.TotalOccurrences.HasValue;
+            _endMode = Recurring.TotalOccurrences.HasValue
+                ? EndMode.AfterCount
+                : Recurring.EndDate.HasValue ? EndMode.OnDate : EndMode.Never;
             _selectedAccount = _accounts.FirstOrDefault(a => a.Id == Recurring.AccountId);
             _selectedCategory = _categories.FirstOrDefault(c => c.Id == Recurring.CategoryId);
         }
 
         _loading = false;
     }
+
+    private void OnEndModeChanged(EndMode mode) => _endMode = mode;
+
+    private IEnumerable<DateTime> UpcomingCharges(int take)
+    {
+        var start = PreviewStart;
+        if (start is null) yield break;
+
+        var current = start.Value;
+        var alreadyGenerated = Recurring?.OccurrencesGenerated ?? 0;
+
+        for (var i = 0; i < take; i++)
+        {
+            if (_endMode == EndMode.AfterCount && _dto.TotalOccurrences is { } total && alreadyGenerated + i >= total)
+                yield break;
+            if (_endMode == EndMode.OnDate && _endDate is { } end && current > end.Date)
+                yield break;
+
+            yield return current;
+            current = RecurringTransactionMapper.AdvanceNextDate(current, _dto.Frequency);
+        }
+    }
+
+    private string EndSummary
+    {
+        get
+        {
+            var every = FrequencyText(_dto.Frequency);
+            var start = PreviewStart;
+
+            if (_endMode == EndMode.Never)
+                return $"Charged every {every} until you pause or delete it.";
+
+            if (start is null)
+                return string.Empty;
+
+            if (_endMode == EndMode.OnDate)
+            {
+                if (_endDate is not { } end)
+                    return "Pick the date after which no more charges are created.";
+
+                DateTime? last = null;
+                var count = 0;
+                var current = start.Value;
+                while (current <= end.Date && count < 5000)
+                {
+                    last = current;
+                    count++;
+                    current = RecurringTransactionMapper.AdvanceNextDate(current, _dto.Frequency);
+                }
+
+                return last is null
+                    ? "No charge falls before that date."
+                    : $"Charged every {every} · last charge {FormatDate(last)}.";
+            }
+
+            if (_dto.TotalOccurrences is not { } total || total < 1)
+                return "Enter how many installments to create, then it stops on its own.";
+
+            var remaining = total - (Recurring?.OccurrencesGenerated ?? 0);
+            if (remaining < 1)
+                return $"{total} installments · all created.";
+
+            var lastCharge = start.Value;
+            for (var i = 1; i < remaining; i++)
+                lastCharge = RecurringTransactionMapper.AdvanceNextDate(lastCharge, _dto.Frequency);
+
+            return $"{total} installments of {CurrencyHelper.FormatCurrency(_dto.Amount)} · every {every} · last charge {FormatDate(lastCharge)} · {CurrencyHelper.FormatCurrency(_dto.Amount * total)} total.";
+        }
+    }
+
+    private static string FormatDate(DateTime? date) => date?.ToString("MMM d, yyyy") ?? "—";
+
+    private static string FrequencyText(RecurringFrequency freq) => freq switch
+    {
+        RecurringFrequency.Daily => "day",
+        RecurringFrequency.Weekly => "week",
+        RecurringFrequency.BiWeekly => "2 weeks",
+        RecurringFrequency.Monthly => "month",
+        RecurringFrequency.BiMonthly => "2 months",
+        RecurringFrequency.Quarterly => "3 months",
+        RecurringFrequency.Yearly => "year",
+        _ => "period"
+    };
 
     private async Task SaveAsync()
     {
@@ -258,18 +392,42 @@
             return;
         }
 
+        if (_endMode == EndMode.OnDate)
+        {
+            if (_endDate is null)
+            {
+                Snackbar.Add("Please pick an end date", Severity.Warning);
+                return;
+            }
+            if (PreviewStart is { } start && _endDate.Value.Date < start)
+            {
+                Snackbar.Add("End date must be on or after the first charge", Severity.Warning);
+                return;
+            }
+        }
+        else if (_endMode == EndMode.AfterCount && (_dto.TotalOccurrences is null || _dto.TotalOccurrences < 1))
+        {
+            Snackbar.Add("Please enter the number of installments", Severity.Warning);
+            return;
+        }
+
         _dto.AccountId = _selectedAccount.Id;
         _dto.CategoryId = _selectedCategory.Id;
         _dto.StartDate = TimeZoneService.ConvertToUtc(_startDate ?? TimeZoneService.GetLocalTimeInConfiguredTimeZone());
 
-        if (_isInstallment)
+        switch (_endMode)
         {
-            _dto.EndDate = null;
-        }
-        else
-        {
-            _dto.TotalOccurrences = null;
-            _dto.EndDate = _endDate.HasValue ? TimeZoneService.ConvertToUtc(_endDate.Value) : null;
+            case EndMode.AfterCount:
+                _dto.EndDate = null;
+                break;
+            case EndMode.OnDate:
+                _dto.TotalOccurrences = null;
+                _dto.EndDate = TimeZoneService.ConvertToUtc(_endDate!.Value);
+                break;
+            default:
+                _dto.TotalOccurrences = null;
+                _dto.EndDate = null;
+                break;
         }
 
         _saving = true;

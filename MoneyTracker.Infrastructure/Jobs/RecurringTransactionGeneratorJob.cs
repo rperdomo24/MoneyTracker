@@ -6,6 +6,7 @@ using MoneyTracker.Application.Interfaces;
 using MoneyTracker.Application.Mappers;
 using MoneyTracker.Domain.Entities;
 using MoneyTracker.Domain.Enums.Category;
+using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Jobs
@@ -108,15 +109,15 @@ namespace MoneyTracker.Infrastructure.Jobs
 
             if (occurrencesThisRun == 0)
             {
-                // Limit already reached: deactivate so the item stops showing up as due every day.
-                var deactivated = await context.RecurringTransactions
+                // Limit already reached: complete it so the item stops showing up as due every day.
+                var completed = await context.RecurringTransactions
                     .IgnoreQueryFilters()
-                    .Where(r => r.Id == recurring.Id && r.NextDate == originalNextDate)
-                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsActive, false));
+                    .Where(r => r.Id == recurring.Id && r.NextDate == originalNextDate && r.Status == RecurringStatus.Active)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, RecurringStatus.Completed));
 
                 await dbTransaction.CommitAsync();
-                _logger.LogInformation("Recurring '{Name}' (Id={Id}) limit reached — deactivated={Deactivated}",
-                    recurring.Name, recurring.Id, deactivated > 0);
+                _logger.LogInformation("Recurring '{Name}' (Id={Id}) limit reached — completed={Completed}",
+                    recurring.Name, recurring.Id, completed > 0);
                 return;
             }
 
@@ -128,17 +129,23 @@ namespace MoneyTracker.Infrastructure.Jobs
                 (recurring.TotalOccurrences.HasValue && newOccurrencesGenerated >= recurring.TotalOccurrences.Value) ||
                 (recurring.EndDate.HasValue && current.Date > recurring.EndDate.Value.Date);
 
-            // Guarded by the NextDate we read: if another run already processed this item, nothing matches
-            // and we roll back instead of duplicating its transactions.
+            // Guarded by the NextDate we read and by Active status: if another run already processed this item,
+            // or the user paused it mid-run, nothing matches and we roll back instead of duplicating transactions.
             var now = DateTime.UtcNow;
-            var advanced = await context.RecurringTransactions
+            var guarded = context.RecurringTransactions
                 .IgnoreQueryFilters()
-                .Where(r => r.Id == recurring.Id && r.NextDate == originalNextDate)
-                .ExecuteUpdateAsync(s => s
+                .Where(r => r.Id == recurring.Id && r.NextDate == originalNextDate && r.Status == RecurringStatus.Active);
+
+            var advanced = limitReached
+                ? await guarded.ExecuteUpdateAsync(s => s
                     .SetProperty(x => x.NextDate, current)
                     .SetProperty(x => x.LastGeneratedDate, now)
                     .SetProperty(x => x.OccurrencesGenerated, newOccurrencesGenerated)
-                    .SetProperty(x => x.IsActive, x => x.IsActive && !limitReached));
+                    .SetProperty(x => x.Status, RecurringStatus.Completed))
+                : await guarded.ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.NextDate, current)
+                    .SetProperty(x => x.LastGeneratedDate, now)
+                    .SetProperty(x => x.OccurrencesGenerated, newOccurrencesGenerated));
 
             if (advanced == 0)
             {

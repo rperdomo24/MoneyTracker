@@ -10,6 +10,7 @@
 @inject IRecurringTransactionFilterStateService FilterState
 @inject ITimeZoneService TimeZoneService
 @inject IDialogService DialogService
+@inject IBrowserViewportService Viewport
 @inject ISnackbar Snackbar
 
 <PageTitle>Recurring Transactions - MoneyTracker</PageTitle>
@@ -148,16 +149,17 @@
                 var isInstallment = item.TotalOccurrences.HasValue;
                 var isIncome = item.CategoryType == CategoryTypeEnum.Income;
                 var isCompleted = IsCompleted(item);
+                var isPaused = IsPaused(item);
                 var nextLocal = TimeZoneService.ConvertFromUtc(item.NextDate);
 
                 <MudItem xs="12" sm="6" lg="4" xl="3">
                     <MudCard Outlined="true" Elevation="1"
-                             Style="@($"border-left: 4px solid {GetBorderColor(item)}; height: 100%; display:flex; flex-direction:column; {(item.IsActive ? "" : "opacity:0.6;")}")">
+                             Style="@($"border-left: 4px solid {GetBorderColor(item)}; height: 100%; display:flex; flex-direction:column; {(IsRunning(item) ? "" : "opacity:0.6;")}")">
                         <MudCardContent Class="pa-3 pa-sm-4" Style="flex:1;">
                             <!-- Title + amount -->
                             <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Spacing="2" Class="mb-2">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="min-width:0; flex:1;">
-                                    <MudAvatar Color="@(isInstallment ? Color.Info : item.IsActive ? Color.Primary : Color.Default)"
+                                    <MudAvatar Color="@(isInstallment ? Color.Info : IsRunning(item) ? Color.Primary : Color.Default)"
                                                Size="Size.Small" Style="flex-shrink:0;">
                                         <MudIcon Icon="@(isInstallment ? Icons.Material.Filled.Payments : Icons.Material.Filled.Repeat)"
                                                  Size="Size.Small" />
@@ -184,7 +186,7 @@
                             </MudStack>
 
                             <!-- Status chips -->
-                            @if (isInstallment || !item.IsActive)
+                            @if (isInstallment || isPaused || isCompleted)
                             {
                                 <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap" Class="mb-2">
                                     @if (isInstallment)
@@ -195,7 +197,7 @@
                                     {
                                         <MudChip T="string" Size="Size.Small" Color="Color.Success" Class="ma-0" Icon="@Icons.Material.Filled.CheckCircle">Completed</MudChip>
                                     }
-                                    else if (!item.IsActive)
+                                    else if (isPaused)
                                     {
                                         <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ma-0">Paused</MudChip>
                                     }
@@ -258,12 +260,22 @@
                         <MudCardActions Class="px-2 py-1">
                             @if (!isCompleted)
                             {
-                                <MudButton Color="@(item.IsActive ? Color.Warning : Color.Success)"
+                                <MudButton Color="@(isPaused ? Color.Success : Color.Warning)"
                                            Variant="Variant.Text"
                                            Size="Size.Small"
-                                           StartIcon="@(item.IsActive ? Icons.Material.Filled.PauseCircle : Icons.Material.Filled.PlayCircle)"
-                                           OnClick="@(() => ToggleActiveAsync(item))">
-                                    @(item.IsActive ? "Pause" : "Resume")
+                                           StartIcon="@(isPaused ? Icons.Material.Filled.PlayCircle : Icons.Material.Filled.PauseCircle)"
+                                           OnClick="@(() => SetStatusAsync(item, isPaused ? RecurringStatus.Active : RecurringStatus.Paused))">
+                                    @(isPaused ? "Resume" : "Pause")
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Color="Color.Primary"
+                                           Variant="Variant.Text"
+                                           Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Replay"
+                                           OnClick="@(() => SetStatusAsync(item, RecurringStatus.Active))">
+                                    Reopen
                                 </MudButton>
                             }
                             <MudSpacer />
@@ -275,6 +287,14 @@
                                              OnClick="@(() => OpenEditDialog(item))">
                                     Edit
                                 </MudMenuItem>
+                                @if (!isCompleted)
+                                {
+                                    <MudMenuItem Icon="@Icons.Material.Filled.CheckCircle"
+                                                 IconColor="Color.Success"
+                                                 OnClick="@(() => ConfirmCompleteAsync(item))">
+                                        Mark as completed
+                                    </MudMenuItem>
+                                }
                                 <MudDivider />
                                 <MudMenuItem Icon="@Icons.Material.Filled.Delete"
                                              IconColor="Color.Error"
@@ -307,6 +327,13 @@
         CloseOnEscapeKey = true
     };
 
+    // The editor is long; on phones it works better as a full-screen sheet.
+    private async Task<DialogOptions> GetEditorOptionsAsync()
+    {
+        var breakpoint = await Viewport.GetCurrentBreakpointAsync();
+        return _dialogOptions with { FullScreen = breakpoint == Breakpoint.Xs };
+    }
+
     private record RecurringFilterOption(string Label, RecurringTransactionFilter Filter, string Icon, Color Color, int Count);
 
     private IEnumerable<RecurringFilterOption> FilterOptions => new[]
@@ -314,19 +341,23 @@
         new RecurringFilterOption("Active", RecurringTransactionFilter.ActiveOnly, Icons.Material.Filled.PlayCircle, Color.Success, _items.Count(IsRunning)),
         new RecurringFilterOption("Installments", RecurringTransactionFilter.InstallmentsOnly, Icons.Material.Filled.Payments, Color.Info, _items.Count(x => IsRunning(x) && x.TotalOccurrences.HasValue)),
         new RecurringFilterOption("Ongoing", RecurringTransactionFilter.Ongoing, Icons.Material.Filled.Repeat, Color.Primary, _items.Count(x => IsRunning(x) && !x.TotalOccurrences.HasValue)),
-        new RecurringFilterOption("Paused", RecurringTransactionFilter.PausedOnly, Icons.Material.Filled.PauseCircle, Color.Warning, _items.Count(x => !x.IsActive && !IsCompleted(x))),
+        new RecurringFilterOption("Paused", RecurringTransactionFilter.PausedOnly, Icons.Material.Filled.PauseCircle, Color.Warning, _items.Count(IsPaused)),
         new RecurringFilterOption("Completed", RecurringTransactionFilter.Completed, Icons.Material.Filled.CheckCircle, Color.Success, _items.Count(IsCompleted)),
         new RecurringFilterOption("All", RecurringTransactionFilter.All, Icons.Material.Filled.List, Color.Default, _items.Count),
     };
 
-    // A limit-based item (installments / end date) auto-deactivates when finished, so it must not read as "paused".
-    private static bool IsCompleted(RecurringTransactionDto x) =>
-        (x.TotalOccurrences.HasValue && x.OccurrencesGenerated >= x.TotalOccurrences.Value)
-        || (x.EndDate.HasValue && !x.IsActive && x.NextDate.Date > x.EndDate.Value.Date);
+    private static bool IsRunning(RecurringTransactionDto x) => x.Status == RecurringStatus.Active;
 
-    private static bool IsRunning(RecurringTransactionDto x) => x.IsActive && !IsCompleted(x);
+    private static bool IsPaused(RecurringTransactionDto x) => x.Status == RecurringStatus.Paused;
 
-    private static int StatusRank(RecurringTransactionDto x) => IsRunning(x) ? 0 : IsCompleted(x) ? 2 : 1;
+    private static bool IsCompleted(RecurringTransactionDto x) => x.Status == RecurringStatus.Completed;
+
+    private static int StatusRank(RecurringTransactionDto x) => x.Status switch
+    {
+        RecurringStatus.Active => 0,
+        RecurringStatus.Paused => 1,
+        _ => 2
+    };
 
     private static string FormatMonthly(decimal value) => value > 0 ? CurrencyHelper.FormatCurrency(value) : "—";
 
@@ -365,7 +396,7 @@
             RecurringTransactionFilter.ActiveOnly => _items.Where(IsRunning),
             RecurringTransactionFilter.InstallmentsOnly => _items.Where(x => IsRunning(x) && x.TotalOccurrences.HasValue),
             RecurringTransactionFilter.Ongoing => _items.Where(x => IsRunning(x) && !x.TotalOccurrences.HasValue),
-            RecurringTransactionFilter.PausedOnly => _items.Where(x => !x.IsActive && !IsCompleted(x)),
+            RecurringTransactionFilter.PausedOnly => _items.Where(IsPaused),
             RecurringTransactionFilter.Completed => _items.Where(IsCompleted),
             _ => _items
         };
@@ -420,7 +451,7 @@
     private string GetBorderColor(RecurringTransactionDto item)
     {
         if (IsCompleted(item)) return "var(--mud-palette-success)";
-        if (!item.IsActive) return "var(--mud-palette-gray-light)";
+        if (IsPaused(item)) return "var(--mud-palette-gray-light)";
         return item.TotalOccurrences.HasValue
             ? "var(--mud-palette-info)"
             : "var(--mud-palette-primary)";
@@ -435,7 +466,7 @@
         {
             [nameof(RecurringTransactionEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
         };
-        await DialogService.ShowAsync<RecurringTransactionEditorDialog>("New Recurring Transaction", parameters, _dialogOptions);
+        await DialogService.ShowAsync<RecurringTransactionEditorDialog>("New Recurring Transaction", parameters, await GetEditorOptionsAsync());
     }
 
     private async Task OpenEditDialog(RecurringTransactionDto item)
@@ -445,21 +476,34 @@
             [nameof(RecurringTransactionEditorDialog.Recurring)] = item,
             [nameof(RecurringTransactionEditorDialog.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
         };
-        await DialogService.ShowAsync<RecurringTransactionEditorDialog>("Edit Recurring Transaction", parameters, _dialogOptions);
+        await DialogService.ShowAsync<RecurringTransactionEditorDialog>("Edit Recurring Transaction", parameters, await GetEditorOptionsAsync());
     }
 
-    private async Task ToggleActiveAsync(RecurringTransactionDto item)
+    private async Task SetStatusAsync(RecurringTransactionDto item, RecurringStatus status)
     {
-        var result = await RecurringService.ToggleActiveAsync(item.Id);
+        var result = await RecurringService.SetStatusAsync(item.Id, status);
         if (result.Success)
         {
-            Snackbar.Add(result.Message ?? (item.IsActive ? "Paused" : "Resumed"), Severity.Success);
+            Snackbar.Add(result.Message ?? "Status updated", Severity.Success);
             await LoadAsync();
         }
         else
         {
-            Snackbar.Add(result.Message ?? "Error toggling status", Severity.Error);
+            Snackbar.Add(result.Message ?? "Error updating status", Severity.Error);
         }
+    }
+
+    private async Task ConfirmCompleteAsync(RecurringTransactionDto item)
+    {
+        var confirmed = await DialogService.ShowConfirmDialogAsync(
+            "Mark as completed",
+            $"Mark \"{item.Name}\" as completed? No more transactions will be created. Previously generated ones are kept.",
+            confirmText: "Mark Completed",
+            color: Color.Success);
+
+        if (!confirmed) return;
+
+        await SetStatusAsync(item, RecurringStatus.Completed);
     }
 
     private async Task ConfirmDeleteAsync(RecurringTransactionDto item)

@@ -150,7 +150,7 @@ namespace MoneyTracker.Application.Services
             List<Application.DTOs.RecurringTransactions.RecurringTransactionDto> recurringList,
             DateOnly monthStart, DateOnly monthEnd)
         {
-            foreach (var rt in recurringList.Where(r => r.IsActive))
+            foreach (var rt in recurringList.Where(r => r.Status == RecurringStatus.Active))
             {
                 var localNextDate = _timeZoneService.ConvertFromUtc(rt.NextDate);
                 var localEndDate = rt.EndDate.HasValue ? _timeZoneService.ConvertFromUtc(rt.EndDate.Value) : (DateTime?)null;

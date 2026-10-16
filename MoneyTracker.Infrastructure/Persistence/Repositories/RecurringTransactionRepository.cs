@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MoneyTracker.Domain.Entities;
+using MoneyTracker.Domain.Enums.Transaction;
 using MoneyTracker.Domain.Interfaces;
 
 namespace MoneyTracker.Infrastructure.Persistence.Repositories
@@ -93,7 +94,7 @@ namespace MoneyTracker.Infrastructure.Persistence.Repositories
                 .IgnoreQueryFilters()
                 .Include(r => r.Account)
                 .Include(r => r.Category)
-                .Where(r => !r.IsDeleted && r.IsActive && r.NextDate <= cutoff)
+                .Where(r => !r.IsDeleted && r.Status == RecurringStatus.Active && r.NextDate <= cutoff)
                 .ToListAsync();
         }
     }

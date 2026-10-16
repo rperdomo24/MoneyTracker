@@ -25,7 +25,7 @@ namespace MoneyTracker.Application.Mappers
                 EndDate = entity.EndDate,
                 TotalOccurrences = entity.TotalOccurrences,
                 OccurrencesGenerated = entity.OccurrencesGenerated,
-                IsActive = entity.IsActive,
+                Status = entity.Status,
                 Description = entity.Description,
                 PaymentMethod = entity.PaymentMethod
             };
@@ -46,7 +46,7 @@ namespace MoneyTracker.Application.Mappers
                 EndDate = dto.EndDate,
                 TotalOccurrences = dto.TotalOccurrences,
                 OccurrencesGenerated = 0,
-                IsActive = dto.IsActive,
+                Status = RecurringStatus.Active,
                 Description = dto.Description,
                 PaymentMethod = dto.PaymentMethod
             };
@@ -61,7 +61,6 @@ namespace MoneyTracker.Application.Mappers
             entity.Frequency = dto.Frequency;
             entity.EndDate = dto.EndDate;
             entity.TotalOccurrences = dto.TotalOccurrences;
-            entity.IsActive = dto.IsActive;
             entity.Description = dto.Description;
             entity.PaymentMethod = dto.PaymentMethod;
             entity.UpdatedAt = DateTime.UtcNow;

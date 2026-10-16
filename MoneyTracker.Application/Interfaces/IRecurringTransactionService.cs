@@ -1,5 +1,6 @@
 using MoneyTracker.Application.Common;
 using MoneyTracker.Application.DTOs.RecurringTransactions;
+using MoneyTracker.Domain.Enums.Transaction;
 
 namespace MoneyTracker.Application.Interfaces
 {
@@ -10,6 +11,6 @@ namespace MoneyTracker.Application.Interfaces
         Task<OperationResult> CreateAsync(RecurringTransactionDto dto);
         Task<OperationResult> UpdateAsync(RecurringTransactionDto dto);
         Task<OperationResult> DeleteAsync(int id);
-        Task<OperationResult> ToggleActiveAsync(int id);
+        Task<OperationResult> SetStatusAsync(int id, RecurringStatus status);
     }
 }
