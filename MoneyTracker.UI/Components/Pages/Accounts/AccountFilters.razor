@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ICategoryService CategoryService
 
@@ -51,61 +52,10 @@
                               Immediate="true" />
 
                 <!-- Period -->
-                <MudSelect T="TimePeriodFilter"
-                           Label="Time Period"
-                           @bind-Value="_tempFilter.TimePeriod"
-                           @bind-Value:after="OnTimePeriodChanged"
-                           Variant="Variant.Outlined"
-                           AnchorOrigin="Origin.BottomCenter">
-                    <MudSelectItem Value="TimePeriodFilter.Last7Days">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
-                            <MudText>Last 7 Days</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.Last30Days">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
-                            <MudText>Last 30 Days</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.Last90Days">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
-                            <MudText>Last 90 Days</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.ThisMonth">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.Today" Size="Size.Small" />
-                            <MudText>This Month</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.LastMonth">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.DateRange" Size="Size.Small" />
-                            <MudText>Last Month</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.ThisYear">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Small" />
-                            <MudText>This Year</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.Custom">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.EditCalendar" Size="Size.Small" />
-                            <MudText>Custom Range</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="TimePeriodFilter.AllTime">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.AllInclusive" Size="Size.Small" />
-                            <MudText>All Time</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                </MudSelect>
+                <TimePeriodSelect Options="_periodOptions"
+                                  @bind-Value="_tempFilter.TimePeriod"
+                                  @bind-Value:after="OnTimePeriodChanged"
+                                  AnchorOrigin="Origin.BottomCenter" />
 
                 @if (_tempFilter.TimePeriod == TimePeriodFilter.Custom)
                 {
@@ -127,34 +77,11 @@
                 }
 
                 <!-- Transaction Type -->
-                <MudSelect T="CategoryTypeEnum"
-                           Label="Transaction Type"
-                           MultiSelection="true"
-                           @bind-SelectedValues="_tempSelectedTypes"
-                           @bind-SelectedValues:after="OnTypesChanged"
-                           Variant="Variant.Outlined"
-                           Clearable="true"
-                           AnchorOrigin="Origin.BottomCenter"
-                           MultiSelectionTextFunc="GetTypesText">
-                    <MudSelectItem Value="CategoryTypeEnum.Income">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" Color="Color.Success" />
-                            <MudText>Income</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="CategoryTypeEnum.Expense">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Size="Size.Small" Color="Color.Error" />
-                            <MudText>Expense</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                    <MudSelectItem Value="CategoryTypeEnum.Transfer">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Color="Color.Info" />
-                            <MudText>Transfer</MudText>
-                        </MudStack>
-                    </MudSelectItem>
-                </MudSelect>
+                <CategoryTypeSelect MultiSelection="true"
+                                    Label="Transaction Type"
+                                    @bind-SelectedValues="_tempSelectedTypes"
+                                    @bind-SelectedValues:after="OnTypesChanged"
+                                    AnchorOrigin="Origin.BottomCenter" />
 
                 <!-- Category -->
                 <MudTextField @bind-Value="_categorySearch"
@@ -235,6 +162,18 @@
 
 
 @code {
+    private static readonly IReadOnlyList<TimePeriodFilter> _periodOptions = new[]
+    {
+        TimePeriodFilter.Last7Days,
+        TimePeriodFilter.Last30Days,
+        TimePeriodFilter.Last90Days,
+        TimePeriodFilter.ThisMonth,
+        TimePeriodFilter.LastMonth,
+        TimePeriodFilter.ThisYear,
+        TimePeriodFilter.Custom,
+        TimePeriodFilter.AllTime
+    };
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
     [Parameter] public int AccountId { get; set; }

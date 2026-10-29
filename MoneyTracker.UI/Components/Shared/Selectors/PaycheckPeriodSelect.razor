@@ -1,0 +1,34 @@
+@using MoneyTracker.Domain.Enums.Budgets
+@using MoneyTracker.UI.Helpers
+
+<MudSelect T="PaycheckPeriod"
+           Label="@Label"
+           Value="@Value"
+           ValueChanged="@((PaycheckPeriod value) => OnValueChanged(value))"
+           Variant="Variant.Outlined"
+           HelperText="@HelperText"
+           Class="@Class">
+    @foreach (var period in Enum.GetValues<PaycheckPeriod>())
+    {
+        <MudSelectItem T="PaycheckPeriod" Value="@period" @key="period">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@period.GetIcon()" Size="Size.Small" />
+                <MudText Typo="Typo.body2">@period.GetLabel()</MudText>
+            </MudStack>
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    [Parameter] public PaycheckPeriod Value { get; set; }
+    [Parameter] public EventCallback<PaycheckPeriod> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Paycheck period";
+    [Parameter] public string? HelperText { get; set; } = "Which paycheck covers this expense?";
+    [Parameter] public string? Class { get; set; }
+
+    private async Task OnValueChanged(PaycheckPeriod value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

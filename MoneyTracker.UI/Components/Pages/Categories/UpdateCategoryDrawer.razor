@@ -86,24 +86,12 @@
                               Placeholder="e.g., Groceries, Salary" />
 
                 <!-- Category Type -->
-                <MudSelect T="CategoryTypeEnum"
-                           Label="Category Type"
-                           @bind-Value="_category.Type"
-                           @bind-Value:after="OnTypeChanged"
-                           Variant="Variant.Outlined"
-                           Required="true"
-                           Disabled="@(_hasChildren || _isSubcategory)"
-                           Class="mb-4">
-                    @foreach (var type in Enum.GetValues<CategoryTypeEnum>())
-                    {
-                        <MudSelectItem T="CategoryTypeEnum" Value="@type">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@type.GetIcon()" Size="Size.Small" />
-                                <MudText>@type.GetDisplayName()</MudText>
-                            </MudStack>
-                        </MudSelectItem>
-                    }
-                </MudSelect>
+                <CategoryTypeSelect Label="Category Type"
+                                    @bind-Value="_category.Type"
+                                    @bind-Value:after="OnTypeChanged"
+                                    Required="true"
+                                    Disabled="@(_hasChildren || _isSubcategory)"
+                                    Class="mb-4" />
 
                 @if (_hasChildren || _isSubcategory)
                 {

@@ -1,0 +1,56 @@
+@using MoneyTracker.Domain.Enums.Filters
+@using MoneyTracker.UI.Helpers
+
+<MudSelect T="TimePeriodFilter"
+           Label="@Label"
+           Value="@Value"
+           ValueChanged="@((TimePeriodFilter value) => OnValueChanged(value))"
+           Variant="Variant.Outlined"
+           Dense="@Dense"
+           Margin="@(Dense ? Margin.Dense : Margin.None)"
+           Class="@Class"
+           Style="@Style"
+           MaxHeight="400"
+           AnchorOrigin="@AnchorOrigin">
+    @foreach (var period in Options)
+    {
+        <MudSelectItem T="TimePeriodFilter" Value="@period" @key="period">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@period.GetIcon()" Size="Size.Small" />
+                <MudText Typo="@(Dense ? Typo.body2 : Typo.body1)">@period.GetLabel()</MudText>
+            </MudStack>
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    /// <summary>Periods offered by default, in display order. Screens can pass a subset via <see cref="Options"/>.</summary>
+    public static readonly IReadOnlyList<TimePeriodFilter> AllOptions = new[]
+    {
+        TimePeriodFilter.AllTime,
+        TimePeriodFilter.Last7Days,
+        TimePeriodFilter.Last30Days,
+        TimePeriodFilter.Last90Days,
+        TimePeriodFilter.LastMonth,
+        TimePeriodFilter.ThisMonth,
+        TimePeriodFilter.Q1ThisMonth,
+        TimePeriodFilter.Q2ThisMonth,
+        TimePeriodFilter.ThisYear,
+        TimePeriodFilter.Custom
+    };
+
+    [Parameter] public TimePeriodFilter Value { get; set; }
+    [Parameter] public EventCallback<TimePeriodFilter> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<TimePeriodFilter> Options { get; set; } = AllOptions;
+    [Parameter] public string Label { get; set; } = "Time Period";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public bool Dense { get; set; } = false;
+    [Parameter] public Origin AnchorOrigin { get; set; } = Origin.BottomLeft;
+
+    private async Task OnValueChanged(TimePeriodFilter value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

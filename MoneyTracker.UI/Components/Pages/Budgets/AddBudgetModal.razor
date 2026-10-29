@@ -50,15 +50,7 @@
                                      AdornmentText="$"
                                      HideSpinButtons="false" />
 
-                    <MudSelect T="PaycheckPeriod"
-                               Label="Paycheck period"
-                               @bind-Value="_paycheckPeriod"
-                               Variant="Variant.Outlined"
-                               HelperText="Which paycheck covers this expense?">
-                        <MudSelectItem Value="PaycheckPeriod.Both">Ambas quincenas (÷2 cada una)</MudSelectItem>
-                        <MudSelectItem Value="PaycheckPeriod.FirstOnly">Solo Q1 (días 1-15)</MudSelectItem>
-                        <MudSelectItem Value="PaycheckPeriod.SecondOnly">Solo Q2 (días 16-fin)</MudSelectItem>
-                    </MudSelect>
+                    <PaycheckPeriodSelect @bind-Value="_paycheckPeriod" />
 
                     <MudCheckBox @bind-Value="_includeChildren" Color="Color.Primary" Dense="true">
                         <MudText Typo="Typo.body2">Include children categories</MudText>

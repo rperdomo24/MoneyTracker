@@ -8,6 +8,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Services.Filters.Interface
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.Application.DTOs
 @using MoneyTracker.Application.DTOs.Goals
@@ -35,25 +36,13 @@
                       Spacing="2">
                 <MudText Typo="Typo.h5" Style="font-weight:600;">@UserDisplayName</MudText>
                 <MudStack Row Spacing="1" AlignItems="AlignItems.Center" Class="flex-grow-1 flex-sm-grow-0">
-                    <MudSelect T="TimePeriodFilter"
-                               Label="Period"
-                               Variant="Variant.Outlined"
-                               Dense="true"
-                               Margin="Margin.Dense"
-                               Style="min-width:170px;"
-                               Class="flex-grow-1 flex-sm-grow-0"
-                               Value="_selectedPeriod"
-                               ValueChanged="OnPeriodChanged">
-                        @foreach (var periodOption in _periodOptions)
-                        {
-                            <MudSelectItem Value="@periodOption.Value">
-                                <MudStack Row Spacing="1" AlignItems="AlignItems.Center">
-                                    <MudIcon Icon="@GetPeriodIcon(periodOption.Value)" Size="Size.Small" />
-                                    <MudText Typo="Typo.body2">@periodOption.Label</MudText>
-                                </MudStack>
-                            </MudSelectItem>
-                        }
-                    </MudSelect>
+                    <TimePeriodSelect Options="_periodOptions"
+                                      Value="_selectedPeriod"
+                                      ValueChanged="OnPeriodChanged"
+                                      Label="Period"
+                                      Dense="true"
+                                      Style="min-width:170px;"
+                                      Class="flex-grow-1 flex-sm-grow-0" />
                     <MudIconButton Icon="@Icons.Material.Filled.Refresh"
                                    OnClick="RefreshDashboard"
                                    title="Refresh dashboard" />
@@ -240,18 +229,17 @@
         ? ((_cashFlow.TotalIncome - _cashFlow.TotalExpenses) / _cashFlow.TotalIncome) * 100m
         : 0m;
 
-    private string _selectedPeriodLabel =>
-        _periodOptions.FirstOrDefault(x => x.Value == _selectedPeriod).Label ?? "Period";
-    private static readonly List<(TimePeriodFilter Value, string Label)> _periodOptions =
-    [
-        (TimePeriodFilter.AllTime, "All time"),
-        (TimePeriodFilter.Last30Days, "Last 30 days"),
-        (TimePeriodFilter.Last90Days, "Last 90 days"),
-        (TimePeriodFilter.ThisMonth, "This month"),
-        (TimePeriodFilter.LastMonth, "Last month"),
-        (TimePeriodFilter.ThisYear, "This year"),
-        (TimePeriodFilter.Custom, "Custom range")
-    ];
+    private string _selectedPeriodLabel => _selectedPeriod.GetLabel();
+    private static readonly IReadOnlyList<TimePeriodFilter> _periodOptions = new[]
+    {
+        TimePeriodFilter.AllTime,
+        TimePeriodFilter.Last30Days,
+        TimePeriodFilter.Last90Days,
+        TimePeriodFilter.ThisMonth,
+        TimePeriodFilter.LastMonth,
+        TimePeriodFilter.ThisYear,
+        TimePeriodFilter.Custom
+    };
 
     // Temporarily hidden: Transactions filter options.
     // private static readonly List<(DashboardTransactionFilter Value, string Label)> _transactionFilterOptions =
@@ -371,7 +359,7 @@
             return;
 
         _selectedPeriod = saved.TimePeriod;
-        if (_periodOptions.All(x => x.Value != _selectedPeriod))
+        if (!_periodOptions.Contains(_selectedPeriod))
         {
             _selectedPeriod = TimePeriodFilter.Last30Days;
         }
@@ -574,21 +562,6 @@
 
         await DashboardFilterState.SaveAsync(filterToSave);
         await LoadDashboardData();
-    }
-
-    private static string GetPeriodIcon(TimePeriodFilter period)
-    {
-        return period switch
-        {
-            TimePeriodFilter.AllTime => Icons.Material.Filled.AllInclusive,
-            TimePeriodFilter.Last30Days => Icons.Material.Filled.DateRange,
-            TimePeriodFilter.Last90Days => Icons.Material.Filled.EventNote,
-            TimePeriodFilter.ThisMonth => Icons.Material.Filled.CalendarMonth,
-            TimePeriodFilter.LastMonth => Icons.Material.Filled.History,
-            TimePeriodFilter.ThisYear => Icons.Material.Filled.CalendarToday,
-            TimePeriodFilter.Custom => Icons.Material.Filled.Tune,
-            _ => Icons.Material.Filled.Schedule
-        };
     }
 
 }
