@@ -239,16 +239,8 @@
                                                   ShowAddButton="true"
                                                   OnAddCategory="CreateCategory" />
 
-                                <MudSelect T="MerchantDto?" @bind-Value="_selectedMerchant"
-                                           Label="Merchant (Optional)"
-                                           Variant="Variant.Outlined"
-                                           Clearable="true"
-                                           ToStringFunc="@(m => m?.Name ?? string.Empty)">
-                                    @foreach (var m in _merchants)
-                                    {
-                                        <MudSelectItem T="MerchantDto?" Value="@m">@m.Name</MudSelectItem>
-                                    }
-                                </MudSelect>
+                                <MerchantSelector Merchants="_merchants"
+                                                  @bind-SelectedMerchant="_selectedMerchant" />
                             }
 
                         </MudStack>

@@ -21,6 +21,7 @@ namespace MoneyTracker.Application.Mappers
                 BankName = entity.BankName,
                 CardDisplayName = entity.CardDisplayName,
                 IncludeInNetWorth = entity.IncludeInNetWorth,
+                IsHidden = entity.IsHidden,
                 CutDay = entity.CutDay,
                 PaymentDay = entity.PaymentDay,
                 AnnualInterestRate = entity.AnnualInterestRate
@@ -42,6 +43,7 @@ namespace MoneyTracker.Application.Mappers
                 BankName = dto.BankName,
                 CardDisplayName = dto.CardDisplayName,
                 IncludeInNetWorth = dto.IncludeInNetWorth,
+                IsHidden = dto.IsHidden,
                 CutDay = dto.CutDay,
                 PaymentDay = dto.PaymentDay,
                 AnnualInterestRate = dto.AnnualInterestRate
@@ -60,6 +62,7 @@ namespace MoneyTracker.Application.Mappers
             entity.BankName = dto.BankName;
             entity.CardDisplayName = dto.CardDisplayName;
             entity.IncludeInNetWorth = dto.IncludeInNetWorth;
+            entity.IsHidden = dto.IsHidden;
             entity.CutDay = dto.CutDay;
             entity.PaymentDay = dto.PaymentDay;
             entity.AnnualInterestRate = dto.AnnualInterestRate;

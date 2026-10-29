@@ -1,0 +1,67 @@
+@using MoneyTracker.Application.DTOs.Merchants
+@using MoneyTracker.UI.Helpers
+
+<MudSelect T="MerchantDto"
+           Label="@Label"
+           Value="@CurrentMerchant"
+           ValueChanged="@((MerchantDto value) => OnSelectedMerchantChanged(value))"
+           Variant="Variant.Outlined"
+           Required="@Required"
+           Disabled="@Disabled"
+           Clearable="@Clearable"
+           Dense="@Dense"
+           Class="@Class"
+           Placeholder="@Placeholder"
+           ToStringFunc="@(m => m?.Name ?? string.Empty)">
+    @foreach (var merchant in VisibleMerchants)
+    {
+        <MudSelectItem T="MerchantDto" Value="@merchant" @key="merchant.Id">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Small" />
+                <MudText Typo="Typo.body2">@merchant.Name</MudText>
+            </MudStack>
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    [Parameter] public List<MerchantDto> Merchants { get; set; } = new();
+
+    // Bind by DTO...
+    [Parameter] public MerchantDto? SelectedMerchant { get; set; }
+    [Parameter] public EventCallback<MerchantDto?> SelectedMerchantChanged { get; set; }
+
+    // ...or by Id (rule editors store only the Id). Both callbacks fire on every change.
+    [Parameter] public int? SelectedMerchantId { get; set; }
+    [Parameter] public EventCallback<int?> SelectedMerchantIdChanged { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Merchant (Optional)";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Required { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public bool Clearable { get; set; } = true;
+    [Parameter] public bool Dense { get; set; } = false;
+
+    // Read only the side the parent binds, so a stale value on the other side can't win.
+    private int? CurrentId => SelectedMerchantChanged.HasDelegate
+        ? SelectedMerchant?.Id
+        : SelectedMerchantId;
+
+    // Resolve from the list so the select matches by the instance it renders.
+    private MerchantDto? CurrentMerchant => CurrentId is int id
+        ? Merchants.FirstOrDefault(m => m.Id == id) ?? SelectedMerchant
+        : null;
+
+    private List<MerchantDto> VisibleMerchants => SelectorHelper.VisibleSorted(
+        Merchants,
+        m => m.Name,
+        m => m.IsHidden,
+        m => m.Id == CurrentId);
+
+    private async Task OnSelectedMerchantChanged(MerchantDto? value)
+    {
+        await SelectedMerchantChanged.InvokeAsync(value);
+        await SelectedMerchantIdChanged.InvokeAsync(value?.Id);
+    }
+}

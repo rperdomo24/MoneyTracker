@@ -12,6 +12,8 @@ namespace MoneyTracker.Domain.Entities
         [MaxLength(150)]
         public string Name { get; set; } = string.Empty;
 
+        public bool IsHidden { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;

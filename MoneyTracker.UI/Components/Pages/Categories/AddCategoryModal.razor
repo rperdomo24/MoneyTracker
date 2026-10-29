@@ -102,6 +102,11 @@
                     <IconPicker @bind-SelectedIcon="_category.Icon"
                                 Label="Icon" />
 
+                    <MudSwitch @bind-Value="_category.IsHidden"
+                               Label="Hide from selection lists"
+                               Color="Color.Primary"
+                               Class="mt-2" />
+
                 </MudForm>
             </MudContainer>
         }

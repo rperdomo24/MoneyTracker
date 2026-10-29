@@ -197,6 +197,9 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -754,6 +757,9 @@ namespace MoneyTracker.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("boolean");
 
@@ -1201,6 +1207,9 @@ namespace MoneyTracker.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsHidden")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")

@@ -73,6 +73,43 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task UpdateAsync_PersistsIsHiddenFlag()
+        {
+            _accountRepo.Setup(x => x.GetByIdAsync(1))
+                .ReturnsAsync(new Account { Id = 1, Name = "Old", Icon = "Wallet", Type = AccountType.Cash, IsHidden = false });
+            _accountRepo.Setup(x => x.UpdateAsync(It.IsAny<Account>())).ReturnsAsync(true);
+            var service = CreateService();
+
+            var result = await service.UpdateAsync(new AccountDto
+            {
+                Id = 1,
+                Name = "Old",
+                Icon = AccountIcon.Wallet,
+                Type = AccountType.Cash,
+                IsHidden = true
+            });
+
+            result.Success.Should().BeTrue();
+            _accountRepo.Verify(x => x.UpdateAsync(It.Is<Account>(a => a.Id == 1 && a.IsHidden)), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAllAsync_MapsIsHiddenToDto()
+        {
+            _accountRepo.Setup(x => x.GetAllAsync())
+                .ReturnsAsync(new List<Account>
+                {
+                    new() { Id = 1, Name = "Cash", Type = AccountType.Cash, Icon = "Wallet", IsHidden = true }
+                });
+            var service = CreateService();
+
+            var result = await service.GetAllAsync();
+
+            result.Success.Should().BeTrue();
+            result.Data!.Single().IsHidden.Should().BeTrue();
+        }
+
+        [Fact]
         public async Task UpdateAsync_WhenRepositoryUpdateFails_ReturnsFailResult()
         {
             _accountRepo.Setup(x => x.GetByIdAsync(1))

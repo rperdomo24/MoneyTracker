@@ -2,6 +2,7 @@
 @using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.DTOs.Rules
 @using MoneyTracker.Domain.Enums.Rules
+@using MoneyTracker.UI.Components.Shared.Selectors
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
 
@@ -19,25 +20,25 @@
     <!-- Value based on action type -->
     @if (Action.ActionType == RuleActionType.SetMerchant)
     {
-        <MudSelect T="int?" @bind-Value="Action.MerchantId"
-                   Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
-                   Placeholder="Select merchant">
-            @foreach (var m in Merchants)
-            {
-                <MudSelectItem T="int?" Value="@((int?)m.Id)">@m.Name</MudSelectItem>
-            }
-        </MudSelect>
+        <div style="min-width:160px;">
+            <MerchantSelector Merchants="Merchants"
+                              @bind-SelectedMerchantId="Action.MerchantId"
+                              Label="@string.Empty"
+                              Placeholder="Select merchant"
+                              Dense="true" />
+        </div>
     }
     else if (Action.ActionType == RuleActionType.SetCategory)
     {
-        <MudSelect T="int?" @bind-Value="Action.CategoryId"
-                   Variant="Variant.Outlined" Dense="true" Style="min-width:160px;"
-                   Placeholder="Select category">
-            @foreach (var cat in Categories)
-            {
-                <MudSelectItem T="int?" Value="@((int?)cat.Id)">@cat.Name</MudSelectItem>
-            }
-        </MudSelect>
+        <div style="min-width:160px;">
+            <CategorySelector Categories="Categories"
+                              SelectedCategory="@SelectedCategory"
+                              SelectedCategoryChanged="OnCategoryChanged"
+                              Label="@string.Empty"
+                              Required="false"
+                              Clearable="true"
+                              ShowAddButton="false" />
+        </div>
     }
     else
     {
@@ -55,6 +56,10 @@
     [Parameter] public List<MerchantDto> Merchants { get; set; } = new();
     [Parameter] public List<CategoryDto> Categories { get; set; } = new();
     [Parameter] public EventCallback OnRemove { get; set; }
+
+    private CategoryDto? SelectedCategory => Categories.FirstOrDefault(c => c.Id == Action.CategoryId);
+
+    private void OnCategoryChanged(CategoryDto? category) => Action.CategoryId = category?.Id;
 
     private void OnActionTypeChanged(RuleActionType t)
     {

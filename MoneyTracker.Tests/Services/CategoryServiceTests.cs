@@ -202,6 +202,29 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task UpdateAsync_PersistsIsHiddenFlag()
+        {
+            _validator.Setup(x => x.ValidateAsync(It.IsAny<CategoryDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ValidationResult());
+            _repo.Setup(x => x.GetByIdAsync(1))
+                .ReturnsAsync(new Category { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", IsHidden = false });
+            _repo.Setup(x => x.ExistsAsync(It.IsAny<string>(), It.IsAny<int?>())).ReturnsAsync(false);
+            var svc = CreateService();
+
+            var result = await svc.UpdateAsync(new CategoryDto
+            {
+                Id = 1,
+                Name = "Food",
+                Type = CategoryTypeEnum.Expense,
+                Icon = CategoryIcon.Restaurant,
+                IsHidden = true
+            });
+
+            result.Success.Should().BeTrue();
+            _repo.Verify(x => x.UpdateAsync(It.Is<Category>(c => c.Id == 1 && c.IsHidden)), Times.Once);
+        }
+
+        [Fact]
         public async Task MergeAsync_WhenSameId_ReturnsFailWithoutHittingRepository()
         {
             var svc = CreateService();

@@ -2,6 +2,7 @@
 @using MoneyTracker.Application.DTOs.Transactions
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Transaction
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
 @inject ISnackbar Snackbar
 @inject ITransactionService TransactionService
@@ -50,54 +51,8 @@
                            Variant="Variant.Outlined"
                            Class="mb-4" />
 
-            <MudAutocomplete T="TransactionDto"
-                             Label="Link to Transaction (optional)"
-                             @bind-Value="_selectedTransaction"
-                             SearchFunc="SearchTransactions"
-                             ToStringFunc="TransactionLabel"
-                             Variant="Variant.Outlined"
-                             Class="mb-1"
-                             Clearable="true"
-                             HelperText="@(_selectedTransaction is null ? "Search by description, date or amount" : $"Transaction #{_selectedTransaction.Id} linked")"
-                             AdornmentIcon="@Icons.Material.Filled.Search"
-                             ResetValueOnEmptyText="true"
-                             CoerceText="false"
-                             MinCharacters="0"
-                             MaxItems="30">
-                <ItemTemplate Context="tx">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="px-2 py-1">
-                        <MudStack Spacing="0">
-                            <MudText Typo="Typo.body2" Class="font-weight-medium">@tx.Name</MudText>
-                            <MudText Typo="Typo.caption" Style="opacity:0.6;">
-                                @tx.Date.ToString("MMM d, yyyy")
-                                @if (tx.Account is not null)
-                                {
-                                    <span> · @tx.Account.Name</span>
-                                }
-                            </MudText>
-                        </MudStack>
-                        <MudText Typo="Typo.body2" Class="font-weight-bold ml-3">
-                            @CurrencyHelper.FormatCurrency(tx.Amount)
-                        </MudText>
-                    </MudStack>
-                </ItemTemplate>
-            </MudAutocomplete>
-
-            @if (_selectedTransaction is not null)
-            {
-                <MudChip T="string"
-                         Color="Color.Info"
-                         Size="Size.Small"
-                         Icon="@Icons.Material.Filled.Link"
-                         OnClose="@ClearTransaction"
-                         Class="mb-3">
-                    #@_selectedTransaction.Id — @_selectedTransaction.Name — @CurrencyHelper.FormatCurrency(_selectedTransaction.Amount)
-                </MudChip>
-            }
-            else
-            {
-                <div class="mb-3"></div>
-            }
+            <TransactionLinkAutocomplete Transactions="_transactions"
+                                         @bind-SelectedTransaction="_selectedTransaction" />
 
             <MudTextField Label="Notes (optional)"
                           @bind-Value="_notes"
@@ -150,31 +105,6 @@
                 .Where(t => t.TransactionType == TransactionTypeEnum.Income)
                 .OrderByDescending(t => t.Date)
                 .ToList();
-    }
-
-    private Task<IEnumerable<TransactionDto>> SearchTransactions(string text, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return Task.FromResult(_transactions.Take(30));
-
-        var lower = text.Trim().ToLowerInvariant();
-        var matches = _transactions.Where(t =>
-            t.Name.Contains(lower, StringComparison.OrdinalIgnoreCase) ||
-            (t.Description?.Contains(lower, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            t.Amount.ToString("N2").Contains(lower) ||
-            t.Date.ToString("MMM d").Contains(lower, StringComparison.OrdinalIgnoreCase) ||
-            t.Id.ToString() == lower
-        );
-        return Task.FromResult(matches);
-    }
-
-    private string TransactionLabel(TransactionDto? tx)
-        => tx is null ? string.Empty : $"#{tx.Id} — {tx.Date:MMM d, yyyy} — {tx.Name} — {CurrencyHelper.FormatCurrency(tx.Amount)}";
-
-    private void ClearTransaction()
-    {
-        _selectedTransaction = null;
-        StateHasChanged();
     }
 
     private async Task Save()

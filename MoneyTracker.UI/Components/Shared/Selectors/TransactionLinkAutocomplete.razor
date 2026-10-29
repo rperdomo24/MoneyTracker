@@ -1,0 +1,103 @@
+@using MoneyTracker.Application.DTOs.Transactions
+@using MoneyTracker.UI.Helpers
+
+<MudAutocomplete T="TransactionDto"
+                 Label="@Label"
+                 Value="@SelectedTransaction"
+                 ValueChanged="@((TransactionDto? value) => OnSelectedTransactionChanged(value))"
+                 SearchFunc="SearchTransactions"
+                 ToStringFunc="TransactionLabel"
+                 Variant="Variant.Outlined"
+                 Class="mb-1"
+                 Clearable="true"
+                 HelperText="@HelperText"
+                 AdornmentIcon="@Icons.Material.Filled.Search"
+                 ResetValueOnEmptyText="true"
+                 CoerceText="false"
+                 MinCharacters="0"
+                 MaxItems="30">
+    <ItemTemplate Context="tx">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="px-2 py-1">
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.body2" Class="font-weight-medium">@tx.Name</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.6;">
+                    @tx.Date.ToString("MMM d, yyyy")
+                    @if (tx.Account is not null)
+                    {
+                        <span> · @tx.Account.Name</span>
+                    }
+                </MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2"
+                     Class="font-weight-bold ml-3"
+                     Style="@AmountStyle(tx.Amount)">
+                @FormatAmount(tx.Amount)
+            </MudText>
+        </MudStack>
+    </ItemTemplate>
+</MudAutocomplete>
+
+@if (SelectedTransaction is not null)
+{
+    <MudChip T="string"
+             Color="Color.Info"
+             Size="Size.Small"
+             Icon="@Icons.Material.Filled.Link"
+             OnClose="@ClearTransaction"
+             Class="mb-3">
+        #@SelectedTransaction.Id — @SelectedTransaction.Name — @FormatAmount(SelectedTransaction.Amount)
+    </MudChip>
+}
+else
+{
+    <div class="mb-3"></div>
+}
+
+@code {
+    // Callers decide which transactions are offered (and their order); this component only searches them.
+    [Parameter] public List<TransactionDto> Transactions { get; set; } = new();
+    [Parameter] public TransactionDto? SelectedTransaction { get; set; }
+    [Parameter] public EventCallback<TransactionDto?> SelectedTransactionChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Link to Transaction (optional)";
+
+    // Show amounts without sign, colored green/red by direction (used when income and expenses are mixed).
+    [Parameter] public bool ShowAbsoluteAmount { get; set; } = false;
+
+    private string HelperText => SelectedTransaction is null
+        ? "Search by description, date or amount"
+        : $"Transaction #{SelectedTransaction.Id} linked";
+
+    private string FormatAmount(decimal amount)
+        => CurrencyHelper.FormatCurrency(ShowAbsoluteAmount ? Math.Abs(amount) : amount);
+
+    private string? AmountStyle(decimal amount) => ShowAbsoluteAmount
+        ? $"color:{(amount >= 0 ? "var(--mud-palette-success)" : "var(--mud-palette-error)")};"
+        : null;
+
+    private Task<IEnumerable<TransactionDto>> SearchTransactions(string? text, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return Task.FromResult(Transactions.Take(30));
+
+        var lower = text.Trim().ToLowerInvariant();
+        var matches = Transactions.Where(t =>
+            t.Name.Contains(lower, StringComparison.OrdinalIgnoreCase) ||
+            (t.Description?.Contains(lower, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            t.Amount.ToString("N2").Contains(lower) ||
+            t.Date.ToString("MMM d").Contains(lower, StringComparison.OrdinalIgnoreCase) ||
+            t.Id.ToString() == lower
+        );
+        return Task.FromResult(matches);
+    }
+
+    private string TransactionLabel(TransactionDto? tx)
+        => tx is null ? string.Empty : $"#{tx.Id} — {tx.Date:MMM d, yyyy} — {tx.Name} — {FormatAmount(tx.Amount)}";
+
+    private async Task OnSelectedTransactionChanged(TransactionDto? value)
+    {
+        SelectedTransaction = value;
+        await SelectedTransactionChanged.InvokeAsync(value);
+    }
+
+    private Task ClearTransaction() => OnSelectedTransactionChanged(null);
+}

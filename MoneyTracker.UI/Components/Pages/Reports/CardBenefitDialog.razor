@@ -2,6 +2,7 @@
 @using MoneyTracker.Application.DTOs.CardBenefits
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Application.Validators.CardBenefits
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.Domain.Enums.CardBenefits
 @inject ICardBenefitService CardBenefitService
 @inject IAccountService AccountService
@@ -19,18 +20,12 @@
         <MudContainer MaxWidth="MaxWidth.Small" Class="pa-0">
             <MudForm @ref="_form" Model="_dto" Validation="_validator.ValidateValue">
 
-                <MudSelect T="int"
-                           Label="Card / Account"
-                           @bind-Value="_dto.AccountId"
-                           For="@(() => _dto.AccountId)"
-                           Variant="Variant.Outlined"
-                           Required="true"
-                           Class="mb-4">
-                    @foreach (var account in _accounts)
-                    {
-                        <MudSelectItem T="int" Value="@account.Id">@account.Name</MudSelectItem>
-                    }
-                </MudSelect>
+                <div class="mb-4">
+                    <AccountSelector Accounts="_accounts"
+                                     Label="Card / Account"
+                                     SelectedAccount="@SelectedAccount"
+                                     SelectedAccountChanged="OnAccountChanged" />
+                </div>
 
                 <MudTextField Label="Benefit Rule Name"
                               @bind-Value="_dto.Name"
@@ -149,10 +144,20 @@
         }
     }
 
+    private AccountDto? SelectedAccount => _accounts.FirstOrDefault(a => a.Id == _dto.AccountId);
+
+    private void OnAccountChanged(AccountDto? account) => _dto.AccountId = account?.Id ?? 0;
+
     private async Task Submit()
     {
         await _form.Validate();
         if (!_form.IsValid) return;
+
+        if (_dto.AccountId <= 0)
+        {
+            Snackbar.Add("Select a card / account.", Severity.Warning);
+            return;
+        }
 
         _isSubmitting = true;
         StateHasChanged();

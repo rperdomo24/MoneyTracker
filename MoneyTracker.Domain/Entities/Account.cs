@@ -38,6 +38,8 @@ namespace MoneyTracker.Domain.Entities
 
         public bool IncludeInNetWorth { get; set; } = true;
 
+        public bool IsHidden { get; set; } = false;
+
         public int? CutDay { get; set; }
         public int? PaymentDay { get; set; }
         public decimal? AnnualInterestRate { get; set; }

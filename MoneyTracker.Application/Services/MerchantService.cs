@@ -100,7 +100,7 @@ namespace MoneyTracker.Application.Services
                 if (await _repository.ExistsAsync(dto.Name.Trim(), dto.Id))
                     return OperationResult<bool>.Fail("A merchant with this name already exists.");
 
-                entity.Name = dto.Name.Trim();
+                entity.UpdateEntity(dto);
                 entity.UpdatedAt = _timeZoneService.GetNowInUtc();
 
                 await _repository.UpdateAsync(entity);

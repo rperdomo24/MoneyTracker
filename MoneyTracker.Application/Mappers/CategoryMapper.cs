@@ -23,6 +23,7 @@ namespace MoneyTracker.Application.Mappers
                     : CategoryIcon.Payments,
                 Color = entity.Color,
                 IsSystem = entity.IsSystem,
+                IsHidden = entity.IsHidden,
                 SystemCategoryCode = entity.SystemCategoryCode,
                 UpdatedAt = entity.UpdatedAt,
                 Parent = null,
@@ -38,6 +39,7 @@ namespace MoneyTracker.Application.Mappers
                         : CategoryIcon.Payments,
                     Color = child.Color,
                     IsSystem = child.IsSystem,
+                    IsHidden = child.IsHidden,
                     SystemCategoryCode = child.SystemCategoryCode,
                     UpdatedAt = child.UpdatedAt,
                     Parent = null,
@@ -57,6 +59,7 @@ namespace MoneyTracker.Application.Mappers
                 Color = dto.Color,
                 Type = dto.Type,
                 IsSystem = dto.IsSystem,
+                IsHidden = dto.IsHidden,
                 SystemCategoryCode = dto.SystemCategoryCode,
                 UpdatedAt = dto.UpdatedAt,
                 Children = dto.Children?.Select(MapToEntity).ToList() ?? new()
@@ -71,6 +74,7 @@ namespace MoneyTracker.Application.Mappers
             entity.Color = dto.Color;
             entity.Type = dto.Type;
             entity.IsSystem = dto.IsSystem;
+            entity.IsHidden = dto.IsHidden;
             entity.SystemCategoryCode = dto.SystemCategoryCode;
             entity.UpdatedAt = dto.UpdatedAt;
         }

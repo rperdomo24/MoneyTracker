@@ -160,6 +160,10 @@
                                Label="Include in net worth & balance"
                                Color="Color.Primary"
                                Class="mt-2" />
+
+                    <MudSwitch @bind-Value="_account.IsHidden"
+                               Label="Hide from selection lists"
+                               Color="Color.Primary" />
                 </MudForm>
             </MudContainer>
         }

@@ -1,0 +1,54 @@
+@using MoneyTracker.Application.DTOs.Loans
+@using MoneyTracker.UI.Helpers
+
+<MudSelect T="int?"
+           Label="@Label"
+           Value="@SelectedLoanId"
+           ValueChanged="@((int? value) => OnSelectedLoanChanged(value))"
+           Variant="Variant.Outlined"
+           Required="@Required"
+           Disabled="@Disabled"
+           Clearable="@Clearable"
+           Dense="@Dense"
+           Class="@Class"
+           ToStringFunc="@LoanName">
+    @foreach (var loan in SortedLoans)
+    {
+        <MudSelectItem T="int?" Value="@((int?)loan.Id)" @key="loan.Id">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                <MudText Typo="Typo.body2">@loan.ContactName</MudText>
+                <MudText Typo="Typo.caption" Style="opacity:0.6; margin-left: auto;">
+                    (@CurrencyHelper.FormatCurrency(loan.Balance) pending)
+                </MudText>
+            </MudStack>
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    // Callers decide which loans are offered (e.g. only active with balance); this component sorts them.
+    [Parameter] public List<LoanDto> Loans { get; set; } = new();
+    [Parameter] public int? SelectedLoanId { get; set; }
+    [Parameter] public EventCallback<int?> SelectedLoanIdChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Loan";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Required { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public bool Clearable { get; set; } = true;
+    [Parameter] public bool Dense { get; set; } = false;
+
+    private List<LoanDto> SortedLoans => SelectorHelper.VisibleSorted(
+        Loans,
+        l => l.ContactName,
+        _ => false,
+        _ => true);
+
+    private string LoanName(int? id) => Loans.FirstOrDefault(l => l.Id == id)?.ContactName ?? string.Empty;
+
+    private async Task OnSelectedLoanChanged(int? value)
+    {
+        SelectedLoanId = value;
+        await SelectedLoanIdChanged.InvokeAsync(value);
+    }
+}

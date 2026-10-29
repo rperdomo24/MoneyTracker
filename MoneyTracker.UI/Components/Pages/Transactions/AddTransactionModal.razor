@@ -141,14 +141,9 @@
                                           ShowAddButton="true"
                                           LeafOnly="true" />
 
-                        <MudAutocomplete T="MerchantDto?"
-                                         Label="Merchant (Optional)"
-                                         @bind-Value="_selectedMerchant"
-                                         Variant="Variant.Outlined"
-                                         Clearable="true"
-                                         SearchFunc="SearchMerchants"
-                                         ToStringFunc="@(m => m?.Name ?? string.Empty)"
-                                         Placeholder="Type to search..." />
+                        <MerchantSelector Merchants="@(_merchants ?? new())"
+                                          @bind-SelectedMerchant="_selectedMerchant"
+                                          Placeholder="Select merchant" />
 
                         <MudDatePicker Label="Date"
                                        @bind-Date="_transactionDate"
@@ -182,28 +177,10 @@
 
                         @if (_linkToGoal)
                         {
-                            <MudSelect T="int?"
-                                       Label="Savings Goal"
-                                       @bind-Value="_selectedGoalId"
-                                       Variant="Variant.Outlined"
-                                       Dense="true"
-                                       Clearable="true"
-                                       Class="mt-2">
-                                @foreach (var g in _activeGoals)
-                                {
-                                    <MudSelectItem T="int?" Value="@((int?)g.Id)">
-                                        <div class="d-flex align-center gap-2">
-                                            <MudIcon Icon="@Icons.Material.Filled.Circle"
-                                                     Size="Size.Small"
-                                                     Style="@($"color:{g.Color}; font-size:10px;")" />
-                                            @g.Name
-                                            <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
-                                                (@g.ProgressPercent%)
-                                            </MudText>
-                                        </div>
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
+                            <GoalSelector Goals="_activeGoals"
+                                          @bind-SelectedGoalId="_selectedGoalId"
+                                          Dense="true"
+                                          Class="mt-2" />
                             <MudNumericField Label="Contribution amount"
                                              @bind-Value="_goalContributionAmount"
                                              Variant="Variant.Outlined"
@@ -234,24 +211,11 @@
 
                         @if (_linkToLoan)
                         {
-                            <MudSelect T="int?"
-                                       Label="Loan"
-                                       @bind-Value="_selectedLoanId"
-                                       @bind-Value:after="OnLoanSelected"
-                                       Variant="Variant.Outlined"
-                                       Dense="true"
-                                       Clearable="true"
-                                       Class="mt-2">
-                                @foreach (var l in _activeLoans)
-                                {
-                                    <MudSelectItem T="int?" Value="@((int?)l.Id)">
-                                        @l.ContactName
-                                        <MudText Typo="Typo.caption" Style="opacity:0.6;" Inline="true">
-                                            (@CurrencyHelper.FormatCurrency(l.Balance) pending)
-                                        </MudText>
-                                    </MudSelectItem>
-                                }
-                            </MudSelect>
+                            <LoanSelector Loans="_activeLoans"
+                                          @bind-SelectedLoanId="_selectedLoanId"
+                                          @bind-SelectedLoanId:after="OnLoanSelected"
+                                          Dense="true"
+                                          Class="mt-2" />
                             <MudNumericField Label="Payment amount"
                                              @bind-Value="_loanPaymentAmount"
                                              Variant="Variant.Outlined"
@@ -699,16 +663,6 @@
         var categoriesResult = await CategoryService.GetAllWithChildAsync(false);
         if (categoriesResult.Success)
             _categories = categoriesResult.Data?.ToList() ?? new();
-    }
-
-    private Task<IEnumerable<MerchantDto?>> SearchMerchants(string? text, CancellationToken _)
-    {
-        var list = _merchants ?? new();
-        if (string.IsNullOrWhiteSpace(text))
-            return Task.FromResult<IEnumerable<MerchantDto?>>(list);
-
-        return Task.FromResult<IEnumerable<MerchantDto?>>(
-            list.Where(m => m.Name.Contains(text, StringComparison.OrdinalIgnoreCase)));
     }
 
     private void Cancel() => MudDialog.Cancel();

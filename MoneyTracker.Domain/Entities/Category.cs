@@ -22,6 +22,7 @@ namespace MoneyTracker.Domain.Entities
         public string? Color { get; set; }
 
         public bool IsSystem { get; set; } = false;
+        public bool IsHidden { get; set; } = false;
         [MaxLength(64)]
         public string? SystemCategoryCode { get; set; }
 

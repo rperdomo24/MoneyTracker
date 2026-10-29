@@ -58,7 +58,11 @@
                 filtered = filtered.Where(a => a.Type == FilterByType.Value);
             }
 
-            return filtered.OrderBy(a => a.Name).ToList();
+            return SelectorHelper.VisibleSorted(
+                filtered,
+                a => a.Name,
+                a => a.IsHidden,
+                a => a.Id == SelectedAccount?.Id);
         }
     }
 

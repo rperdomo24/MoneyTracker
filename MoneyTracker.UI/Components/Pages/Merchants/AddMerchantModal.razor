@@ -20,6 +20,11 @@
                           RequiredError="Name is required"
                           MaxLength="150"
                           Immediate="true" />
+
+            <MudSwitch @bind-Value="_isHidden"
+                       Label="Hide from selection lists"
+                       Color="Color.Primary"
+                       Class="mt-2" />
         </MudForm>
     </DialogContent>
 
@@ -49,6 +54,7 @@
     private MudForm _form = default!;
     private bool _saving = false;
     private string _name = string.Empty;
+    private bool _isHidden;
 
     private async Task SaveAsync()
     {
@@ -62,7 +68,7 @@
 
         try
         {
-            var result = await MerchantService.CreateAsync(new MerchantDto { Name = _name });
+            var result = await MerchantService.CreateAsync(new MerchantDto { Name = _name, IsHidden = _isHidden });
 
             if (result.Success)
             {
