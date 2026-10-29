@@ -7,6 +7,7 @@
 @using MoneyTracker.Domain.Enums.Category
 @using MoneyTracker.Domain.Enums.Filters
 @using MoneyTracker.UI.Components.Pages.Budgets
+@using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Helpers
 @using MoneyTracker.UI.Services.Filters.Interface
@@ -165,6 +166,7 @@
                                                  Class="@(row.IsChild ? "" : "font-weight-medium")">
                                             @row.Category.Name
                                         </MudText>
+                                        <HiddenBadge IsHidden="@row.Category.IsHidden" />
                                     </MudStack>
                                 </td>
                                 <td>
@@ -317,6 +319,7 @@
                                                             <MudText Typo="Typo.body1" Class="font-weight-medium">
                                                                 @category.Name
                                                             </MudText>
+                                                            <HiddenBadge IsHidden="@category.IsHidden" />
                                                             @if (category.IsUnused)
                                                             {
                                                                 <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
@@ -455,6 +458,7 @@
                                             <MudText Typo="Typo.body1" Class="font-weight-medium">
                                                 @category.Name
                                             </MudText>
+                                            <HiddenBadge IsHidden="@category.IsHidden" />
                                             <MudLink Style="cursor:pointer;"
                                                      Typo="Typo.caption"
                                                      Color="Color.Default"

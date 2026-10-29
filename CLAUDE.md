@@ -14,25 +14,11 @@ Before making changes, read:
 
 **MoneyTracker** — personal finance tracker. Multi-tenant, invite-only beta. Features: accounts, hierarchical categories, transactions (with timezone-aware filters), paired transfers, monthly budgets with forecasting, dashboard with net-worth trend + spending charts, full auth lifecycle (OTP, email verification, invite tokens).
 
-**Stack**: ASP.NET Core 9 + Blazor Server + MudBlazor + ApexCharts + PostgreSQL 16 + EF Core 9 + ASP.NET Identity + FluentValidation + Serilog
-
 ---
 
 ## Build / run / test commands
 
 ```bash
-# Restore
-dotnet restore MoneyTracker.sln
-
-# Run (http://localhost:5229 / https://localhost:7238)
-dotnet run --project MoneyTracker.UI
-
-# Test
-dotnet test MoneyTracker.Tests
-
-# Single test class
-dotnet test MoneyTracker.Tests --filter "FullyQualifiedName~ServiceClassName"
-
 # UI build safety check (required before UI commit)
 dotnet build MoneyTracker.UI/MoneyTracker.UI.csproj --no-restore
 
@@ -52,20 +38,7 @@ dotnet ef database update --project MoneyTracker.Infrastructure --startup-projec
 
 ## Architecture layers
 
-```
-MoneyTracker.UI             Blazor pages/components, DI root, auth endpoints, appsettings
-MoneyTracker.Application    Services, DTOs, mappers, validators, OperationResult
-MoneyTracker.Domain         Entities, enums, repository interfaces (zero dependencies)
-MoneyTracker.Infrastructure EF Core DbContext, repositories, migrations, TimeZoneService
-MoneyTracker.Tests          xUnit + Moq, service-layer unit tests
-```
-
 **Strict dependency rule**: UI → Application → Domain ← Infrastructure. UI must never reference `MoneyTracker.Infrastructure` types directly.
-
-**Key entry points**:
-- `MoneyTracker.UI/Program.cs` — DI composition, Identity config, Serilog, MudBlazor
-- `MoneyTracker.UI/Endpoints/AuthEndpoints.cs` — login / OTP / password-reset / invite
-- `MoneyTracker.UI/Components/Pages/` — one subfolder per feature
 
 ---
 
@@ -172,6 +145,7 @@ UI reads `result.IsSuccess`, `result.Message`, `result.Data`. Services never sur
 - Branding assets: always via `IBrandingService` + `BrandingAsset`. No hardcoded `/images/...` paths.
 - Snackbar: inject `ISnackbar`; global provider already in `MainLayout.razor`.
 - Reuse shared helpers: `CurrencyHelper`, filter helpers, dialog helpers — do not duplicate view logic.
+- **Dropdowns**: never build a new `MudSelect`/`MudAutocomplete` for accounts, categories, merchants, goals, loans, linked transactions, time periods, category types or paycheck periods — use the components in `Components/Shared/Selectors/` (alphabetical, icon + name, hide `IsHidden` items). Extend the selector instead of copying markup. Details in `docs/CONVENTIONS.md` → "Dropdown / selector rules".
 - Keep component nullability explicit (`string.Empty` over `null` for non-nullable strings).
 - Mobile containers: `pa-1 pa-sm-6` baseline for full-width pages unless intentionally different.
 - Complex inline Razor expressions → small helper method/property instead.
@@ -256,15 +230,3 @@ UI reads `result.IsSuccess`, `result.Message`, `result.Data`. Services never sur
 - EF Core schema migrations that drop or rename columns.
 - Changes to `Program.cs` middleware pipeline order.
 - Cross-feature changes that touch more than one domain module.
-
----
-
-## Configuration files
-
-| File | Purpose |
-|---|---|
-| `MoneyTracker.UI/appsettings.json` | DB connection, SMTP, logging levels, `PublicBaseUrl`, date formats |
-| `MoneyTracker.UI/appsettings.Development.json` | Dev overrides |
-| `.env` / `.env.example` | Docker: DB creds, timezone, SMTP, `ASPNETCORE_ENVIRONMENT` |
-| `docker-compose.yml` | Web on port 8091 + optional internal PostgreSQL + external network |
-| `MoneyTracker.sln` | Solution root (5 projects) |

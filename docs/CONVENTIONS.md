@@ -79,6 +79,17 @@
   - `ISnackbar` injected into pages/components.
   - Global provider in `MainLayout.razor` (`<MudSnackbarProvider />`).
 
+## Dropdown / selector rules
+- Never build a new `MudSelect`/`MudAutocomplete` for an app entity or shared enum. Use the components in `MoneyTracker.UI/Components/Shared/Selectors/` (add `@using MoneyTracker.UI.Components.Shared.Selectors`):
+  - Entities: `AccountSelector`, `CategorySelector`, `MerchantSelector`, `GoalSelector`, `LoanSelector`, `TransactionLinkAutocomplete`.
+  - Enums: `TimePeriodSelect`, `CategoryTypeSelect` (single or `MultiSelection`), `PaycheckPeriodSelect`.
+- Entity selectors show icon + name, sorted alphabetically (case-insensitive) and skip items with `IsHidden = true` unless it is the current selection. Do this through `SelectorHelper.VisibleSorted`, never with an ad-hoc `OrderBy`/`Where` in the page.
+- `IsHidden` (Account, Category, Merchant) only affects dropdowns; lists, filters and reports still show hidden items. Do not filter it in services.
+- Enum labels and icons live in `TimePeriodFilterExtensions`, `PaycheckPeriodExtensions` and `CategoryExtensions`; do not hardcode them per screen. A screen that offers fewer options passes `Options`.
+- Selectors follow the `Selected<X>` + `Selected<X>Changed` parameter pattern (`Value`/`ValueChanged` for enums) so `@bind-...` works. Callers decide which items to offer (e.g. only active goals/loans); the selector sorts and hides.
+- Need a new combo or a new option (e.g. a `Dense` or `Placeholder` parameter)? Extend the existing selector instead of copying its markup. Check the build for new `CS8669` warnings: `CategorySelector` already has a baseline of 32 and extra parameters on it add more.
+- Known exceptions with their own markup: the grouped multi-account select in `TransactionFilters`, "To account / Someone else" in `ImportFromTextDialog`, the frequency enums, and `Rules/ConditionRow`.
+
 ## Auth form postback rules
 - Forms posting to `/auth/*` endpoints must use plain HTML `<form method="post">` plus `<AntiforgeryToken />`.
 - Every server-bound value must be posted with an explicit `name` field (`<input name="...">` or hidden mirror input) so endpoint binding is reliable.

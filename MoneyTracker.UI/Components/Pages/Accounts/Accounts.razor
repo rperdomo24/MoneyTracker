@@ -4,6 +4,7 @@
 @using MoneyTracker.Application.DTOs.Notifications
 @using MoneyTracker.Domain.Enums
 @using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Navigation
 @using MoneyTracker.UI.Components.Shared.Selection
 @using MoneyTracker.UI.Helpers
@@ -255,6 +256,7 @@
                                             <MudText Typo="Typo.body1" Class="font-weight-medium text-nowrap">
                                                 @account.Name
                                             </MudText>
+                                            <HiddenBadge IsHidden="@account.IsHidden" />
                                             @if (NeedsBankWarning(account))
                                             {
                                                 <MudTooltip Text="Bank/card details missing — view account to complete">
@@ -395,6 +397,7 @@
                                                 <MudText Typo="Typo.body1" Class="font-weight-medium">
                                                     @account.Name
                                                 </MudText>
+                                                <HiddenBadge IsHidden="@account.IsHidden" />
                                                 @if (NeedsBankWarning(account))
                                                 {
                                                     <MudTooltip Text="Bank/card details missing — view account to complete">

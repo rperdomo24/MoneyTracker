@@ -1,0 +1,14 @@
+@* Marks an Account/Category/Merchant that is excluded from dropdowns (IsHidden). *@
+@if (IsHidden)
+{
+    <MudTooltip Text="Hidden from selection lists">
+        <MudIcon Icon="@Icons.Material.Filled.HideSource"
+                 Size="Size.Small"
+                 Color="Color.Default"
+                 Style="opacity:0.6;" />
+    </MudTooltip>
+}
+
+@code {
+    [Parameter] public bool IsHidden { get; set; }
+}
