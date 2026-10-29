@@ -12,6 +12,7 @@ namespace MoneyTracker.Application.Constants
 
         public const string NameRequired = "The name is required.";
         public const string NameMaxLength = "The name must not exceed 100 characters.";
+        public const string NameNoOuterSpaces = "The name must not start or end with spaces.";
         public const string IconMaxLength = "The icon must not exceed 50 characters.";
         public const string ColorMaxLength = "The color must not exceed 10 characters.";
         public const string NotesMaxLength = "The notes must not exceed 255 characters.";

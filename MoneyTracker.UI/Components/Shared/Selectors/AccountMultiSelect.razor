@@ -81,7 +81,7 @@
     private List<AccountDto> OrderedAccounts => Accounts
         .Where(a => !ExcludeHidden || !a.IsHidden || SelectedAccountIds.Contains(a.Id))
         .OrderBy(a => (int)a.Type)
-        .ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
+        .ThenBy(a => a.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
         .ToList();
 
     private async Task OnSelectedValuesChanged(IEnumerable<int> values)

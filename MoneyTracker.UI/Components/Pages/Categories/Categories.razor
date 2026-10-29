@@ -306,17 +306,18 @@
                                             <MudStack Row="true"
                                                       AlignItems="AlignItems.Center"
                                                       Justify="Justify.SpaceBetween"
+                                                      Wrap="Wrap.NoWrap"
                                                       Style="width: 100%;">
-                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.NoWrap" Style="min-width: 0; flex: 1;">
                                                     <MudAvatar Size="Size.Medium"
-                                                               Style="@($"background-color: {category.Color};")">
+                                                               Style="@($"background-color: {category.Color}; flex-shrink: 0;")">
                                                         <MudIcon Icon="@category.Icon.ToIcon()"
                                                                  Color="Color.Surface"
                                                                  Size="Size.Small" />
                                                     </MudAvatar>
-                                                    <MudStack Spacing="0">
-                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                                            <MudText Typo="Typo.body1" Class="font-weight-medium">
+                                                    <MudStack Spacing="0" Style="min-width: 0;">
+                                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+                                                            <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow-wrap: anywhere;">
                                                                 @category.Name
                                                             </MudText>
                                                             <HiddenBadge IsHidden="@category.IsHidden" />
@@ -346,30 +347,32 @@
                                                     </MudStack>
                                                 </MudStack>
 
-                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                                         Size="Size.Small"
-                                                         Dense="true"
-                                                         AnchorOrigin="Origin.BottomRight"
-                                                         TransformOrigin="Origin.TopRight"
-                                                         @onclick:stopPropagation="true">
-                                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                                 OnClick="@(() => EditCategory(category.Id))">
-                                                        Edit
-                                                    </MudMenuItem>
-                                                    <MudMenuItem Icon="@Icons.Material.Filled.Add"
-                                                                 OnClick="@(() => CreateSubcategory(category.Id))">
-                                                        Add Subcategory
-                                                    </MudMenuItem>
-                                                    <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
-                                                                 OnClick="@(() => MergeCategory(category.Id))">
-                                                        Merge into...
-                                                    </MudMenuItem>
-                                                    <MudDivider />
-                                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                                 OnClick="@(() => DeleteCategory(category.Id))">
-                                                        <MudText Color="Color.Error">Delete</MudText>
-                                                    </MudMenuItem>
-                                                </MudMenu>
+                                                <div style="flex-shrink: 0;">
+                                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                             Size="Size.Small"
+                                                             Dense="true"
+                                                             AnchorOrigin="Origin.BottomRight"
+                                                             TransformOrigin="Origin.TopRight"
+                                                             @onclick:stopPropagation="true">
+                                                        <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                                     OnClick="@(() => EditCategory(category.Id))">
+                                                            Edit
+                                                        </MudMenuItem>
+                                                        <MudMenuItem Icon="@Icons.Material.Filled.Add"
+                                                                     OnClick="@(() => CreateSubcategory(category.Id))">
+                                                            Add Subcategory
+                                                        </MudMenuItem>
+                                                        <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                                     OnClick="@(() => MergeCategory(category.Id))">
+                                                            Merge into...
+                                                        </MudMenuItem>
+                                                        <MudDivider />
+                                                        <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                                     OnClick="@(() => DeleteCategory(category.Id))">
+                                                            <MudText Color="Color.Error">Delete</MudText>
+                                                        </MudMenuItem>
+                                                    </MudMenu>
+                                                </div>
                                             </MudStack>
                                         </TitleContent>
 
@@ -382,15 +385,16 @@
                                                               Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px; background-color: var(--mud-palette-background-grey);">
                                                         <MudStack Row="true"
                                                                   AlignItems="AlignItems.Center"
-                                                                  Justify="Justify.SpaceBetween">
-                                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                                                  Justify="Justify.SpaceBetween"
+                                                                  Wrap="Wrap.NoWrap">
+                                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Style="min-width: 0; flex: 1;">
                                                                 <MudAvatar Size="Size.Small"
-                                                                           Style="@($"background-color: {subcategory.Color};")">
+                                                                           Style="@($"background-color: {subcategory.Color}; flex-shrink: 0;")">
                                                                     <MudIcon Icon="@subcategory.Icon.ToIcon()"
                                                                              Color="Color.Surface"
                                                                              Size="Size.Small" />
                                                                 </MudAvatar>
-                                                                <MudText Typo="Typo.body2">@subcategory.Name</MudText>
+                                                                <MudText Typo="Typo.body2" Style="overflow-wrap: anywhere;">@subcategory.Name</MudText>
                                                                 <MudLink Style="cursor:pointer;"
                                                                          Typo="Typo.caption"
                                                                          Color="Color.Default"
@@ -411,25 +415,27 @@
                                                                 }
                                                             </MudStack>
 
-                                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                                                     Size="Size.Small"
-                                                                     Dense="true"
-                                                                     AnchorOrigin="Origin.BottomRight"
-                                                                     TransformOrigin="Origin.TopRight">
-                                                                <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                                             OnClick="@(() => EditCategory(subcategory.Id))">
-                                                                    Edit
-                                                                </MudMenuItem>
-                                                                <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
-                                                                             OnClick="@(() => MergeCategory(subcategory.Id))">
-                                                                    Merge into...
-                                                                </MudMenuItem>
-                                                                <MudDivider />
-                                                                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                                             OnClick="@(() => DeleteCategory(subcategory.Id))">
-                                                                    <MudText Color="Color.Error">Delete</MudText>
-                                                                </MudMenuItem>
-                                                            </MudMenu>
+                                                            <div style="flex-shrink: 0;">
+                                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                                         Size="Size.Small"
+                                                                         Dense="true"
+                                                                         AnchorOrigin="Origin.BottomRight"
+                                                                         TransformOrigin="Origin.TopRight">
+                                                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                                                 OnClick="@(() => EditCategory(subcategory.Id))">
+                                                                        Edit
+                                                                    </MudMenuItem>
+                                                                    <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                                                 OnClick="@(() => MergeCategory(subcategory.Id))">
+                                                                        Merge into...
+                                                                    </MudMenuItem>
+                                                                    <MudDivider />
+                                                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                                                 OnClick="@(() => DeleteCategory(subcategory.Id))">
+                                                                        <MudText Color="Color.Error">Delete</MudText>
+                                                                    </MudMenuItem>
+                                                                </MudMenu>
+                                                            </div>
                                                         </MudStack>
                                                     </MudPaper>
                                                 }
@@ -447,61 +453,73 @@
                                           Style="border: 1px solid var(--mud-palette-divider); border-radius: 4px; height: 100%;">
                                     <MudStack Row="true"
                                               AlignItems="AlignItems.Center"
-                                              Justify="Justify.SpaceBetween">
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                              Justify="Justify.SpaceBetween"
+                                              Wrap="Wrap.NoWrap">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.NoWrap" Style="min-width: 0; flex: 1;">
                                             <MudAvatar Size="Size.Medium"
-                                                       Style="@($"background-color: {category.Color};")">
+                                                       Style="@($"background-color: {category.Color}; flex-shrink: 0;")">
                                                 <MudIcon Icon="@category.Icon.ToIcon()"
                                                          Color="Color.Surface"
                                                          Size="Size.Small" />
                                             </MudAvatar>
-                                            <MudText Typo="Typo.body1" Class="font-weight-medium">
-                                                @category.Name
-                                            </MudText>
-                                            <HiddenBadge IsHidden="@category.IsHidden" />
-                                            <MudLink Style="cursor:pointer;"
-                                                     Typo="Typo.caption"
-                                                     Color="Color.Default"
-                                                     OnClick="@(() => ShowCategoryTransactions(category.Id, category.Name))">
-                                                (@category.TransactionCount transactions)
-                                            </MudLink>
-                                            @if (category.IsUnused)
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
-                                                    Unused
-                                                </MudChip>
-                                            }
-                                            @if (category.IsPossibleDuplicate)
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.ContentCopy">
-                                                    Possible duplicate
-                                                </MudChip>
-                                            }
+                                            <MudStack Spacing="0" Style="min-width: 0;">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
+                                                    <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow-wrap: anywhere;">
+                                                        @category.Name
+                                                    </MudText>
+                                                    <HiddenBadge IsHidden="@category.IsHidden" />
+                                                </MudStack>
+                                                <MudLink Style="cursor:pointer;"
+                                                         Typo="Typo.caption"
+                                                         Color="Color.Default"
+                                                         OnClick="@(() => ShowCategoryTransactions(category.Id, category.Name))">
+                                                    @category.TransactionCount transactions
+                                                </MudLink>
+                                                @if (category.IsUnused || category.IsPossibleDuplicate)
+                                                {
+                                                    <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap" Class="mt-1">
+                                                        @if (category.IsUnused)
+                                                        {
+                                                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
+                                                                Unused
+                                                            </MudChip>
+                                                        }
+                                                        @if (category.IsPossibleDuplicate)
+                                                        {
+                                                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.ContentCopy">
+                                                                Possible duplicate
+                                                            </MudChip>
+                                                        }
+                                                    </MudStack>
+                                                }
+                                            </MudStack>
                                         </MudStack>
 
-                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                                 Size="Size.Small"
-                                                 Dense="true"
-                                                 AnchorOrigin="Origin.BottomRight"
-                                                 TransformOrigin="Origin.TopRight">
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                         OnClick="@(() => EditCategory(category.Id))">
-                                                Edit
-                                            </MudMenuItem>
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Add"
-                                                         OnClick="@(() => CreateSubcategory(category.Id))">
-                                                Add Subcategory
-                                            </MudMenuItem>
-                                            <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
-                                                         OnClick="@(() => MergeCategory(category.Id))">
-                                                Merge into...
-                                            </MudMenuItem>
-                                            <MudDivider />
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                         OnClick="@(() => DeleteCategory(category.Id))">
-                                                <MudText Color="Color.Error">Delete</MudText>
-                                            </MudMenuItem>
-                                        </MudMenu>
+                                        <div style="flex-shrink: 0;">
+                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                                     Size="Size.Small"
+                                                     Dense="true"
+                                                     AnchorOrigin="Origin.BottomRight"
+                                                     TransformOrigin="Origin.TopRight">
+                                                <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                             OnClick="@(() => EditCategory(category.Id))">
+                                                    Edit
+                                                </MudMenuItem>
+                                                <MudMenuItem Icon="@Icons.Material.Filled.Add"
+                                                             OnClick="@(() => CreateSubcategory(category.Id))">
+                                                    Add Subcategory
+                                                </MudMenuItem>
+                                                <MudMenuItem Icon="@Icons.Material.Filled.CallMerge"
+                                                             OnClick="@(() => MergeCategory(category.Id))">
+                                                    Merge into...
+                                                </MudMenuItem>
+                                                <MudDivider />
+                                                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                             OnClick="@(() => DeleteCategory(category.Id))">
+                                                    <MudText Color="Color.Error">Delete</MudText>
+                                                </MudMenuItem>
+                                            </MudMenu>
+                                        </div>
                                     </MudStack>
                                 </MudPaper>
                                 </MudItem>

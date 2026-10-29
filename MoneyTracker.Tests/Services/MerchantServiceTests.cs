@@ -52,6 +52,30 @@ namespace MoneyTracker.Tests.Services
         }
 
         [Fact]
+        public async Task CreateAsync_TrimsNameBeforeSaving()
+        {
+            _repo.Setup(x => x.ExistsAsync("Shell", null)).ReturnsAsync(false);
+            _timeZoneService.Setup(x => x.GetNowInUtc()).Returns(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+            var service = CreateService();
+
+            var result = await service.CreateAsync(new MerchantDto { Name = "  Shell " });
+
+            result.Success.Should().BeTrue();
+            _repo.Verify(x => x.AddAsync(It.Is<Merchant>(m => m.Name == "Shell")), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WhenNameIsBlank_ReturnsFailWithoutHittingRepository()
+        {
+            var service = CreateService();
+
+            var result = await service.CreateAsync(new MerchantDto { Name = "   " });
+
+            result.Success.Should().BeFalse();
+            _repo.Verify(x => x.AddAsync(It.IsAny<Merchant>()), Times.Never);
+        }
+
+        [Fact]
         public async Task UpdateAsync_WhenNameIsEmpty_ReturnsFailWithoutHittingRepository()
         {
             var service = CreateService();

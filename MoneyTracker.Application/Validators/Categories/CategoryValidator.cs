@@ -10,7 +10,9 @@ namespace MoneyTracker.Application.Validators.Categories
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage(ValidationMessages.NameRequired)
-                .MaximumLength(100).WithMessage(ValidationMessages.NameMaxLength);
+                .MaximumLength(100).WithMessage(ValidationMessages.NameMaxLength)
+                // A stray leading space sorts the category first in every dropdown.
+                .Must(name => string.IsNullOrEmpty(name) || name == name.Trim()).WithMessage(ValidationMessages.NameNoOuterSpaces);
 
             RuleFor(x => x.Icon)
                 .IsInEnum().WithMessage(ValidationMessages.IconMaxLength);

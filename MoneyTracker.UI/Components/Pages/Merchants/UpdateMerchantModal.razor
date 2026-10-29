@@ -1,5 +1,6 @@
 @using MoneyTracker.Application.DTOs.Merchants
 @using MoneyTracker.Application.Interfaces
+@using MoneyTracker.UI.Components.Shared.DataDisplay
 @inject IMerchantService MerchantService
 @inject ISnackbar Snackbar
 
@@ -21,10 +22,7 @@
                           MaxLength="150"
                           Immediate="true" />
 
-            <MudSwitch @bind-Value="_isHidden"
-                       Label="Hide from selection lists"
-                       Color="Color.Primary"
-                       Class="mt-2" />
+            <HideFromListsSwitch @bind-Value="_isHidden" />
         </MudForm>
     </DialogContent>
 

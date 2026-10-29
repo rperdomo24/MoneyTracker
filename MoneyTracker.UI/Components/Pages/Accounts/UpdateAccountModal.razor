@@ -3,6 +3,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Application.Validators.Accounts
 @using MoneyTracker.Domain.Enums.Account
+@using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Pickers
 @using MoneyTracker.UI.Helpers
 @inject IAccountService AccountService
@@ -61,6 +62,8 @@
                                   Required="true"
                                   Immediate="true"
                                   Class="mb-4" />
+
+                    <HideFromListsSwitch @bind-Value="_account.IsHidden" />
 
                     <!-- Account Type (Locked) -->
                     <MudTextField Label="Account Type"
@@ -160,10 +163,6 @@
                                Label="Include in net worth & balance"
                                Color="Color.Primary"
                                Class="mt-2" />
-
-                    <MudSwitch @bind-Value="_account.IsHidden"
-                               Label="Hide from selection lists"
-                               Color="Color.Primary" />
                 </MudForm>
             </MudContainer>
         }

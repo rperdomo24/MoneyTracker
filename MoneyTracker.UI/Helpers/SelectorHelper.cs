@@ -15,7 +15,7 @@ namespace MoneyTracker.UI.Helpers
         {
             return items
                 .Where(i => !isHidden(i) || isSelected(i))
-                .OrderBy(name, StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(i => name(i).Trim(), StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
         }
     }

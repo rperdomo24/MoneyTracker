@@ -11,7 +11,9 @@ namespace MoneyTracker.Application.Validators.Accounts
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage(ValidationMessages.Required)
-                .MaximumLength(100).WithMessage(string.Format(ValidationMessages.MaxLength, 100));
+                .MaximumLength(100).WithMessage(string.Format(ValidationMessages.MaxLength, 100))
+                // A stray leading space sorts the account first in every dropdown.
+                .Must(name => string.IsNullOrEmpty(name) || name == name.Trim()).WithMessage(ValidationMessages.NameNoOuterSpaces);
 
             RuleFor(a => a.CurrentBalance)
                 .GreaterThanOrEqualTo(0)

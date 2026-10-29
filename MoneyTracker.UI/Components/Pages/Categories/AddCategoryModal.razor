@@ -4,6 +4,7 @@
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Application.Validators.Categories
 @using MoneyTracker.Domain.Enums.Category
+@using MoneyTracker.UI.Components.Shared.DataDisplay
 @using MoneyTracker.UI.Components.Shared.Pickers
 @using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.UI.Helpers
@@ -63,6 +64,8 @@
                                   Class="mb-4"
                                   Placeholder="e.g., Groceries, Salary" />
 
+                    <HideFromListsSwitch @bind-Value="_category.IsHidden" />
+
                     <!-- Parent Selector -->
                     @if (_parentCategory == null)
                     {
@@ -101,11 +104,6 @@
                     <!-- Icon Picker -->
                     <IconPicker @bind-SelectedIcon="_category.Icon"
                                 Label="Icon" />
-
-                    <MudSwitch @bind-Value="_category.IsHidden"
-                               Label="Hide from selection lists"
-                               Color="Color.Primary"
-                               Class="mt-2" />
 
                 </MudForm>
             </MudContainer>
