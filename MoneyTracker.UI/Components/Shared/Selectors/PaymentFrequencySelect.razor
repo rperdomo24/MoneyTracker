@@ -1,0 +1,46 @@
+@using MoneyTracker.Domain.Enums.Loans
+@using MoneyTracker.UI.Helpers
+
+<MudSelect T="PaymentFrequency?"
+           Label="@Label"
+           Value="@Value"
+           ValueChanged="@((PaymentFrequency? value) => OnValueChanged(value))"
+           Variant="Variant.Outlined"
+           Required="@Required"
+           Clearable="@Clearable"
+           Disabled="@Disabled"
+           Class="@Class">
+    @foreach (var frequency in Options)
+    {
+        <MudSelectItem T="PaymentFrequency?" Value="@((PaymentFrequency?)frequency)" @key="frequency">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@frequency.GetIcon()" Size="Size.Small" />
+                <MudText Typo="Typo.body2">@frequency.GetLabel()</MudText>
+            </MudStack>
+        </MudSelectItem>
+    }
+</MudSelect>
+
+@code {
+    // Shortest period last, matching the order loans have always offered.
+    private static readonly PaymentFrequency[] Options =
+    {
+        PaymentFrequency.Monthly,
+        PaymentFrequency.Biweekly,
+        PaymentFrequency.Weekly
+    };
+
+    [Parameter] public PaymentFrequency? Value { get; set; }
+    [Parameter] public EventCallback<PaymentFrequency?> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Frequency";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Required { get; set; } = false;
+    [Parameter] public bool Clearable { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
+
+    private async Task OnValueChanged(PaymentFrequency? value)
+    {
+        Value = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+}

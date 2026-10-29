@@ -1,3 +1,4 @@
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.Application.DTOs.Loans
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Loans
@@ -99,14 +100,7 @@
                                          Placeholder="e.g., 6" />
                     </MudItem>
                     <MudItem xs="12" sm="6">
-                        <MudSelect T="PaymentFrequency?"
-                                   Label="Frequency"
-                                   @bind-Value="_paymentFrequency"
-                                   Variant="Variant.Outlined">
-                            <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Monthly">Monthly</MudSelectItem>
-                            <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Biweekly">Biweekly (every 2 weeks)</MudSelectItem>
-                            <MudSelectItem T="PaymentFrequency?" Value="@PaymentFrequency.Weekly">Weekly</MudSelectItem>
-                        </MudSelect>
+                        <PaymentFrequencySelect @bind-Value="_paymentFrequency" />
                     </MudItem>
                 </MudGrid>
 

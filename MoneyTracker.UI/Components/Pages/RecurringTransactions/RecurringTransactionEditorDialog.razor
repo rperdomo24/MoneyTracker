@@ -76,16 +76,9 @@
 
                     <MudGrid Spacing="2">
                         <MudItem xs="12" sm="6">
-                            <MudSelect T="RecurringFrequency"
-                                       Label="Repeats"
-                                       @bind-Value="_dto.Frequency"
-                                       Variant="Variant.Outlined"
-                                       Required="true">
-                                @foreach (var option in _frequencyOptions)
-                                {
-                                    <MudSelectItem @key="option.Value" T="RecurringFrequency" Value="@option.Value">@option.Label</MudSelectItem>
-                                }
-                            </MudSelect>
+                            <RecurringFrequencySelect Value="_dto.Frequency"
+                                                      ValueChanged="OnFrequencyChanged"
+                                                      Required="true" />
                         </MudItem>
                         <MudItem xs="12" sm="6">
                             @if (Recurring is null)
@@ -214,16 +207,9 @@
 
     private enum EndMode { Never, OnDate, AfterCount }
 
-    private static readonly (RecurringFrequency Value, string Label)[] _frequencyOptions =
-    {
-        (RecurringFrequency.Daily, "Daily"),
-        (RecurringFrequency.Weekly, "Weekly"),
-        (RecurringFrequency.BiWeekly, "Bi-Weekly (every 2 weeks)"),
-        (RecurringFrequency.Monthly, "Monthly"),
-        (RecurringFrequency.BiMonthly, "Bi-Monthly (every 2 months)"),
-        (RecurringFrequency.Quarterly, "Quarterly"),
-        (RecurringFrequency.Yearly, "Yearly")
-    };
+    // The select is Required, so a cleared (null) value keeps the current frequency.
+    private void OnFrequencyChanged(RecurringFrequency? frequency)
+        => _dto.Frequency = frequency ?? _dto.Frequency;
 
     private MudForm _form = default!;
     private bool _loading = true;

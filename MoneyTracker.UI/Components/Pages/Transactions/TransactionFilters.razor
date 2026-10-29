@@ -105,70 +105,12 @@
             </MudItem>
 
             <!-- Accounts Filter -->
-            @if (_orderedAccounts?.Any() == true)
+            @if (_activeAccounts?.Any() == true)
             {
                 <MudItem xs="12" md="12">
-                    <MudSelect T="int"
-                               Label="Accounts"
-                               MultiSelection="true"
-                               @bind-SelectedValues="_selectedAccountIds"
-                               @bind-SelectedValues:after="OnSelectedAccountsChanged"
-                               Variant="Variant.Outlined"
-                               Clearable="true"
-                               MultiSelectionTextFunc="GetSelectedAccountsText"
-                               MaxHeight="400">
-
-                        @{
-                            AccountType? currentType = null;
-                        }
-
-                        @foreach (var account in _orderedAccounts)
-                        {
-                            if (currentType != account.Type)
-                            {
-                                currentType = account.Type;
-
-                                <MudSelectItem T="int" Value="-1" Disabled="true">
-                                    <div class="py-2 px-1"
-                                         style="background-color: var(--mud-palette-action-hover); border-left: 3px solid var(--mud-palette-primary); margin: 4px -12px;">
-                                        <MudText Typo="Typo.subtitle2"
-                                                 Class="text-primary font-weight-bold d-flex align-center">
-                                            <MudIcon Icon="@account.Type.ToIcon()"
-                                                     Size="Size.Small"
-                                                     Class="mr-2" />
-                                            @account.Type.ToLabel()
-                                        </MudText>
-                                    </div>
-                                </MudSelectItem>
-                            }
-
-                            <MudSelectItem T="int" Value="@account.Id">
-                                <div class="d-flex align-center py-2 px-1">
-                                    <MudAvatar Size="Size.Small"
-                                               Style="@($"background-color: {(string.IsNullOrEmpty(account.Color) ? "#757575" : account.Color)}; margin-right: 12px; flex-shrink: 0;")">
-                                        <MudIcon Icon="@account.Type.ToIcon()"
-                                                 Color="Color.Surface"
-                                                 Size="Size.Small" />
-                                    </MudAvatar>
-
-                                    <div class="flex-grow-1 min-width-0">
-                                        <MudText Typo="Typo.body2" Class="font-weight-medium">
-                                            @account.Name
-                                        </MudText>
-                                        <MudText Typo="Typo.caption" Class="text-muted">
-                                            @account.Type.ToLabel()
-                                        </MudText>
-                                    </div>
-
-                                    <MudText Typo="Typo.body2"
-                                             Class="@($"{CurrencyHelper.GetAmountClass(account.CurrentBalance)} ml-2 font-weight-medium")"
-                                             Style="flex-shrink: 0;">
-                                        @CurrencyHelper.FormatCurrency(account.CurrentBalance)
-                                    </MudText>
-                                </div>
-                            </MudSelectItem>
-                        }
-                    </MudSelect>
+                    <AccountMultiSelect Accounts="_activeAccounts"
+                                        @bind-SelectedAccountIds="_selectedAccountIds"
+                                        @bind-SelectedAccountIds:after="OnSelectedAccountsChanged" />
                 </MudItem>
             }
 
@@ -228,7 +170,6 @@
 
     private List<CategoryDto>? _categories;
     private List<AccountDto>? _activeAccounts;
-    private List<AccountDto>? _orderedAccounts;
 
     private int _activeFilterCount = 0;
 
@@ -241,11 +182,6 @@
     {
         _categories = Categories ?? new();
         _activeAccounts = Accounts ?? new();
-
-        _orderedAccounts = _activeAccounts
-            .OrderBy(a => (int)a.Type)
-            .ThenBy(a => a.Name)
-            .ToList();
 
         if (!IsOpen)
             return;
@@ -378,40 +314,5 @@
     {
         IsOpen = false;
         await IsOpenChanged.InvokeAsync(IsOpen);
-    }
-
-    // ✅ MudBlazor 9: MultiSelectionTextFunc recibe lista de strings (los values llegan como texto)
-    private string? GetSelectedAccountsText(IReadOnlyList<string?>? selectedValues)
-    {
-        if (selectedValues == null || selectedValues.Count == 0 || _activeAccounts?.Any() != true)
-            return "Select accounts...";
-
-        var selectedIds = selectedValues
-            .Select(value => int.TryParse(value, out var id) ? (int?)id : null)
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToList();
-
-        if (selectedIds.Count == 0)
-            return "Select accounts...";
-
-        var selectedAccounts = _activeAccounts
-            .Where(a => selectedIds.Contains(a.Id))
-            .ToList();
-
-        if (selectedAccounts.Count == 0)
-            return "Select accounts...";
-
-        if (selectedAccounts.Count == 1)
-        {
-            var account = selectedAccounts[0];
-            return $"{account.Name} ({CurrencyHelper.FormatCurrency(account.CurrentBalance)})";
-        }
-
-        if (selectedAccounts.Count <= 2)
-            return string.Join(", ", selectedAccounts.Select(a => a.Name));
-
-        var totalBalance = selectedAccounts.Sum(a => a.CurrentBalance);
-        return $"{selectedAccounts.Count} accounts ({CurrencyHelper.FormatCurrency(totalBalance)})";
     }
 }

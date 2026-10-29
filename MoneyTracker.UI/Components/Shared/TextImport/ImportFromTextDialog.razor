@@ -210,18 +210,15 @@
                             @if (IsTransfer)
                             {
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                    <MudSelect T="int"
-                                               Label="To account*"
-                                               Variant="Variant.Outlined"
-                                               Value="@(_selectedToAccount?.Id ?? -1)"
-                                               ValueChanged="OnToAccountChanged"
-                                               ToStringFunc="@ToAccountLabel">
-                                        @foreach (var acc in ToAccountOptions)
-                                        {
-                                            <MudSelectItem T="int" Value="@acc.Id">@acc.Name</MudSelectItem>
-                                        }
-                                        <MudSelectItem T="int" Value="@SomeoneElseValue">Someone else (expense)</MudSelectItem>
-                                    </MudSelect>
+                                    <div class="flex-grow-1">
+                                        <AccountSelector Accounts="@_accounts"
+                                                         Label="To account"
+                                                         SelectedAccount="@_selectedToAccount"
+                                                         SelectedAccountChanged="OnToAccountChanged"
+                                                         ExcludeAccountId="@_selectedAccount?.Id"
+                                                         ExtraOptionText="Someone else (expense)"
+                                                         OnExtraOptionSelected="OnSomeoneElseSelected" />
+                                    </div>
                                     <MudTooltip Text="Swap from / to">
                                         <MudIconButton Icon="@Icons.Material.Filled.SwapVert"
                                                        Size="Size.Small"
@@ -321,8 +318,6 @@
     private int _trainingDataId;
 
     // Per-item selection state keyed by TempId
-    private const int SomeoneElseValue = 0;
-
     private Dictionary<Guid, AccountDto?> _itemAccounts = new();
     private Dictionary<Guid, AccountDto?> _itemToAccounts = new();
     private Dictionary<Guid, TransactionDto?> _itemMatches = new();
@@ -362,13 +357,6 @@
 
     private bool IsTransfer => _currentItemType == TransactionTypeEnum.Transfer;
 
-    private IEnumerable<AccountDto> ToAccountOptions
-        => _accounts.Where(a => a.Id != _selectedAccount?.Id);
-
-    private string ToAccountLabel(int id)
-        => id == SomeoneElseValue
-            ? "Someone else (expense)"
-            : _accounts.FirstOrDefault(a => a.Id == id)?.Name ?? string.Empty;
 
     private CategoryDto? _selectedCategory
     {
@@ -639,20 +627,21 @@
             MudDialog.Close(DialogResult.Ok(true));
     }
 
-    private void OnToAccountChanged(int id)
+    private void OnToAccountChanged(AccountDto? account)
     {
         if (CurrentItem is null) return;
 
-        if (id == SomeoneElseValue)
-        {
-            // Money leaves to a third party: it is a regular expense, not a paired transfer.
-            _itemToAccounts[CurrentItem.TempId] = null;
-            OnTypeChanged(TransactionTypeEnum.Expense);
-            return;
-        }
-
-        _selectedToAccount = _accounts.FirstOrDefault(a => a.Id == id);
+        _selectedToAccount = account;
         MarkEdited();
+    }
+
+    private void OnSomeoneElseSelected()
+    {
+        if (CurrentItem is null) return;
+
+        // Money leaves to a third party: it is a regular expense, not a paired transfer.
+        _itemToAccounts[CurrentItem.TempId] = null;
+        OnTypeChanged(TransactionTypeEnum.Expense);
     }
 
     private void SwapAccounts()

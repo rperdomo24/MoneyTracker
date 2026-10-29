@@ -145,7 +145,7 @@ UI reads `result.IsSuccess`, `result.Message`, `result.Data`. Services never sur
 - Branding assets: always via `IBrandingService` + `BrandingAsset`. No hardcoded `/images/...` paths.
 - Snackbar: inject `ISnackbar`; global provider already in `MainLayout.razor`.
 - Reuse shared helpers: `CurrencyHelper`, filter helpers, dialog helpers — do not duplicate view logic.
-- **Dropdowns**: never build a new `MudSelect`/`MudAutocomplete` for accounts, categories, merchants, goals, loans, linked transactions, time periods, category types or paycheck periods — use the components in `Components/Shared/Selectors/` (alphabetical, icon + name, hide `IsHidden` items). Extend the selector instead of copying markup. Details in `docs/CONVENTIONS.md` → "Dropdown / selector rules".
+- **Dropdowns**: never build a new `MudSelect`/`MudAutocomplete` for accounts, categories, merchants, goals, loans, linked transactions, time periods, category types, paycheck periods or frequencies — use the components in `Components/Shared/Selectors/` (alphabetical, icon + name, hide `IsHidden` items). Extend the selector instead of copying markup. Details in `docs/CONVENTIONS.md` → "Dropdown / selector rules".
 - Keep component nullability explicit (`string.Empty` over `null` for non-nullable strings).
 - Mobile containers: `pa-1 pa-sm-6` baseline for full-width pages unless intentionally different.
 - Complex inline Razor expressions → small helper method/property instead.

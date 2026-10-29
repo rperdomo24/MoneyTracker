@@ -10,7 +10,7 @@
            Required="@Required"
            Disabled="@Disabled"
            Clearable="@Clearable"
-           ToStringFunc="@(a => a?.Name ?? "")">
+           ToStringFunc="@AccountText">
     @foreach (var account in FilteredAccounts)
     {
         <MudSelectItem Value="@account" @key="account.Id">
@@ -28,6 +28,15 @@
             </MudStack>
         </MudSelectItem>
     }
+    @if (!string.IsNullOrEmpty(ExtraOptionText))
+    {
+        <MudSelectItem Value="@_extraOption">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.PersonOutline" Size="Size.Small" />
+                <MudText Typo="Typo.body2">@ExtraOptionText</MudText>
+            </MudStack>
+        </MudSelectItem>
+    }
 </MudSelect>
 
 @code {
@@ -41,6 +50,16 @@
     [Parameter] public bool Clearable { get; set; } = false;
     [Parameter] public bool ShowBalance { get; set; } = false;
     [Parameter] public AccountType? FilterByType { get; set; }
+
+    // Optional last entry that is not an account (e.g. "Someone else (expense)"). Picking it
+    // raises OnExtraOptionSelected and leaves SelectedAccount to the parent.
+    [Parameter] public string? ExtraOptionText { get; set; }
+    [Parameter] public EventCallback OnExtraOptionSelected { get; set; }
+
+    private readonly AccountDto _extraOption = new() { Id = -1 };
+
+    private string AccountText(AccountDto? account)
+        => ReferenceEquals(account, _extraOption) ? ExtraOptionText ?? string.Empty : account?.Name ?? string.Empty;
 
     private List<AccountDto> FilteredAccounts
     {
@@ -68,6 +87,12 @@
 
     private async Task OnSelectedAccountChanged(AccountDto? value)
     {
+        if (ReferenceEquals(value, _extraOption))
+        {
+            await OnExtraOptionSelected.InvokeAsync();
+            return;
+        }
+
         SelectedAccount = value;
         await SelectedAccountChanged.InvokeAsync(value);
     }

@@ -1,3 +1,4 @@
+@using MoneyTracker.UI.Components.Shared.Selectors
 @using MoneyTracker.Application.DTOs.Calendar
 @using MoneyTracker.Application.Interfaces
 @using MoneyTracker.Domain.Enums.Transaction
@@ -40,14 +41,8 @@
 
             @if (_dto.IsRecurring)
             {
-                <MudSelect @bind-Value="_dto.RecurrenceFrequency"
-                           Label="Repeat every"
-                           Variant="Variant.Outlined">
-                    @foreach (var freq in Enum.GetValues<RecurringFrequency>())
-                    {
-                        <MudSelectItem Value="@((RecurringFrequency?)freq)">@freq</MudSelectItem>
-                    }
-                </MudSelect>
+                <RecurringFrequencySelect @bind-Value="_dto.RecurrenceFrequency"
+                                          Label="Repeat every" />
 
                 <MudDatePicker @bind-Date="_recurrenceEndDate"
                                Label="Ends on (optional)"
