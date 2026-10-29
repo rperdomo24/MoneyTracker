@@ -228,7 +228,7 @@
                         ? group.OrderBy(a => GetCreditUrgencyTier(a)).ThenBy(a => a.Name)
                         : group.OrderBy(a => a.Name)))
                     {
-                        <MudPaper Class="pa-3" Elevation="0" Outlined="true">
+                        <MudPaper Class="pa-3" Elevation="0" Outlined="true" Style="@(account.IsHidden ? "opacity: 0.55;" : null)">
 
                             <!-- Item (Mobile) - Uniform -->
                             <MudHidden Breakpoint="Breakpoint.SmAndUp">

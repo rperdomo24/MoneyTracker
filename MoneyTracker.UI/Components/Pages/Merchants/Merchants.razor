@@ -72,7 +72,7 @@
                     <MudDivider />
                     <MudListItem T="MerchantDto">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Style="@(merchant.IsHidden ? "opacity: 0.5;" : null)">
                                 <MudAvatar Color="Color.Primary" Size="Size.Small">
                                     @merchant.Name[0]
                                 </MudAvatar>
@@ -87,6 +87,13 @@
                                     }
                                 </MudStack>
                             </MudStack>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0" Style="flex-shrink: 0;">
+                            <MudTooltip Text="@(merchant.IsHidden ? "Hidden from lists — click to show" : "Hide from lists")">
+                                <MudIconButton Icon="@(merchant.IsHidden ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                               Color="@(merchant.IsHidden ? Color.Warning : Color.Default)"
+                                               Size="Size.Small"
+                                               OnClick="@(() => ToggleHiddenAsync(merchant))" />
+                            </MudTooltip>
                             <MudMenu Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Dense="true">
                                 <MudMenuItem OnClick="@(() => OpenEditModal(merchant))">
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -101,6 +108,7 @@
                                     </MudStack>
                                 </MudMenuItem>
                             </MudMenu>
+                            </MudStack>
                         </MudStack>
                     </MudListItem>
                 }
@@ -150,6 +158,20 @@
             [nameof(UpdateMerchantModal.OnSaved)] = EventCallback.Factory.Create(this, LoadAsync)
         };
         await DialogService.ShowAsync<UpdateMerchantModal>("Edit Merchant", parameters, options);
+    }
+
+    private async Task ToggleHiddenAsync(MerchantDto merchant)
+    {
+        var result = await MerchantService.SetHiddenAsync(merchant.Id, !merchant.IsHidden);
+        if (result.Success)
+        {
+            merchant.IsHidden = !merchant.IsHidden;
+            Snackbar.Add(result.Message ?? "Updated", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.Message ?? "Error updating merchant", Severity.Error);
+        }
     }
 
     private async Task ConfirmDeleteAsync(MerchantDto merchant)

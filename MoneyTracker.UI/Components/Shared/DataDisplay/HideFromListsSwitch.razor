@@ -1,16 +1,19 @@
 @* Standard IsHidden toggle for Account/Category/Merchant forms. Place right after the name/type fields. *@
 <div class="mt-2 mb-4">
     <MudSwitch T="bool"
-               Value="Value"
+               Value="@(!Disabled && Value)"
                ValueChanged="ValueChanged"
+               Disabled="Disabled"
                Label="Hide from selection lists"
                Color="Color.Primary" />
     <MudText Typo="Typo.caption" Style="opacity: 0.7; display: block; margin-top: -4px;">
-        Hidden items won't appear in dropdowns.
+        @(Disabled && !string.IsNullOrEmpty(DisabledReason) ? DisabledReason : "Hidden items won't appear in dropdowns.")
     </MudText>
 </div>
 
 @code {
     [Parameter] public bool Value { get; set; }
     [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string DisabledReason { get; set; } = string.Empty;
 }

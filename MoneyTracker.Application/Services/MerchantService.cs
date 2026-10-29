@@ -113,6 +113,27 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<bool>> SetHiddenAsync(int id, bool isHidden)
+        {
+            try
+            {
+                var entity = await _repository.GetByIdAsync(id);
+                if (entity is null)
+                    return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                entity.IsHidden = isHidden;
+                entity.UpdatedAt = _timeZoneService.GetNowInUtc();
+
+                await _repository.UpdateAsync(entity);
+                return OperationResult<bool>.Ok(true, isHidden ? OperationMessages.MerchantHidden : OperationMessages.MerchantVisible);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, OperationMessages.UnexpectedError);
+                return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
         public async Task<OperationResult<bool>> DeleteAsync(int id)
         {
             try

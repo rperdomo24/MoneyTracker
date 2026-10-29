@@ -494,5 +494,50 @@ namespace MoneyTracker.Tests.Services
             result.Message.Should().Be(OperationMessages.Deleted);
             _repo.Verify(x => x.DeleteAsync(1), Times.Once);
         }
-    }
+
+        [Fact]
+        public async Task SetHiddenAsync_WhenCategoryExists_UpdatesFlagAndPersists()
+        {
+            var category = new Category { Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", IsHidden = false };
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(category);
+            var svc = CreateService();
+
+            var result = await svc.SetHiddenAsync(1, true);
+
+            result.Success.Should().BeTrue();
+            result.Message.Should().Be(OperationMessages.CategoryHidden);
+            category.IsHidden.Should().BeTrue();
+            _repo.Verify(x => x.UpdateAsync(category), Times.Once);
+        }
+
+        [Fact]
+        public async Task SetHiddenAsync_WhenCategoryNotFound_Fails()
+        {
+            _repo.Setup(x => x.GetByIdAsync(99)).ReturnsAsync((Category?)null);
+            var svc = CreateService();
+
+            var result = await svc.SetHiddenAsync(99, true);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.NotFound);
+            _repo.Verify(x => x.UpdateAsync(It.IsAny<Category>()), Times.Never);
+        }
+        [Fact]
+        public async Task SetHiddenAsync_WhenCategoryHasChildren_FailsAndDoesNotPersist()
+        {
+            var parent = new Category
+            {
+                Id = 1, Name = "Food", Type = CategoryTypeEnum.Expense, Icon = "Restaurant",
+                Children = new List<Category> { new() { Id = 2, Name = "Groceries", Type = CategoryTypeEnum.Expense, Icon = "Restaurant", ParentId = 1 } }
+            };
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(parent);
+            var svc = CreateService();
+
+            var result = await svc.SetHiddenAsync(1, true);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.CategoryHideParent);
+            parent.IsHidden.Should().BeFalse();
+            _repo.Verify(x => x.UpdateAsync(It.IsAny<Category>()), Times.Never);
+        }    }
 }

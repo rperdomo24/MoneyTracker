@@ -14,6 +14,11 @@
         public const string UpdateError = "An error occurred while updating the record.";
         public const string CategoryHasBudgets = "This category has active budgets. Remove or reassign them before deleting it.";
         public const string CategoryHasChildren = "This category has subcategories. Move or delete them before deleting it.";
+        public const string CategoryHidden = "Category hidden from selection lists.";
+        public const string CategoryVisible = "Category visible in selection lists.";
+        public const string CategoryHideParent = "Categories with subcategories never appear in selection lists. Hide its subcategories instead.";
+        public const string MerchantHidden = "Merchant hidden from selection lists.";
+        public const string MerchantVisible = "Merchant visible in selection lists.";
         public const string CategoryMergeSelf = "Cannot merge a category into itself.";
         public const string CategoryMergeSystem = "System categories cannot be merged.";
         public const string CategoryDeleteSystem = "System categories cannot be deleted.";

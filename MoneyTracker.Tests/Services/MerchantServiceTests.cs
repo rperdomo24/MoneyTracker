@@ -111,5 +111,32 @@ namespace MoneyTracker.Tests.Services
             result.Success.Should().BeFalse();
             _repo.Verify(x => x.UpdateAsync(It.IsAny<Merchant>()), Times.Never);
         }
-    }
+
+        [Fact]
+        public async Task SetHiddenAsync_WhenMerchantExists_UpdatesFlagAndPersists()
+        {
+            var merchant = new Merchant { Id = 1, Name = "Shell", IsHidden = false };
+            _repo.Setup(x => x.GetByIdAsync(1)).ReturnsAsync(merchant);
+            var service = CreateService();
+
+            var result = await service.SetHiddenAsync(1, true);
+
+            result.Success.Should().BeTrue();
+            result.Message.Should().Be(OperationMessages.MerchantHidden);
+            merchant.IsHidden.Should().BeTrue();
+            _repo.Verify(x => x.UpdateAsync(merchant), Times.Once);
+        }
+
+        [Fact]
+        public async Task SetHiddenAsync_WhenMerchantNotFound_Fails()
+        {
+            _repo.Setup(x => x.GetByIdAsync(99)).ReturnsAsync((Merchant?)null);
+            var service = CreateService();
+
+            var result = await service.SetHiddenAsync(99, true);
+
+            result.Success.Should().BeFalse();
+            result.Message.Should().Be(OperationMessages.NotFound);
+            _repo.Verify(x => x.UpdateAsync(It.IsAny<Merchant>()), Times.Never);
+        }    }
 }

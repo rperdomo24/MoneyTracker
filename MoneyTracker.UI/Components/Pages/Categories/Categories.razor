@@ -310,17 +310,16 @@
                                                       Style="width: 100%;">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.NoWrap" Style="min-width: 0; flex: 1;">
                                                     <MudAvatar Size="Size.Medium"
-                                                               Style="@($"background-color: {category.Color}; flex-shrink: 0;")">
+                                                               Style="@($"background-color: {category.Color}; flex-shrink: 0;{DimStyle(category)}")">
                                                         <MudIcon Icon="@category.Icon.ToIcon()"
                                                                  Color="Color.Surface"
                                                                  Size="Size.Small" />
                                                     </MudAvatar>
-                                                    <MudStack Spacing="0" Style="min-width: 0;">
+                                                    <MudStack Spacing="0" Style="@($"min-width: 0;{DimStyle(category)}")">
                                                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
                                                             <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow-wrap: anywhere;">
                                                                 @category.Name
                                                             </MudText>
-                                                            <HiddenBadge IsHidden="@category.IsHidden" />
                                                             @if (category.IsUnused)
                                                             {
                                                                 <MudChip T="string" Size="Size.Small" Color="Color.Default" Icon="@Icons.Material.Filled.VisibilityOff">
@@ -347,7 +346,14 @@
                                                     </MudStack>
                                                 </MudStack>
 
-                                                <div style="flex-shrink: 0;">
+                                                <div style="flex-shrink: 0; display: flex; align-items: center;">
+                                                    <span @onclick:stopPropagation="true">
+                                                        <MudTooltip Text="@ParentHideExplanation" Delay="300">
+                                                            <MudIconButton Icon="@Icons.Material.Filled.VisibilityOff"
+                                                                           Size="Size.Small"
+                                                                           Disabled="true" />
+                                                        </MudTooltip>
+                                                    </span>
                                                     <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                                              Size="Size.Small"
                                                              Dense="true"
@@ -389,12 +395,12 @@
                                                                   Wrap="Wrap.NoWrap">
                                                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Style="min-width: 0; flex: 1;">
                                                                 <MudAvatar Size="Size.Small"
-                                                                           Style="@($"background-color: {subcategory.Color}; flex-shrink: 0;")">
+                                                                           Style="@($"background-color: {subcategory.Color}; flex-shrink: 0;{DimStyle(subcategory)}")">
                                                                     <MudIcon Icon="@subcategory.Icon.ToIcon()"
                                                                              Color="Color.Surface"
                                                                              Size="Size.Small" />
                                                                 </MudAvatar>
-                                                                <MudText Typo="Typo.body2" Style="overflow-wrap: anywhere;">@subcategory.Name</MudText>
+                                                                <MudText Typo="Typo.body2" Style="@($"overflow-wrap: anywhere;{DimStyle(subcategory)}")">@subcategory.Name</MudText>
                                                                 <MudLink Style="cursor:pointer;"
                                                                          Typo="Typo.caption"
                                                                          Color="Color.Default"
@@ -415,7 +421,12 @@
                                                                 }
                                                             </MudStack>
 
-                                                            <div style="flex-shrink: 0;">
+                                                            <div style="flex-shrink: 0; display: flex; align-items: center;">
+                                                                <MudTooltip Text="@HideTooltip(subcategory)">
+                                                                    <MudIconButton Icon="@HideIcon(subcategory)" Color="@HideColor(subcategory)"
+                                                                                   Size="Size.Small"
+                                                                                   OnClick="@(() => ToggleHidden(subcategory.Id))" />
+                                                                </MudTooltip>
                                                                 <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                                                          Size="Size.Small"
                                                                          Dense="true"
@@ -457,12 +468,12 @@
                                               Wrap="Wrap.NoWrap">
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Wrap="Wrap.NoWrap" Style="min-width: 0; flex: 1;">
                                             <MudAvatar Size="Size.Medium"
-                                                       Style="@($"background-color: {category.Color}; flex-shrink: 0;")">
+                                                       Style="@($"background-color: {category.Color}; flex-shrink: 0;{DimStyle(category)}")">
                                                 <MudIcon Icon="@category.Icon.ToIcon()"
                                                          Color="Color.Surface"
                                                          Size="Size.Small" />
                                             </MudAvatar>
-                                            <MudStack Spacing="0" Style="min-width: 0;">
+                                            <MudStack Spacing="0" Style="@($"min-width: 0;{DimStyle(category)}")">
                                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
                                                     <MudText Typo="Typo.body1" Class="font-weight-medium" Style="overflow-wrap: anywhere;">
                                                         @category.Name
@@ -495,7 +506,12 @@
                                             </MudStack>
                                         </MudStack>
 
-                                        <div style="flex-shrink: 0;">
+                                        <div style="flex-shrink: 0; display: flex; align-items: center;">
+                                            <MudTooltip Text="@HideTooltip(category)">
+                                                <MudIconButton Icon="@HideIcon(category)" Color="@HideColor(category)"
+                                                               Size="Size.Small"
+                                                               OnClick="@(() => ToggleHidden(category.Id))" />
+                                            </MudTooltip>
                                             <MudMenu Icon="@Icons.Material.Filled.MoreVert"
                                                      Size="Size.Small"
                                                      Dense="true"
@@ -553,6 +569,46 @@
             yield return child;
     }
 
+    // Parents with subcategories never show up in dropdowns, so their IsHidden flag is irrelevant.
+    private static string DimStyle(CategoryDto category) =>
+        category.IsHidden && category.Children.Count == 0 ? " opacity: 0.5;" : string.Empty;
+
+    private const string ParentHideExplanation =
+        "Categories with subcategories never appear in dropdowns, so there is nothing to hide. Hide its subcategories instead.";
+
+    private static string HideIcon(CategoryDto category) =>
+        category.IsHidden ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility;
+
+    private static Color HideColor(CategoryDto category) =>
+        category.IsHidden ? Color.Warning : Color.Default;
+
+    private static string HideTooltip(CategoryDto category) =>
+        category.IsHidden ? "Hidden from lists — click to show" : "Hide from lists";
+
+    private async Task ToggleHidden(int id)
+    {
+        var category = _categories.SelectMany(FlattenSelf).FirstOrDefault(c => c.Id == id);
+        if (category is null) return;
+
+        try
+        {
+            var result = await CategoryService.SetHiddenAsync(id, !category.IsHidden);
+            if (result.Success)
+            {
+                category.IsHidden = !category.IsHidden;
+                Snackbar.Add(result.Message ?? OperationMessages.Updated, Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result.Message ?? OperationMessages.UnexpectedError, Severity.Error);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add(OperationMessages.UnexpectedError, Severity.Error);
+        }
+    }
+
     private static List<CategoryDto> ApplyFlagFilter(List<CategoryDto> categories, Func<CategoryDto, bool> matches)
     {
         return categories
@@ -572,6 +628,7 @@
             Icon = category.Icon,
             Color = category.Color,
             IsSystem = category.IsSystem,
+            IsHidden = category.IsHidden,
             SystemCategoryCode = category.SystemCategoryCode,
             UpdatedAt = category.UpdatedAt,
             IsUnused = category.IsUnused,

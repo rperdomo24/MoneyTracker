@@ -86,7 +86,9 @@
                               Class="mb-4"
                               Placeholder="e.g., Groceries, Salary" />
 
-                <HideFromListsSwitch @bind-Value="_category.IsHidden" />
+                <HideFromListsSwitch @bind-Value="_category.IsHidden"
+                                     Disabled="_hasChildren"
+                                     DisabledReason="Categories with subcategories never appear in dropdowns. Hide its subcategories instead." />
 
                 <!-- Category Type -->
                 <CategoryTypeSelect Label="Category Type"
@@ -234,6 +236,8 @@
             {
                 _category = result.Data;
                 _hasChildren = _category.Children?.Any() == true;
+                if (_hasChildren)
+                    _category.IsHidden = false;
                 _isSubcategory = _category.ParentId.HasValue;
 
                 if (_isSubcategory && _category.ParentId.HasValue)

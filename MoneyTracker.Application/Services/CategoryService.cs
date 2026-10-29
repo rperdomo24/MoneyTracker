@@ -173,6 +173,28 @@ namespace MoneyTracker.Application.Services
             }
         }
 
+        public async Task<OperationResult<bool>> SetHiddenAsync(int id, bool isHidden)
+        {
+            try
+            {
+                var existing = await _repository.GetByIdAsync(id);
+                if (existing is null)
+                    return OperationResult<bool>.Fail(OperationMessages.NotFound);
+
+                if (isHidden && existing.Children.Any())
+                    return OperationResult<bool>.Fail(OperationMessages.CategoryHideParent);
+
+                existing.IsHidden = isHidden;
+                await _repository.UpdateAsync(existing);
+                return OperationResult<bool>.Ok(true, isHidden ? OperationMessages.CategoryHidden : OperationMessages.CategoryVisible);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing category visibility");
+                return OperationResult<bool>.Fail(OperationMessages.UnexpectedError);
+            }
+        }
+
         public async Task<OperationResult<bool>> MergeAsync(int sourceId, int targetId, List<int> transactionIdsToMove, bool isFullMerge)
         {
             var (source, _, error) = await ValidateMergePairAsync(sourceId, targetId);
