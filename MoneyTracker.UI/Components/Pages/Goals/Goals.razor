@@ -344,13 +344,11 @@
     private static string GetTargetDateLabel(SavingsGoalDto goal)
     {
         var date = goal.TargetDate!.Value.ToString("MMM d, yyyy");
-        return goal.DaysRemaining switch
-        {
-            < 0 => $"Due {date}",
-            0 => "Due today",
-            { } days => $"{date} ({days} days left)",
-            _ => date
-        };
+        var days = goal.DaysRemaining;
+        if (days is null) return date;
+        if (days.Value == 0) return "Due today";
+        if (days.Value > 0) return $"{date} ({days.Value} days left)";
+        return $"Due {date}";
     }
 
     private void SetGoalFilter(bool? showCompleted)
